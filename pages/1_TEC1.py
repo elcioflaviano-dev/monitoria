@@ -4,7 +4,7 @@ import pandas as pd
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Estilização cirúrgica: APENAS a primeira métrica (Pendentes) fica grande e vermelha
+# Estilização cirúrgica baseada no texto do rótulo da métrica
 st.markdown("""
     <style>
     /* Remove espaçamentos inúteis do topo do Streamlit */
@@ -35,30 +35,10 @@ st.markdown("""
         text-align: center;
     }
     
-    /* === SUPER DESTAQUE: APENAS A PRIMEIRA CAIXA (PENDENTES) === */
-    div[data-testid="stHorizontalBlock"] > div:first-of-type div[data-testid="stMetric"] {
-        background-color: #ffcccc !important; /* Fundo vermelho vivo apenas nos Pendentes */
-        border: 2px solid #ff9999 !important; /* Borda reforçada */
-    }
-    
-    /* Altera APENAS o número do PENDENTE para ficar maior e vermelho */
-    div[data-testid="stHorizontalBlock"] > div:first-of-type div[data-testid="stMetricValue"] div {
-        font-size: 34px !important; /* Letras grandes */
-        color: #b30000 !important; /* Texto vermelho escuro industrial */
-        font-weight: 900 !important;
-    }
-    
-    /* Altera APENAS o rótulo "🔴 PENDENTES" */
-    div[data-testid="stHorizontalBlock"] > div:first-of-type div[data-testid="stMetricLabel"] p {
-        color: #800000 !important;
-        font-weight: 800 !important;
-    }
-    
-    /* === CONFIGURAÇÃO DAS DEMAIS MÉTRICAS (EM ROTA E INICIADO) === */
-    /* Mantém os números normais e escuros para o resto */
-    div[data-testid="stHorizontalBlock"] > div:not(:first-of-type) div[data-testid="stMetricValue"] div {
+    /* Garante que os números das caixas comuns fiquem no tamanho padrão */
+    div[data-testid="stMetricValue"] div {
         font-size: 24px !important;
-        color: #333333 !important; /* Cinza escuro padrão */
+        color: #333333 !important;
         font-weight: 900 !important;
     }
     
@@ -67,6 +47,26 @@ st.markdown("""
         font-weight: bold !important;
         text-transform: uppercase;
         color: #555 !important;
+    }
+
+    /* === SUPER DESTAQUE APENAS PARA QUEM TEM O TEXTO "PENDENTES" === */
+    /* Procura o bloco da métrica que contém o rótulo com a palavra PENDENTES */
+    div[data-testid="stMetric"]:has(div[data-testid="stMetricLabel"] p:contains("PENDENTES")) {
+        background-color: #ffcccc !important; /* Fundo vermelho vivo */
+        border: 2px solid #ff9999 !important; /* Borda reforçada */
+    }
+
+    /* Força o número de dentro da caixa PENDENTES a ficar gigante e vermelho escuro */
+    div[data-testid="stMetric"]:has(div[data-testid="stMetricLabel"] p:contains("PENDENTES")) div[data-testid="stMetricValue"] div {
+        font-size: 34px !important; /* Letras grandes */
+        color: #b30000 !important;   /* Vermelho escuro de alerta */
+        font-weight: 900 !important;
+    }
+
+    /* Ajusta a cor do texto do rótulo PENDENTES */
+    div[data-testid="stMetric"]:has(div[data-testid="stMetricLabel"] p:contains("PENDENTES")) div[data-testid="stMetricLabel"] p {
+        color: #800000 !important;
+        font-weight: 800 !important;
     }
     </style>
 """, unsafe_allow_html=True)
