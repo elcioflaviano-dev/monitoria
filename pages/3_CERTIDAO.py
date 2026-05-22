@@ -146,8 +146,9 @@ with st.container(border=True):
             tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper()
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
             
-            if "EXECUTADO" in status_os1 and "NÃO" not in status_os1:
-                status_sugerido = "OK"  # Sugere OK porque já está na rota e o operador vai aceitar
+            # Checagem ampla para detecção de aderência
+            if "EXEC" in status_os1 and "NÃO" not in status_os1:
+                status_sugerido = "OK"  
                 detalhes_validacao = f"🎯 Aderente (O.S 1 Executada) | Técnico: {tecnico_detectado}"
             else:
                 status_sugerido = "NÃO ADERENTE"
@@ -183,36 +184,36 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL AUTOMÁTICO (PROATIVO - TUDO É NOK POR PADRÃO)
+# BLOCO 2: PAINEL AUTOMÁTICO (CORRIGIDO)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None:
-    # 1. Limpa os contratos operacionais da base online
+    # 1. Garante strings limpas e trata elementos vazios (NaN)
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
+    df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
+    df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
+    df_base_online['Status_OS1_Limpo'] = df_base_online['Status da O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
-    # 2. FILTRAGEM AUTOMÁTICA DA PLANILHA ONLINE:
-    # - Filtra o Intervalo de Tempo selecionado
-    # - Filtra Status da Atividade como INICIADO ou CONCLUIDO
-    # - Filtra APENAS contratos que tenham "EXECUTADO" no Status da O.S 1
-    cond_janela = df_base_online['Intervalo de Tempo'].fillna('').astype(str) == janela_sel
-    cond_ativ = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
-    cond_os1 = df_base_online['Status da O.S 1'].fillna('').astype(str).str.upper().str.contains("EXECUTADO") & ~df_base_online['Status da O.S 1'].fillna('').astype(str).str.upper().str.contains("NÃO")
+    # 2. FILTRAGEM AUTOMÁTICA ULTRA TOLERANTE DA PLANILHA ONLINE:
+    cond_janela = df_base_online['Interval_Limpo'] == janela_sel.strip()
+    cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
+    
+    # Captura variações como "EXECUTADO", "EXECUTADA", "EXEC" e descarta o "NÃO EXECUTADO"
+    cond_os1 = df_base_online['Status_OS1_Limpo'].str.contains("EXEC") & ~df_base_online['Status_OS1_Limpo'].str.contains("NÃO")
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ & cond_os1]
     
-    # 3. CRUZA COM O SEU INPUT: Se o contrato já foi salvo localmente como "OK" ou "NÃO ADERENTE", ele some da tela
+    # 3. CRUZAMENTO: Filtra quem já foi salvo como "OK" ou "NÃO ADERENTE" para sumir da tela
     if not df_banco_atual.empty:
-        # Pega a lista de contratos que você já deu baixa como resolvidos (OK ou NÃO ADERENTE)
         contratos_resolvidos = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
-        # Filtra a lista da tela tirando os resolvidos (deixando apenas os que continuam NOK por padrão)
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_resolvidos)]
     else:
         df_exibir_pendentes = df_base_filtrada
 
-    # 4. RENDERIZAÇÃO DOS CARDS ENXUTOS POR SUPERVISOR
+    # 4. DESENHO DOS CARDS POR SUPERVISOR
     if not df_exibir_pendentes.empty:
         supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
         cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
@@ -241,7 +242,7 @@ else:
 st.markdown("---")
 
 # ==========================================
-# BLOCO 3: HISTÓRICO LIMPO E UNIFICADO
+# BLOCO 3: HISTÓRICO
 # ==========================================
 with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos Verificados)"):
     if not df_banco_atual.empty:
