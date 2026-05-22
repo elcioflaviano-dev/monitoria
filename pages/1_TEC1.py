@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Customização via CSS para criar os cards idênticos aos da imagem (Bordas arredondadas e destaques)
+# Customização via CSS para criar os cards idênticos aos da imagem
 st.markdown("""
     <style>
     .supervisor-card {
@@ -59,43 +59,57 @@ if 'dados_rota' in st.session_state:
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
         janela_sel = st.sidebar.selectbox("Filtrar Janela de Serviço ativa:", opcoes_janela)
-        # Filtra os dados da tela para a janela escolhida
         df_tela = df[df[col_janela] == janela_sel]
     else:
         st.sidebar.error("Coluna 'Janela de Serviço' não encontrada.")
         df_tela = df.copy()
         janela_sel = "N/A"
 
-    # --- DIVISÃO DA TELA EM ABC E SÃO PAULO ---
-    col_abc, col_sp = st.columns(2)
+    # --- REGRA DE NEGÓCIO: DIVISÃO POR SUPERVISOR ---
+    col_supervisor = 'SUPERVISOR'
     
-    # Mapeamento lógico de Cidades para cada Região
-    # Ajuste os nomes das cidades de acordo com o que está escrito exatamente na sua planilha
-    cidades_abc = ['SÃO BERNARDO DO CAMPO', 'SANTO ANDRÉ', 'SÃO CAETANO DO SUL', 'DIADEMA', 'MAUÁ', 'RIBEIRÃO PIRES']
+    if col_supervisor in df_tela.columns:
+        # Criamos duas listas vazias para separar os dados de cada região
+        df_abc_lista = []
+        df_sp_lista = []
+        
+        # Passamos linha por linha separando pela sua regra de nomes
+        for idx, linha in df_tela.iterrows():
+            nome_super = str(linha[col_supervisor]).upper()
+            
+            # Se o nome do supervisor contiver FRANCISCO ou ALAN, vai para SP
+            if "FRANCISCO" in nome_super or "ALAN" in nome_super:
+                df_sp_lista.append(linha)
+            else:
+                # Todos os outros supervisores vão para o ABC
+                df_abc_lista.append(linha)
+                
+        # Transforma de volta em tabelas do Pandas
+        df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
+        df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
+    else:
+        st.error("Coluna 'SUPERVISOR' não encontrada na planilha.")
+        df_abc, df_sp = pd.DataFrame(), pd.DataFrame()
+
+    # --- EXIBIÇÃO NA TELA ---
+    col_coluna_abc, col_coluna_sp = st.columns(2)
     
-    with col_abc:
+    # --- COLUNA ESQUERDA: ABC ---
+    with col_coluna_abc:
         st.markdown('<div class="region-header">ABC</div>', unsafe_allow_html=True)
         
-        # Filtra dados pertencentes ao ABC
-        if 'Cidade' in df_tela.columns:
-            df_abc = df_tela[df_tela['Cidade'].str.upper().isin(cidades_abc)]
-        else:
-            df_abc = pd.DataFrame()
+        if not df_abc.empty:
+            supervisores_abc = df_abc[col_supervisor].dropna().unique()
             
-        if 'SUPERVISOR' in df_abc.columns and not df_abc.empty:
-            supervisores_abc = df_abc['SUPERVISOR'].dropna().unique()
-            
-            for supervisor in supervisores_abc:
-                df_super = df_abc[df_abc['SUPERVISOR'] == supervisor]
+            for supervisor in sorted(supervisores_abc):
+                df_super = df_abc[df_abc[col_supervisor] == supervisor]
                 
-                # Separação dos status com base na coluna 'Status da Atividade'
-                # IMPORTANTE: Ajuste os termos 'Pendente', 'Em rota' e 'Iniciado' para bater com a sua planilha
+                # Contagem de status baseada na coluna 'Status da Atividade'
                 pendentes = len(df_super[df_super['Status da Atividade'].str.upper() == 'PENDENTE'])
                 em_rota = len(df_super[df_super['Status da Atividade'].str.upper() == 'EM ROTA'])
                 iniciados = len(df_super[df_super['Status da Atividade'].str.upper() == 'INICIADO'])
                 total = len(df_super)
                 
-                # Montagem do Card do Supervisor usando HTML estilizado para ficar igual à foto
                 st.markdown(f"""
                     <div class="supervisor-card">
                         <div>
@@ -106,7 +120,6 @@ if 'dados_rota' in st.session_state:
                         <div style="margin-top:12px;">
                 """, unsafe_allow_html=True)
                 
-                # Colunas internas para as sub-métricas
                 m1, m2, m3 = st.columns(3)
                 with m1:
                     st.markdown(f'<div class="metric-box metric-pendente"><div class="metric-label">Pendentes</div><div class="metric-value">{pendentes}</div></div>', unsafe_allow_html=True)
@@ -117,22 +130,17 @@ if 'dados_rota' in st.session_state:
                 
                 st.markdown("</div></div>", unsafe_allow_html=True)
         else:
-            st.info("Nenhum supervisor com rota ativa no ABC para esta janela.")
+            st.info("Nenhum supervisor do ABC ativo nesta janela.")
 
-    with col_sp:
+    # --- COLUNA DIREITA: SP ---
+    with col_coluna_sp:
         st.markdown('<div class="region-header">SP</div>', unsafe_allow_html=True)
         
-        # Filtra dados que NÃO pertencem ao ABC (portanto, pertencem a São Paulo / Capital)
-        if 'Cidade' in df_tela.columns:
-            df_sp = df_tela[~df_tela['Cidade'].str.upper().isin(cidades_abc)]
-        else:
-            df_sp = pd.DataFrame()
-            
-        if 'SUPERVISOR' in df_sp.columns and not df_sp.empty:
-            supervisores_sp = df_sp['SUPERVISOR'].dropna().unique()
+        if not df_sp.empty:
+            supervisores_sp = df_sp[col_supervisor].dropna().unique()
             
             for supervisor in sorted(supervisores_sp):
-                df_super = df_sp[df_sp['SUPERVISOR'] == supervisor]
+                df_super = df_sp[df_sp[col_supervisor] == supervisor]
                 
                 pendentes = len(df_super[df_super['Status da Atividade'].str.upper() == 'PENDENTE'])
                 em_rota = len(df_super[df_super['Status da Atividade'].str.upper() == 'EM ROTA'])
@@ -159,7 +167,7 @@ if 'dados_rota' in st.session_state:
                 
                 st.markdown("</div></div>", unsafe_allow_html=True)
         else:
-            st.info("Nenhum supervisor com rota ativa em SP para esta janela.")
+            st.info("Nenhum supervisor de SP ativo nesta janela.")
 
 else:
     st.warning("⚠️ Dados não encontrados. Por favor, acesse a página inicial no menu lateral.")
