@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import quote, unquote
 
-# 1. Configuração da página - Mantém o menu expandido para controle manual
+# 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
-# 2. Carregar CSS de forma ultra isolada para evitar SyntaxError
+# 2. Carregar CSS de forma segura
 css_conteudo = ""
 try:
     with open("style.css", "r") as f:
@@ -18,7 +18,7 @@ if css_conteudo:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA (DIRETO DO SHEETS) ===
+# === MÓDULO DE CARGA OPERACIONAL ===
 def carregar_dados_sheets():
     try:
         url = st.secrets["public_gsheets_url"]
@@ -32,7 +32,9 @@ def carregar_dados_sheets():
             csv_url = url
 
         df_sheets = pd.read_csv(csv_url)
-        df_sheets.columns = df_sheets.columns.str.strip()
+        
+        # CORREÇÃO INTEGRAL: Limpa nomes de colunas de forma nativa e segura
+        df_sheets.columns = [str(c).strip() for c in df_sheets.columns]
         
         colunas_mapeadas = {}
         for col in df_sheets.columns:
@@ -114,15 +116,12 @@ if df is not None:
                 t = len(df_super)
                 
                 with st.container(border=True):
-                    st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {t}</span>", unsafe_allow_html=True)
+                    header_texto = "#### **" + str(supervisor).upper() + "** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: " + str(t) + "</span>"
+                    st.markdown(header_texto, unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
                     with m1: 
-                        st.markdown(f"""
-                            <div class="custom-pendente-box">
-                                <div class="custom-pendente-label">🔴 PENDENTES</div>
-                                <div class="custom-pendente-value">{p}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
+                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
+                        st.markdown(html_box, unsafe_allow_html=True)
                     with m2: st.metric(label="🟣 EM ROTA", value=r)
                     with m3: st.metric(label="🟢 INICIADO", value=i)
 
@@ -137,16 +136,13 @@ if df is not None:
                 t = len(df_super)
                 
                 with st.container(border=True):
-                    st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {t}</span>", unsafe_allow_html=True)
+                    header_texto = "#### **" + str(supervisor).upper() + "** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: " + str(t) + "</span>"
+                    st.markdown(header_texto, unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
                     with m1: 
-                        st.markdown(f"""
-                            <div class="custom-pendente-box">
-                                <div class="custom-pendente-label">🔴 PENDENTES</div>
-                                <div class="custom-pendente-value">{p}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
+                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
+                        st.markdown(html_box, unsafe_allow_html=True)
                     with m2: st.metric(label="🟣 EM ROTA", value=r)
                     with m3: st.metric(label="🟢 INICIADO", value=i)
 else:
-    st.error("⚠️ Erro crítico ao renderizar dados.")
+    st.error("⚠️ Não foi possível processar a tabela.")
