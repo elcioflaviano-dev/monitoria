@@ -1,33 +1,50 @@
 import streamlit as st
 import pandas as pd
+import os
 
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 # Abre e injeta o arquivo style.css externo
-with open("style.css", "r") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+try:
+    with open("style.css", "r") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+except:
+    pass
 
-# === TITULO TEC1 CENTRALIZADO E AJUSTADO PARA NÃO CORTAR ===
+# Título TEC1 Centralizado e ajustado
 st.markdown(
     '<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', 
     unsafe_allow_html=True
 )
 
-# O restante do seu código continua idêntico daqui para baixo...
-if 'dados_rota' in st.session_state:
-    df = st.session_state['dados_rota'].copy()
+# === FUNÇÃO DE CARGA OPERACIONAL AUTOMÁTICA ===
+def carregar_dados_automatico():
+    if 'dados_rota' in st.session_state:
+        return st.session_state['dados_rota']
+    
+    # Nome do arquivo que deve estar salvo na mesma pasta do projeto
+    caminho_planilha = "base_rotas.xlsx" 
+    
+    if os.path.exists(caminho_planilha):
+        df_automatico = pd.read_excel(caminho_planilha)
+        st.session_state['dados_rota'] = df_automatico
+        return df_automatico
+    return None
+
+# Executa a carga inteligente
+df_planilha = carregar_dados_automatico()
+
+if df_planilha is not None:
+    df = df_planilha.copy()
     
     # --- FILTRO DA JANELA GLOBAL (BARRA LATERAL) ---
-    st.sidebar.header("Filtros")
     col_janela = 'Janela de Serviço'
-    
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
         janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
         df_tela = df[df[col_janela] == janela_sel]
     else:
-        st.sidebar.error("Coluna 'Janela de Serviço' não encontrada.")
         df_tela = df.copy()
         janela_sel = "N/A"
 
@@ -115,14 +132,14 @@ if 'dados_rota' in st.session_state:
         else:
             st.info("Nenhum supervisor ativo em SP nesta janela.")
 
+    # === AUTOMAÇÃO MODO TV (TROCA APÓS 30 SEGUNDOS) ===
+    st.components.v1.html("""
+        <script>
+        setTimeout(function(){
+            window.parent.location.hash = "#2-tec1-pendentes";
+        }, 30000);
+        </script>
+    """, height=0)
+
 else:
-    st.warning("⚠️ Dados não encontrados. Acesse a página inicial para carregar a planilha.")
-    
-  # MODO TV ATUALIZADO: Espera 30 segundos e pula para a nova URL de Pendentes
-st.components.v1.html("""
-    <script>
-    setTimeout(function(){
-        window.parent.location.hash = "#2-tec1-pendentes";
-    }, 30000);
-    </script>
-""", height=0)
+    st.error("⚠️ Planilha 'base_rotas.xlsx' não encontrada na pasta do projeto.")
