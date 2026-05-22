@@ -53,14 +53,14 @@ st.markdown("""
 # 4. Título de Alerta
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 10px;">⚠️ TEC1 - PENDENTES</h1>', unsafe_allow_html=True)
 
-# === FUNÇÃO DE CARGA OPERACIONAL AUTOMÁTICA ===
+# === FUNÇÃO DE CARGA OPERACIONAL AUTOMÁTICA CORRIGIDA ===
 def carregar_dados_automatico():
     if 'dados_rota' in st.session_state:
         return st.session_state['dados_rota']
     
     caminho_planilha = "base_rotas.xlsx"
     
-    if os.path.exists(caminia_planilha):
+    if os.path.exists(caminho_planilha):
         df_automatico = pd.read_excel(caminho_planilha)
         st.session_state['dados_rota'] = df_automatico
         return df_automatico
@@ -84,16 +84,16 @@ if df_planilha is not None:
     # Filtro de Status: APENAS PENDENTES
     df_pendentes_geral = df_tela[df_tela['Status da Atividade'].str.upper() == 'PENDENTE']
 
-    # Lógica de Separação (ABC | SP)
+    # Lógica de Separação (ABC | SP) - CORRIGIDA
     col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
     
     for _, linha in df_pendentes_geral.iterrows():
         nome_super = str(linha[col_supervisor]).upper()
         if "FRANCISCO" in nome_super or "ALAN" in nome_super:
-            df_sp_lista.append(Server_linha)
+            df_sp_lista.append(linha)
         else:
-            df_abc_lista.append(Server_linha)
+            df_abc_lista.append(linha)
             
     df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
     df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
