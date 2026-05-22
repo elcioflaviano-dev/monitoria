@@ -2,20 +2,27 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import quote, unquote
 
+# 1. Configuração da página - Mantém o menu expandido para controle manual
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
+# 2. Carregar CSS de forma ultra isolada para evitar SyntaxError
+css_conteudo = ""
 try:
     with open("style.css", "r") as f:
-        st.markdown("<style>" + f.read() + "</style>", unsafe_allow_html=True)
+        css_conteudo = f.read()
 except:
     pass
 
+if css_conteudo:
+    st.markdown(f"<style>{css_conteudo}</style>", unsafe_allow_html=True)
+
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
+# === MÓDULO DE CARGA (DIRETO DO SHEETS) ===
 def carregar_dados_sheets():
     try:
         url = st.secrets["public_gsheets_url"]
-        # Conversão robusta para CSV
+        
         if "/edit" in url:
             csv_url = url.split("/edit")[0] + "/gviz/tq?tqx=out:csv"
             if "gid=" in url:
@@ -38,7 +45,6 @@ def carregar_dados_sheets():
             
         df = df_sheets.rename(columns=colunas_mapeadas)
         
-        # Garante que as colunas essenciais existam para não quebrar o script
         for col_obrigatoria in ["SUPERVISOR", "JANELA_SERVICO", "STATUS_ATIVIDADE"]:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = "N/A"
@@ -46,12 +52,13 @@ def carregar_dados_sheets():
         df["STATUS_ATIVIDADE"] = df["STATUS_ATIVIDADE"].astype(str).str.strip().str.upper()
         return df
     except Exception as e:
-        st.error("Detalhe técnico do erro: " + str(e))
+        st.error("Erro na leitura do link: " + str(e))
         return None
 
 df = carregar_dados_sheets()
 
 if df is not None:
+    # --- FILTRO DE JANELA ---
     col_janela = 'JANELA_SERVICO'
     janela_selecionada = unquote(st.query_params.get("janela", ""))
 
@@ -77,6 +84,7 @@ if df is not None:
     else:
         df_tela = df.copy()
 
+    # --- LÓGICA DE SUPERVISORES (ABC | SP) ---
     col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
     
@@ -93,6 +101,7 @@ if df is not None:
     else:
         df_abc, df_sp = pd.DataFrame(columns=df.columns), pd.DataFrame(columns=df.columns)
 
+    # --- CORPO VISUAL ---
     c_abc, c_sp = st.columns(2)
     with c_abc:
         st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
@@ -103,11 +112,41 @@ if df is not None:
                 r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
                 i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
                 t = len(df_super)
+                
                 with st.container(border=True):
-                    st.markdown("#### **" + str(supervisor).upper() + "** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: " + str(t) + "</span>", unsafe_allow_html=True)
+                    st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {t}</span>", unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
                     with m1: 
-                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
-                        st.markdown(html_box, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <div class="custom-pendente-box">
+                                <div class="custom-pendente-label">🔴 PENDENTES</div>
+                                <div class="custom-pendente-value">{p}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
                     with m2: st.metric(label="🟣 EM ROTA", value=r)
-                    with m3: st.metric(label="
+                    with m3: st.metric(label="🟢 INICIADO", value=i)
+
+    with c_sp:
+        st.markdown('<div class="title-abc-sp">SP</div>', unsafe_allow_html=True)
+        if not df_sp.empty:
+            for supervisor in sorted(df_sp[col_supervisor].dropna().unique()):
+                df_super = df_sp[df_sp[col_supervisor] == supervisor]
+                p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                t = len(df_super)
+                
+                with st.container(border=True):
+                    st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {t}</span>", unsafe_allow_html=True)
+                    m1, m2, m3 = st.columns(3)
+                    with m1: 
+                        st.markdown(f"""
+                            <div class="custom-pendente-box">
+                                <div class="custom-pendente-label">🔴 PENDENTES</div>
+                                <div class="custom-pendente-value">{p}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    with m2: st.metric(label="🟣 EM ROTA", value=r)
+                    with m3: st.metric(label="🟢 INICIADO", value=i)
+else:
+    st.error("⚠️ Erro crítico ao renderizar dados.")
