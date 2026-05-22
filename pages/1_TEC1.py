@@ -1,21 +1,18 @@
 import streamlit as st
 import pandas as pd
 
-# Configura a página para ocupar toda a largura
+# Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Mantemos apenas o CSS das molduras e das cores internas das métricas
+# Estilização apenas para as molduras das colunas do ABC e SP (deixando-as fixas)
 st.markdown("""
     <style>
-    /* Remove barras de rolagem desnecessárias e ajusta margens */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0rem !important;
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
     }
-    
-    /* Moldura grande que envolve o ABC e SP */
     .region-frame {
         border: 2px solid #e6dfd5;
         border-radius: 12px;
@@ -23,9 +20,8 @@ st.markdown("""
         background-color: #ffffff;
         box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.03);
         height: 85vh;
-        overflow-y: auto; /* Permite rolagem interna sutil apenas se estourar o monitor */
+        overflow-y: auto;
     }
-    
     .region-header {
         font-size: 28px;
         font-weight: 800;
@@ -34,21 +30,6 @@ st.markdown("""
         border-bottom: 2px solid #eae5da;
         padding-bottom: 5px;
     }
-
-    /* Estilização das caixas de métricas */
-    .metric-box {
-        border-radius: 6px;
-        padding: 6px;
-        text-align: center;
-        font-weight: bold;
-        width: 100%;
-    }
-    .metric-pendente { background-color: #ffe6e6; border: 1px solid #ffcccc; color: #cc0000;}
-    .metric-rota { background-color: #f7f5f0; border: 1px solid #eae5da; color: #333;}
-    .metric-iniciado { background-color: #f7f5f0; border: 1px solid #eae5da; color: #333;}
-    
-    .metric-label { font-size: 9px; color: #666; text-transform: uppercase; font-weight: bold; margin-bottom: 2px;}
-    .metric-value { font-size: 22px; font-weight: 900; line-height: 1;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -85,12 +66,11 @@ if 'dados_rota' in st.session_state:
     else:
         df_abc, df_sp = pd.DataFrame(), pd.DataFrame()
 
-    # --- CORPO VISUAL (COLUNAS ESPELHADAS) ---
+    # --- CORPO VISUAL (COLUNAS ESPELHADAS NATIIVAS) ---
     col_coluna_abc, col_coluna_sp = st.columns(2)
     
-    # --- COLUNA: ABC ---
+    # --- COLUNA MESTRE: ABC ---
     with col_coluna_abc:
-        # Cria a moldura externa do ABC
         st.markdown('<div class="region-frame">', unsafe_allow_html=True)
         st.markdown('<div class="region-header">ABC</div>', unsafe_allow_html=True)
         
@@ -99,35 +79,29 @@ if 'dados_rota' in st.session_state:
             for supervisor in sorted(supervisores_abc):
                 df_super = df_abc[df_abc[col_supervisor] == supervisor]
                 
+                # Contagem dos status filtrados
                 pendentes = len(df_super[df_super['Status da Atividade'].str.upper() == 'PENDENTE'])
                 em_rota = len(df_super[df_super['Status da Atividade'].str.upper() == 'EM ROTA'])
                 iniciados = len(df_super[df_super['Status da Atividade'].str.upper() == 'INICIADO'])
                 total = len(df_super)
                 
-                # Monta o card usando elementos 100% nativos e limpos do Streamlit
+                # Criando o Card Nativo sem HTML interno para não quebrar a indentação
                 with st.container(border=True):
-                    # Cabeçalho do Card
-                    c1, c2, c3 = st.columns([2, 1, 1])
-                    c1.markdown(f"### **{str(supervisor).upper()}**")
-                    c2.markdown(f"`Janela: {janela_sel}`")
-                    c3.markdown(f"<div style='text-align:right; font-weight:bold;'>Total: {total}</div>", unsafe_allow_html=True)
+                    # Título do supervisor e totalizadores
+                    st.markdown(f"### **{str(supervisor).upper()}** — `Total: {total}`")
                     
-                    # Linha de Métricas Internas (Pendentes, Em Rota, Iniciado)
+                    # Linha com as 3 métricas coloridas automaticamente pelo Streamlit
                     m1, m2, m3 = st.columns(3)
-                    with m1:
-                        st.markdown(f'<div class="metric-box metric-pendente"><div class="metric-label">Pendentes</div><div class="metric-value">{pendentes}</div></div>', unsafe_allow_html=True)
-                    with m2:
-                        st.markdown(f'<div class="metric-box metric-rota"><div class="metric-label">Em Rota</div><div class="metric-value">{em_rota}</div></div>', unsafe_allow_html=True)
-                    with m3:
-                        st.markdown(f'<div class="metric-box metric-iniciado"><div class="metric-label">Iniciado</div><div class="metric-value">{iniciados}</div></div>', unsafe_allow_html=True)
+                    m1.metric(label="🔴 PENDENTES", value=pendentes)
+                    m2.metric(label="⚪ EM ROTA", value=em_rota)
+                    m3.metric(label="🟢 INICIADO", value=iniciados)
         else:
             st.info("Nenhum supervisor ativo no ABC nesta janela.")
             
-        st.markdown('</div>', unsafe_allow_html=True) # Fecha a moldura do ABC
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- COLUNA: SP ---
+    # --- COLUNA MESTRE: SP ---
     with col_coluna_sp:
-        # Cria a moldura externa de SP
         st.markdown('<div class="region-frame">', unsafe_allow_html=True)
         st.markdown('<div class="region-header">SP</div>', unsafe_allow_html=True)
         
@@ -141,15 +115,17 @@ if 'dados_rota' in st.session_state:
                 iniciados = len(df_super[df_super['Status da Atividade'].str.upper() == 'INICIADO'])
                 total = len(df_super)
                 
-                # Monta o card usando elementos 100% nativos e limpos do Streamlit
                 with st.container(border=True):
-                    c1, c2, c3 = st.columns([2, 1, 1])
-                    c1.markdown(f"### **{str(supervisor).upper()}**")
-                    c2.markdown(f"`Janela: {janela_sel}`")
-                    c3.markdown(f"<div style='text-align:right; font-weight:bold;'>Total: {total}</div>", unsafe_allow_html=True)
+                    st.markdown(f"### **{str(supervisor).upper()}** — `Total: {total}`")
                     
                     m1, m2, m3 = st.columns(3)
-                    with m1:
-                        st.markdown(f'<div class="metric-box metric-pendente"><div class="metric-label">Pendentes</div><div class="metric-value">{pendentes}</div></div>', unsafe_allow_html=True)
-                    with m2:
-                        st
+                    m1.metric(label="🔴 PENDENTES", value=pendentes)
+                    m2.metric(label="⚪ EM ROTA", value=em_rota)
+                    m3.metric(label="🟢 INICIADO", value=iniciados)
+        else:
+            st.info("Nenhum supervisor ativo em SP nesta janela.")
+            
+        st.markdown('</div>', unsafe_allow_html=True)
+
+else:
+    st.warning("⚠️ Dados não encontrados. Acesse a página inicial para carregar a planilha.")
