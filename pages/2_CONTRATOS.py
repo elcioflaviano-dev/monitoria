@@ -11,7 +11,7 @@ try:
 except:
     pass
 
-# 3. Estilo específico para Alerta de Contratos Pendentes
+# 3. Estilo específico para Alerta de Contratos Pendentes (Corrigido Alinhamento)
 st.markdown("""
     <style>
     .card-pendente-detalhe {
@@ -21,27 +21,30 @@ st.markdown("""
         padding: 10px;
         margin-bottom: 10px;
     }
+    .item-pendente {
+        border-bottom: 1px solid #ffcccc;
+        padding: 6px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center; /* Alinha o nome e o contrato perfeitamente no meio */
+    }
+    .item-pendente:last-child {
+        border-bottom: none;
+    }
     .tecnico-nome {
         color: #b30000;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 900;
         text-transform: uppercase;
     }
     .contrato-numero {
         background-color: #b30000;
         color: white;
-        padding: 2px 8px;
+        padding: 3px 10px;
         border-radius: 4px;
         font-weight: bold;
         font-size: 15px;
-        float: right;
-    }
-    .item-pendente {
-        border-bottom: 1px solid #ffcccc;
-        padding: 5px 0;
-    }
-    .item-pendente:last-child {
-        border-bottom: none;
+        white-space: nowrap;
     }
     .no-pendente {
         color: #2e7d32;
@@ -98,11 +101,8 @@ if 'dados_rota' in st.session_state:
     def desenhar_alertas(df_regiao, titulo_regiao):
         st.markdown(f'<div class="title-abc-sp">{titulo_regiao}</div>', unsafe_allow_html=True)
         
-        # Precisamos pegar todos os supervisores da janela (mesmo os que não tem pendentes agora)
-        # para manter o layout da TV consistente
         todos_supervisores = sorted(df_tela[col_supervisor].dropna().unique())
         
-        # Filtrar supervisores que pertencem a esta região
         if titulo_regiao == "SP":
             meus_supers = [s for s in todos_supervisores if "FRANCISCO" in s.upper() or "ALAN" in s.upper()]
         else:
@@ -117,10 +117,13 @@ if 'dados_rota' in st.session_state:
                 if not df_super_p.empty:
                     html_lista = '<div class="card-pendente-detalhe">'
                     for _, r in df_super_p.iterrows():
+                        # TRATAMENTO DO CONTRATO: Remove o ".0" transformando em texto limpo
+                        contrato_limpo = str(r['Contrato']).split('.')[0]
+                        
                         html_lista += f"""
                             <div class="item-pendente">
                                 <span class="tecnico-nome">{str(r['Recurso'])[:25]}</span>
-                                <span class="contrato-numero">{r['Contrato']}</span>
+                                <span class="contrato-numero">{contrato_limpo}</span>
                             </div>
                         """
                     html_lista += '</div>'
