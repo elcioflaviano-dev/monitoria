@@ -53,7 +53,7 @@ def buscar_base_rotas_online():
         
         for i, Web_linha in enumerate(linhas_puras[:50]):
             linha_upper = Web_linha.upper()
-            if 'SUPERVISOR' in linha_upper or 'STATUS' in linha_upper or 'INTERVALO' in linha_upper or 'CONTRATO' in linha_upper:
+            if 'SUPERVISOR' in Web_linha or 'STATUS' in linha_upper or 'INTERVALO' in linha_upper or 'CONTRATO' in linha_upper or 'TEMPO' in linha_upper:
                 linha_do_cabecalho_real = i
                 encontrou_cabecalho = True
                 break
@@ -73,30 +73,21 @@ def buscar_base_rotas_online():
         # Cria um clone para trabalhar de forma ultra segura
         df_final = df_sheets.copy()
         
-        # MAPEAMENTO DIRECIONADO PARA 'INTERVALO DE TEMPO'
+        # MAPEAMENTO DIRECIONADO COMPATÍVEL COM O SEU BANCO DE DADOS
+        colunas_mapeadas = {}
         for col in df_sheets.columns:
             col_upper = col.upper()
-            if 'SUPERVISOR' in col_upper:
-                df_final = df_final.rename(columns={col: 'SUPERVISOR'})
-            elif 'INTERVALO' in col_upper or 'TEMPO' in col_upper or 'JANELA' in col_upper:
-                df_final = df_final.rename(columns={col: 'Janela de Serviço'})
-            elif 'STATUS DA ATIVIDADE' in col_upper or ('STATUS' in col_upper and 'ATIVIDADE' in col_upper):
-                df_final = df_final.rename(columns={col: 'Status da Atividade'})
-            elif 'STATUS DA O.S 1' in col_upper or 'O.S 1' in col_upper or 'OS 1' in col_upper:
-                df_final = df_final.rename(columns={col: 'Status da O.S 1'})
-            elif 'CONTRATO' in col_upper:
-                df_final = df_final.rename(columns={col: 'Contrato'})
+            if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
+            elif 'INTERVALO' in col_upper or 'TEMPO' in col_upper or 'JANELA' in col_upper: colunas_mapeadas[col] = 'Intervalo de Tempo'
+            elif 'STATUS DA ATIVIDADE' in col_upper or ('STATUS' in col_upper and 'ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Status da Atividade'
+            elif 'STATUS DA O.S 1' in col_upper or 'O.S 1' in col_upper or 'OS 1' in col_upper: colunas_mapeadas[col] = 'Status da O.S 1'
+            elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
         
-        # Contingência por posição se o mapeamento de texto falhar
-        if 'Janela de Serviço' not in df_final.columns and len(df_final.columns) >= 3:
-            for idx_c, nome_c in enumerate(df_final.columns):
-                if idx_c in [1, 2] and nome_c not in ['SUPERVISOR', 'Contrato']:
-                    df_final = df_final.rename(columns={nome_c: 'Janela de Serviço'})
-                    break
+        df_final = df_final.rename(columns=colunas_mapeadas)
 
-        # Blindagem Operacional Absoluta
-        if 'Janela de Serviço' not in df_final.columns:
-            df_final['Janela de Serviço'] = 'Padrão / Sem Janela'
+        # 🚨 BLINDAGEM CONTRA ATTRIBUTE_ERROR (Força a criação física se não vier do Excel)
+        if 'Intervalo de Tempo' not in df_final.columns:
+            df_final['Intervalo de Tempo'] = 'Padrão / Sem Janela'
         if 'Status da Atividade' not in df_final.columns:
             df_final['Status da Atividade'] = 'PENDENTE'
         if 'Status da O.S 1' not in df_final.columns:
@@ -104,7 +95,10 @@ def buscar_base_rotas_online():
         if 'SUPERVISOR' not in df_final.columns:
             df_final['SUPERVISOR'] = 'N/A'
         if 'Contrato' not in df_final.columns:
-            df_final = df_final.rename(columns={df_final.columns[0]: 'Contrato'})
+            if len(df_final.columns) > 0:
+                df_final = df_final.rename(columns={df_final.columns[0]: 'Contrato'})
+            else:
+                df_final['Contrato'] = 'N/A'
             
         return df_final
     except:
@@ -116,15 +110,15 @@ if "historico_certidoes" not in st.session_state:
 
 df_base_online = buscar_base_rotas_online()
 
-# --- VALIDAÇÃO DO FILTRO OPERACIONAL ---
-if df_base_online is not None and 'Janela de Serviço' in df_base_online.columns:
-    opcoes_janela = sorted(df_base_online['Janela de Serviço'].dropna().astype(str).unique())
+# --- TRATAMENTO SEGURO DOS FILTROS OPERACIONAIS ---
+if df_base_online is not None and 'Intervalo de Tempo' in df_base_online.columns:
+    opcoes_janela = sorted(df_base_online['Intervalo de Tempo'].dropna().astype(str).unique())
     if not opcoes_janela:
         opcoes_janela = ["Padrão / Sem Janela"]
     janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_janela)
 else:
     janela_sel = "Padrão / Sem Janela"
-    st.warning("⚠️ Sincronizando com o Google Sheets... O painel continuará funcional em modo manual.")
+    st.warning("⚠️ Aguardando resposta estável da planilha... A página continuará funcional.")
 
 # === FORMULÁRIO DE ENTRADA COM ANÁLISE AUTOMÁTICA DE CRITÉRIOS ===
 st.markdown("### 🔍 Verificar e Registrar Contrato")
@@ -205,7 +199,7 @@ if df_base_online is not None and not df_banco_atual.empty:
         df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
         
         df_base_filtrada = df_base_online[
-            (df_base_online['Janela de Serviço'] == janela_sel) & 
+            (df_base_online['Intervalo de Tempo'] == janela_sel) & 
             (df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO']))
         ]
         
