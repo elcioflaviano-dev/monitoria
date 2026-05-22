@@ -25,9 +25,7 @@ def carregar_banco_historico():
     if os.path.exists(ARQUIVO_BANCO):
         try:
             df_hist = pd.read_csv(ARQUIVO_BANCO, dtype=str)
-            # Remove colunas fantasmas antigas que não usamos mais
             df_hist = df_hist[[c for c in df_hist.columns if c in colunas_padrao]]
-            # Garante que as colunas essenciais existem
             for col in colunas_padrao:
                 if col not in df_hist.columns:
                     df_hist[col] = "N/A"
@@ -124,7 +122,7 @@ if df_base_online is not None:
         pass
 
 # ==========================================
-# BLOCO 1: FORMULÁRIO DE ENTRADA (ENXUTO)
+# BLOCO 1: FORMULÁRIO DE ENTRADA
 # ==========================================
 with st.container(border=True):
     st.markdown("#### 📥 Verificar e Registrar Contrato")
@@ -149,7 +147,7 @@ with st.container(border=True):
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
             
             if "EXECUTADO" in status_os1 and "NÃO" not in status_os1:
-                status_sugerido = "NOK"
+                status_sugerido = "OK"  # Sugere OK porque já está na rota e o operador vai aceitar
                 detalhes_validacao = f"🎯 Aderente (O.S 1 Executada) | Técnico: {tecnico_detectado}"
             else:
                 status_sugerido = "NÃO ADERENTE"
@@ -161,7 +159,7 @@ with st.container(border=True):
         st.caption(detalhes_validacao)
 
     with col2:
-        opcoes_status = ["NOK", "OK", "NÃO ADERENTE"]
+        opcoes_status = ["OK", "NOK", "NÃO ADERENTE"]
         idx_default = opcoes_status.index(status_sugerido) if status_sugerido in opcoes_status else 0
         status_final = st.selectbox("Resultado da Verificação:", opcoes_status, index=idx_default)
 
@@ -174,76 +172,79 @@ with st.container(border=True):
                 "Intervalo de Tempo": janela_sel
             }])
             
-            # Une o novo registro com o histórico antigo
             df_total = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True)
-            
-            # 🚨 REGRA DEFINITIVA: Deleta duplicados mantendo apenas o primeiro encontrado (o mais recente)
             df_total = df_total.drop_duplicates(subset=["Contrato"], keep="first")
             
             st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
-            st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
+            st.success(f"✅ Contrato {contrato_input} atualizado como {status_final}!")
             st.rerun()
 
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL OPERACIONAL (VISUAL ENXUTO POR SUPERVISOR)
+# BLOCO 2: PAINEL AUTOMÁTICO (PROATIVO - TUDO É NOK POR PADRÃO)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
 df_banco_atual = st.session_state["historico_certidoes"]
 
-if df_base_online is not None and not df_banco_atual.empty:
-    # Filtra do histórico acumulado apenas quem a ÚLTIMA ATUALIZAÇÃO é NOK
-    df_nok_local = df_banco_atual[df_banco_atual["Status"].fillna('').astype(str).str.upper() == "NOK"]
+if df_base_online is not None:
+    # 1. Limpa os contratos operacionais da base online
+    df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     
-    if not df_nok_local.empty and 'Status da Atividade' in df_base_online.columns:
-        df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
-        
-        condicao_janela = df_base_online['Intervalo de Tempo'].fillna('').astype(str) == janela_sel
-        condicao_status = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
-        
-        df_base_filtrada = df_base_online[condicao_janela & condicao_status]
-        
-        lista_contratos_nok = df_nok_local["Contrato"].tolist()
-        df_exibir_pendentes = df_base_filtrada[df_base_filtrada['Contrato_Limpo'].isin(lista_contratos_nok)]
-        
-        if not df_exibir_pendentes.empty:
-            supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
-            cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
-            
-            for idx_sup, super_nome in enumerate(supervisores_na_tela):
-                with cols_supervisores[idx_sup % len(cols_supervisores)]:
-                    with st.container(border=True):
-                        df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
-                        st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Qtd: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
-                        
-                        for _, row_p in df_cards_sup.iterrows():
-                            c_num = str(row_p['Contrato_Limpo'])
-                            nome_tec = str(row_p['Recurso'])[:18].upper() # Enxuga o nome do técnico
-                            
-                            st.markdown(f"""
-                                <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
-                                    <span style="font-weight:900; color:#b30000; font-size:13px;">📄 {c_num}</span>
-                                    <span style="color:#555; font-size:11px; font-weight:700; text-transform:uppercase;">👤 {nome_tec}</span>
-                                </div>
-                            """, unsafe_allow_html=True)
-        else:
-            st.info(f"✨ Nenhuma certidão pendente (NOK) Iniciada/Concluída no intervalo: **{janela_sel}**.")
+    # 2. FILTRAGEM AUTOMÁTICA DA PLANILHA ONLINE:
+    # - Filtra o Intervalo de Tempo selecionado
+    # - Filtra Status da Atividade como INICIADO ou CONCLUIDO
+    # - Filtra APENAS contratos que tenham "EXECUTADO" no Status da O.S 1
+    cond_janela = df_base_online['Intervalo de Tempo'].fillna('').astype(str) == janela_sel
+    cond_ativ = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
+    cond_os1 = df_base_online['Status da O.S 1'].fillna('').astype(str).str.upper().str.contains("EXECUTADO") & ~df_base_online['Status da O.S 1'].fillna('').astype(str).str.upper().str.contains("NÃO")
+    
+    df_base_filtrada = df_base_online[cond_janela & cond_ativ & cond_os1]
+    
+    # 3. CRUZA COM O SEU INPUT: Se o contrato já foi salvo localmente como "OK" ou "NÃO ADERENTE", ele some da tela
+    if not df_banco_atual.empty:
+        # Pega a lista de contratos que você já deu baixa como resolvidos (OK ou NÃO ADERENTE)
+        contratos_resolvidos = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
+        # Filtra a lista da tela tirando os resolvidos (deixando apenas os que continuam NOK por padrão)
+        df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_resolvidos)]
     else:
-        st.info("ℹ️ Nenhum contrato com última atualização em 'NOK' registrado.")
+        df_exibir_pendentes = df_base_filtrada
+
+    # 4. RENDERIZAÇÃO DOS CARDS ENXUTOS POR SUPERVISOR
+    if not df_exibir_pendentes.empty:
+        supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
+        cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
+        
+        for idx_sup, super_nome in enumerate(supervisores_na_tela):
+            with cols_supervisores[idx_sup % len(cols_supervisores)]:
+                with st.container(border=True):
+                    df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
+                    st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Falta Validar: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
+                    
+                    for _, row_p in df_cards_sup.iterrows():
+                        c_num = str(row_p['Contrato_Limpo'])
+                        nome_tec = str(row_p['Recurso'])[:18].upper()
+                        
+                        st.markdown(f"""
+                            <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
+                                <span style="font-weight:900; color:#b30000; font-size:13px;">📄 {c_num}</span>
+                                <span style="color:#555; font-size:11px; font-weight:700; text-transform:uppercase;">👤 {nome_tec}</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+    else:
+        st.info(f"✨ Todas as certidões deste intervalo foram validadas! Nenhuma pendência encontrada para: **{janela_sel}**.")
 else:
-    st.info("ℹ️ Aguardando dados operacionais.")
+    st.info("ℹ️ Aguardando conexão estável com os dados operacionais online.")
 
 st.markdown("---")
 
 # ==========================================
 # BLOCO 3: HISTÓRICO LIMPO E UNIFICADO
 # ==========================================
-with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos)"):
+with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos Verificados)"):
     if not df_banco_atual.empty:
-        # Exibe apenas as informações essenciais solicitadas
         df_historico_clean = df_banco_atual[["Contrato", "Recurso", "Supervisor", "Status", "Data/Hora"]]
         df_historico_clean.columns = ["Contrato", "Técnico", "Supervisor", "Status da Certidão", "Data/Hora Registro"]
         
