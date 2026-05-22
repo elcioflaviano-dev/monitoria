@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
+import requests
+import io
 from urllib.parse import unquote
 
-# 1. Configuração obrigatória da página (Garante que a barra lateral exista sempre)
+# 1. Configuração obrigatória da página
 st.set_page_config(layout='wide', initial_sidebar_state='expanded')
 
 # 2. Carregar CSS externo de forma segura
@@ -14,7 +16,7 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA BLINDADO CONTRA KEYERROR 0 ===
+# === MÓDULO DE CARGA ADAPTADO PARA O NOVO LINK ===
 def carregar_dados_sheets():
     try:
         if 'public_gsheets_url' not in st.secrets:
@@ -23,31 +25,47 @@ def carregar_dados_sheets():
             
         url = st.secrets['public_gsheets_url']
         
-        # Reconstrói para formato oficial de exportação de CSV do Google
+        # TRATAMENTO CORRETO DA URL: Transforma o link de edição no link de exportação de dados puros
         if 'spreadsheets/d/' in url:
             id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0]
-            csv_url = 'https://docs.google.com/spreadsheets/d/' + id_planilha + '/export?format=csv'
+            csv_url = f'https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv'
             
+            # Captura o número da aba (gid) enviado por você
             if 'gid=' in url:
                 gid = url.split('gid=')[1].split('#')[0].split('&')[0]
-                csv_url += '&gid=' + gid
+                csv_url += f'&gid={gid}'
+            else:
+                csv_url += '&gid=208394608'
         else:
             csv_url = url
 
-        # Tenta ler de forma direta e segura
+        # Faz o download seguro do conteúdo textual
+        resposta = requests.get(csv_url, timeout=15)
+        if resposta.status_code != 200:
+            st.warning(f"⚠️ Falha de comunicação com o Google Sheets (Código: {resposta.status_code})")
+            return None
+            
+        conteudo = resposta.text
+        
+        # Alerta se o Google Sheets barrou o Python enviando uma página de login HTML
+        if '<html' in conteudo.lower() or '<!doctype' in conteudo.lower():
+            st.warning("🔒 Erro de Permissão: A planilha está PRIVADA. No Google Sheets, clique em 'Compartilhar' e mude o Acesso Geral para 'Qualquer pessoa com o link'.")
+            return None
+
+        # Converte o texto em tabela pulando possíveis linhas de comentários ou vazias
         try:
-            df_sheets = pd.read_csv(csv_url, dtype=str)
+            df_sheets = pd.read_csv(io.StringIO(conteudo), dtype=str, on_bad_lines='skip')
         except Exception as err_pandas:
-            # Se der erro 0 ou token inválido, avisa mas não deixa o app morrer
-            st.warning(f"⚠️ O link retornou uma estrutura ilegível para o Pandas: {str(err_pandas)}")
+            st.warning(f"⚠️ Erro no processamento da tabela: {str(err_pandas)}")
             return None
         
         if df_sheets is None or df_sheets.empty:
             return None
             
-        # Limpeza de cabeçalhos
+        # Normalização dos cabeçalhos eliminando espaços fantasmas
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
+        # Dicionário inteligente para mapear os nomes das colunas
         colunas_mapeadas = {}
         for col in df_sheets.columns:
             col_upper = col.upper()
@@ -59,6 +77,7 @@ def carregar_dados_sheets():
             
         df = df_sheets.rename(columns=colunas_mapeadas)
         
+        # Garante a existência das colunas necessárias preenchendo valores padrão se nulo
         for col_obrigatoria in ['SUPERVISOR', 'JANELA_SERVICO', 'STATUS_ATIVIDADE']:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = 'N/A'
@@ -69,23 +88,22 @@ def carregar_dados_sheets():
         return df
         
     except Exception as e:
-        st.error('Erro geral no processador de dados: ' + str(e))
+        st.error('Erro de extração operacional: ' + str(e))
         return None
 
-# Executa a carga
+# Executa o carregamento
 df = carregar_dados_sheets()
 
-# SE O DF FALHAR (ERRO 0), RECORREMOS A UM MOCK TEMPORÁRIO PARA AJUSTAR O LINK
+# Caso o link ainda encontre alguma trava, mantém dados fictícios para não quebrar a tela
 if df is None or df.empty:
-    st.info("ℹ️ Exibindo dados de simulação temporários para que possa ajustar o link no Secrets.")
-    # Cria uma tabela fictícia padrão apenas para manter o painel vivo e bonito
+    st.info("ℹ️ Exibindo dados de simulação temporários.")
     df = pd.DataFrame({
-        'SUPERVISOR': ['Aguardando Link Correto', 'Aguardando Link Correto'],
+        'SUPERVISOR': ['Aguardando Ajuste de Permissão', 'Aguardando Ajuste de Permissão'],
         'JANELA_SERVICO': ['Padrão / Sem Janela', 'Padrão / Sem Janela'],
         'STATUS_ATIVIDADE': ['PENDENTE', 'INICIADO']
     })
 
-# === CRIAÇÃO DA INTERFACE OPERACIONAL (SEMPRE VISÍVEL) ===
+# === RENDERIZAÇÃO DA INTERFACE ===
 st.sidebar.markdown('### Filtros Operacionais')
 
 col_janela = 'JANELA_SERVICO'
@@ -132,38 +150,40 @@ with c_abc:
     st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
     if not df_abc.empty:
         for supervisor in sorted(df_abc[col_supervisor].dropna().unique()):
-            df_super = df_abc[df_abc[col_supervisor] == supervisor]
-            p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE'])
-            r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA'])
-            i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO'])
-            t = len(df_super)
-            
-            with st.container(border=True):
-                header_texto = '#### **' + str(supervisor).upper() + '** <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(t) + '</span>'
-                st.markdown(header_texto, unsafe_allow_html=True)
-                m1, m2, m3 = st.columns(3)
-                with m1: 
-                    html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
-                    st.markdown(html_box, unsafe_allow_html=True)
-                with m2: st.metric(label='🟣 EM ROTA', value=r)
-                with m3: st.metric(label='🟢 INICIADO', value=i)
+            if str(supervisor).upper() != 'N/A' and str(supervisor).strip() != '':
+                df_super = df_abc[df_abc[col_supervisor] == supervisor]
+                p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE'])
+                r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA'])
+                i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO'])
+                t = len(df_super)
+                
+                with st.container(border=True):
+                    header_texto = f'#### **{str(supervisor).upper()}** <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: {t}</span>'
+                    st.markdown(header_texto, unsafe_allow_html=True)
+                    m1, m2, m3 = st.columns(3)
+                    with m1: 
+                        html_box = f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>'
+                        st.markdown(html_box, unsafe_allow_html=True)
+                    with m2: st.metric(label='🟣 EM ROTA', value=r)
+                    with m3: st.metric(label='🟢 INICIADO', value=i)
 
 with c_sp:
     st.markdown('<div class="title-abc-sp">SP</div>', unsafe_allow_html=True)
     if not df_sp.empty:
         for supervisor in sorted(df_sp[col_supervisor].dropna().unique()):
-            df_super = df_sp[df_sp[col_supervisor] == supervisor]
-            p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE'])
-            r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA'])
-            i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO'])
-            t = len(df_super)
-            
-            with st.container(border=True):
-                header_texto = '#### **' + str(supervisor).upper() + '** <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(t) + '</span>'
-                st.markdown(header_texto, unsafe_allow_html=True)
-                m1, m2, m3 = st.columns(3)
-                with m1: 
-                    html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
-                    st.markdown(html_box, unsafe_allow_html=True)
-                with m2: st.metric(label='🟣 EM ROTA', value=r)
-                with m3: st.metric(label='🟢 INICIADO', value=i)
+            if str(supervisor).upper() != 'N/A' and str(supervisor).strip() != '':
+                df_super = df_sp[df_sp[col_supervisor] == supervisor]
+                p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE'])
+                r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA'])
+                i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO'])
+                t = len(df_super)
+                
+                with st.container(border=True):
+                    header_texto = f'#### **{str(supervisor).upper()}** <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: {t}</span>'
+                    st.markdown(header_texto, unsafe_allow_html=True)
+                    m1, m2, m3 = st.columns(3)
+                    with m1: 
+                        html_box = f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>'
+                        st.markdown(html_box, unsafe_allow_html=True)
+                    with m2: st.metric(label='🟣 EM ROTA', value=r)
+                    with m3: st.metric(label='🟢 INICIADO', value=i)
