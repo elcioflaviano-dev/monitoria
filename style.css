@@ -59,3 +59,12 @@ div[data-testid="stMetricValue"] div {
     font-weight: 900 !important;
     color: #333333 !important;
 }
+/* Título Principal do Painel */
+.main-dashboard-title {
+    font-size: 32px;
+    font-weight: 900;
+    color: #006677;
+    margin-bottom: 15px;
+    margin-top: 0px;
+    letter-spacing: -0.5px;
+}
