@@ -4,31 +4,54 @@ import pandas as pd
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Estilização apenas para as molduras das colunas do ABC e SP (deixando-as fixas)
+# Estilização limpa para criar as molduras unificadas para ABC e SP sem empurrar os dados para baixo
 st.markdown("""
     <style>
+    /* Remove espaçamentos inúteis do topo do Streamlit */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0.5rem !important;
         padding-bottom: 0rem !important;
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
     }
-    .region-frame {
-        border: 2px solid #e6dfd5;
-        border-radius: 12px;
-        padding: 15px;
-        background-color: #ffffff;
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.03);
-        height: 85vh;
-        overflow-y: auto;
-    }
-    .region-header {
-        font-size: 28px;
-        font-weight: 800;
+    
+    /* Títulos principais colados no topo */
+    .title-abc-sp {
+        font-size: 26px;
+        font-weight: bold;
         color: #111111;
-        margin-bottom: 12px;
+        margin-bottom: 5px;
+        margin-top: 0px;
+        padding-bottom: 2px;
         border-bottom: 2px solid #eae5da;
-        padding-bottom: 5px;
+    }
+
+    /* Customização das métricas nativas do Streamlit para ficarem idênticas ao modelo */
+    div[data-testid="stMetric"] {
+        background-color: #f7f5f0;
+        border: 1px solid #eae5da;
+        border-radius: 6px;
+        padding: 5px !important;
+        text-align: center;
+    }
+    
+    /* Força a primeira métrica (Pendentes) a ficar vermelha/rosada */
+    div[data-testid="stMetric"]:nth-of-type(3n+1) {
+        background-color: #ffe6e6 !important;
+        border: 1px solid #ffcccc !important;
+    }
+    
+    /* Ajustes finos de texto das métricas */
+    div[data-testid="stMetricLabel"] p {
+        font-size: 10px !important;
+        font-weight: bold !important;
+        text-transform: uppercase;
+        color: #555 !important;
+    }
+    
+    div[data-testid="stMetricValue"] div {
+        font-size: 24px !important;
+        font-weight: 900 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -66,44 +89,39 @@ if 'dados_rota' in st.session_state:
     else:
         df_abc, df_sp = pd.DataFrame(), pd.DataFrame()
 
-    # --- CORPO VISUAL (COLUNAS ESPELHADAS NATIIVAS) ---
+    # --- CORPO VISUAL (DIVISÃO EM COLUNAS PERFEITAS) ---
     col_coluna_abc, col_coluna_sp = st.columns(2)
     
-    # --- COLUNA MESTRE: ABC ---
+    # --- COLUNA ESQUERDA: ABC ---
     with col_coluna_abc:
-        st.markdown('<div class="region-frame">', unsafe_allow_html=True)
-        st.markdown('<div class="region-header">ABC</div>', unsafe_allow_html=True)
+        st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
         
         if not df_abc.empty:
             supervisores_abc = df_abc[col_supervisor].dropna().unique()
             for supervisor in sorted(supervisores_abc):
                 df_super = df_abc[df_abc[col_supervisor] == supervisor]
                 
-                # Contagem dos status filtrados
                 pendentes = len(df_super[df_super['Status da Atividade'].str.upper() == 'PENDENTE'])
                 em_rota = len(df_super[df_super['Status da Atividade'].str.upper() == 'EM ROTA'])
                 iniciados = len(df_super[df_super['Status da Atividade'].str.upper() == 'INICIADO'])
                 total = len(df_super)
                 
-                # Criando o Card Nativo sem HTML interno para não quebrar a indentação
+                # Card nativo com borda externa e títulos alinhados
                 with st.container(border=True):
-                    # Título do supervisor e totalizadores
-                    st.markdown(f"### **{str(supervisor).upper()}** — `Total: {total}`")
+                    # Cabeçalho interno do card
+                    st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {total}</span>", unsafe_allow_html=True)
                     
-                    # Linha com as 3 métricas coloridas automaticamente pelo Streamlit
+                    # Colunas das métricas internas
                     m1, m2, m3 = st.columns(3)
                     m1.metric(label="🔴 PENDENTES", value=pendentes)
-                    m2.metric(label="⚪ EM ROTA", value=em_rota)
+                    m2.metric(label="🟣 EM ROTA", value=em_rota)
                     m3.metric(label="🟢 INICIADO", value=iniciados)
         else:
             st.info("Nenhum supervisor ativo no ABC nesta janela.")
-            
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- COLUNA MESTRE: SP ---
+    # --- COLUNA DIREITA: SP ---
     with col_coluna_sp:
-        st.markdown('<div class="region-frame">', unsafe_allow_html=True)
-        st.markdown('<div class="region-header">SP</div>', unsafe_allow_html=True)
+        st.markdown('<div class="title-abc-sp">SP</div>', unsafe_allow_html=True)
         
         if not df_sp.empty:
             supervisores_sp = df_sp[col_supervisor].dropna().unique()
@@ -116,16 +134,14 @@ if 'dados_rota' in st.session_state:
                 total = len(df_super)
                 
                 with st.container(border=True):
-                    st.markdown(f"### **{str(supervisor).upper()}** — `Total: {total}`")
+                    st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {total}</span>", unsafe_allow_html=True)
                     
                     m1, m2, m3 = st.columns(3)
                     m1.metric(label="🔴 PENDENTES", value=pendentes)
-                    m2.metric(label="⚪ EM ROTA", value=em_rota)
+                    m2.metric(label="🟣 EM ROTA", value=em_rota)
                     m3.metric(label="🟢 INICIADO", value=iniciados)
         else:
             st.info("Nenhum supervisor ativo em SP nesta janela.")
-            
-        st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     st.warning("⚠️ Dados não encontrados. Acesse a página inicial para carregar a planilha.")
