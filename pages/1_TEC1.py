@@ -16,43 +16,49 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA ADAPTADO PARA O NOVO LINK ===
+# === MÓDULO DE CARGA ULTRA HIGIENIZADO ===
 def carregar_dados_sheets():
     try:
         if 'public_gsheets_url' not in st.secrets:
             st.error("❌ A chave 'public_gsheets_url' não foi encontrada no Streamlit Secrets.")
             return None
             
-        url = st.secrets['public_gsheets_url']
+        # Remove espaços em branco nas pontas do link guardado no Secrets
+        url = st.secrets['public_gsheets_url'].strip()
         
-        # TRATAMENTO CORRETO DA URL: Transforma o link de edição no link de exportação de dados puros
+        # TRATAMENTO RIGOROSO DA URL (Remove travas de caracteres especiais como #)
         if 'spreadsheets/d/' in url:
-            id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0]
+            # Isola o ID da planilha limpando barras extras
+            id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0].strip()
             csv_url = f'https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv'
             
-            # Captura o número da aba (gid) enviado por você
+            # Localiza o GID limpando o caractere '#' e outros parâmetros da URL original
             if 'gid=' in url:
-                gid = url.split('gid=')[1].split('#')[0].split('&')[0]
+                parte_gid = url.split('gid=')[1]
+                # Limpa tudo o que estiver depois de um #, & ou espaço caso existam
+                gid = parte_gid.split('#')[0].split('&')[0].strip()
                 csv_url += f'&gid={gid}'
             else:
                 csv_url += '&gid=208394608'
         else:
             csv_url = url
 
-        # Faz o download seguro do conteúdo textual
-        resposta = requests.get(csv_url, timeout=15)
+        # Faz o download seguro do conteúdo com cabeçalho de simulação de navegador
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        resposta = requests.get(csv_url, headers=headers, timeout=15)
+        
         if resposta.status_code != 200:
-            st.warning(f"⚠️ Falha de comunicação com o Google Sheets (Código: {resposta.status_code})")
+            st.warning(f"⚠️ Erro de comunicação com o Google Sheets (HTTP {resposta.status_code})")
             return None
             
         conteudo = resposta.text
         
-        # Alerta se o Google Sheets barrou o Python enviando uma página de login HTML
+        # Alerta se o link estiver privado
         if '<html' in conteudo.lower() or '<!doctype' in conteudo.lower():
             st.warning("🔒 Erro de Permissão: A planilha está PRIVADA. No Google Sheets, clique em 'Compartilhar' e mude o Acesso Geral para 'Qualquer pessoa com o link'.")
             return None
 
-        # Converte o texto em tabela pulando possíveis linhas de comentários ou vazias
+        # Converte o texto bruto na tabela final
         try:
             df_sheets = pd.read_csv(io.StringIO(conteudo), dtype=str, on_bad_lines='skip')
         except Exception as err_pandas:
@@ -62,10 +68,10 @@ def carregar_dados_sheets():
         if df_sheets is None or df_sheets.empty:
             return None
             
-        # Normalização dos cabeçalhos eliminando espaços fantasmas
+        # Remove espaços ocultos dos cabeçalhos da tabela
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
-        # Dicionário inteligente para mapear os nomes das colunas
+        # Mapeamento dinâmico inteligente
         colunas_mapeadas = {}
         for col in df_sheets.columns:
             col_upper = col.upper()
@@ -77,7 +83,6 @@ def carregar_dados_sheets():
             
         df = df_sheets.rename(columns=colunas_mapeadas)
         
-        # Garante a existência das colunas necessárias preenchendo valores padrão se nulo
         for col_obrigatoria in ['SUPERVISOR', 'JANELA_SERVICO', 'STATUS_ATIVIDADE']:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = 'N/A'
@@ -94,7 +99,7 @@ def carregar_dados_sheets():
 # Executa o carregamento
 df = carregar_dados_sheets()
 
-# Caso o link ainda encontre alguma trava, mantém dados fictícios para não quebrar a tela
+# Caso falte a permissão ou link, exibe dados simulados de segurança para o app não morrer
 if df is None or df.empty:
     st.info("ℹ️ Exibindo dados de simulação temporários.")
     df = pd.DataFrame({
