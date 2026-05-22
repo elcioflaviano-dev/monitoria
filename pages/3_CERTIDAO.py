@@ -67,26 +67,32 @@ def buscar_base_rotas_online():
         if df_sheets is None or df_sheets.empty:
             return None
 
+        # Corrige nomes das colunas removendo espaços invisíveis
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
+        
         df_final = df_sheets.copy()
         
+        # Mapeamento dinâmico avançado que evita gerar nomes duplicados
         colunas_mapeadas = {}
         for col in df_sheets.columns:
             col_upper = col.upper()
-            if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
-            elif 'INTERVALO' in col_upper or 'TEMPO' in col_upper: colunas_mapeadas[col] = 'Intervalo de Tempo'
-            elif 'STATUS DA ATIVIDADE' in col_upper or ('STATUS' in col_upper and 'ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Status da Atividade'
-            elif 'STATUS DA O.S 1' in col_upper or 'O.S 1' in col_upper or 'OS 1' in col_upper: colunas_mapeadas[col] = 'Status da O.S 1'
-            elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
+            if 'SUPERVISOR' in col_upper and 'SUPERVISOR' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'SUPERVISOR'
+            elif ('INTERVALO' in col_upper or 'TEMPO' in col_upper) and 'Intervalo de Tempo' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'Intervalo de Tempo'
+            elif 'STATUS DA ATIVIDADE' in col_upper or ('STATUS' in col_upper and 'ATIVIDADE' in col_upper) and 'Status da Atividade' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'Status da Atividade'
+            elif ('STATUS DA O.S 1' in col_upper or 'O.S 1' in col_upper or 'OS 1' in col_upper) and 'Status da O.S 1' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'Status da O.S 1'
+            elif 'CONTRATO' in col_upper and 'Contrato' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'Contrato'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
 
-        if 'Intervalo de Tempo' not in df_final.columns and len(df_final.columns) >= 3:
-            for idx_c, nome_c in enumerate(df_final.columns):
-                if idx_c in [1, 2, 3] and nome_c not in ['SUPERVISOR', 'Contrato']:
-                    df_final = df_final.rename(columns={nome_c: 'Intervalo de Tempo'})
-                    break
+        # 🚨 MATADOR DE DUPLICADAS: Remove qualquer coluna gêmea residual na marra
+        df_final = df_final.loc[:, ~df_final.columns.duplicated()]
 
+        # Fallbacks de segurança
         if 'Intervalo de Tempo' not in df_final.columns: df_final['Intervalo de Tempo'] = 'Padrão / Sem Janela'
         if 'Status da Atividade' not in df_final.columns: df_final['Status da Atividade'] = 'PENDENTE'
         if 'Status da O.S 1' not in df_final.columns: df_final['Status da O.S 1'] = 'NÃO EXECUTADO'
@@ -102,7 +108,7 @@ if "historico_certidoes" not in st.session_state:
 
 df_base_online = buscar_base_rotas_online()
 
-# --- SELETOR DE INTERVALO NA BARRA LATERAL ---
+# --- MONTAGEM DO FILTRO LATERAL ---
 janela_sel = "Padrão / Sem Janela"
 if df_base_online is not None:
     try:
@@ -165,7 +171,7 @@ with st.container(border=True):
             }])
             st.session_state["historico_certidoes"] = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True)
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
-            st.success(f"✅ Contrato {contrato_input} salvo!")
+            st.success(f"✅ Contrato {contrato_input} saved!")
             st.rerun()
 
 st.markdown("---")
@@ -183,10 +189,11 @@ if df_base_online is not None and not df_banco_atual.empty:
     if not df_nok_local.empty and 'Status da Atividade' in df_base_online.columns:
         df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
         
-        df_base_filtrada = df_base_online[
-            (df_base_online['Intervalo de Tempo'].fillna('').astype(str) == janela_sel) & 
-            (df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO']))
-        ]
+        # O filtro lógico agora rodará 100% livre de duplicidades nas colunas
+        condicao_janela = df_base_online['Intervalo de Tempo'].fillna('').astype(str) == janela_sel
+        condicao_status = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
+        
+        df_base_filtrada = df_base_online[condicao_janela & condicao_status]
         
         lista_contratos_nok = df_nok_local["Contrato"].tolist()
         df_exibir_pendentes = df_base_filtrada[df_base_filtrada['Contrato_Limpo'].isin(lista_contratos_nok)]
