@@ -1,0 +1,61 @@
+/* style.css */
+
+/* Remove espaçamentos inúteis do topo do Streamlit */
+.block-container {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+}
+
+/* Títulos principais colados no topo */
+.title-abc-sp {
+    font-size: 26px;
+    font-weight: bold;
+    color: #111111;
+    margin-bottom: 5px;
+    border-bottom: 2px solid #eae5da;
+}
+
+/* Card customizado de Pendentes (Garante o fundo vermelho) */
+.custom-pendente-box {
+    background-color: #ffcccc !important;
+    border: 2px solid #ff9999 !important;
+    border-radius: 6px;
+    padding: 5px !important;
+    text-align: center;
+    height: 100%;
+}
+.custom-pendente-label {
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase;
+    color: #800000 !important;
+    margin-bottom: 2px;
+}
+.custom-pendente-value {
+    font-size: 34px !important;
+    color: #b30000 !important;
+    font-weight: 900 !important;
+    line-height: 1.1;
+}
+
+/* Estilo das outras caixas normais (Em Rota e Iniciado) */
+div[data-testid="stMetric"] {
+    background-color: #f7f5f0 !important;
+    border: 1px solid #eae5da !important;
+    border-radius: 6px;
+    padding: 5px !important;
+    text-align: center;
+}
+div[data-testid="stMetricLabel"] p {
+    font-size: 10px !important;
+    font-weight: bold !important;
+    text-transform: uppercase;
+    color: #555 !important;
+}
+div[data-testid="stMetricValue"] div {
+    font-size: 24px !important;
+    font-weight: 900 !important;
+    color: #333333 !important;
+}
