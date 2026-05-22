@@ -1,20 +1,62 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuração da página e remoção de espaços inúteis
+# 1. Configuração da página e remoção de espaços
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
+# 2. Carregar Estilos
 try:
     with open("style.css", "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 except:
     pass
 
-# 2. Título Centralizado Ajustado
-st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1 - CONTRATOS</h1>', unsafe_allow_html=True)
+# 3. Estilo específico para Alerta de Contratos Pendentes
+st.markdown("""
+    <style>
+    .card-pendente-detalhe {
+        background-color: #ffe6e6;
+        border: 2px solid #ff9999;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .tecnico-nome {
+        color: #b30000;
+        font-size: 16px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+    .contrato-numero {
+        background-color: #b30000;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 15px;
+        float: right;
+    }
+    .item-pendente {
+        border-bottom: 1px solid #ffcccc;
+        padding: 5px 0;
+    }
+    .item-pendente:last-child {
+        border-bottom: none;
+    }
+    .no-pendente {
+        color: #2e7d32;
+        font-weight: bold;
+        font-size: 14px;
+        text-align: center;
+        padding: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# === SISTEMA DE TROCA DE PÁGINA ULTRA SEGURO (MODO TV) ===
-# Aguarda 30 segundos e força o navegador a mudar para a página 1 (TEC1)
+# 4. Título de Alerta
+st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 10px;">⚠️ TEC1 - CONTRATOS PENDENTES</h1>', unsafe_allow_html=True)
+
+# === MODO TV: VOLTA PARA A PÁGINA 1 APÓS 30 SEGUNDOS ===
 st.components.v1.html("""
     <script>
     setTimeout(function(){
@@ -26,19 +68,23 @@ st.components.v1.html("""
 if 'dados_rota' in st.session_state:
     df = st.session_state['dados_rota'].copy()
     
-    # Filtro de Janela Automático
+    # Filtro de Janela
     col_janela = 'Janela de Serviço'
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
-        janela_sel = st.sidebar.selectbox("Janela:", opcoes_janela)
+        janela_sel = st.sidebar.selectbox("Janela Ativa:", opcoes_janela)
         df_tela = df[df[col_janela] == janela_sel]
     else:
         df_tela = df.copy()
 
-    # Lógica de Separação de Supervisores (Idêntica ao TEC1)
+    # Filtro de Status: APENAS PENDENTES
+    df_pendentes_geral = df_tela[df_tela['Status da Atividade'].str.upper() == 'PENDENTE']
+
+    # Lógica de Separação (ABC | SP)
     col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
-    for _, linha in df_tela.iterrows():
+    
+    for _, linha in df_pendentes_geral.iterrows():
         nome_super = str(linha[col_supervisor]).upper()
         if "FRANCISCO" in nome_super or "ALAN" in nome_super:
             df_sp_lista.append(linha)
@@ -48,49 +94,46 @@ if 'dados_rota' in st.session_state:
     df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
     df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
 
-    # Função Inteligente para gerar a tabela ordenada sem usar HTML quebrado
-    def exibir_tabela_priorizada(df_input):
-        if df_input.empty:
-            st.info("Sem atividades para esta janela.")
-            return
+    # Função para desenhar a lista de pendentes em destaque
+    def desenhar_alertas(df_regiao, titulo_regiao):
+        st.markdown(f'<div class="title-abc-sp">{titulo_regiao}</div>', unsafe_allow_html=True)
+        
+        # Precisamos pegar todos os supervisores da janela (mesmo os que não tem pendentes agora)
+        # para manter o layout da TV consistente
+        todos_supervisores = sorted(df_tela[col_supervisor].dropna().unique())
+        
+        # Filtrar supervisores que pertencem a esta região
+        if titulo_regiao == "SP":
+            meus_supers = [s for s in todos_supervisores if "FRANCISCO" in s.upper() or "ALAN" in s.upper()]
+        else:
+            meus_supers = [s for s in todos_supervisores if "FRANCISCO" not in s.upper() and "ALAN" not in s.upper()]
 
-        supervisores = sorted(df_input[col_supervisor].dropna().unique())
-        for super_nome in supervisores:
-            df_super = df_input[df_input[col_supervisor] == super_nome].copy()
+        for super_nome in meus_supers:
+            df_super_p = df_regiao[df_regiao[col_supervisor] == super_nome]
             
-            # Garante que as colunas essenciais existem
-            colunas_necessarias = ['Recurso', 'Contrato', 'Status da Atividade']
-            colunas_validas = [c for c in colunas_necessarias if c in df_super.columns]
-            
-            df_resumo = df_super[colunas_validas].copy()
-            
-            # Cria a regra de prioridade numérica (Pendente ganha)
-            if 'Status da Atividade' in df_resumo.columns:
-                prioridade = {'PENDENTE': 1, 'EM ROTA': 2, 'INICIADO': 3}
-                df_resumo['Ordem'] = df_resumo['Status da Atividade'].str.upper().map(prioridade).fillna(4)
-                df_resumo = df_resumo.sort_values('Ordem')
-                df_resumo = df_resumo.drop(columns=['Ordem']) # Remove a coluna auxiliar do visual
-            
-            # Renomeia as colunas para o painel ficar bonito na TV
-            df_resumo.columns = [c.upper() for c in df_resumo.columns]
-            
-            # Desenha o Card do Supervisor com a tabela limpa dentro dele
             with st.container(border=True):
                 st.markdown(f"##### **{super_nome.upper()}**")
-                st.dataframe(
-                    df_resumo, 
-                    use_container_width=True, 
-                    hide_index=True,
-                    height=140 # Altura controlada para caber todo mundo na tela sem estourar
-                )
+                
+                if not df_super_p.empty:
+                    html_lista = '<div class="card-pendente-detalhe">'
+                    for _, r in df_super_p.iterrows():
+                        html_lista += f"""
+                            <div class="item-pendente">
+                                <span class="tecnico-nome">{str(r['Recurso'])[:25]}</span>
+                                <span class="contrato-numero">{r['Contrato']}</span>
+                            </div>
+                        """
+                    html_lista += '</div>'
+                    st.markdown(html_lista, unsafe_allow_html=True)
+                else:
+                    st.markdown('<div class="no-pendente">✅ Sem pendências nesta janela</div>', unsafe_allow_html=True)
 
-    # Divisão da Tela Lado a Lado (ABC | SP)
-    c_abc, c_sp = st.columns(2)
-    with c_abc:
-        st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
-        exibir_tabela_priorizada(df_abc)
-    with c_sp:
-        st.markdown('<div class="title-abc-sp">SP</div>', unsafe_allow_html=True)
-        exibir_tabela_priorizada(df_sp)
+    # Divisão em Colunas
+    c1, c2 = st.columns(2)
+    with c1:
+        desenhar_alertas(df_abc, "ABC")
+    with c2:
+        desenhar_alertas(df_sp, "SP")
+
 else:
-    st.warning("⚠️ Dados não encontrados. Por favor, carregue a planilha na página inicial.")
+    st.warning("⚠️ Carregue a planilha na página inicial.")
