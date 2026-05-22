@@ -12,7 +12,6 @@ try:
 except:
     pass
 
-# CSS específico para Pendentes
 st.markdown("""
     <style>
     .item-pendente-tv { background-color: #ffe6e6 !important; border: 2px solid #ff9999 !important; border-radius: 6px; padding: 6px 12px !important; margin-bottom: 6px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; }
@@ -24,7 +23,7 @@ st.markdown("""
 
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 10px;">⚠️ TEC1 - PENDENTES</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA (REVALIDA SEMPRE NESTA PÁGINA TAMBÉM) ===
+# === MÓDULO DE CARGA ===
 def carregar_dados_sheets():
     url = st.secrets["public_gsheets_url"]
     csv_url = url.replace("/edit?usp=sharing", "/gviz/tq?tqx=out:csv").replace("/edit#gid=", "/gviz/tq?tqx=out:csv&gid=")
@@ -49,19 +48,17 @@ def carregar_dados_sheets():
 df = carregar_dados_sheets()
 
 if df is not None:
-    # --- FILTRO DE JANELA INTELIGENTE (RECUPERA DA URL) ---
+    # --- FILTRO DE JANELA INTELIGENTE ---
     col_janela = 'JANELA_SERVICO'
-    janela_selecionada = unquote(st.query_params.get("janela", "")) # Pega o filtro que veio da página anterior
+    janela_selecionada = unquote(st.query_params.get("janela", ""))
 
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
         
-        # Define o índice baseado na URL
         default_index = 0
         if janela_selecionada in opcoes_janela:
             default_index = opcoes_janela.index(janela_selecionada)
         
-        # Cria o selectbox (ele precisa existir para garantir o filtro)
         st.sidebar.markdown("### Filtros Operacionais")
         janela_sel = st.sidebar.selectbox(
             "Janela Ativa:", 
@@ -72,7 +69,6 @@ if df is not None:
         df_tela = df[df[col_janela] == janela_sel]
     else:
         df_tela = df.copy()
-        janela_sel = ""
 
     # Filtro de Status: APENAS PENDENTES
     df_pendentes_geral = df_tela[df_tela['STATUS_ATIVIDADE'] == 'PENDENTE'] if 'STATUS_ATIVIDADE' in df_tela.columns else pd.DataFrame()
@@ -109,18 +105,5 @@ if df is not None:
     c1, c2 = st.columns(2)
     with c1: desenhar_alertas(df_abc, "ABC")
     with c2: desenhar_alertas(df_sp, "SP")
-
-    # === SISTEMA DE LOOP TV CORRIGIDO (RETORNA PASSANDO A JANELA) ===
-    janela_param = quote(janela_sel)
-    back_url = f"/TEC1?janela={janela_param}"
-    
-    st.components.v1.html(f"""
-        <script>
-        setTimeout(function(){
-            // Retorna para a página principal mantendo o filtro na URL
-            window.parent.location.href = unescape("{back_url}");
-        }, 30000);
-        </script>
-    """, height=0)
 else:
     st.warning("⚠️ Sincronizando com Google Sheets...")
