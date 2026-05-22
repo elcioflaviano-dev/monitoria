@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração da página e remoção de espaços
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+# CONFIGURAÇÃO AJUSTADA
+st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 try:
     with open("style.css", "r") as f:
@@ -21,7 +21,6 @@ st.markdown("""
 
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 10px;">⚠️ TEC1 - PENDENTES</h1>', unsafe_allow_html=True)
 
-# Puxa e revalida direto da nuvem também nesta página
 url = st.secrets["public_gsheets_url"]
 csv_url = url.replace("/edit?usp=sharing", "/gviz/tq?tqx=out:csv").replace("/edit#gid=", "/gviz/tq?tqx=out:csv&gid=")
 
@@ -43,19 +42,17 @@ except:
     df = st.session_state.get('dados_rota', None)
 
 if df is not None:
-    # Filtro de Janela
+    # --- FILTRO DA JANELA GLOBAL NO MENU LATERAL ---
     col_janela = 'JANELA_SERVICO'
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
-        janela_sel = st.sidebar.selectbox("Janela Ativa:", opcoes_janela)
+        janela_sel = st.sidebar.selectbox("Selecione a Janela Ativa:", opcoes_janela)
         df_tela = df[df[col_janela] == janela_sel]
     else:
         df_tela = df.copy()
 
-    # Filtro de Status: APENAS PENDENTES
     df_pendentes_geral = df_tela[df_tela['STATUS_ATIVIDADE'] == 'PENDENTE'] if 'STATUS_ATIVIDADE' in df_tela.columns else pd.DataFrame()
 
-    # Lógica de Separação (ABC | SP)
     col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
     for _, linha in df_pendentes_geral.iterrows():
@@ -89,11 +86,10 @@ if df is not None:
     with c1: desenhar_alertas(df_abc, "ABC")
     with c2: desenhar_alertas(df_sp, "SP")
 
-    # === MODO TV: RETORNA PARA A PÁGINA 1 EM 30 SEGUNDOS ===
     st.components.v1.html("""
         <script>
         setTimeout(function(){ window.parent.location.hash = "#tec1"; }, 30000);
         </script>
     """, height=0)
 else:
-    st.warning("⚠️ Aguardando sincronização com o Google Sheets...")
+    st.warning("⚠️ Aguardando sincronização...")
