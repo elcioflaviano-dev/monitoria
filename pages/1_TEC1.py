@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import quote, unquote
 
-# 1. Configuração da página - Mantém expandido para ver o menu se necessário
+# 1. Configuração da página - Mantém o menu expandido para controle manual
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 # 2. Carregar CSS
@@ -20,7 +20,6 @@ def carregar_dados_sheets():
     csv_url = url.replace("/edit?usp=sharing", "/gviz/tq?tqx=out:csv").replace("/edit#gid=", "/gviz/tq?tqx=out:csv&gid=")
     try:
         df_sheets = pd.read_csv(csv_url)
-        # Padronização de colunas
         df_sheets.columns = df_sheets.columns.str.strip()
         colunas_mapeadas = {}
         for col in df_sheets.columns:
@@ -29,7 +28,6 @@ def carregar_dados_sheets():
             elif "JANELA" in col_upper: colunas_mapeadas[col] = "JANELA_SERVICO"
             elif "STATUS" in col_upper: colunas_mapeadas[col] = "STATUS_ATIVIDADE"
         df = df_sheets.rename(columns=colunas_mapeadas)
-        # Padronização de status internos
         if "STATUS_ATIVIDADE" in df.columns:
             df["STATUS_ATIVIDADE"] = df["STATUS_ATIVIDADE"].astype(str).str.strip().str.upper()
         return df
@@ -39,19 +37,17 @@ def carregar_dados_sheets():
 df = carregar_dados_sheets()
 
 if df is not None:
-    # --- FILTRO DE JANELA INTELIGENTE (COM MEMÓRIA NA URL) ---
+    # --- FILTRO DE JANELA INTELIGENTE ---
     col_janela = 'JANELA_SERVICO'
-    janela_selecionada = unquote(st.query_params.get("janela", "")) # Tenta pegar da URL
+    janela_selecionada = unquote(st.query_params.get("janela", ""))
 
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
         
-        # Define o índice padrão baseado na URL ou na primeira opção
         default_index = 0
         if janela_selecionada in opcoes_janela:
             default_index = opcoes_janela.index(janela_selecionada)
         
-        # Cria o selectbox na barra lateral
         st.sidebar.markdown("### Filtros Operacionais")
         janela_sel = st.sidebar.selectbox(
             "Janela de Serviço Ativa:", 
@@ -60,12 +56,10 @@ if df is not None:
             key="sb_janela"
         )
         
-        # Atualiza a URL se a janela mudar manualmente
         st.query_params["janela"] = janela_sel
         df_tela = df[df[col_janela] == janela_sel]
     else:
         df_tela = df.copy()
-        janela_sel = ""
 
     # --- LÓGICA DE SUPERVISORES (ABC | SP) ---
     col_supervisor = 'SUPERVISOR'
@@ -113,19 +107,5 @@ if df is not None:
                     with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>', unsafe_allow_html=True)
                     with m2: st.metric(label="🟣 EM ROTA", value=r)
                     with m3: st.metric(label="🟢 INICIADO", value=i)
-
-    # === SISTEMA DE LOOP TV CORRIGIDO (PASSA A JANELA PELA URL) ===
-    # Prepara o parâmetro da janela para o link
-    janela_param = quote(janela_sel)
-    next_page_url = f"/2_TEC1_PENDENTES?janela={janela_param}"
-    
-    st.components.v1.html(f"""
-        <script>
-        setTimeout(function(){
-            // Recarrega a página inteira mudando a URL para passar o filtro
-            window.parent.location.href = unescape("{next_page_url}");
-        }, 30000);
-        </script>
-    """, height=0)
 else:
-    st.error("⚠️ Erro ao carregar dados do Google Sheets.")
+    st.error("⚠️ Erro ao car
