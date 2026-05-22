@@ -8,9 +8,9 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 with open("style.css", "r") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# === TITULO TEC1 DIRETO COM DESIGN INJETADO (FORÇADO) ===
+# === TITULO TEC1 CENTRALIZADO E AJUSTADO PARA NÃO CORTAR ===
 st.markdown(
-    '<h1 style="font-size: 38px; font-weight: 900; color: #006677; margin-bottom: 20px; margin-top: 0px; padding-left: 5px;">TEC1</h1>', 
+    '<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', 
     unsafe_allow_html=True
 )
 
