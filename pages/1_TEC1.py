@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import unquote
 
-# 1. Configuração da página - ESSENCIAL rodar antes de tudo para garantir os menus
+# 1. Configuração da página - Essencial para renderizar a interface antes dos dados
 st.set_page_config(layout='wide', initial_sidebar_state='expanded')
 
 # 2. Carregar CSS de forma segura
@@ -14,7 +14,7 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA ULTRA ISOLADO ===
+# === MÓDULO DE CARGA INTELIGENTE (RESOLVE O ERRO 0) ===
 def carregar_dados_sheets():
     try:
         url = st.secrets['public_gsheets_url']
@@ -30,26 +30,38 @@ def carregar_dados_sheets():
         else:
             csv_url = url
 
-        # Carrega os dados brutos no Pandas
-        df_sheets = pd.read_csv(csv_url, dtype=str)
+        # SOLUÇÃO DO ERRO 0: header=None impede o Pandas de quebrar se a linha 1 for inválida/mesclada
+        df_bruto = pd.read_csv(csv_url, header=None, dtype=str)
         
-        if df_sheets.empty:
+        if df_bruto.empty:
             return None
             
-        # Limpeza rápida de cabeçalhos
-        df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
+        # Procura em qual linha da planilha estão os cabeçalhos reais (Varre as primeiras 15 linhas)
+        linha_cabecalho_real = 0
+        for idx, linha in df_bruto.head(15).iterrows():
+            linha_texto = " ".join(linha.dropna().astype(str)).upper()
+            if 'SUPERVISOR' in linha_texto or 'STATUS' in linha_texto or 'JANELA' in linha_texto:
+                linha_cabecalho_real = idx
+                break
+                
+        # Reconstrói o DataFrame usando a linha correta encontrada como cabeçalho
+        colunas = df_bruto.iloc[linha_cabecalho_real].astype(str).str.strip().str.replace('\xa0', ' ').tolist()
+        df_dados = df_bruto.iloc[linha_cabecalho_real + 1:].copy()
+        df_dados.columns = colunas
         
+        # Mapeamento de colunas flexível (Maiúsculas/Minúsculas)
         colunas_mapeadas = {}
-        for col in df_sheets.columns:
-            col_upper = col.upper()
+        for col in df_dados.columns:
+            col_upper = str(col).upper()
             if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
             elif 'JANELA' in col_upper: colunas_mapeadas[col] = 'JANELA_SERVICO'
             elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
             elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'CONTRATO'
             elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'RECURSO'
             
-        df = df_sheets.rename(columns=colunas_mapeadas)
+        df = df_dados.rename(columns=colunas_mapeadas)
         
+        # Garante a existência das colunas operacionais básicas
         for col_obrigatoria in ['SUPERVISOR', 'JANELA_SERVICO', 'STATUS_ATIVIDADE']:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = 'N/A'
@@ -59,22 +71,20 @@ def carregar_dados_sheets():
         df['STATUS_ATIVIDADE'] = df['STATUS_ATIVIDADE'].apply(lambda x: str(x).strip().upper())
         return df
     except Exception as e:
-        # Importante: Apenas joga o aviso na tela em vez de travar o app inteiro
         st.error('Aviso na leitura da Planilha: ' + str(e))
-        st.info('💡 Dica: Verifique se o link no Secrets aponta para a aba correta com os dados.')
         return None
 
-# Executa a carga
+# Executa a carga dos dados
 df = carregar_dados_sheets()
 
-# === CRIAÇÃO DOS MENUS (RODA MESMO SE O DF FALHAR) ===
+# === CRIAÇÃO DOS MENUS (SEMPRE VISÍVEIS) ===
 st.sidebar.markdown('### Filtros Operacionais')
 
-if df is not None:
+if df is not None and not df.empty:
     col_janela = 'JANELA_SERVICO'
     janela_selecionada = unquote(st.query_params.get('janela', ''))
 
-    if col_janela in df.columns and not df.empty:
+    if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
         if not opcoes_janela or opcoes_janela == ['N/A']:
             opcoes_janela = ['Padrão / Sem Janela']
@@ -157,6 +167,5 @@ if df is not None:
                     with m2: st.metric(label='🟣 EM ROTA', value=r)
                     with m3: st.metric(label='🟢 INICIADO', value=i)
 else:
-    # Barra lateral vazia controlada
     st.sidebar.info("Aguardando conexão válida com os dados.")
-    st.warning("⚠️ O Painel está ativo, mas a tabela lida do Google Sheets está vazia ou sem cabeçalhos válidos.")
+    st.warning("⚠️ O Painel está ativo, mas a aba lida do Google Sheets parece não conter cabeçalhos estruturados como 'SUPERVISOR' ou 'STATUS'.")
