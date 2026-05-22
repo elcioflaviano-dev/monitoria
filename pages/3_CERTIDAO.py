@@ -131,7 +131,7 @@ with st.container(border=True):
     with col1:
         contrato_input = st.text_input("Número do Contrato:", placeholder="Digite o contrato...").strip()
 
-    status_sugerido = "NOK"
+    status_sugerido = "OK"  # Padrão sugere OK porque o operador está dando baixa no NOK automático
     supervisor_detectado = "N/A"
     tecnico_detectado = "N/A"
     detalhes_validacao = ""
@@ -145,23 +145,16 @@ with st.container(border=True):
             supervisor_detectado = str(linha_contrato.get('SUPERVISOR', 'N/A')).upper()
             tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper()
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
-            
-            if "EXEC" in status_os1 and "NÃO" not in status_os1:
-                status_sugerido = "OK"  
-                detalhes_validacao = f"🎯 Aderente (O.S 1 Executada) | Técnico: {tecnico_detectado}"
-            else:
-                status_sugerido = "NÃO ADERENTE"
-                detalhes_validacao = f"⚠️ Status da O.S 1 é '{status_os1}' (Não Aderente)."
+            detalhes_validacao = f"📋 Encontrado | Técnico: {tecnico_detectado} | Posição O.S 1: {status_os1}"
         else:
-            detalhes_validacao = "❌ Contrato não localizado na base online."
+            detalhes_validacao = "❌ Contrato não localizado na base online de hoje."
 
     if contrato_input:
         st.caption(detalhes_validacao)
 
     with col2:
         opcoes_status = ["OK", "NOK", "NÃO ADERENTE"]
-        idx_default = opcoes_status.index(status_sugerido) if status_sugerido in opcoes_status else 0
-        status_final = st.selectbox("Resultado da Verificação:", opcoes_status, index=idx_default)
+        status_final = st.selectbox("Resultado da Verificação:", opcoes_status)
 
     if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True):
         if contrato_input != "":
@@ -183,34 +176,34 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL AUTOMÁTICO (CORREÇÃO DO KEYERROR)
+# BLOCO 2: PAINEL DE PENDENTES (TUDO DA PLANILHA NASCE NOK AQUI)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None:
-    # 1. Cria as strings limpas para filtragem
+    # 1. Padroniza strings para busca segura
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
-    df_base_online['Status_OS1_Limpo'] = df_base_online['Status da O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
-    # 2. Executa a filtragem usando a variável correta ('Intervalo_Limpo')
+    # 2. FILTRAGEM DIRETA: Coleta TODOS da planilha que estão na janela e em andamento (Iniciado/Concluído)
     cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
     cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
-    cond_os1 = df_base_online['Status_OS1_Limpo'].str.contains("EXEC") & ~df_base_online['Status_OS1_Limpo'].str.contains("NÃO")
     
-    df_base_filtrada = df_base_online[cond_janela & cond_ativ & cond_os1]
+    df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
-    # 3. Remove quem já foi solucionado localmente (OK ou NÃO ADERENTE)
+    # 3. FILTRO INVERSO: Remove da tela apenas quem você já mudou para "OK" ou "NÃO ADERENTE"
     if not df_banco_atual.empty:
-        contratos_resolvidos = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
-        df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_resolvidos)]
+        # Descobre quais contratos já foram salvos localmente como validados
+        contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
+        # Exibe na tela apenas quem NÃO foi validado ainda (ou seja, continuam na lista padrão de NOK)
+        df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_validados)]
     else:
         df_exibir_pendentes = df_base_filtrada
 
-    # 4. Renderiza os cards por supervisor
+    # 4. EXIBIÇÃO DOS CARDS POR SUPERVISOR
     if not df_exibir_pendentes.empty:
         supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
         cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
@@ -219,7 +212,7 @@ if df_base_online is not None:
             with cols_supervisores[idx_sup % len(cols_supervisores)]:
                 with st.container(border=True):
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
-                    st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Falta Validar: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
+                    st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
                     for _, row_p in df_cards_sup.iterrows():
                         c_num = str(row_p['Contrato_Limpo'])
@@ -234,7 +227,7 @@ if df_base_online is not None:
     else:
         st.info(f"✨ Todas as certidões deste intervalo foram validadas! Nenhuma pendência encontrada para: **{janela_sel}**.")
 else:
-    st.info("ℹ️ Aguardando conexão estável com os dados operacionais online.")
+    st.info("ℹ️ Aguardando conexão com os dados online.")
 
 st.markdown("---")
 
