@@ -117,3 +117,12 @@ if 'dados_rota' in st.session_state:
 
 else:
     st.warning("⚠️ Dados não encontrados. Acesse a página inicial para carregar a planilha.")
+    
+    # MODO TV: Pula para a página 2 após 30 segundos
+st.components.v1.html("""
+    <script>
+    setTimeout(function(){
+        window.parent.document.querySelectorAll('section[data-testid="stSidebarNav"] li')[1].querySelector('a').click();
+    }, 30000);
+    </script>
+""", height=0)
