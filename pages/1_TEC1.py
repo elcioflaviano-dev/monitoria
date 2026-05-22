@@ -4,7 +4,7 @@ import pandas as pd
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Estilização limpa para criar as molduras unificadas para ABC e SP sem empurrar os dados para baixo
+# Estilização focada no super destaque visual para os PENDENTES
 st.markdown("""
     <style>
     /* Remove espaçamentos inúteis do topo do Streamlit */
@@ -26,7 +26,7 @@ st.markdown("""
         border-bottom: 2px solid #eae5da;
     }
 
-    /* Customização das métricas nativas do Streamlit para ficarem idênticas ao modelo */
+    /* Estilo base geral para os blocos de métricas */
     div[data-testid="stMetric"] {
         background-color: #f7f5f0;
         border: 1px solid #eae5da;
@@ -35,13 +35,26 @@ st.markdown("""
         text-align: center;
     }
     
-    /* Força a primeira métrica (Pendentes) a ficar vermelha/rosada */
+    /* === SUPER DESTAQUE: CAIXA DOS PENDENTES (1ª métrica de cada card) === */
     div[data-testid="stMetric"]:nth-of-type(3n+1) {
-        background-color: #ffe6e6 !important;
-        border: 1px solid #ffcccc !important;
+        background-color: #ffcccc !important; /* Fundo vermelho mais vivo e intenso */
+        border: 2px solid #ff9999 !important; /* Borda reforçada */
     }
     
-    /* Ajustes finos de texto das métricas */
+    /* Altera o número do PENDENTE para ficar maior e com cor forte de alerta */
+    div[data-testid="stMetric"]:nth-of-type(3n+1) div[data-testid="stMetricValue"] div {
+        font-size: 34px !important; /* Aumentado de 24px para 34px */
+        color: #b30000 !important; /* Vermelho escuro industrial/alerta */
+        font-weight: 900 !important;
+    }
+    
+    /* Altera o rótulo "🔴 PENDENTES" para acompanhar o peso visual */
+    div[data-testid="stMetric"]:nth-of-type(3n+1) div[data-testid="stMetricLabel"] p {
+        color: #800000 !important;
+        font-weight: 800 !important;
+    }
+    
+    /* === ESTILO PADRÃO: EM ROTA E INICIADO (Demais métricas) === */
     div[data-testid="stMetricLabel"] p {
         font-size: 10px !important;
         font-weight: bold !important;
@@ -52,6 +65,7 @@ st.markdown("""
     div[data-testid="stMetricValue"] div {
         font-size: 24px !important;
         font-weight: 900 !important;
+        color: #333333;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -89,7 +103,7 @@ if 'dados_rota' in st.session_state:
     else:
         df_abc, df_sp = pd.DataFrame(), pd.DataFrame()
 
-    # --- CORPO VISUAL (DIVISÃO EM COLUNAS PERFEITAS) ---
+    # --- CORPO VISUAL (COLUNAS LADO A LADO) ---
     col_coluna_abc, col_coluna_sp = st.columns(2)
     
     # --- COLUNA ESQUERDA: ABC ---
@@ -106,12 +120,9 @@ if 'dados_rota' in st.session_state:
                 iniciados = len(df_super[df_super['Status da Atividade'].str.upper() == 'INICIADO'])
                 total = len(df_super)
                 
-                # Card nativo com borda externa e títulos alinhados
                 with st.container(border=True):
-                    # Cabeçalho interno do card
                     st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {total}</span>", unsafe_allow_html=True)
                     
-                    # Colunas das métricas internas
                     m1, m2, m3 = st.columns(3)
                     m1.metric(label="🔴 PENDENTES", value=pendentes)
                     m2.metric(label="🟣 EM ROTA", value=em_rota)
