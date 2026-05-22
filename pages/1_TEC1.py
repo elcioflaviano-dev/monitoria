@@ -8,7 +8,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 # 2. Carregar CSS
 try:
     with open("style.css", "r") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+        st.markdown("<style>" + f.read() + "</style>", unsafe_allow_html=True)
 except:
     pass
 
@@ -86,9 +86,11 @@ if df is not None:
                 i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
                 t = len(df_super)
                 with st.container(border=True):
-                    st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {t}</span>", unsafe_allow_html=True)
+                    st.markdown("#### **" + str(supervisor).upper() + "** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: " + str(t) + "</span>", unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
-                    with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>', unsafe_allow_html=True)
+                    with m1: 
+                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
+                        st.markdown(html_box, unsafe_allow_html=True)
                     with m2: st.metric(label="🟣 EM ROTA", value=r)
                     with m3: st.metric(label="🟢 INICIADO", value=i)
 
@@ -102,10 +104,12 @@ if df is not None:
                 i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
                 t = len(df_super)
                 with st.container(border=True):
-                    st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {t}</span>", unsafe_allow_html=True)
+                    st.markdown("#### **" + str(supervisor).upper() + "** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: " + str(t) + "</span>", unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
-                    with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>', unsafe_allow_html=True)
+                    with m1: 
+                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
+                        st.markdown(html_box, unsafe_allow_html=True)
                     with m2: st.metric(label="🟣 EM ROTA", value=r)
                     with m3: st.metric(label="🟢 INICIADO", value=i)
 else:
-    st.error("⚠️ Erro ao car
+    st.error("⚠️ Erro ao carregar dados.")
