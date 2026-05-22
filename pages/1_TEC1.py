@@ -18,16 +18,26 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# === FUNÇÃO DE CARGA OPERACIONAL AUTOMÁTICA ===
+# === FUNÇÃO DE CARGA OPERACIONAL AUTOMÁTICA BLINDADA ===
 def carregar_dados_automatico():
     if 'dados_rota' in st.session_state:
         return st.session_state['dados_rota']
     
-    # Nome do arquivo que deve estar salvo na mesma pasta do projeto
     caminho_planilha = "base_rotas.xlsx" 
     
     if os.path.exists(caminho_planilha):
         df_automatico = pd.read_excel(caminho_planilha)
+        
+        # --- BLINDAGEM CONTRA ERROS DE COLUNA ---
+        # 1. Remove espaços invisíveis antes ou depois dos nomes das colunas
+        df_automatico.columns = df_automatico.columns.str.strip()
+        # 2. Converte todas as colunas para MAIÚSCULAS (evita erro de 'Supervisor' vs 'SUPERVISOR')
+        df_automatico.columns = df_automatico.columns.str.upper()
+        
+        # Faz o mesmo tratamento para a coluna de Status interno da planilha para não quebrar
+        if 'STATUS DA ATIVIDADE' in df_automatico.columns:
+            df_automatico['STATUS DA ATIVIDADE'] = df_automatico['STATUS DA ATIVIDADE'].astype(str).str.strip().str.upper()
+            
         st.session_state['dados_rota'] = df_automatico
         return df_automatico
     return None
@@ -39,17 +49,24 @@ if df_planilha is not None:
     df = df_planilha.copy()
     
     # --- FILTRO DA JANELA GLOBAL (BARRA LATERAL) ---
-    col_janela = 'Janela de Serviço'
+    col_janela = 'JANELA DE SERVIÇO'  # Atualizado para maiúsculo devido à blindagem
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
         janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
         df_tela = df[df[col_janela] == janela_sel]
     else:
-        df_tela = df.copy()
-        janela_sel = "N/A"
+        # Tenta procurar sem o 'Ç' e 'Ó' caso a planilha mude o texto
+        col_janela_alt = 'JANELA DE SERVICO'
+        if col_janela_alt in df.columns:
+            opcoes_janela = sorted(df[col_janela_alt].dropna().astype(str).unique())
+            janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
+            df_tela = df[df[col_janela_alt] == janela_sel]
+        else:
+            df_tela = df.copy()
+            janela_sel = "N/A"
 
     # --- SEPARAÇÃO LÓGICA DOS SUPERVISORES ---
-    col_supervisor = 'SUPERVISOR'
+    col_supervisor = 'SUPERVISOR'  # Agora garantido em maiúsculo
     df_abc_lista, df_sp_lista = [], []
     
     if col_supervisor in df_tela.columns:
@@ -77,9 +94,10 @@ if df_planilha is not None:
             for supervisor in sorted(supervisores_abc):
                 df_super = df_abc[df_abc[col_supervisor] == supervisor]
                 
-                pendentes = len(df_super[df_super['Status da Atividade'].str.upper() == 'PENDENTE'])
-                em_rota = len(df_super[df_super['Status da Atividade'].str.upper() == 'EM ROTA'])
-                iniciados = len(df_super[df_super['Status da Atividade'].str.upper() == 'INICIADO'])
+                # Buscas tratadas em maiúsculo
+                pendentes = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'PENDENTE'])
+                em_rota = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'EM ROTA'])
+                iniciados = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'INICIADO'])
                 total = len(df_super)
                 
                 with st.container(border=True):
@@ -109,9 +127,9 @@ if df_planilha is not None:
             for supervisor in sorted(supervisores_sp):
                 df_super = df_sp[df_sp[col_supervisor] == supervisor]
                 
-                pendentes = len(df_super[df_super['Status da Atividade'].str.upper() == 'PENDENTE'])
-                em_rota = len(df_super[df_super['Status da Atividade'].str.upper() == 'EM ROTA'])
-                iniciados = len(df_super[df_super['Status da Atividade'].str.upper() == 'INICIADO'])
+                pendentes = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'PENDENTE'])
+                em_rota = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'EM ROTA'])
+                iniciados = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'INICIADO'])
                 total = len(df_super)
                 
                 with st.container(border=True):
