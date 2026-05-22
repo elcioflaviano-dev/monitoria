@@ -74,12 +74,24 @@ def buscar_base_rotas_online():
         for col in df_sheets.columns:
             col_upper = col.upper()
             if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
-            elif 'JANELA' in col_upper: colunas_mapeadas[col] = 'Janela de Serviço'
+            elif 'JANELA' in col_upper or 'PERIODO' in col_upper or 'HORARIO' in col_upper: colunas_mapeadas[col] = 'Janela de Serviço'
             elif 'STATUS DA ATIVIDADE' in col_upper or ('STATUS' in col_upper and 'ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Status da Atividade'
             elif 'STATUS DA O.S 1' in col_upper or 'O.S 1' in col_upper or 'OS 1' in col_upper: colunas_mapeadas[col] = 'Status da O.S 1'
             elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
             
-        return df_sheets.rename(columns=colunas_mapeadas)
+        df_final = df_sheets.rename(columns=colunas_mapeadas)
+        
+        # BLINDAGEM MÁXIMA: Força a existência das colunas para evitar AttributeError
+        if 'Janela de Serviço' not in df_final.columns:
+            df_final['Janela de Serviço'] = 'Padrão / Sem Janela'
+        if 'Status da Atividade' not in df_final.columns:
+            df_final['Status da Atividade'] = 'PENDENTE'
+        if 'Status da O.S 1' not in df_final.columns:
+            df_final['Status da O.S 1'] = 'NÃO EXECUTADO'
+        if 'SUPERVISOR' not in df_final.columns:
+            df_final['SUPERVISOR'] = 'N/A'
+            
+        return df_final
     except:
         return None
 
@@ -89,16 +101,15 @@ if "historico_certidoes" not in st.session_state:
 
 df_base_online = buscar_base_rotas_online()
 
-# --- CORREÇÃO DO ERRO DE ATRIBUTO: Filtro só roda se o df_base_online for válido ---
-if df_base_online is not None and 'Janela de Serviço' in df_base_online.columns:
+# --- TRATAMENTO DOS FILTROS OPERACIONAIS ---
+if df_base_online is not None:
     opcoes_janela = sorted(df_base_online['Janela de Serviço'].dropna().astype(str).unique())
     if not opcoes_janela:
         opcoes_janela = ["Padrão / Sem Janela"]
     janela_sel = st.sidebar.selectbox("Janela de Atendimento Ativa:", opcoes_janela)
 else:
     janela_sel = "Padrão / Sem Janela"
-    if df_base_online is None:
-        st.warning("⚠️ Conectando ao servidor do Google Sheets... Aguarde um instante ou verifique o link do Secrets.")
+    st.warning("⚠️ Sincronizando com o Google Sheets... Caso demore, valide se o link no Secrets está correto.")
 
 # === FORMULÁRIO DE ENTRADA COM ANÁLISE AUTOMÁTICA DE CRITÉRIOS ===
 st.markdown("### 🔍 Verificar e Registrar Contrato")
@@ -170,60 +181,11 @@ if st.button("💾 Gravar e Certificar Contrato", type="primary"):
 
 st.markdown("---")
 
-# === SEÇÃO NOVIDADE: CERTIDÃO PENDENTES AGRUPADOS POR SUPERVISOR ===
+# === SEÇÃO: CERTIDÃO PENDENTES AGRUPADOS POR SUPERVISOR ===
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None and not df_banco_atual.empty:
     # 1. Filtra do Banco Local apenas quem está NOK
-    df_nok_local = df_banco_atual[df_banco_atual["Status"] == "NOK"]
-    
-    if not df_nok_local.empty and 'Status da Atividade' in df_base_online.columns:
-        # Cruza os dados locais NOK com a base do Sheets para validar o Status da Atividade em tempo real
-        df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
-        
-        # Filtra a base online pela Janela Selecionada e Status da Atividade (Iniciado ou Concluido)
-        df_base_filtrada = df_base_online[
-            (df_base_online['Janela de Serviço'] == janela_sel) & 
-            (df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO']))
-        ]
-        
-        # Filtra para exibir apenas os contratos que estão marcados como NOK no nosso banco local
-        lista_contratos_nok = df_nok_local["Contrato"].tolist()
-        df_exibir_pendentes = df_base_filtrada[df_base_filtrada['Contrato_Limpo'].isin(lista_contratos_nok)]
-        
-        if not df_exibir_pendentes.empty:
-            # Separa e exibe em cartões dinâmicos divididos por supervisor
-            supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
-            
-            # Cria colunas responsivas para os supervisores aparecerem organizados
-            cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
-            
-            for idx_sup, super_nome in enumerate(supervisores_na_tela):
-                with cols_supervisores[idx_sup % len(cols_supervisores)]:
-                    with st.container(border=True):
-                        df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
-                        total_sup_nok = len(df_cards_sup)
-                        
-                        st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {total_sup_nok}</span>", unsafe_allow_html=True)
-                        
-                        for _, row_p in df_cards_sup.iterrows():
-                            c_num = str(row_p['Contrato_Limpo'])
-                            status_ativ = str(row_p['Status da Atividade']).upper()
-                            
-                            # Cor do marcador de acordo com o status operacional da atividade
-                            badge_color = "#4caf50" if "CONCLU" in status_ativ else "#ff9800"
-                            
-                            st.markdown(f"""
-                                <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:6px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
-                                    <span style="font-weight:bold; color:#333; font-size:13px;">📄 {c_num}</span>
-                                    <span style="background-color:{badge_color}; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">{status_ativ}</span>
-                                </div>
-                            """, unsafe_allow_html=True)
-        else:
-            st.info(f"✨ Nenhuma certidão pendente (NOK) com atividade Iniciada ou Concluída para a janela: **{janela_sel}**.")
-    else:
-        st.info("ℹ️ Não existem contratos salvos com o status 'NOK' nesta janela até ao momento.")
-else:
-    st.info("ℹ️ Aguardando registros no sistema ou sincronização com a base de rotas online.")
+    df_nok_local = df_banco_
