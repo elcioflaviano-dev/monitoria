@@ -15,18 +15,26 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 20px;">📜 SISTEMA DE CERTIDÃO</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 20px;">📜 SISTEMA DE CERTIDÃO</h1>', unsafe_allow_html=True)
 
 # === BANCO DE DADOS LOCAL (ARQUIVO PERMANENTE DE REGISTROS) ===
 ARQUIVO_BANCO = "banco_certidoes.csv"
 
 def carregar_banco_historico():
+    colunas_padrao = ["Data/Hora", "Contrato", "Status", "Supervisor", "Recurso", "Intervalo de Tempo"]
     if os.path.exists(ARQUIVO_BANCO):
         try:
-            return pd.read_csv(ARQUIVO_BANCO, dtype=str)
+            df_hist = pd.read_csv(ARQUIVO_BANCO, dtype=str)
+            # Remove colunas fantasmas antigas que não usamos mais
+            df_hist = df_hist[[c for c in df_hist.columns if c in colunas_padrao]]
+            # Garante que as colunas essenciais existem
+            for col in colunas_padrao:
+                if col not in df_hist.columns:
+                    df_hist[col] = "N/A"
+            return df_hist
         except:
-            return pd.DataFrame(columns=["Data/Hora", "Contrato", "Status", "Supervisor", "Observação", "Intervalo de Tempo"])
-    return pd.DataFrame(columns=["Data/Hora", "Contrato", "Status", "Supervisor", "Observação", "Intervalo de Tempo"])
+            return pd.DataFrame(columns=colunas_padrao)
+    return pd.DataFrame(columns=colunas_padrao)
 
 # === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
 def buscar_base_rotas_online():
@@ -34,10 +42,10 @@ def buscar_base_rotas_online():
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
         if 'spreadsheets/d/' in url:
             id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0].strip()
-            csv_url = "https://docs.google.com/spreadsheets/d/" + id_planilha + "/export?format=csv"
+            csv_url = f"https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv"
             if 'gid=' in url:
                 gid = url.split('gid=')[1].split('#')[0].split('&')[0].strip()
-                csv_url += "&gid=" + gid
+                csv_url += f"&gid={gid}"
         else:
             csv_url = url
 
@@ -67,12 +75,9 @@ def buscar_base_rotas_online():
         if df_sheets is None or df_sheets.empty:
             return None
 
-        # Corrige nomes das colunas removendo espaços invisíveis
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
-        
         df_final = df_sheets.copy()
         
-        # Mapeamento dinâmico avançado que evita gerar nomes duplicados
         colunas_mapeadas = {}
         for col in df_sheets.columns:
             col_upper = col.upper()
@@ -86,17 +91,17 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Status da O.S 1'
             elif 'CONTRATO' in col_upper and 'Contrato' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Contrato'
+            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values():
+                colunas_mapeadas[col] = 'Recurso'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
-
-        # 🚨 MATADOR DE DUPLICADAS: Remove qualquer coluna gêmea residual na marra
         df_final = df_final.loc[:, ~df_final.columns.duplicated()]
 
-        # Fallbacks de segurança
         if 'Intervalo de Tempo' not in df_final.columns: df_final['Intervalo de Tempo'] = 'Padrão / Sem Janela'
         if 'Status da Atividade' not in df_final.columns: df_final['Status da Atividade'] = 'PENDENTE'
         if 'Status da O.S 1' not in df_final.columns: df_final['Status da O.S 1'] = 'NÃO EXECUTADO'
         if 'SUPERVISOR' not in df_final.columns: df_final['SUPERVISOR'] = 'N/A'
+        if 'Recurso' not in df_final.columns: df_final['Recurso'] = 'Técnico Não Identificado'
         if 'Contrato' not in df_final.columns: df_final = df_final.rename(columns={df_final.columns[0]: 'Contrato'})
             
         return df_final
@@ -119,17 +124,18 @@ if df_base_online is not None:
         pass
 
 # ==========================================
-# BLOCO 1: FORMULÁRIO DE ENTRADA (AÇÕES)
+# BLOCO 1: FORMULÁRIO DE ENTRADA (ENXUTO)
 # ==========================================
 with st.container(border=True):
     st.markdown("#### 📥 Verificar e Registrar Contrato")
-    col1, col2, col3 = st.columns([2, 2, 3])
+    col1, col2 = st.columns([3, 2])
 
     with col1:
         contrato_input = st.text_input("Número do Contrato:", placeholder="Digite o contrato...").strip()
 
     status_sugerido = "NOK"
     supervisor_detectado = "N/A"
+    tecnico_detectado = "N/A"
     detalhes_validacao = ""
 
     if contrato_input and df_base_online is not None and 'Contrato' in df_base_online.columns:
@@ -139,11 +145,12 @@ with st.container(border=True):
         if not contrato_encontrado.empty:
             linha_contrato = contrato_encontrado.iloc[0]
             supervisor_detectado = str(linha_contrato.get('SUPERVISOR', 'N/A')).upper()
+            tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper()
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
             
             if "EXECUTADO" in status_os1 and "NÃO" not in status_os1:
                 status_sugerido = "NOK"
-                detalhes_validacao = f"🎯 Aderente (O.S 1 Executada). Padrão definido: NOK."
+                detalhes_validacao = f"🎯 Aderente (O.S 1 Executada) | Técnico: {tecnico_detectado}"
             else:
                 status_sugerido = "NÃO ADERENTE"
                 detalhes_validacao = f"⚠️ Status da O.S 1 é '{status_os1}' (Não Aderente)."
@@ -158,38 +165,42 @@ with st.container(border=True):
         idx_default = opcoes_status.index(status_sugerido) if status_sugerido in opcoes_status else 0
         status_final = st.selectbox("Resultado da Verificação:", opcoes_status, index=idx_default)
 
-    with col3:
-        obs_input = st.text_input("Observações / Motivo:", placeholder="Insira notas adicionais...")
-
-    if st.button("💾 Gravar e Certificar Contrato", type="primary"):
+    if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True):
         if contrato_input != "":
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             nova_linha = pd.DataFrame([{
                 "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
-                "Supervisor": supervisor_detectado, "Observação": obs_input if obs_input else "OK",
+                "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
                 "Intervalo de Tempo": janela_sel
             }])
-            st.session_state["historico_certidoes"] = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True)
+            
+            # Une o novo registro com o histórico antigo
+            df_total = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True)
+            
+            # 🚨 REGRA DEFINITIVA: Deleta duplicados mantendo apenas o primeiro encontrado (o mais recente)
+            df_total = df_total.drop_duplicates(subset=["Contrato"], keep="first")
+            
+            st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
-            st.success(f"✅ Contrato {contrato_input} saved!")
+            st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
             st.rerun()
 
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL OPERACIONAL (VISUAL TV)
+# BLOCO 2: PAINEL OPERACIONAL (VISUAL ENXUTO POR SUPERVISOR)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None and not df_banco_atual.empty:
+    # Filtra do histórico acumulado apenas quem a ÚLTIMA ATUALIZAÇÃO é NOK
     df_nok_local = df_banco_atual[df_banco_atual["Status"].fillna('').astype(str).str.upper() == "NOK"]
     
     if not df_nok_local.empty and 'Status da Atividade' in df_base_online.columns:
         df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
         
-        # O filtro lógico agora rodará 100% livre de duplicidades nas colunas
         condicao_janela = df_base_online['Intervalo de Tempo'].fillna('').astype(str) == janela_sel
         condicao_status = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
         
@@ -206,37 +217,37 @@ if df_base_online is not None and not df_banco_atual.empty:
                 with cols_supervisores[idx_sup % len(cols_supervisores)]:
                     with st.container(border=True):
                         df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
-                        st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Contratos: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
+                        st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Qtd: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                         
                         for _, row_p in df_cards_sup.iterrows():
                             c_num = str(row_p['Contrato_Limpo'])
-                            status_ativ = str(row_p['Status da Atividade']).upper()
-                            badge_color = "#4caf50" if "CONCLU" in status_ativ else "#ff9800"
+                            nome_tec = str(row_p['Recurso'])[:18].upper() # Enxuga o nome do técnico
                             
                             st.markdown(f"""
-                                <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:6px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
-                                    <span style="font-weight:bold; color:#333; font-size:13px;">📄 {c_num}</span>
-                                    <span style="background-color:{badge_color}; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">{status_ativ}</span>
+                                <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
+                                    <span style="font-weight:900; color:#b30000; font-size:13px;">📄 {c_num}</span>
+                                    <span style="color:#555; font-size:11px; font-weight:700; text-transform:uppercase;">👤 {nome_tec}</span>
                                 </div>
                             """, unsafe_allow_html=True)
         else:
             st.info(f"✨ Nenhuma certidão pendente (NOK) Iniciada/Concluída no intervalo: **{janela_sel}**.")
     else:
-        st.info("ℹ️ Nenhum contrato NOK registrado no sistema.")
+        st.info("ℹ️ Nenhum contrato com última atualização em 'NOK' registrado.")
 else:
     st.info("ℹ️ Aguardando dados operacionais.")
 
 st.markdown("---")
 
 # ==========================================
-# BLOCO 3: HISTÓRICO COMPLETO ACUMULADO (Aba/Expander Ocultável)
+# BLOCO 3: HISTÓRICO LIMPO E UNIFICADO
 # ==========================================
-with st.expander("📊 Clique aqui para abrir o Histórico Completo de Auditoria"):
+with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos)"):
     if not df_banco_atual.empty:
-        busca_historico = st.text_input("🔍 Buscar no histórico (por Contrato):", key="search_hist")
-        df_hist_tela = df_banco_atual[df_banco_atual["Contrato"].str.contains(busca_historico, case=False, na=False)] if busca_historico else df_banco_atual
+        # Exibe apenas as informações essenciais solicitadas
+        df_historico_clean = df_banco_atual[["Contrato", "Recurso", "Supervisor", "Status", "Data/Hora"]]
+        df_historico_clean.columns = ["Contrato", "Técnico", "Supervisor", "Status da Certidão", "Data/Hora Registro"]
         
-        st.dataframe(df_hist_tela, use_container_width=True, hide_index=True)
+        st.dataframe(df_historico_clean, use_container_width=True, hide_index=True)
         
         csv_download = df_banco_atual.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Baixar Planilha de Auditoria (CSV)", data=csv_download, file_name="auditoria_certidoes.csv", mime="text/csv")
