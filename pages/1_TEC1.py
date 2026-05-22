@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-# Configura a página para ocupar toda a largura da tela
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+# CONFIGURAÇÃO AJUSTADA: Mantém o menu expandido ou acessível de forma correta
+st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 try:
     with open("style.css", "r") as f:
@@ -12,19 +12,12 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === FUNÇÃO DE LEITURA DIRETO DO GOOGLE SHEETS ===
 def carregar_dados_sheets():
-    # Puxa a URL configurada no secrets.toml
     url = st.secrets["public_gsheets_url"]
-    
-    # Transforma o link normal do Sheets em um link de download direto de CSV
     csv_url = url.replace("/edit?usp=sharing", "/gviz/tq?tqx=out:csv").replace("/edit#gid=", "/gviz/tq?tqx=out:csv&gid=")
     
     try:
-        # Lê os dados em tempo real da nuvem
         df_sheets = pd.read_csv(csv_url)
-        
-        # --- BLINDAGEM OPERACIONAL DE COLUNAS ---
         df_sheets.columns = df_sheets.columns.str.strip()
         colunas_mapeadas = {}
         for col in df_sheets.columns:
@@ -39,29 +32,26 @@ def carregar_dados_sheets():
         if "STATUS_ATIVIDADE" in df_final.columns:
             df_final["STATUS_ATIVIDADE"] = df_final["STATUS_ATIVIDADE"].astype(str).str.strip().str.upper()
             
-        # Salva na sessão para a outra página também usar se quiser
         st.session_state['dados_rota'] = df_final
         return df_final
-    except Exception as e:
-        # Se falhar, tenta usar o que sobrou na memória anterior
+    except:
         if 'dados_rota' in st.session_state:
             return st.session_state['dados_rota']
         return None
 
-# Executa a carga em tempo real da nuvem
 df = carregar_dados_sheets()
 
 if df is not None:
-    # --- FILTRO DA JANELA GLOBAL ---
+    # --- FILTRO DA JANELA GLOBAL VISÍVEL NO MENU LATERAL ---
     col_janela = 'JANELA_SERVICO'
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
-        janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
+        # Cria o seletor na barra lateral
+        janela_sel = st.sidebar.selectbox("Selecione a Janela de Serviço:", opcoes_janela)
         df_tela = df[df[col_janela] == janela_sel]
     else:
         df_tela = df.copy()
 
-    # --- SEPARAÇÃO LÓGICA DOS SUPERVISORES ---
     col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
     
@@ -78,7 +68,6 @@ if df is not None:
     else:
         df_abc, df_sp = pd.DataFrame(), pd.DataFrame()
 
-    # --- CORPO VISUAL LADO A LADO ---
     col_coluna_abc, col_coluna_sp = st.columns(2)
     
     with col_coluna_abc:
@@ -121,8 +110,6 @@ if df is not None:
                     with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
                     with m3: st.metric(label="🟢 INICIADO", value=iniciados)
 
-    # === AUTOMATIZAÇÃO DA ALTERNÂNCIA (MODO TV) ===
-    # Força a limpeza do cache de rotação interna e pula de página em 30 segundos
     st.components.v1.html("""
         <script>
         setTimeout(function(){
@@ -131,4 +118,4 @@ if df is not None:
         </script>
     """, height=0)
 else:
-    st.error("⚠️ Não foi possível carregar os dados do Google Sheets. Verifique o link e as permissões de compartilhamento.")
+    st.error("⚠️ Erro ao carregar dados.")
