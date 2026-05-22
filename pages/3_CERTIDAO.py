@@ -146,7 +146,6 @@ with st.container(border=True):
             tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper()
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
             
-            # Checagem ampla para detecção de aderência
             if "EXEC" in status_os1 and "NÃO" not in status_os1:
                 status_sugerido = "OK"  
                 detalhes_validacao = f"🎯 Aderente (O.S 1 Executada) | Técnico: {tecnico_detectado}"
@@ -184,36 +183,34 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL AUTOMÁTICO (CORRIGIDO)
+# BLOCO 2: PAINEL AUTOMÁTICO (CORREÇÃO DO KEYERROR)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None:
-    # 1. Garante strings limpas e trata elementos vazios (NaN)
+    # 1. Cria as strings limpas para filtragem
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     df_base_online['Status_OS1_Limpo'] = df_base_online['Status da O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
-    # 2. FILTRAGEM AUTOMÁTICA ULTRA TOLERANTE DA PLANILHA ONLINE:
-    cond_janela = df_base_online['Interval_Limpo'] == janela_sel.strip()
+    # 2. Executa a filtragem usando a variável correta ('Intervalo_Limpo')
+    cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
     cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
-    
-    # Captura variações como "EXECUTADO", "EXECUTADA", "EXEC" e descarta o "NÃO EXECUTADO"
     cond_os1 = df_base_online['Status_OS1_Limpo'].str.contains("EXEC") & ~df_base_online['Status_OS1_Limpo'].str.contains("NÃO")
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ & cond_os1]
     
-    # 3. CRUZAMENTO: Filtra quem já foi salvo como "OK" ou "NÃO ADERENTE" para sumir da tela
+    # 3. Remove quem já foi solucionado localmente (OK ou NÃO ADERENTE)
     if not df_banco_atual.empty:
         contratos_resolvidos = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_resolvidos)]
     else:
         df_exibir_pendentes = df_base_filtrada
 
-    # 4. DESENHO DOS CARDS POR SUPERVISOR
+    # 4. Renderiza os cards por supervisor
     if not df_exibir_pendentes.empty:
         supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
         cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
