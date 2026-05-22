@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
-from urllib.parse import quote, unquote
+import requests
+import io
+from urllib.parse import unquote
 
 # 1. Configuração da página
 st.set_page_config(layout='wide', initial_sidebar_state='expanded')
 
-# 2. Carregar CSS de forma ultra simples e segura
+# 2. Carregar CSS de forma segura
 try:
     with open('style.css', 'r') as f:
         st.markdown('<style>' + str(f.read()) + '</style>', unsafe_allow_html=True)
@@ -14,24 +16,48 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA OPERACIONAL EXTRAÇÃO LIMPA ===
+# === MÓDULO DE CARGA OPERACIONAL AVANÇADO (ANTI-ERRO 0) ===
 def carregar_dados_sheets():
     try:
         url = st.secrets['public_gsheets_url']
         
+        # 1. Identifica o ID da planilha
         if 'spreadsheets/d/' in url:
             id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0]
             csv_url = 'https://docs.google.com/spreadsheets/d/' + id_planilha + '/export?format=csv'
+            
+            # 2. Captura o GID (se houver no link). Se não houver, tenta forçar o que usou antes
             if 'gid=' in url:
                 gid = url.split('gid=')[1].split('#')[0].split('&')[0]
                 csv_url += '&gid=' + gid
+            else:
+                # Aba padrão informada anteriormente como backup para evitar ler aba vazia
+                csv_url += '&gid=208394608'
         else:
             csv_url = url
 
-        df_sheets = pd.read_csv(csv_url, dtype=str)
-        if df_sheets.empty:
+        # 3. Faz a requisição HTTP isolada para testar o conteúdo antes do Pandas
+        resposta = requests.get(csv_url, timeout=15)
+        
+        if resposta.status_code != 200:
+            st.error(f'⚠️ Erro de conexão com o Google (Status {resposta.status_code}). Verifique o link.')
             return None
             
+        conteudo = resposta.text
+        
+        # Detecta se o Google retornou uma página de login/erro em vez de dados CSV
+        if '<html' in conteudo.lower() or '<!doctype' in conteudo.lower() or 'sign-in' in conteudo.lower():
+            st.error('🔒 **Erro de Permissão:** O link está bloqueado. Vá ao Google Sheets, clique em "Compartilhar", mude o Acesso Geral para **"Qualquer pessoa com o link"** como **Leitor** e salve.')
+            return None
+
+        # 4. Se passou nos testes, o Pandas lê a string de texto com segurança
+        df_sheets = pd.read_csv(io.StringIO(conteudo), dtype=str)
+        
+        if df_sheets.empty or len(df_sheets.columns) == 0:
+            st.warning('⚠️ A aba selecionada na planilha está totalmente vazia.')
+            return None
+            
+        # Limpeza e mapeamento das colunas
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
         colunas_mapeadas = {}
@@ -53,8 +79,9 @@ def carregar_dados_sheets():
                 
         df['STATUS_ATIVIDADE'] = df['STATUS_ATIVIDADE'].apply(lambda x: str(x).strip().upper())
         return df
+        
     except Exception as e:
-        st.error('Erro na comunicação com o Google Sheets: ' + str(e))
+        st.error('Erro crítico no processamento: ' + str(e))
         return None
 
 df = carregar_dados_sheets()
