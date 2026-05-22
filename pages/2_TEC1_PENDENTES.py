@@ -8,10 +8,11 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 # 2. Carregar CSS
 try:
     with open("style.css", "r") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+        st.markdown("<style>" + f.read() + "</style>", unsafe_allow_html=True)
 except:
     pass
 
+# CSS específico para Pendentes - Sem f-string para não dar conflito de chaves
 st.markdown("""
     <style>
     .item-pendente-tv { background-color: #ffe6e6 !important; border: 2px solid #ff9999 !important; border-radius: 6px; padding: 6px 12px !important; margin-bottom: 6px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; }
@@ -84,7 +85,7 @@ if df is not None:
     df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
 
     def desenhar_alertas(df_regiao, titulo_regiao):
-        st.markdown(f'<div class="title-abc-sp">{titulo_regiao}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="title-abc-sp">' + titulo_regiao + '</div>', unsafe_allow_html=True)
         todos_supervisores = sorted(df_tela[col_supervisor].dropna().unique()) if col_supervisor in df_tela.columns else []
         if titulo_regiao == "SP": meus_supers = [s for s in todos_supervisores if "FRANCISCO" in s.upper() or "ALAN" in s.upper()]
         else: meus_supers = [s for s in todos_supervisores if "FRANCISCO" not in s.upper() and "ALAN" not in s.upper()]
@@ -92,12 +93,15 @@ if df is not None:
         for super_nome in meus_supers:
             df_super_p = df_regiao[df_regiao[col_supervisor] == super_nome] if not df_regiao.empty else pd.DataFrame()
             with st.container(border=True):
-                st.markdown(f"##### **{super_nome.upper()}**")
+                st.markdown("##### **" + super_nome.upper() + "**")
                 if not df_super_p.empty:
                     for _, r in df_super_p.iterrows():
                         contrato_limpo = str(r['CONTRATO']).split('.')[0] if 'CONTRATO' in r else "N/A"
                         nome_tecnico = str(r['RECURSO'])[:25] if 'RECURSO' in r else "N/A"
-                        st.markdown(f'<div class="item-pendente-tv"><span class="tecnico-nome-tv">{nome_tecnico}</span><span class="contrato-numero-tv">{contrato_limpo}</span></div>', unsafe_allow_html=True)
+                        
+                        # Concatenação limpa sem f-string para evitar o SyntaxError
+                        html_item = '<div class="item-pendente-tv"><span class="tecnico-nome-tv">' + nome_tecnico + '</span><span class="contrato-numero-tv">' + contrato_limpo + '</span></div>'
+                        st.markdown(html_item, unsafe_allow_html=True)
                 else:
                     st.markdown('<div class="no-pendente-tv">✅ Sem pendências nesta janela</div>', unsafe_allow_html=True)
 
