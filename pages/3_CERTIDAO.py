@@ -70,7 +70,6 @@ def buscar_base_rotas_online():
         # Limpa nomes originais das colunas
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
-        # Cria um clone para trabalhar de forma ultra segura
         df_final = df_sheets.copy()
         
         # MAPEAMENTO DIRECIONADO COMPATÍVEL COM O SEU BANCO DE DADOS
@@ -85,7 +84,7 @@ def buscar_base_rotas_online():
         
         df_final = df_final.rename(columns=colunas_mapeadas)
 
-        # 🚨 BLINDAGEM CONTRA ATTRIBUTE_ERROR (Força a criação física se não vier do Excel)
+        # FORÇA A CRIAÇÃO SE NÃO VIER DO EXCEL (Proteção estrita)
         if 'Intervalo de Tempo' not in df_final.columns:
             df_final['Intervalo de Tempo'] = 'Padrão / Sem Janela'
         if 'Status da Atividade' not in df_final.columns:
@@ -110,15 +109,23 @@ if "historico_certidoes" not in st.session_state:
 
 df_base_online = buscar_base_rotas_online()
 
-# --- TRATAMENTO SEGURO DOS FILTROS OPERACIONAIS ---
-if df_base_online is not None and 'Intervalo de Tempo' in df_base_online.columns:
-    opcoes_janela = sorted(df_base_online['Intervalo de Tempo'].dropna().astype(str).unique())
-    if not opcoes_janela:
-        opcoes_janela = ["Padrão / Sem Janela"]
-    janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_janela)
+# --- TRATAMENTO SEGURO CONTRA ATTRIBUTE_ERROR ---
+janela_sel = "Padrão / Sem Janela"
+
+# Mudança crucial: Só tenta ler .columns e .dropna() se df_base_online não for de tipo None
+if df_base_online is not None:
+    try:
+        if isinstance(df_base_online, pd.DataFrame) and 'Intervalo de Tempo' in df_base_online.columns:
+            opcoes_janela = sorted(df_base_online['Intervalo de Tempo'].dropna().astype(str).unique())
+            if not opcoes_janela:
+                opcoes_janela = ["Padrão / Sem Janela"]
+            janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_janela)
+        else:
+            st.sidebar.info("Aba carregada, mas sem coluna de Intervalo.")
+    except Exception as err_sidebar:
+        pass
 else:
-    janela_sel = "Padrão / Sem Janela"
-    st.warning("⚠️ Aguardando resposta estável da planilha... A página continuará funcional.")
+    st.warning("⚠️ Aguardando sincronização com as planilhas do Google... O app operará em modo offline temporário.")
 
 # === FORMULÁRIO DE ENTRADA COM ANÁLISE AUTOMÁTICA DE CRITÉRIOS ===
 st.markdown("### 🔍 Verificar e Registrar Contrato")
