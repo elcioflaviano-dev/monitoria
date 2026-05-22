@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import unquote
 
-# 1. Configuração da página
+# 1. Configuração da página - ESSENCIAL rodar antes de tudo para garantir os menus
 st.set_page_config(layout='wide', initial_sidebar_state='expanded')
 
 # 2. Carregar CSS de forma segura
@@ -14,7 +14,7 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA ANTERIOR (VERSÃO ESTÁVEL) ===
+# === MÓDULO DE CARGA ULTRA ISOLADO ===
 def carregar_dados_sheets():
     try:
         url = st.secrets['public_gsheets_url']
@@ -30,7 +30,7 @@ def carregar_dados_sheets():
         else:
             csv_url = url
 
-        # Carrega os dados brutos como texto diretamente no Pandas
+        # Carrega os dados brutos no Pandas
         df_sheets = pd.read_csv(csv_url, dtype=str)
         
         if df_sheets.empty:
@@ -59,10 +59,16 @@ def carregar_dados_sheets():
         df['STATUS_ATIVIDADE'] = df['STATUS_ATIVIDADE'].apply(lambda x: str(x).strip().upper())
         return df
     except Exception as e:
-        st.error('Erro na extração de dados: ' + str(e))
+        # Importante: Apenas joga o aviso na tela em vez de travar o app inteiro
+        st.error('Aviso na leitura da Planilha: ' + str(e))
+        st.info('💡 Dica: Verifique se o link no Secrets aponta para a aba correta com os dados.')
         return None
 
+# Executa a carga
 df = carregar_dados_sheets()
+
+# === CRIAÇÃO DOS MENUS (RODA MESMO SE O DF FALHAR) ===
+st.sidebar.markdown('### Filtros Operacionais')
 
 if df is not None:
     col_janela = 'JANELA_SERVICO'
@@ -77,7 +83,6 @@ if df is not None:
         if janela_selecionada in opcoes_janela:
             default_index = opcoes_janela.index(janela_selecionada)
         
-        st.sidebar.markdown('### Filtros Operacionais')
         janela_sel = st.sidebar.selectbox(
             'Janela de Serviço Ativa:', 
             opcoes_janela, 
@@ -93,6 +98,7 @@ if df is not None:
     else:
         df_tela = df.copy()
 
+    # --- SEPARAÇÃO ABC / SP ---
     col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
     
@@ -109,6 +115,7 @@ if df is not None:
     else:
         df_abc, df_sp = pd.DataFrame(columns=df.columns), pd.DataFrame(columns=df.columns)
 
+    # --- CARDS VISUAIS ---
     c_abc, c_sp = st.columns(2)
     with c_abc:
         st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
@@ -149,3 +156,7 @@ if df is not None:
                         st.markdown(html_box, unsafe_allow_html=True)
                     with m2: st.metric(label='🟣 EM ROTA', value=r)
                     with m3: st.metric(label='🟢 INICIADO', value=i)
+else:
+    # Barra lateral vazia controlada
+    st.sidebar.info("Aguardando conexão válida com os dados.")
+    st.warning("⚠️ O Painel está ativo, mas a tabela lida do Google Sheets está vazia ou sem cabeçalhos válidos.")
