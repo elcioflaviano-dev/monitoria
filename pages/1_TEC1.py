@@ -4,13 +4,12 @@ import pandas as pd
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# MÁGICA: Abre e injeta o arquivo style.css externo no Streamlit
+# Abre e injeta o arquivo style.css externo
 with open("style.css", "r") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # === AQUI ENTRA O SEU NOVO TÍTULO PRINCIPAL ===
 st.markdown('<div class="main-dashboard-title">TEC1</div>', unsafe_allow_html=True)
-
 if 'dados_rota' in st.session_state:
     df = st.session_state['dados_rota'].copy()
     
