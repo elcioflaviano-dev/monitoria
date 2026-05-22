@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 
 # 1. Configuração da página e remoção de espaços
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -11,7 +12,7 @@ try:
 except:
     pass
 
-# 3. Estilo específico para as caixas individuais de técnicos pendentes
+# 3. Estilo específico para técnicos pendentes
 st.markdown("""
     <style>
     .item-pendente-tv {
@@ -52,17 +53,24 @@ st.markdown("""
 # 4. Título de Alerta
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 10px;">⚠️ TEC1 - PENDENTES</h1>', unsafe_allow_html=True)
 
-# === MODO TV: VOLTA PARA A PÁGINA 1 APÓS 30 SEGUNDOS ===
-st.components.v1.html("""
-    <script>
-    setTimeout(function(){
-        window.parent.location.hash = "#tec1";
-    }, 30000);
-    </script>
-""", height=0)
+# === FUNÇÃO DE CARGA OPERACIONAL AUTOMÁTICA ===
+def carregar_dados_automatico():
+    if 'dados_rota' in st.session_state:
+        return st.session_state['dados_rota']
+    
+    caminho_planilha = "base_rotas.xlsx"
+    
+    if os.path.exists(caminia_planilha):
+        df_automatico = pd.read_excel(caminho_planilha)
+        st.session_state['dados_rota'] = df_automatico
+        return df_automatico
+    return None
 
-if 'dados_rota' in st.session_state:
-    df = st.session_state['dados_rota'].copy()
+# Executa a carga inteligente
+df_planilha = carregar_dados_automatico()
+
+if df_planilha is not None:
+    df = df_planilha.copy()
     
     # Filtro de Janela
     col_janela = 'Janela de Serviço'
@@ -83,14 +91,13 @@ if 'dados_rota' in st.session_state:
     for _, linha in df_pendentes_geral.iterrows():
         nome_super = str(linha[col_supervisor]).upper()
         if "FRANCISCO" in nome_super or "ALAN" in nome_super:
-            df_sp_lista.append(linha)
+            df_sp_lista.append(Server_linha)
         else:
-            df_abc_lista.append(linha)
+            df_abc_lista.append(Server_linha)
             
     df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
     df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
 
-    # Função corrigida que renderiza linha por linha direto no Streamlit
     def desenhar_alertas(df_regiao, titulo_regiao):
         st.markdown(f'<div class="title-abc-sp">{titulo_regiao}</div>', unsafe_allow_html=True)
         
@@ -108,8 +115,6 @@ if 'dados_rota' in st.session_state:
                 st.markdown(f"##### **{super_nome.upper()}**")
                 
                 if not df_super_p.empty:
-                    # MÁGICA DA CORREÇÃO: Em vez de acumular texto numa string, 
-                    # o Python desenha cada bloco de forma isolada e nativa
                     for _, r in df_super_p.iterrows():
                         contrato_limpo = str(r['Contrato']).split('.')[0]
                         nome_tecnico = str(r['Recurso'])[:25]
@@ -130,5 +135,14 @@ if 'dados_rota' in st.session_state:
     with c2:
         desenhar_alertas(df_sp, "SP")
 
+    # === AUTOMAÇÃO MODO TV (RETORNA APÓS 30 SEGUNDOS) ===
+    st.components.v1.html("""
+        <script>
+        setTimeout(function(){
+            window.parent.location.hash = "#tec1";
+        }, 30000);
+        </script>
+    """, height=0)
+
 else:
-    st.warning("⚠️ Carregue a planilha na página inicial.")
+    st.error("⚠️ Planilha 'base_rotas.xlsx' não encontrada na pasta do projeto.")
