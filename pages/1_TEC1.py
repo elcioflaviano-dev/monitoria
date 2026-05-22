@@ -18,23 +18,32 @@ if css_conteudo:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA OPERACIONAL ===
+# === MÓDULO DE CARGA DINÂMICO PARA A SUA ABA DE SHEET ===
 def carregar_dados_sheets():
     try:
         url = st.secrets["public_gsheets_url"]
         
-        if "/edit" in url:
-            csv_url = url.split("/edit")[0] + "/gviz/tq?tqx=out:csv"
+        # Engenharia de extração precisa para a aba gid=208394608
+        if "spreadsheets/d/" in url:
+            id_planilha = url.split("/spreadsheets/d/")[1].split("/")[0]
+            csv_url = "https://docs.google.com/spreadsheets/d/" + id_planilha + "/export?format=csv"
+            
+            # Força o direcionamento correto para a aba informada no seu link
             if "gid=" in url:
-                gid = url.split("gid=")[1].split("&")[0]
+                gid = url.split("gid=")[1].split("#")[0].split("&")[0]
                 csv_url += "&gid=" + gid
         else:
             csv_url = url
 
-        df_sheets = pd.read_csv(csv_url)
+        # Força o pandas a ler tudo como string para evitar quebras por tipos mistos
+        df_sheets = pd.read_csv(csv_url, dtype=str)
         
-        # Limpa nomes de colunas de forma nativa e segura
-        df_sheets.columns = [str(c).strip() for c in df_sheets.columns]
+        if df_sheets.empty:
+            st.warning("⚠️ Planilha conectada, mas nenhum dado foi encontrado nas linhas.")
+            return None
+            
+        # Limpeza robusta de colunas
+        df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
         colunas_mapeadas = {}
         for col in df_sheets.columns:
@@ -47,16 +56,17 @@ def carregar_dados_sheets():
             
         df = df_sheets.rename(columns=colunas_mapeadas)
         
-        # Garante a existência das colunas essenciais
+        # Preenche colunas faltantes de forma segura antes de tratar strings
         for col_obrigatoria in ["SUPERVISOR", "JANELA_SERVICO", "STATUS_ATIVIDADE"]:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = "N/A"
+            else:
+                df[col_obrigatoria] = df[col_obrigatoria].fillna("N/A")
                 
-        # SOLUÇÃO DO ERRO: Formatação de string elemento por elemento (evita erro de atributo do DataFrame)
         df["STATUS_ATIVIDADE"] = df["STATUS_ATIVIDADE"].apply(lambda x: str(x).strip().upper())
         return df
     except Exception as e:
-        st.error("Erro na leitura do link: " + str(e))
+        st.error("Erro na comunicação com o Google Sheets: " + str(e))
         return None
 
 df = carregar_dados_sheets()
@@ -68,8 +78,8 @@ if df is not None:
 
     if col_janela in df.columns and not df.empty:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
-        if not opcoes_janela:
-            opcoes_janela = ["Sem Janelas"]
+        if not opcoes_janela or opcoes_janela == ["N/A"]:
+            opcoes_janela = ["Padrão / Sem Janela"]
             
         default_index = 0
         if janela_selecionada in opcoes_janela:
@@ -84,7 +94,11 @@ if df is not None:
         )
         
         st.query_params["janela"] = janela_sel
-        df_tela = df[df[col_janela] == janela_sel]
+        # Se a coluna real não existir ou for padrão, não filtra radicalmente
+        if janela_sel == "Padrão / Sem Janela":
+            df_tela = df.copy()
+        else:
+            df_tela = df[df[col_janela] == janela_sel]
     else:
         df_tela = df.copy()
 
@@ -93,12 +107,12 @@ if df is not None:
     df_abc_lista, df_sp_lista = [], []
     
     if col_supervisor in df_tela.columns and not df_tela.empty:
-        for idx, linha in df_tela.iterrows():
-            nome_super = str(linha[col_supervisor]).upper()
+        for idx, Server_linha in df_tela.iterrows():
+            nome_super = str(Server_linha[col_supervisor]).upper()
             if "FRANCISCO" in nome_super or "ALAN" in nome_super: 
-                df_sp_lista.append(linha)
+                df_sp_lista.append(Server_linha)
             else: 
-                df_abc_lista.append(linha)
+                df_abc_lista.append(Server_linha)
                 
         df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
         df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
@@ -112,9 +126,9 @@ if df is not None:
         if not df_abc.empty:
             for supervisor in sorted(df_abc[col_supervisor].dropna().unique()):
                 df_super = df_abc[df_abc[col_supervisor] == supervisor]
-                p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
-                r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
-                i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE'])
+                r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA'])
+                i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO'])
                 t = len(df_super)
                 
                 with st.container(border=True):
@@ -132,19 +146,12 @@ if df is not None:
         if not df_sp.empty:
             for supervisor in sorted(df_sp[col_supervisor].dropna().unique()):
                 df_super = df_sp[df_sp[col_supervisor] == supervisor]
-                p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
-                r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
-                i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE'])
+                r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA'])
+                i = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO'])
                 t = len(df_super)
                 
                 with st.container(border=True):
                     header_texto = "#### **" + str(supervisor).upper() + "** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: " + str(t) + "</span>"
                     st.markdown(header_texto, unsafe_allow_html=True)
-                    m1, m2, m3 = st.columns(3)
-                    with m1: 
-                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
-                        st.markdown(html_box, unsafe_allow_html=True)
-                    with m2: st.metric(label="🟣 EM ROTA", value=r)
-                    with m3: st.metric(label="🟢 INICIADO", value=i)
-else:
-    st.error("⚠️ Não foi possível processar a tabela devido a uma falha na origem dos dados.")
+                    m1, m2, m3 = st.columns(
