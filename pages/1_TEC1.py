@@ -16,34 +16,29 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA ULTRA HIGIENIZADO ===
+# === MÓDULO DE CARGA DINÂMICO (PULA LINHAS INICIAIS AUTOMATICAMENTE) ===
 def carregar_dados_sheets():
     try:
         if 'public_gsheets_url' not in st.secrets:
             st.error("❌ A chave 'public_gsheets_url' não foi encontrada no Streamlit Secrets.")
             return None
             
-        # Remove espaços em branco nas pontas do link guardado no Secrets
         url = st.secrets['public_gsheets_url'].strip()
         
-        # TRATAMENTO RIGOROSO DA URL (Remove travas de caracteres especiais como #)
+        # Reconstrói a URL para o formato de exportação CSV bruto do Google
         if 'spreadsheets/d/' in url:
-            # Isola o ID da planilha limpando barras extras
             id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0].strip()
             csv_url = f'https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv'
             
-            # Localiza o GID limpando o caractere '#' e outros parâmetros da URL original
             if 'gid=' in url:
-                parte_gid = url.split('gid=')[1]
-                # Limpa tudo o que estiver depois de um #, & ou espaço caso existam
-                gid = parte_gid.split('#')[0].split('&')[0].strip()
+                gid = url.split('gid=')[1].split('#')[0].split('&')[0].strip()
                 csv_url += f'&gid={gid}'
             else:
                 csv_url += '&gid=208394608'
         else:
             csv_url = url
 
-        # Faz o download seguro do conteúdo com cabeçalho de simulação de navegador
+        # Faz o download do texto bruto da planilha
         headers = {'User-Agent': 'Mozilla/5.0'}
         resposta = requests.get(csv_url, headers=headers, timeout=15)
         
@@ -51,27 +46,40 @@ def carregar_dados_sheets():
             st.warning(f"⚠️ Erro de comunicação com o Google Sheets (HTTP {resposta.status_code})")
             return None
             
-        conteudo = resposta.text
+        conteudo_bruto = resposta.text
         
-        # Alerta se o link estiver privado
-        if '<html' in conteudo.lower() or '<!doctype' in conteudo.lower():
+        if '<html' in conteudo_bruto.lower() or '<!doctype' in conteudo_bruto.lower():
             st.warning("🔒 Erro de Permissão: A planilha está PRIVADA. No Google Sheets, clique em 'Compartilhar' e mude o Acesso Geral para 'Qualquer pessoa com o link'.")
             return None
 
-        # Converte o texto bruto na tabela final
-        try:
-            df_sheets = pd.read_csv(io.StringIO(conteudo), dtype=str, on_bad_lines='skip')
-        except Exception as err_pandas:
-            st.warning(f"⚠️ Erro no processamento da tabela: {str(err_pandas)}")
-            return None
+        # --- DETECTOR AUTOMÁTICO DE TABELA (Resolve o erro de Expected X fields) ---
+        linhas_puras = conteudo_bruto.splitlines()
+        linha_do_cabecalho_real = 0
+        encontrou_cabecalho = False
+        
+        # Vascula as primeiras 50 linhas procurando onde a tabela com os dados operacionais realmente começa
+        for i, linha_texto in enumerate(linhas_puras[:50]):
+            linha_upper = linha_texto.upper()
+            if 'SUPERVISOR' in linha_upper or 'STATUS' in linha_upper or 'JANELA' in linha_upper or 'CONTRATO' in linha_upper:
+                linha_do_cabecalho_real = i
+                encontrou_cabecalho = True
+                break
+
+        # Se encontrou a tabela mais abaixo, reconstrói o conteúdo pulando o cabeçalho falso/mesclado do topo
+        if encontrou_cabecalho:
+            texto_corrigido = "\n".join(linhas_puras[linha_do_cabecalho_real:])
+            df_sheets = pd.read_csv(io.StringIO(texto_corrigido), dtype=str, on_bad_lines='skip')
+        else:
+            # Caso contrário, tenta ler normalmente ignorando linhas desalinhadas
+            df_sheets = pd.read_csv(io.StringIO(conteudo_bruto), dtype=str, on_bad_lines='skip')
         
         if df_sheets is None or df_sheets.empty:
             return None
             
-        # Remove espaços ocultos dos cabeçalhos da tabela
+        # Remove espaços ocultos ou caracteres corrompidos dos cabeçalhos
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
-        # Mapeamento dinâmico inteligente
+        # Mapeamento dinâmico e flexível inteligente
         colunas_mapeadas = {}
         for col in df_sheets.columns:
             col_upper = col.upper()
@@ -96,14 +104,14 @@ def carregar_dados_sheets():
         st.error('Erro de extração operacional: ' + str(e))
         return None
 
-# Executa o carregamento
+# Executa o carregamento inteligente
 df = carregar_dados_sheets()
 
-# Caso falte a permissão ou link, exibe dados simulados de segurança para o app não morrer
+# Caso precise de ajuste na planilha, mantém dados fictícios de segurança ativos para o app não morrer
 if df is None or df.empty:
     st.info("ℹ️ Exibindo dados de simulação temporários.")
     df = pd.DataFrame({
-        'SUPERVISOR': ['Aguardando Ajuste de Permissão', 'Aguardando Ajuste de Permissão'],
+        'SUPERVISOR': ['Aguardando Alinhamento dos Dados', 'Aguardando Alinhamento dos Dados'],
         'JANELA_SERVICO': ['Padrão / Sem Janela', 'Padrão / Sem Janela'],
         'STATUS_ATIVIDADE': ['PENDENTE', 'INICIADO']
     })
