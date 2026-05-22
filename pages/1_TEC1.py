@@ -4,10 +4,10 @@ import requests
 import io
 from urllib.parse import unquote
 
-# 1. Configuração da página
+# 1. Configuração da página - Sem f-strings ou blocos complexos
 st.set_page_config(layout='wide', initial_sidebar_state='expanded')
 
-# 2. Carregar CSS de forma segura
+# 2. Carregar CSS externo de forma linear
 try:
     with open('style.css', 'r') as f:
         st.markdown('<style>' + str(f.read()) + '</style>', unsafe_allow_html=True)
@@ -16,7 +16,7 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA INTELIGENTE (IGNORA LINHAS EM BRANCO NO TOPO) ===
+# === MÓDULO DE CARGA INTELIGENTE (SEM ASPAS TRIPLAS NO LOOP) ===
 def carregar_dados_sheets():
     try:
         url = st.secrets['public_gsheets_url']
@@ -35,35 +35,28 @@ def carregar_dados_sheets():
 
         resposta = requests.get(csv_url, timeout=15)
         if resposta.status_code != 200:
-            st.error(f'⚠️ Erro de conexão com o Google (Status {resposta.status_code}).')
+            st.error('⚠️ Erro de conexão com o Google.')
             return None
             
         conteudo = resposta.text
-        
         if '<html' in conteudo.lower() or '<!doctype' in conteudo.lower():
-            st.error('🔒 **Erro de Permissão:** O link ainda está privado. No Google Sheets, clique em "Compartilhar" e mude para "Qualquer pessoa com o link".')
+            st.error('🔒 Erro de Permissão: O link está privado no Google Sheets.')
             return None
 
-        # --- NOVO SISTEMA DE LOCALIZAÇÃO DE CABEÇALHO ---
-        # Lemos primeiro todas as linhas como texto puro para descobrir onde começam as colunas reais
+        # Localiza a linha do cabeçalho de forma limpa
         linhas_puras = conteudo.splitlines()
         linha_do_cabecalho = 0
         
-        for i, linha in enumerate(linhas_puras[:15]): # Analisa as primeiras 15 linhas do Sheets
+        for i, linha in enumerate(linhas_puras[:15]):
             linha_upper = linha.upper()
-            # Procura por qualquer uma das colunas chave do seu relatório
             if 'SUPERVISOR' in linha_upper or 'STATUS' in linha_upper or 'RECURSO' in linha_upper or 'JANELA' in linha_upper:
                 linha_do_cabecalho = i
                 break
         
-        # Recarrega o Pandas saltando as linhas inúteis/vazias do topo do Sheets
         df_sheets = pd.read_csv(io.StringIO(conteudo), skiprows=linha_do_cabecalho, dtype=str)
-        
         if df_sheets.empty:
-            st.warning('⚠️ A tabela parece não conter linhas de dados abaixo do cabeçalho.')
             return None
             
-        # Limpeza e mapeamento padronizado das colunas encontradas
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
         colunas_mapeadas = {}
@@ -77,7 +70,6 @@ def carregar_dados_sheets():
             
         df = df_sheets.rename(columns=colunas_mapeadas)
         
-        # Cria colunas artificiais caso o relatório não as possua
         for col_obrigatoria in ['SUPERVISOR', 'JANELA_SERVICO', 'STATUS_ATIVIDADE']:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = 'N/A'
@@ -88,18 +80,13 @@ def carregar_dados_sheets():
         return df
         
     except Exception as e:
-        st.error('Erro crítico no processamento: ' + str(e))
-        # Se falhar miseravelmente, mostra as primeiras linhas brutas para sabermos o que o Google enviou
-        try:
-            st.info("Amostra do formato recebido do Sheets:")
-            st.code("\n".join(conteudo.splitlines()[:5]))
-        except:
-            pass
+        st.error('Erro crítico no processamento dos dados.')
         return None
 
 df = carregar_dados_sheets()
 
 if df is not None:
+    # --- FILTRO DE JANELA ---
     col_janela = 'JANELA_SERVICO'
     janela_selecionada = unquote(st.query_params.get('janela', ''))
 
@@ -128,6 +115,7 @@ if df is not None:
     else:
         df_tela = df.copy()
 
+    # --- LÓGICA DE SUPERVISORES (ABC | SP) ---
     col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
     
@@ -144,6 +132,7 @@ if df is not None:
     else:
         df_abc, df_sp = pd.DataFrame(columns=df.columns), pd.DataFrame(columns=df.columns)
 
+    # --- CORPO VISUAL (CONCATENAÇÃO LINEAR SEM CHAVES DE CONFLITO) ---
     c_abc, c_sp = st.columns(2)
     with c_abc:
         st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
@@ -156,6 +145,7 @@ if df is not None:
                 t = len(df_super)
                 
                 with st.container(border=True):
+                    # Montagem estritamente linear das tags HTML
                     header_texto = '#### **' + str(supervisor).upper() + '** <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(t) + '</span>'
                     st.markdown(header_texto, unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
@@ -180,4 +170,7 @@ if df is not None:
                     st.markdown(header_texto, unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
                     with m1: 
-                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="
+                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
+                        st.markdown(html_box, unsafe_allow_html=True)
+                    with m2: st.metric(label='🟣 EM ROTA', value=r)
+                    with m3: st.metric(label='🟢 INICIADO', value=i)
