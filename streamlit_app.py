@@ -12,7 +12,7 @@ st.markdown("### Bem-vindo! Use o menu lateral para acessar os painéis.")
 @st.cache_data(ttl=120)  # Atualiza os dados a cada 2 minutos se a página for recarregada
 def carregar_dados():
     # LINK DA SUA PLANILHA: Substitua abaixo pelo seu link real terminado em /export?format=xlsx
-    "URL_SHEETS = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=xlsx"
+    URL_SHEETS = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=xlsx"
     
     # Lê a planilha do Google Sheets
     df = pd.read_excel(URL_SHEETS)
