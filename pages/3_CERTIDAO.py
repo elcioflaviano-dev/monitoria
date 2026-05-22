@@ -46,7 +46,7 @@ def buscar_base_rotas_online():
         if resposta.status_code != 200:
             return None
             
-        conteudo_bruto = response_text = resposta.text
+        conteudo_bruto = resposta.text
         linhas_puras = conteudo_bruto.splitlines()
         linha_do_cabecalho_real = 0
         encontrou_cabecalho = False
@@ -64,6 +64,9 @@ def buscar_base_rotas_online():
         else:
             df_sheets = pd.read_csv(io.StringIO(conteudo_bruto), dtype=str, on_bad_lines='skip')
             
+        if df_sheets is None or df_sheets.empty:
+            return None
+
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
         # Mapeamento dinâmico estendido para incluir a O.S 1
@@ -86,12 +89,16 @@ if "historico_certidoes" not in st.session_state:
 
 df_base_online = buscar_base_rotas_online()
 
-# --- FILTRO DA JANELA GLOBAL NA BARRA LATERAL ---
+# --- CORREÇÃO DO ERRO DE ATRIBUTO: Filtro só roda se o df_base_online for válido ---
 if df_base_online is not None and 'Janela de Serviço' in df_base_online.columns:
     opcoes_janela = sorted(df_base_online['Janela de Serviço'].dropna().astype(str).unique())
+    if not opcoes_janela:
+        opcoes_janela = ["Padrão / Sem Janela"]
     janela_sel = st.sidebar.selectbox("Janela de Atendimento Ativa:", opcoes_janela)
 else:
-    janela_sel = "N/A"
+    janela_sel = "Padrão / Sem Janela"
+    if df_base_online is None:
+        st.warning("⚠️ Conectando ao servidor do Google Sheets... Aguarde um instante ou verifique o link do Secrets.")
 
 # === FORMULÁRIO DE ENTRADA COM ANÁLISE AUTOMÁTICA DE CRITÉRIOS ===
 st.markdown("### 🔍 Verificar e Registrar Contrato")
@@ -124,6 +131,8 @@ if contrato_input and df_base_online is not None:
             detalhes_validacao = f"⚠️ Contrato encontrado, mas Status da O.S 1 é '{status_os1}' (Não Aderente)."
     else:
         detalhes_validacao = "❌ Contrato não localizado na base de rotas online."
+elif contrato_input and df_base_online is None:
+    detalhes_validacao = "⏳ Não foi possível consultar a base online neste momento. Preenchimento manual ativado."
 
 if contrato_input:
     st.caption(detalhes_validacao)
@@ -215,6 +224,6 @@ if df_base_online is not None and not df_banco_atual.empty:
         else:
             st.info(f"✨ Nenhuma certidão pendente (NOK) com atividade Iniciada ou Concluída para a janela: **{janela_sel}**.")
     else:
-        st.info("ℹ️ Não existem contratos salvos com o status 'NOK' até o momento.")
+        st.info("ℹ️ Não existem contratos salvos com o status 'NOK' nesta janela até ao momento.")
 else:
-    st.info("ℹ️ Aguardando registros no sistema ou carregamento das rotas online.")
+    st.info("ℹ️ Aguardando registros no sistema ou sincronização com a base de rotas online.")
