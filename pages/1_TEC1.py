@@ -4,7 +4,7 @@ import pandas as pd
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Estilização focada no super destaque visual para os PENDENTES
+# Estilização cirúrgica: APENAS a primeira métrica (Pendentes) fica grande e vermelha
 st.markdown("""
     <style>
     /* Remove espaçamentos inúteis do topo do Streamlit */
@@ -26,46 +26,47 @@ st.markdown("""
         border-bottom: 2px solid #eae5da;
     }
 
-    /* Estilo base geral para os blocos de métricas */
+    /* === ESTILO BASE GERAL (Para todas as caixas de métricas) === */
     div[data-testid="stMetric"] {
-        background-color: #f7f5f0;
-        border: 1px solid #eae5da;
+        background-color: #f7f5f0 !important;
+        border: 1px solid #eae5da !important;
         border-radius: 6px;
         padding: 5px !important;
         text-align: center;
     }
     
-    /* === SUPER DESTAQUE: CAIXA DOS PENDENTES (1ª métrica de cada card) === */
-    div[data-testid="stMetric"]:nth-of-type(3n+1) {
-        background-color: #ffcccc !important; /* Fundo vermelho mais vivo e intenso */
+    /* === SUPER DESTAQUE: APENAS A PRIMEIRA CAIXA (PENDENTES) === */
+    div[data-testid="stHorizontalBlock"] > div:first-of-type div[data-testid="stMetric"] {
+        background-color: #ffcccc !important; /* Fundo vermelho vivo apenas nos Pendentes */
         border: 2px solid #ff9999 !important; /* Borda reforçada */
     }
     
-    /* Altera o número do PENDENTE para ficar maior e com cor forte de alerta */
-    div[data-testid="stMetric"]:nth-of-type(3n+1) div[data-testid="stMetricValue"] div {
-        font-size: 34px !important; /* Aumentado de 24px para 34px */
-        color: #b30000 !important; /* Vermelho escuro industrial/alerta */
+    /* Altera APENAS o número do PENDENTE para ficar maior e vermelho */
+    div[data-testid="stHorizontalBlock"] > div:first-of-type div[data-testid="stMetricValue"] div {
+        font-size: 34px !important; /* Letras grandes */
+        color: #b30000 !important; /* Texto vermelho escuro industrial */
         font-weight: 900 !important;
     }
     
-    /* Altera o rótulo "🔴 PENDENTES" para acompanhar o peso visual */
-    div[data-testid="stMetric"]:nth-of-type(3n+1) div[data-testid="stMetricLabel"] p {
+    /* Altera APENAS o rótulo "🔴 PENDENTES" */
+    div[data-testid="stHorizontalBlock"] > div:first-of-type div[data-testid="stMetricLabel"] p {
         color: #800000 !important;
         font-weight: 800 !important;
     }
     
-    /* === ESTILO PADRÃO: EM ROTA E INICIADO (Demais métricas) === */
+    /* === CONFIGURAÇÃO DAS DEMAIS MÉTRICAS (EM ROTA E INICIADO) === */
+    /* Mantém os números normais e escuros para o resto */
+    div[data-testid="stHorizontalBlock"] > div:not(:first-of-type) div[data-testid="stMetricValue"] div {
+        font-size: 24px !important;
+        color: #333333 !important; /* Cinza escuro padrão */
+        font-weight: 900 !important;
+    }
+    
     div[data-testid="stMetricLabel"] p {
         font-size: 10px !important;
         font-weight: bold !important;
         text-transform: uppercase;
         color: #555 !important;
-    }
-    
-    div[data-testid="stMetricValue"] div {
-        font-size: 24px !important;
-        font-weight: 900 !important;
-        color: #333333;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -91,12 +92,12 @@ if 'dados_rota' in st.session_state:
     df_abc_lista, df_sp_lista = [], []
     
     if col_supervisor in df_tela.columns:
-        for idx, linha in df_tela.iterrows():
-            nome_super = str(linha[col_supervisor]).upper()
+        for idx, Server_linha in df_tela.iterrows():
+            nome_super = str(Server_linha[col_supervisor]).upper()
             if "FRANCISCO" in nome_super or "ALAN" in nome_super:
-                df_sp_lista.append(linha)
+                df_sp_lista.append(Server_linha)
             else:
-                df_abc_lista.append(linha)
+                df_abc_lista.append(Server_linha)
                 
         df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
         df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
