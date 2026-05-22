@@ -59,7 +59,7 @@ st.markdown("""
 # 4. Título de Alerta
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 10px;">⚠️ TEC1 - CONTRATOS PENDENTES</h1>', unsafe_allow_html=True)
 
-# === MODO TV: VOLTA PARA A PÁGINA 1 APÓS 30 SEGUNDOS ===
+# MODO TV: Volta para a página 1 após 30 segundos
 st.components.v1.html("""
     <script>
     setTimeout(function(){
