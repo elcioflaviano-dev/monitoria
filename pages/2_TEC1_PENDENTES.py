@@ -16,7 +16,6 @@ except:
 if css_conteudo:
     st.markdown(f"<style>{css_conteudo}</style>", unsafe_allow_html=True)
 
-# CSS interno simplificado para evitar erros no interpretador
 st.markdown("""
     <style>
     .item-pendente-tv { background-color: #ffe6e6 !important; border: 2px solid #ff9999 !important; border-radius: 6px; padding: 6px 12px !important; margin-bottom: 6px !important; display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; }
@@ -28,20 +27,24 @@ st.markdown("""
 
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 10px;">⚠️ TEC1 - PENDENTES</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA ===
+# === MÓDULO DE CARGA DINÂMICO PARA A SUA ABA DE SHEET ===
 def carregar_dados_sheets():
     try:
         url = st.secrets["public_gsheets_url"]
-        if "/edit" in url:
-            csv_url = url.split("/edit")[0] + "/gviz/tq?tqx=out:csv"
+        if "spreadsheets/d/" in url:
+            id_planilha = url.split("/spreadsheets/d/")[1].split("/")[0]
+            csv_url = "https://docs.google.com/spreadsheets/d/" + id_planilha + "/export?format=csv"
             if "gid=" in url:
-                gid = url.split("gid=")[1].split("&")[0]
+                gid = url.split("gid=")[1].split("#")[0].split("&")[0]
                 csv_url += "&gid=" + gid
         else:
             csv_url = url
 
-        df_sheets = pd.read_csv(csv_url)
-        df_sheets.columns = [str(c).strip() for c in df_sheets.columns]
+        df_sheets = pd.read_csv(csv_url, dtype=str)
+        if df_sheets.empty:
+            return None
+            
+        df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
         colunas_mapeadas = {}
         for col in df_sheets.columns:
@@ -57,11 +60,12 @@ def carregar_dados_sheets():
         for col_obrigatoria in ["SUPERVISOR", "JANELA_SERVICO", "STATUS_ATIVIDADE", "CONTRATO", "RECURSO"]:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = "N/A"
+            else:
+                df[col_obrigatoria] = df[col_obrigatoria].fillna("N/A")
                 
-        df["STATUS_ATIVIDADE"] = df["STATUS_ATIVIDADE"].astype(str).str.strip().str.upper()
+        df["STATUS_ATIVIDADE"] = df["STATUS_ATIVIDADE"].apply(lambda x: str(x).strip().upper())
         return df
-    except Exception as e:
-        st.error("Erro na leitura do link: " + str(e))
+    except:
         return None
 
 df = carregar_dados_sheets()
@@ -73,8 +77,8 @@ if df is not None:
 
     if col_janela in df.columns and not df.empty:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
-        if not opcoes_janela:
-            opcoes_janela = ["Sem Janelas"]
+        if not opcoes_janela or opcoes_janela == ["N/A"]:
+            opcoes_janela = ["Padrão / Sem Janela"]
             
         default_index = 0
         if janela_selecionada in opcoes_janela:
@@ -87,7 +91,10 @@ if df is not None:
             index=default_index,
             key="sb_janela_p"
         )
-        df_tela = df[df[col_janela] == janela_sel]
+        if janela_sel == "Padrão / Sem Janela":
+            df_tela = df.copy()
+        else:
+            df_tela = df[df[col_janela] == janela_sel]
     else:
         df_tela = df.copy()
 
@@ -122,7 +129,6 @@ if df is not None:
                         contrato_limpo = str(r['CONTRATO']).split('.')[0] if 'CONTRATO' in r else "N/A"
                         nome_tecnico = str(r['RECURSO'])[:25] if 'RECURSO' in r else "N/A"
                         
-                        # Correção Absoluta de Sintaxe: Strings concatenadas de forma limpa e linear
                         html_item = '<div class="item-pendente-tv"><span class="tecnico-nome-tv">' + nome_tecnico + '</span><span class="contrato-numero-tv">' + contrato_limpo + '</span></div>'
                         st.markdown(html_item, unsafe_allow_html=True)
                 else:
