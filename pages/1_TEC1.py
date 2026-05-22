@@ -16,7 +16,7 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA OPERACIONAL DE CONEXÃO DIRETA ===
+# === MÓDULO DE CARGA OPERACIONAL ULTRA ESTÁVEL ===
 def carregar_dados_sheets():
     try:
         url = st.secrets['public_gsheets_url']
@@ -44,7 +44,7 @@ def carregar_dados_sheets():
             st.error('🔒 Erro de Acesso: O link do Google Sheets está configurado como privado.')
             return None
 
-        # Carrega a tabela de forma direta sem pular linhas para não perder dados legítimos
+        # Carrega a tabela de forma direta
         df_sheets = pd.read_csv(io.StringIO(conteudo), dtype=str)
         if df_sheets.empty:
             st.warning('⚠️ A planilha do Google Sheets não contém nenhuma linha de dados.')
@@ -73,10 +73,10 @@ def carregar_dados_sheets():
         if 'STATUS_ATIVIDADE' not in df.columns:
             df['STATUS_ATIVIDADE'] = 'PENDENTE'
             
-        # Trata dados nulos e converte textos para padrão maiúsculo
-        df['SUPERVISOR'] = df['SUPERVISOR'].fillna('N/A').astype(str).str.strip()
-        df['JANELA_SERVICO'] = df['JANELA_SERVICO'].fillna('Padrão / Sem Janela').astype(str).str.strip()
-        df['STATUS_ATIVIDADE'] = df['STATUS_ATIVIDADE'].fillna('PENDENTE').astype(str).str.strip().str.upper()
+        # CORREÇÃO DEFINITIVA: Formatação via apply garante que trate elemento por elemento sem bugar o DataFrame
+        df['SUPERVISOR'] = df['SUPERVISOR'].fillna('N/A').apply(lambda x: str(x).strip())
+        df['JANELA_SERVICO'] = df['JANELA_SERVICO'].fillna('Padrão / Sem Janela').apply(lambda x: str(x).strip())
+        df['STATUS_ATIVIDADE'] = df['STATUS_ATIVIDADE'].fillna('PENDENTE').apply(lambda x: str(x).strip().upper())
         
         return df
     except Exception as e:
@@ -133,7 +133,7 @@ if df is not None:
         st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
         if not df_abc.empty:
             for supervisor in sorted(df_abc[col_supervisor].dropna().unique()):
-                if str(supervisor).upper() != 'N/A':
+                if str(supervisor).upper() != 'N/A' and str(supervisor).strip() != '':
                     df_super = df_abc[df_abc[col_supervisor] == supervisor]
                     p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE'])
                     r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA'])
@@ -156,7 +156,7 @@ if df is not None:
         st.markdown('<div class="title-abc-sp">SP</div>', unsafe_allow_html=True)
         if not df_sp.empty:
             for supervisor in sorted(df_sp[col_supervisor].dropna().unique()):
-                if str(supervisor).upper() != 'N/A':
+                if str(supervisor).upper() != 'N/A' and str(supervisor).strip() != '':
                     df_super = df_sp[df_sp[col_supervisor] == supervisor]
                     p = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE'])
                     r = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA'])
@@ -174,5 +174,3 @@ if df is not None:
                         with m3: st.metric(label='🟢 INICIADO', value=i)
         else:
             st.info('Nenhum dado ativo em SP para a janela selecionada.')
-else:
-    st.error('⚠️ Aguardando sincronização de dados estáveis...')
