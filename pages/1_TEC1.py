@@ -4,7 +4,7 @@ import requests
 import io
 from urllib.parse import unquote
 
-# 1. Configuração da página - Mantém expandido para monitorar os filtros
+# 1. Configuração da página
 st.set_page_config(layout='wide', initial_sidebar_state='expanded')
 
 # 2. Carregar CSS externo
@@ -16,7 +16,7 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA OPERACIONAL ULTRA ESTÁVEL ===
+# === MÓDULO DE CARGA DINÂMICO E INTELIGENTE ===
 def carregar_dados_sheets():
     try:
         url = st.secrets['public_gsheets_url']
@@ -33,7 +33,6 @@ def carregar_dados_sheets():
         else:
             csv_url = url
 
-        # Busca os dados em modo texto
         resposta = requests.get(csv_url, timeout=15)
         if resposta.status_code != 200:
             st.error('⚠️ Falha de comunicação com o servidor do Google Sheets.')
@@ -44,28 +43,45 @@ def carregar_dados_sheets():
             st.error('🔒 Erro de Acesso: O link do Google Sheets está configurado como privado.')
             return None
 
-        # Carrega a tabela de forma direta
-        df_sheets = pd.read_csv(io.StringIO(conteudo), dtype=str)
+        # --- LOCALIZADOR DE CABEÇALHO REAL ---
+        linhas_puras = conteudo.splitlines()
+        linha_do_cabecalho = 0
+        encontrou_cabecalho = False
+        
+        # Varre as primeiras 20 linhas procurando onde a tabela realmente começa
+        for i, linha in enumerate(linhas_puras[:20]):
+            linha_upper = linha.upper()
+            if 'SUPERVISOR' in linha_upper or 'STATUS' in linha_upper or 'RECURSO' in linha_upper or 'JANELA' in linha_upper:
+                linha_do_cabecalho = i
+                encontrou_cabecalho = True
+                break
+
+        # Se encontrou, pula as linhas inúteis do topo. Se não, lê do começo.
+        if encontrou_cabecalho:
+            df_sheets = pd.read_csv(io.StringIO(conteudo), skiprows=linha_do_cabecalho, dtype=str)
+        else:
+            df_sheets = pd.read_csv(io.StringIO(conteudo), dtype=str)
+
         if df_sheets.empty:
-            st.warning('⚠️ A planilha do Google Sheets não contém nenhuma linha de dados.')
+            st.warning('⚠️ A planilha do Google Sheets está vazia.')
             return None
             
-        # Limpa espaços ocultos e formata cabeçalhos para texto limpo
+        # Limpa espaços ocultos e formata cabeçalhos
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
-        # Mapeamento dinâmico tolerante a maiúsculas/minúsculas
+        # Mapeamento dinâmico super flexível
         colunas_mapeadas = {}
         for col in df_sheets.columns:
             col_upper = col.upper()
-            if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
-            elif 'JANELA' in col_upper: colunas_mapeadas[col] = 'JANELA_SERVICO'
-            elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
-            elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'CONTRATO'
-            elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'RECURSO'
+            if 'SUPERVISOR' in col_upper or 'SUPERV' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
+            elif 'JANELA' in col_upper or 'PERIODO' in col_upper or 'HORARIO' in col_upper: colunas_mapeadas[col] = 'JANELA_SERVICO'
+            elif 'STATUS' in col_upper or 'SITUAC' in col_upper or 'SITUAÇ' in col_upper: colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
+            elif 'CONTRATO' in col_upper or 'OS' in col_upper or 'NUMERO' in col_upper: colunas_mapeadas[col] = 'CONTRATO'
+            elif 'RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper: colunas_mapeadas[col] = 'RECURSO'
             
         df = df_sheets.rename(columns=colunas_mapeadas)
         
-        # Cria e popula colunas caso não existam, garantindo que o app nunca fique em branco
+        # Garante colunas mínimas para o app não quebrar
         if 'SUPERVISOR' not in df.columns:
             df['SUPERVISOR'] = 'N/A'
         if 'JANELA_SERVICO' not in df.columns:
@@ -73,7 +89,7 @@ def carregar_dados_sheets():
         if 'STATUS_ATIVIDADE' not in df.columns:
             df['STATUS_ATIVIDADE'] = 'PENDENTE'
             
-        # CORREÇÃO DEFINITIVA: Formatação via apply garante que trate elemento por elemento sem bugar o DataFrame
+        # Tratamento individual de elementos
         df['SUPERVISOR'] = df['SUPERVISOR'].fillna('N/A').apply(lambda x: str(x).strip())
         df['JANELA_SERVICO'] = df['JANELA_SERVICO'].fillna('Padrão / Sem Janela').apply(lambda x: str(x).strip())
         df['STATUS_ATIVIDADE'] = df['STATUS_ATIVIDADE'].fillna('PENDENTE').apply(lambda x: str(x).strip().upper())
