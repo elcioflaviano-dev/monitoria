@@ -4,72 +4,9 @@ import pandas as pd
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Estilização cirúrgica baseada no texto do rótulo da métrica
-st.markdown("""
-    <style>
-    /* Remove espaçamentos inúteis do topo do Streamlit */
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 0rem !important;
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
-    }
-    
-    /* Títulos principais colados no topo */
-    .title-abc-sp {
-        font-size: 26px;
-        font-weight: bold;
-        color: #111111;
-        margin-bottom: 5px;
-        margin-top: 0px;
-        padding-bottom: 2px;
-        border-bottom: 2px solid #eae5da;
-    }
-
-    /* === ESTILO BASE GERAL (Para todas as caixas de métricas) === */
-    div[data-testid="stMetric"] {
-        background-color: #f7f5f0 !important;
-        border: 1px solid #eae5da !important;
-        border-radius: 6px;
-        padding: 5px !important;
-        text-align: center;
-    }
-    
-    /* Garante que os números das caixas comuns fiquem no tamanho padrão */
-    div[data-testid="stMetricValue"] div {
-        font-size: 24px !important;
-        color: #333333 !important;
-        font-weight: 900 !important;
-    }
-    
-    div[data-testid="stMetricLabel"] p {
-        font-size: 10px !important;
-        font-weight: bold !important;
-        text-transform: uppercase;
-        color: #555 !important;
-    }
-
-    /* === SUPER DESTAQUE APENAS PARA QUEM TEM O TEXTO "PENDENTES" === */
-    /* Procura o bloco da métrica que contém o rótulo com a palavra PENDENTES */
-    div[data-testid="stMetric"]:has(div[data-testid="stMetricLabel"] p:contains("PENDENTES")) {
-        background-color: #ffcccc !important; /* Fundo vermelho vivo */
-        border: 2px solid #ff9999 !important; /* Borda reforçada */
-    }
-
-    /* Força o número de dentro da caixa PENDENTES a ficar gigante e vermelho escuro */
-    div[data-testid="stMetric"]:has(div[data-testid="stMetricLabel"] p:contains("PENDENTES")) div[data-testid="stMetricValue"] div {
-        font-size: 34px !important; /* Letras grandes */
-        color: #b30000 !important;   /* Vermelho escuro de alerta */
-        font-weight: 900 !important;
-    }
-
-    /* Ajusta a cor do texto do rótulo PENDENTES */
-    div[data-testid="stMetric"]:has(div[data-testid="stMetricLabel"] p:contains("PENDENTES")) div[data-testid="stMetricLabel"] p {
-        color: #800000 !important;
-        font-weight: 800 !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# MÁGICA: Abre e injeta o arquivo style.css externo no Streamlit
+with open("style.css", "r") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 if 'dados_rota' in st.session_state:
     df = st.session_state['dados_rota'].copy()
@@ -125,9 +62,17 @@ if 'dados_rota' in st.session_state:
                     st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {total}</span>", unsafe_allow_html=True)
                     
                     m1, m2, m3 = st.columns(3)
-                    m1.metric(label="🔴 PENDENTES", value=pendentes)
-                    m2.metric(label="🟣 EM ROTA", value=em_rota)
-                    m3.metric(label="🟢 INICIADO", value=iniciados)
+                    with m1:
+                        st.markdown(f"""
+                            <div class="custom-pendente-box">
+                                <div class="custom-pendente-label">🔴 PENDENTES</div>
+                                <div class="custom-pendente-value">{pendentes}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    with m2:
+                        st.metric(label="🟣 EM ROTA", value=em_rota)
+                    with m3:
+                        st.metric(label="🟢 INICIADO", value=iniciados)
         else:
             st.info("Nenhum supervisor ativo no ABC nesta janela.")
 
@@ -149,9 +94,17 @@ if 'dados_rota' in st.session_state:
                     st.markdown(f"#### **{str(supervisor).upper()}** <span style='float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;'>Total: {total}</span>", unsafe_allow_html=True)
                     
                     m1, m2, m3 = st.columns(3)
-                    m1.metric(label="🔴 PENDENTES", value=pendentes)
-                    m2.metric(label="🟣 EM ROTA", value=em_rota)
-                    m3.metric(label="🟢 INICIADO", value=iniciados)
+                    with m1:
+                        st.markdown(f"""
+                            <div class="custom-pendente-box">
+                                <div class="custom-pendente-label">🔴 PENDENTES</div>
+                                <div class="custom-pendente-value">{pendentes}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    with m2:
+                        st.metric(label="🟣 EM ROTA", value=em_rota)
+                    with m3:
+                        st.metric(label="🟢 INICIADO", value=iniciados)
         else:
             st.info("Nenhum supervisor ativo em SP nesta janela.")
 
