@@ -12,13 +12,13 @@ try:
 except:
     pass
 
-# Título TEC1 Centralizado e ajustado
+# Título TEC1 Centralizado
 st.markdown(
     '<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', 
     unsafe_allow_html=True
 )
 
-# === FUNÇÃO DE CARGA OPERACIONAL AUTOMÁTICA BLINDADA ===
+# === FUNÇÃO DE CARGA INTELIGENTE OPERACIONAL ===
 def carregar_dados_automatico():
     if 'dados_rota' in st.session_state:
         return st.session_state['dados_rota']
@@ -28,15 +28,26 @@ def carregar_dados_automatico():
     if os.path.exists(caminho_planilha):
         df_automatico = pd.read_excel(caminho_planilha)
         
-        # --- BLINDAGEM CONTRA ERROS DE COLUNA ---
-        # 1. Remove espaços invisíveis antes ou depois dos nomes das colunas
+        # 1. Limpa os espaços invisíveis nos nomes das colunas
         df_automatico.columns = df_automatico.columns.str.strip()
-        # 2. Converte todas as colunas para MAIÚSCULAS (evita erro de 'Supervisor' vs 'SUPERVISOR')
-        df_automatico.columns = df_automatico.columns.str.upper()
         
-        # Faz o mesmo tratamento para a coluna de Status interno da planilha para não quebrar
-        if 'STATUS DA ATIVIDADE' in df_automatico.columns:
-            df_automatico['STATUS DA ATIVIDADE'] = df_automatico['STATUS DA ATIVIDADE'].astype(str).str.strip().str.upper()
+        # 2. Varre as colunas para mapear dinamicamente os nomes e evitar KeyError
+        colunas_mapeadas = {}
+        for col in df_automatico.columns:
+            col_upper = col.upper()
+            if "SUPERVISOR" in col_upper:
+                colunas_mapeadas[col] = "SUPERVISOR"
+            elif "JANELA" in col_upper:
+                colunas_mapeadas[col] = "JANELA_SERVICO"
+            elif "STATUS" in col_upper:
+                colunas_mapeadas[col] = "STATUS_ATIVIDADE"
+        
+        # Renomeia na tabela interna apenas o que encontrou para cravar o padrão do código
+        df_automatico = df_automatico.rename(columns=colunas_mapeadas)
+        
+        # 3. Força os status internos a ficarem limpos e em maiúsculo (evita 'Pendente' vs 'PENDENTE')
+        if "STATUS_ATIVIDADE" in df_automatico.columns:
+            df_automatico["STATUS_ATIVIDADE"] = df_automatico["STATUS_ATIVIDADE"].astype(str).str.strip().str.upper()
             
         st.session_state['dados_rota'] = df_automatico
         return df_automatico
@@ -49,24 +60,17 @@ if df_planilha is not None:
     df = df_planilha.copy()
     
     # --- FILTRO DA JANELA GLOBAL (BARRA LATERAL) ---
-    col_janela = 'JANELA DE SERVIÇO'  # Atualizado para maiúsculo devido à blindagem
+    col_janela = 'JANELA_SERVICO'
     if col_janela in df.columns:
         opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
         janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
         df_tela = df[df[col_janela] == janela_sel]
     else:
-        # Tenta procurar sem o 'Ç' e 'Ó' caso a planilha mude o texto
-        col_janela_alt = 'JANELA DE SERVICO'
-        if col_janela_alt in df.columns:
-            opcoes_janela = sorted(df[col_janela_alt].dropna().astype(str).unique())
-            janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-            df_tela = df[df[col_janela_alt] == janela_sel]
-        else:
-            df_tela = df.copy()
-            janela_sel = "N/A"
+        df_tela = df.copy()
+        janela_sel = "N/A"
 
     # --- SEPARAÇÃO LÓGICA DOS SUPERVISORES ---
-    col_supervisor = 'SUPERVISOR'  # Agora garantido em maiúsculo
+    col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
     
     if col_supervisor in df_tela.columns:
@@ -94,10 +98,10 @@ if df_planilha is not None:
             for supervisor in sorted(supervisores_abc):
                 df_super = df_abc[df_abc[col_supervisor] == supervisor]
                 
-                # Buscas tratadas em maiúsculo
-                pendentes = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'PENDENTE'])
-                em_rota = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'EM ROTA'])
-                iniciados = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'INICIADO'])
+                # Coleta usando os nomes padronizados dinamicamente
+                pendentes = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                em_rota = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                iniciados = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
                 total = len(df_super)
                 
                 with st.container(border=True):
@@ -127,9 +131,9 @@ if df_planilha is not None:
             for supervisor in sorted(supervisores_sp):
                 df_super = df_sp[df_sp[col_supervisor] == supervisor]
                 
-                pendentes = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'PENDENTE'])
-                em_rota = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'EM ROTA'])
-                iniciados = len(df_super[df_super['STATUS DA ATIVIDADE'] == 'INICIADO'])
+                pendentes = len(df_super[df_super['STATUS_ATIVIDADE'] == 'PENDENTE']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                em_rota = len(df_super[df_super['STATUS_ATIVIDADE'] == 'EM ROTA']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
+                iniciados = len(df_super[df_super['STATUS_ATIVIDADE'] == 'INICIADO']) if 'STATUS_ATIVIDADE' in df_super.columns else 0
                 total = len(df_super)
                 
                 with st.container(border=True):
