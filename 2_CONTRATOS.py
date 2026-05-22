@@ -111,3 +111,12 @@ if 'dados_rota' in st.session_state:
         render_lista_priorizada(df_sp)
 else:
     st.warning("Aguardando carga de dados...")
+
+# MODO TV: Volta para a página 1 após 30 segundos
+st.components.v1.html("""
+    <script>
+    setTimeout(function(){
+        window.parent.document.querySelectorAll('section[data-testid="stSidebarNav"] li')[0].querySelector('a').click();
+    }, 30000);
+    </script>
+""", height=0)
