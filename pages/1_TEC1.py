@@ -118,11 +118,11 @@ if 'dados_rota' in st.session_state:
 else:
     st.warning("⚠️ Dados não encontrados. Acesse a página inicial para carregar a planilha.")
     
-   # MODO TV ATUALIZADO: Espera 30 segundos e pula de forma limpa para a página de CONTRATOS
+  # MODO TV ATUALIZADO: Espera 30 segundos e pula para a nova URL de Pendentes
 st.components.v1.html("""
     <script>
     setTimeout(function(){
-        window.parent.location.hash = "#contratos";
+        window.parent.location.hash = "#2-tec1-pendentes";
     }, 30000);
     </script>
 """, height=0)
