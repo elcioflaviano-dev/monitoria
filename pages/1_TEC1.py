@@ -8,8 +8,13 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 with open("style.css", "r") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# === AQUI ENTRA O SEU NOVO TÍTULO PRINCIPAL ===
-st.markdown('<div class="main-dashboard-title">TEC1</div>', unsafe_allow_html=True)
+# === TITULO TEC1 DIRETO COM DESIGN INJETADO (FORÇADO) ===
+st.markdown(
+    '<h1 style="font-size: 38px; font-weight: 900; color: #006677; margin-bottom: 20px; margin-top: 0px; padding-left: 5px;">TEC1</h1>', 
+    unsafe_allow_html=True
+)
+
+# O restante do seu código continua idêntico daqui para baixo...
 if 'dados_rota' in st.session_state:
     df = st.session_state['dados_rota'].copy()
     
