@@ -33,7 +33,7 @@ def carregar_dados_sheets():
 
         df_sheets = pd.read_csv(csv_url)
         
-        # CORREÇÃO INTEGRAL: Limpa nomes de colunas de forma nativa e segura
+        # Limpa nomes de colunas de forma nativa e segura
         df_sheets.columns = [str(c).strip() for c in df_sheets.columns]
         
         colunas_mapeadas = {}
@@ -47,11 +47,13 @@ def carregar_dados_sheets():
             
         df = df_sheets.rename(columns=colunas_mapeadas)
         
+        # Garante a existência das colunas essenciais
         for col_obrigatoria in ["SUPERVISOR", "JANELA_SERVICO", "STATUS_ATIVIDADE"]:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = "N/A"
                 
-        df["STATUS_ATIVIDADE"] = df["STATUS_ATIVIDADE"].astype(str).str.strip().str.upper()
+        # SOLUÇÃO DO ERRO: Formatação de string elemento por elemento (evita erro de atributo do DataFrame)
+        df["STATUS_ATIVIDADE"] = df["STATUS_ATIVIDADE"].apply(lambda x: str(x).strip().upper())
         return df
     except Exception as e:
         st.error("Erro na leitura do link: " + str(e))
@@ -145,4 +147,4 @@ if df is not None:
                     with m2: st.metric(label="🟣 EM ROTA", value=r)
                     with m3: st.metric(label="🟢 INICIADO", value=i)
 else:
-    st.error("⚠️ Não foi possível processar a tabela.")
+    st.error("⚠️ Não foi possível processar a tabela devido a uma falha na origem dos dados.")
