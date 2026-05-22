@@ -16,48 +16,54 @@ except:
 
 st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 20px;">TEC1</h1>', unsafe_allow_html=True)
 
-# === MÓDULO DE CARGA OPERACIONAL AVANÇADO (ANTI-ERRO 0) ===
+# === MÓDULO DE CARGA INTELIGENTE (IGNORA LINHAS EM BRANCO NO TOPO) ===
 def carregar_dados_sheets():
     try:
         url = st.secrets['public_gsheets_url']
         
-        # 1. Identifica o ID da planilha
         if 'spreadsheets/d/' in url:
             id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0]
             csv_url = 'https://docs.google.com/spreadsheets/d/' + id_planilha + '/export?format=csv'
             
-            # 2. Captura o GID (se houver no link). Se não houver, tenta forçar o que usou antes
             if 'gid=' in url:
                 gid = url.split('gid=')[1].split('#')[0].split('&')[0]
                 csv_url += '&gid=' + gid
             else:
-                # Aba padrão informada anteriormente como backup para evitar ler aba vazia
                 csv_url += '&gid=208394608'
         else:
             csv_url = url
 
-        # 3. Faz a requisição HTTP isolada para testar o conteúdo antes do Pandas
         resposta = requests.get(csv_url, timeout=15)
-        
         if resposta.status_code != 200:
-            st.error(f'⚠️ Erro de conexão com o Google (Status {resposta.status_code}). Verifique o link.')
+            st.error(f'⚠️ Erro de conexão com o Google (Status {resposta.status_code}).')
             return None
             
         conteudo = resposta.text
         
-        # Detecta se o Google retornou uma página de login/erro em vez de dados CSV
-        if '<html' in conteudo.lower() or '<!doctype' in conteudo.lower() or 'sign-in' in conteudo.lower():
-            st.error('🔒 **Erro de Permissão:** O link está bloqueado. Vá ao Google Sheets, clique em "Compartilhar", mude o Acesso Geral para **"Qualquer pessoa com o link"** como **Leitor** e salve.')
+        if '<html' in conteudo.lower() or '<!doctype' in conteudo.lower():
+            st.error('🔒 **Erro de Permissão:** O link ainda está privado. No Google Sheets, clique em "Compartilhar" e mude para "Qualquer pessoa com o link".')
             return None
 
-        # 4. Se passou nos testes, o Pandas lê a string de texto com segurança
-        df_sheets = pd.read_csv(io.StringIO(conteudo), dtype=str)
+        # --- NOVO SISTEMA DE LOCALIZAÇÃO DE CABEÇALHO ---
+        # Lemos primeiro todas as linhas como texto puro para descobrir onde começam as colunas reais
+        linhas_puras = conteudo.splitlines()
+        linha_do_cabecalho = 0
         
-        if df_sheets.empty or len(df_sheets.columns) == 0:
-            st.warning('⚠️ A aba selecionada na planilha está totalmente vazia.')
+        for i, linha in enumerate(linhas_puras[:15]): # Analisa as primeiras 15 linhas do Sheets
+            linha_upper = linha.upper()
+            # Procura por qualquer uma das colunas chave do seu relatório
+            if 'SUPERVISOR' in linha_upper or 'STATUS' in linha_upper or 'RECURSO' in linha_upper or 'JANELA' in linha_upper:
+                linha_do_cabecalho = i
+                break
+        
+        # Recarrega o Pandas saltando as linhas inúteis/vazias do topo do Sheets
+        df_sheets = pd.read_csv(io.StringIO(conteudo), skiprows=linha_do_cabecalho, dtype=str)
+        
+        if df_sheets.empty:
+            st.warning('⚠️ A tabela parece não conter linhas de dados abaixo do cabeçalho.')
             return None
             
-        # Limpeza e mapeamento das colunas
+        # Limpeza e mapeamento padronizado das colunas encontradas
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
         colunas_mapeadas = {}
@@ -71,6 +77,7 @@ def carregar_dados_sheets():
             
         df = df_sheets.rename(columns=colunas_mapeadas)
         
+        # Cria colunas artificiais caso o relatório não as possua
         for col_obrigatoria in ['SUPERVISOR', 'JANELA_SERVICO', 'STATUS_ATIVIDADE']:
             if col_obrigatoria not in df.columns:
                 df[col_obrigatoria] = 'N/A'
@@ -82,6 +89,12 @@ def carregar_dados_sheets():
         
     except Exception as e:
         st.error('Erro crítico no processamento: ' + str(e))
+        # Se falhar miseravelmente, mostra as primeiras linhas brutas para sabermos o que o Google enviou
+        try:
+            st.info("Amostra do formato recebido do Sheets:")
+            st.code("\n".join(conteudo.splitlines()[:5]))
+        except:
+            pass
         return None
 
 df = carregar_dados_sheets()
@@ -167,7 +180,4 @@ if df is not None:
                     st.markdown(header_texto, unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
                     with m1: 
-                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(p) + '</div></div>'
-                        st.markdown(html_box, unsafe_allow_html=True)
-                    with m2: st.metric(label='🟣 EM ROTA', value=r)
-                    with m3: st.metric(label='🟢 INICIADO', value=i)
+                        html_box = '<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="
