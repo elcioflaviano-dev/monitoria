@@ -21,8 +21,8 @@ except:
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📊 MONITORIA OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<p style="text-align: center; color: #666; font-size: 15px;">Use o menu lateral esquerdo para navegar pelos painéis e relatórios.</p>', unsafe_allow_html=True)
 
-# === FUNÇÃO PADRÃO DE CARGA OPERACIONAL (COMPATÍVEL COM AS OUTRAS PÁGINAS) ===
-def carregar_dados_inicial():
+# === FUNÇÃO QUE FORÇA A CARGA E ATUALIZA AS OUTRAS PÁGINAS ===
+def forcar_atualizacao_total():
     try:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
         
@@ -84,14 +84,17 @@ def carregar_dados_inicial():
                 elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo de Atividade'
                 
             df_final = df_sheets.rename(columns=colunas_mapeadas)
+            
+            # Atualiza a memória global que as outras páginas usam
             st.session_state['dados_rota'] = df_final
             return df_final
     except:
         return None
 
-# Carrega na primeira execução para preencher o estado do app
-if 'dados_rota' not in st.session_state:
-    carregar_dados_inicial()
+# 🚨 SEMPRE EXECUTA AO CLICAR NA PÁGINA PARA GARANTIR ATUALIZAÇÃO DOS DADOS
+forcar_atualizacao_total()
 
 st.markdown("---")
-st.info("👈 Abra a barra lateral para selecionar as telas operacionais da Monitoria.")
+data_atual = st.session_state.get('data_da_rota', 'Não sincronizado')
+st.success(f"🔄 Dados atualizados com sucesso! Última carga: {data_atual}")
+st.info("👈 Agora você pode abrir as páginas TEC1 ou TEC1 PENDENTES no menu lateral com os dados novos.")
