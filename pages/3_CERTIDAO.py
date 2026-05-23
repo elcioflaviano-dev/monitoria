@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit st
 import pandas as pd
 import requests
 import io
@@ -206,7 +206,7 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES (ATUALIZADO COM BADGE NOK)
+# BLOCO 2: PAINEL DE PENDENTES (STATUS DINÂMICO DE CAMPO)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
@@ -240,14 +240,22 @@ if df_base_online is not None:
                     
                     for _, row_p in df_cards_sup.iterrows():
                         c_num = str(row_p['Contrato_Limpo'])
-                        nome_tec = str(row_p['Recurso'])[:14].upper() # Ajustado comprimento para acomodar o status
+                        status_real_campo = str(row_p['Status_Atividade_Limpo'])
+                        nome_tec = str(row_p['Recurso'])[:12].upper()
                         
-                        # Estrutura HTML atualizada para exibir o badge NOK entre o Contrato e o Técnico
+                        # Definição dinâmica de cor com base no status da planilha
+                        if "CONCLU" in status_real_campo:
+                            bg_color = "#2e7d32"     # Verde escuro
+                            txt_status = "CONCLUÍDO"
+                        else:
+                            bg_color = "#ff9800"     # Laranja operacional
+                            txt_status = "INICIADO"
+                        
                         st.markdown(f"""
                             <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span style="font-weight:900; color:#b30000; font-size:13px;">📄 {c_num}</span>
-                                    <span style="background-color:#b30000; color:white; font-size:10px; font-weight:900; padding:2px 6px; border-radius:4px; letter-spacing:0.5px;">NOK</span>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span style="font-weight:900; color:#333; font-size:13px;">📄 {c_num}</span>
+                                    <span style="background-color:{bg_color}; color:white; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px; letter-spacing:0.3px;">{txt_status}</span>
                                 </div>
                                 <span style="color:#555; font-size:11px; font-weight:700; text-transform:uppercase;">👤 {nome_tec}</span>
                             </div>
