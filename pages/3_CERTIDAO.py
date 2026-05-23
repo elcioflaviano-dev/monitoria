@@ -21,7 +21,7 @@ st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-
 ARQUIVO_BANCO = "banco_certidoes.csv"
 
 def carregar_banco_historico():
-    colunas_padrao = ["Data/Hora", "Contrato", "Status", "Supervisor", "Recurso", "Intervalo de Tempo"]
+    colunas_padrao = ["Data/Hora", "Contrato", "Status", "Supervisor", "Recurso", "Intervalo de Tempo", "Observação"]
     if os.path.exists(ARQUIVO_BANCO):
         try:
             df_hist = pd.read_csv(ARQUIVO_BANCO, dtype=str)
@@ -136,7 +136,8 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 janela_sel = "Padrão / Sem Janela"
 if df_base_online is not None:
     try:
-        opcoes_janela = sorted(df_base_online['Intervalo de Tempo'].dropna().astype(str).unique())
+        df_base_online['Intervalo de Tempo'] = df_base_online['Intervalo de Tempo'].fillna('Padrão / Sem Janela').astype(str).str.strip()
+        opcoes_janela = sorted(df_base_online['Intervalo de Tempo'].unique())
         if opcoes_janela:
             janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_janela)
     except:
@@ -147,7 +148,7 @@ if df_base_online is not None:
 # ==========================================
 with st.container(border=True):
     st.markdown("#### 📥 Verificar e Registrar Contrato")
-    col1, col2 = st.columns([3, 2])
+    col1, col2, col3 = st.columns([2, 2, 3])
 
     with col1:
         contrato_input = st.text_input(
@@ -167,10 +168,13 @@ with st.container(border=True):
         
         if not contrato_encontrado.empty:
             linha_contrato = contrato_encontrado.iloc[0]
-            supervisor_detectado = str(linha_contrato.get('SUPERVISOR', 'N/A')).upper()
-            tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper()
+            supervisor_detectado = str(linha_contrato.get('SUPERVISOR', 'N/A')).upper().strip()
+            tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper().strip()
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
-            detalhes_validacao = f"📋 Encontrado | Técnico: {tecnico_detectado} | Posição O.S 1: {status_os1}"
+            
+            if "NAME:" in status_os1:
+                status_os1 = status_os1.split("NAME:")[0].strip()
+            detalhes_validacao = f"📋 Encontrado | Técnico: {tecnico_detectado} | Status de Campo: {status_os1}"
         else:
             detalhes_validacao = "❌ Contrato não localizado na base online de hoje."
 
@@ -180,6 +184,9 @@ with st.container(border=True):
     with col2:
         opcoes_status = ["OK", "NOK", "NÃO ADERENTE"]
         status_final = st.selectbox("Resultado da Verificação:", opcoes_status)
+        
+    with col3:
+        obs_input = st.text_input("Observações / Motivo:", placeholder="Insira notas adicionais aqui...").strip()
 
     if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True):
         if contrato_input != "":
@@ -187,7 +194,7 @@ with st.container(border=True):
             nova_linha = pd.DataFrame([{
                 "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
-                "Intervalo de Tempo": janela_sel
+                "Intervalo de Tempo": janela_sel, "Observação": obs_input if obs_input != "" else "OK"
             }])
             
             df_total = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True)
@@ -206,7 +213,7 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES
+# BLOCO 2: PAINEL DE PENDENTES (BLINDADO CONTRA ACENTOS MINÚSCULOS)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
@@ -215,10 +222,20 @@ df_banco_atual = st.session_state["historico_certidoes"]
 if df_base_online is not None:
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
-    df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
+    
+    # 🚨 BLINDAGEM COMPLETA: Deixa tudo minúsculo, remove acento do 'í' e só depois joga para MAIÚSCULO
+    df_base_online['Status_Atividade_Limpo'] = (
+        df_base_online['Status da Atividade']
+        .fillna('')
+        .astype(str)
+        .str.lower()
+        .str.replace('í', 'i')
+        .str.strip()
+        .str.upper()
+    )
     
     cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
-    cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
+    cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['INICIADO', 'CONCLUIDO'])
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
@@ -271,10 +288,7 @@ st.markdown("---")
 # ==========================================
 with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos Verificados)"):
     if not df_banco_atual.empty:
-        df_historico_clean = df_banco_atual[["Contrato", "Recurso", "Supervisor", "Status", "Data/Hora"]]
-        df_historico_clean.columns = ["Contrato", "Técnico", "Supervisor", "Status da Certidão", "Data/Hora Registro"]
-        
-        st.dataframe(df_historico_clean, use_container_width=True, hide_index=True)
+        st.dataframe(df_banco_atual, use_container_width=True, hide_index=True)
         
         csv_download = df_banco_atual.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Baixar Planilha de Auditoria (CSV)", data=csv_download, file_name="auditoria_certidoes.csv", mime="text/csv")
