@@ -123,7 +123,6 @@ def buscar_base_rotas_online():
 if "historico_certidoes" not in st.session_state:
     st.session_state["historico_certidoes"] = carregar_banco_historico()
 
-# Lógica para resetar o valor do input de forma forçada
 if "input_contrato_value" not in st.session_state:
     st.session_state["input_contrato_value"] = ""
 
@@ -151,7 +150,6 @@ with st.container(border=True):
     col1, col2 = st.columns([3, 2])
 
     with col1:
-        # O text_input agora responde à variável controlada pelo Session State
         contrato_input = st.text_input(
             "Número do Contrato:", 
             value=st.session_state["input_contrato_value"],
@@ -198,7 +196,6 @@ with st.container(border=True):
             st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
             
-            # 🚨 ZERA O CAMPO: Força o valor em memória a voltar para vazio antes de recarregar a tela
             st.session_state["input_contrato_value"] = ""
             
             st.success(f"✅ Contrato {contrato_input} atualizado como {status_final}!")
@@ -209,7 +206,7 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES
+# BLOCO 2: PAINEL DE PENDENTES (ATUALIZADO COM BADGE NOK)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
@@ -243,32 +240,3 @@ if df_base_online is not None:
                     
                     for _, row_p in df_cards_sup.iterrows():
                         c_num = str(row_p['Contrato_Limpo'])
-                        nome_tec = str(row_p['Recurso'])[:18].upper()
-                        
-                        st.markdown(f"""
-                            <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
-                                <span style="font-weight:900; color:#b30000; font-size:13px;">📄 {c_num}</span>
-                                <span style="color:#555; font-size:11px; font-weight:700; text-transform:uppercase;">👤 {nome_tec}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-    else:
-        st.info(f"✨ Todas as certidões deste intervalo foram validadas! Nenhuma pendência encontrada para: **{janela_sel}**.")
-else:
-    st.info("ℹ️ Aguardando conexão com os dados online.")
-
-st.markdown("---")
-
-# ==========================================
-# BLOCO 3: HISTÓRICO
-# ==========================================
-with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos Verificados)"):
-    if not df_banco_atual.empty:
-        df_historico_clean = df_banco_atual[["Contrato", "Recurso", "Supervisor", "Status", "Data/Hora"]]
-        df_historico_clean.columns = ["Contrato", "Técnico", "Supervisor", "Status da Certidão", "Data/Hora Registro"]
-        
-        st.dataframe(df_historico_clean, use_container_width=True, hide_index=True)
-        
-        csv_download = df_banco_atual.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Baixar Planilha de Auditoria (CSV)", data=csv_download, file_name="auditoria_certidoes.csv", mime="text/csv")
-    else:
-        st.info("Nenhum registro gravado no banco de dados local.")
