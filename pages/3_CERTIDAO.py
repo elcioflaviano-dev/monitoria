@@ -1,4 +1,4 @@
-import streamlit st
+import streamlit as st
 import pandas as pd
 import requests
 import io
@@ -206,7 +206,7 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES (STATUS DINÂMICO DE CAMPO)
+# BLOCO 2: PAINEL DE PENDENTES
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
@@ -243,12 +243,11 @@ if df_base_online is not None:
                         status_real_campo = str(row_p['Status_Atividade_Limpo'])
                         nome_tec = str(row_p['Recurso'])[:12].upper()
                         
-                        # Definição dinâmica de cor com base no status da planilha
                         if "CONCLU" in status_real_campo:
-                            bg_color = "#2e7d32"     # Verde escuro
+                            bg_color = "#2e7d32"     
                             txt_status = "CONCLUÍDO"
                         else:
-                            bg_color = "#ff9800"     # Laranja operacional
+                            bg_color = "#ff9800"     
                             txt_status = "INICIADO"
                         
                         st.markdown(f"""
