@@ -11,7 +11,7 @@ st.title("📊 Painel Operacional de Rotas - ABC & SP")
 st.write("---")
 st.markdown("### Bem-vindo! Use o menu lateral para acessar os painéis.")
 
-# Função de carga idêntica e compatível com o ecossistema CSV do projeto
+# Função de carga compatível com o ecossistema CSV do projeto
 def carregar_dados_csv_compativel():
     try:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
@@ -75,7 +75,9 @@ def carregar_dados_csv_compativel():
                 elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'Recurso'
                 elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo de Atividade'
                 
-            return df_sheets.rename(columns=colunas_mapeadas)
+            # 🔥 CORREÇÃO CRÍTICA: Aplica e consolida a renomeação diretamente no DataFrame retornado
+            df_renomeado = df_sheets.rename(columns=colunas_mapeadas)
+            return df_renomeado
     except:
         return None
 
@@ -84,6 +86,7 @@ try:
     df_atualizado = carregar_dados_csv_compativel()
     
     if df_atualizado is not None and not df_atualizado.empty:
+        # 🔥 Salva o arquivo já com a coluna 'Status da Atividade' batizada na memória global
         st.session_state['dados_rota'] = df_atualizado
         st.success("✅ Conexão estabelecida! Dados da planilha 'rota' atualizados.")
         
