@@ -15,7 +15,7 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 20px;">📜 SISTEMA DE CERTIDÃO</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📜 SISTEMA DE CERTIDÃO</h1>', unsafe_allow_html=True)
 
 # === BANCO DE DADOS LOCAL (ARQUIVO PERMANENTE DE REGISTROS) ===
 ARQUIVO_BANCO = "banco_certidoes.csv"
@@ -34,7 +34,7 @@ def carregar_banco_historico():
             return pd.DataFrame(columns=colunas_padrao)
     return pd.DataFrame(columns=colunas_padrao)
 
-# === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
+# === FUNÇÃO DE CARGA OPERACIONAL ONLINE COM CAPTURA DE DATA ===
 def buscar_base_rotas_online():
     try:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
@@ -52,6 +52,18 @@ def buscar_base_rotas_online():
         if resposta.status_code != 200:
             return None
             
+        # Captura o horário de modificação vindo do servidor da Google
+        data_header = resposta.headers.get('Date')
+        if data_header:
+            try:
+                # Converte o fuso horário GMT da Google para o formato brasileiro
+                dt_atualizacao = pd.to_datetime(data_header).tz_convert('America/Sao_Paulo')
+                st.session_state['data_da_rota'] = dt_atualizacao.strftime('%d/%m/%Y às %H:%M:%S')
+            except:
+                st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+        else:
+            st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+
         conteudo_bruto = resposta.text
         linhas_puras = conteudo_bruto.splitlines()
         
@@ -111,6 +123,10 @@ if "historico_certidoes" not in st.session_state:
 
 df_base_online = buscar_base_rotas_online()
 
+# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
+data_rota_texto = st.session_state.get('data_da_rota', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+
 # --- MONTAGEM DO FILTRO LATERAL ---
 janela_sel = "Padrão / Sem Janela"
 if df_base_online is not None:
@@ -131,7 +147,7 @@ with st.container(border=True):
     with col1:
         contrato_input = st.text_input("Número do Contrato:", placeholder="Digite o contrato...").strip()
 
-    status_sugerido = "OK"  # Padrão sugere OK porque o operador está dando baixa no NOK automático
+    status_sugerido = "OK"  
     supervisor_detectado = "N/A"
     tecnico_detectado = "N/A"
     detalhes_validacao = ""
@@ -176,34 +192,28 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES (TUDO DA PLANILHA NASCE NOK AQUI)
+# BLOCO 2: PAINEL DE PENDENTES
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None:
-    # 1. Padroniza strings para busca segura
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
-    # 2. FILTRAGEM DIRETA: Coleta TODOS da planilha que estão na janela e em andamento (Iniciado/Concluído)
     cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
     cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['INICIADO', 'CONCLUIDO', 'CONCLUÍDO'])
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
-    # 3. FILTRO INVERSO: Remove da tela apenas quem você já mudou para "OK" ou "NÃO ADERENTE"
     if not df_banco_atual.empty:
-        # Descobre quais contratos já foram salvos localmente como validados
         contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
-        # Exibe na tela apenas quem NÃO foi validado ainda (ou seja, continuam na lista padrão de NOK)
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_validados)]
     else:
         df_exibir_pendentes = df_base_filtrada
 
-    # 4. EXIBIÇÃO DOS CARDS POR SUPERVISOR
     if not df_exibir_pendentes.empty:
         supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
         cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
