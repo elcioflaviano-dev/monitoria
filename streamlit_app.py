@@ -62,22 +62,33 @@ def carregar_dados_csv_compativel():
             df_sheets = pd.read_csv(io.StringIO(conteudo_bruto), dtype=str, on_bad_lines='skip')
 
         if df_sheets is not None and not df_sheets.empty:
+            # Força a limpeza total de nomes de colunas espelhados do Sheets
             df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
             
-            # Realiza o mapeamento exato de colunas exigido por 1_TEC1 e 2_TEC1_PENDENTES
-            colunas_mapeadas = {}
+            # Criamos um clone para mapear com segurança absoluta
+            df_final = df_sheets.copy()
+            
+            # Mapeamento dinâmico super agressivo por correspondência de termos
             for col in df_sheets.columns:
                 col_upper = col.upper()
-                if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
-                elif 'JANELA' in col_upper or 'INTERVALO' in col_upper or 'TEMPO' in col_upper: colunas_mapeadas[col] = 'Janela de Serviço'
-                elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
-                elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
-                elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'Recurso'
-                elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo de Atividade'
-                
-            # 🔥 CORREÇÃO CRÍTICA: Aplica e consolida a renomeação diretamente no DataFrame retornado
-            df_renomeado = df_sheets.rename(columns=colunas_mapeadas)
-            return df_renomeado
+                if 'SUPERVISOR' in col_upper: 
+                    df_final['SUPERVISOR'] = df_sheets[col]
+                elif 'JANELA' in col_upper or 'INTERVALO' in col_upper or 'TEMPO' in col_upper: 
+                    df_final['Janela de Serviço'] = df_sheets[col]
+                elif 'STATUS' in col_upper: 
+                    # 🚨 BLINDAGEM MÁXIMA: Força a criação exata das duas variações possíveis de nome
+                    df_final['Status da Atividade'] = df_sheets[col]
+                    df_final['Status'] = df_sheets[col]
+                elif 'CONTRATO' in col_upper: 
+                    df_final['Contrato'] = df_sheets[col]
+                elif 'RECURSO' in col_upper: 
+                    df_final['Recurso'] = df_sheets[col]
+                elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): 
+                    df_final['Tipo de Atividade'] = df_sheets[col]
+            
+            # Remove duplicações de colunas geradas pelo mapeamento se sobrarem
+            df_final = df_final.loc[:, ~df_final.columns.duplicated()]
+            return df_final
     except:
         return None
 
@@ -86,7 +97,7 @@ try:
     df_atualizado = carregar_dados_csv_compativel()
     
     if df_atualizado is not None and not df_atualizado.empty:
-        # 🔥 Salva o arquivo já com a coluna 'Status da Atividade' batizada na memória global
+        # Salva o arquivo com garantia de colunas corretas para 1_TEC1 e 2_TEC1_PENDENTES
         st.session_state['dados_rota'] = df_atualizado
         st.success("✅ Conexão estabelecida! Dados da planilha 'rota' atualizados.")
         
