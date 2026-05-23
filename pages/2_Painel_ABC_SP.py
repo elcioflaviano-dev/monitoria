@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import io
 import os
-import altair as alt  # Adicionado para habilitar a plotagem de valores nas barras
+import altair as alt  
 from datetime import datetime
 
 # 1. Configuração da página
@@ -103,15 +103,14 @@ df_dash = buscar_base_rotas_online()
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO ---
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 25px;">🔄 Dados atualizados em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 25px;">🔄 Dados updated em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
 if df_dash is not None and not df_dash.empty:
     
-    # === HIGIENIZAÇÃO CRÍTICA DOS DADOS ===
+    # === HIGIENIZAÇÃO DOS DADOS ===
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
     df_dash['Status_Atividade_Upper'] = df_dash['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
-    # Remove nulos, refeições e contratos suspensos
     cond_contrato_valido = (
         (df_dash['Contrato_Limpo'] != '') & 
         (df_dash['Contrato_Limpo'] != 'nan') & 
@@ -187,32 +186,32 @@ if df_dash is not None and not df_dash.empty:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ==========================================
-    # BLOCO 2: GRÁFICOS AVANÇADOS COM RÓTULOS (ALTAIR)
+    # BLOCO 2: GRÁFICOS ANALÍTICOS (ALTAIR)
     # ==========================================
     g1, g2 = st.columns(2)
 
     with g1:
         with st.container(border=True):
-            st.markdown("#### 🌆 Volume de Contratos por Cidade")
-            df_cidades = df_dash_filtrado.groupby('Cidade_Tratada')['Contrato_Limpo'].nunique().reset_index()
-            df_cidades.columns = ['Cidade', 'Contratos']
-            df_cidades = df_cidades.sort_values(by='Contratos', ascending=False)
+            # 🔥 ALTERADO: Foco total na Soma Total de O.S. (Tarefas) por Cidade
+            st.markdown("#### 🌆 Volume Total de O.S. por Cidade")
+            df_cidades_os = df_dash_filtrado.groupby('Cidade_Tratada')['Total_OS_Num'].sum().reset_index()
+            df_cidades_os.columns = ['Cidade', 'Total OS']
+            df_cidades_os = df_cidades_os.sort_values(by='Total OS', ascending=False)
             
-            if not df_cidades.empty:
-                # Cria a barra do gráfico
-                barras_cidade = alt.Chart(df_cidades).mark_bar(color='#008080').encode(
+            if not df_cidades_os.empty:
+                # Desenha o gráfico de barras
+                barras_cidade = alt.Chart(df_cidades_os).mark_bar(color='#008080').encode(
                     x=alt.X('Cidade:N', sort='-y', title='Cidade'),
-                    y=alt.Y('Contratos:Q', title='Qtd Contratos')
+                    y=alt.Y('Total OS:Q', title='Volume de O.S.')
                 )
-                # Cria o rótulo com o valor no topo
+                # Carimba o número exato de O.S. no topo de cada barra
                 textos_cidade = barras_cidade.mark_text(
                     align='center', baseline='bottom', dy=-4, fontWeight='bold'
-                ).encode(text='Contratos:Q')
+                ).encode(text='Total OS:Q')
                 
-                # Renderiza a fusão do gráfico com o texto
                 st.altair_chart(barras_cidade + textos_cidade, use_container_width=True)
             else:
-                st.caption("Nenhum dado de cidade disponível.")
+                st.caption("Nenhum dado de O.S. por cidade disponível.")
 
     with g2:
         with st.container(border=True):
@@ -223,12 +222,10 @@ if df_dash is not None and not df_dash.empty:
                 df_janelas_grafico['Média de OS'] = df_janelas_grafico['Média de OS'].round(2)
                 df_janelas_grafico = df_janelas_grafico.sort_values(by='Média de OS', ascending=False)
                 
-                # Cria a barra do gráfico
                 barras_janela = alt.Chart(df_janelas_grafico).mark_bar(color='#ff9800').encode(
                     x=alt.X('Janela Horário:N', sort='-y', title='Janela de Horário'),
                     y=alt.Y('Média de OS:Q', title='Média de O.S.')
                 )
-                # Cria o rótulo com o valor no topo
                 textos_janela = barras_janela.mark_text(
                     align='center', baseline='bottom', dy=-4, fontWeight='bold'
                 ).encode(text='Média de OS:Q')
