@@ -240,3 +240,36 @@ if df_base_online is not None:
                     
                     for _, row_p in df_cards_sup.iterrows():
                         c_num = str(row_p['Contrato_Limpo'])
+                        nome_tec = str(row_p['Recurso'])[:14].upper() # Ajustado comprimento para acomodar o status
+                        
+                        # Estrutura HTML atualizada para exibir o badge NOK entre o Contrato e o Técnico
+                        st.markdown(f"""
+                            <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-weight:900; color:#b30000; font-size:13px;">📄 {c_num}</span>
+                                    <span style="background-color:#b30000; color:white; font-size:10px; font-weight:900; padding:2px 6px; border-radius:4px; letter-spacing:0.5px;">NOK</span>
+                                </div>
+                                <span style="color:#555; font-size:11px; font-weight:700; text-transform:uppercase;">👤 {nome_tec}</span>
+                            </div>
+                        """, unsafe_allow_html=True)
+    else:
+        st.info(f"✨ Todas as certidões deste intervalo foram validadas! Nenhuma pendência encontrada para: **{janela_sel}**.")
+else:
+    st.info("ℹ️ Aguardando conexão com os dados online.")
+
+st.markdown("---")
+
+# ==========================================
+# BLOCO 3: HISTÓRICO
+# ==========================================
+with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos Verificados)"):
+    if not df_banco_atual.empty:
+        df_historico_clean = df_banco_atual[["Contrato", "Recurso", "Supervisor", "Status", "Data/Hora"]]
+        df_historico_clean.columns = ["Contrato", "Técnico", "Supervisor", "Status da Certidão", "Data/Hora Registro"]
+        
+        st.dataframe(df_historico_clean, use_container_width=True, hide_index=True)
+        
+        csv_download = df_banco_atual.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Baixar Planilha de Auditoria (CSV)", data=csv_download, file_name="auditoria_certidoes.csv", mime="text/csv")
+    else:
+        st.info("Nenhum registro gravado no banco de dados local.")
