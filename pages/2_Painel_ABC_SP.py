@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import io
 import os
+import altair as alt  # Adicionado para habilitar a plotagem de valores nas barras
 from datetime import datetime
 
 # 1. Configuração da página
@@ -106,13 +107,11 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 
 if df_dash is not None and not df_dash.empty:
     
-    # === HIGIENIZAÇÃO CRÍTICA DOS DADOS ANTES DOS CÁLCULOS ===
+    # === HIGIENIZAÇÃO CRÍTICA DOS DADOS ===
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
-    
-    # Criamos a normalização do status para garantir a exclusão perfeita
     df_dash['Status_Atividade_Upper'] = df_dash['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
-    # 🚨 BLINDAGEM DE FILTRO: Remove nulos, refeições e contratos com status SUSPENSO
+    # Remove nulos, refeições e contratos suspensos
     cond_contrato_valido = (
         (df_dash['Contrato_Limpo'] != '') & 
         (df_dash['Contrato_Limpo'] != 'nan') & 
@@ -120,34 +119,28 @@ if df_dash is not None and not df_dash.empty:
         (~df_dash['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
     )
     
-    # Se existir a coluna 'Tipo de Atividade', tira também as Refeições
     if 'Tipo de Atividade' in df_dash.columns:
         cond_contrato_valido = cond_contrato_valido & (~df_dash['Tipo de Atividade'].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
         
     df_dash_filtrado = df_dash[cond_contrato_valido].copy()
-    
-    # Limpa decimais (.0) dos números dos contratos restantes
     df_dash_filtrado['Contrato_Limpo'] = df_dash_filtrado['Contrato_Limpo'].apply(lambda x: x.split('.')[0].strip())
 
-    # 2. Cidades tratadas
     if 'Cidade' in df_dash_filtrado.columns:
         df_dash_filtrado['Cidade_Tratada'] = df_dash_filtrado['Cidade'].fillna('NÃO INFORMADA').astype(str).str.upper().str.strip()
     else:
         df_dash_filtrado['Cidade_Tratada'] = 'NÃO INFORMADA'
 
-    # 3. Conversão numérica do Total de Tarefas (OS)
     if 'Total de tarefas' in df_dash_filtrado.columns:
         df_dash_filtrado['Total_OS_Num'] = pd.to_numeric(df_dash_filtrado['Total de tarefas'], errors='coerce').fillna(0).astype(int)
     else:
         df_dash_filtrado['Total_OS_Num'] = 0
 
-    # 4. Tratamento de Intervalo de Tempo
     if 'Intervalo de Tempo' in df_dash_filtrado.columns:
         df_dash_filtrado['Intervalo_Tratado'] = df_dash_filtrado['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     else:
         df_dash_filtrado['Intervalo_Tratado'] = ''
 
-    # === FILTRO DE SUPERVISOR NA SIDEBAR ===
+    # === FILTRO DE SUPERVISOR ===
     if 'SUPERVISOR' in df_dash_filtrado.columns:
         lista_supervisores = ["TODOS"] + sorted(df_dash_filtrado['SUPERVISOR'].dropna().unique())
         supervisor_sel = st.sidebar.selectbox("Filtrar por Supervisor:", lista_supervisores)
@@ -156,13 +149,12 @@ if df_dash is not None and not df_dash.empty:
             df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
 
     # ==========================================
-    # BLOCO 1: KPls / MÉTRICAS PRINCIPAS (PURA OPERAÇÃO ATIVA)
+    # BLOCO 1: KPIs
     # ==========================================
     total_contratos = df_dash_filtrado['Contrato_Limpo'].nunique()
     total_geral_os = df_dash_filtrado['Total_OS_Num'].sum()
     media_os_por_contrato = df_dash_filtrado['Total_OS_Num'].mean() if total_contratos > 0 else 0.0
 
-    # Média de OS por Janelas Ativas (Removendo Vazios, Nulos, Sem Janela e Padrão)
     df_janelas_validas = df_dash_filtrado[
         (df_dash_filtrado['Intervalo_Tratado'] != '') & 
         (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
@@ -174,7 +166,6 @@ if df_dash is not None and not df_dash.empty:
     else:
         media_os_janelas_reais = 0.0
 
-    # Renderização Visual das Métricas
     m1, m2, m3, m4 = st.columns(4)
     with m1:
         with st.container(border=True):
@@ -196,7 +187,7 @@ if df_dash is not None and not df_dash.empty:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ==========================================
-    # BLOCO 2: GRÁFICOS ANALÍTICOS
+    # BLOCO 2: GRÁFICOS AVANÇADOS COM RÓTULOS (ALTAIR)
     # ==========================================
     g1, g2 = st.columns(2)
 
@@ -208,7 +199,18 @@ if df_dash is not None and not df_dash.empty:
             df_cidades = df_cidades.sort_values(by='Contratos', ascending=False)
             
             if not df_cidades.empty:
-                st.bar_chart(data=df_cidades, x='Cidade', y='Contratos', color='#008080', use_container_width=True)
+                # Cria a barra do gráfico
+                barras_cidade = alt.Chart(df_cidades).mark_bar(color='#008080').encode(
+                    x=alt.X('Cidade:N', sort='-y', title='Cidade'),
+                    y=alt.Y('Contratos:Q', title='Qtd Contratos')
+                )
+                # Cria o rótulo com o valor no topo
+                textos_cidade = barras_cidade.mark_text(
+                    align='center', baseline='bottom', dy=-4, fontWeight='bold'
+                ).encode(text='Contratos:Q')
+                
+                # Renderiza a fusão do gráfico com o texto
+                st.altair_chart(barras_cidade + textos_cidade, use_container_width=True)
             else:
                 st.caption("Nenhum dado de cidade disponível.")
 
@@ -218,9 +220,20 @@ if df_dash is not None and not df_dash.empty:
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
                 df_janelas_grafico.columns = ['Janela Horário', 'Média de OS']
+                df_janelas_grafico['Média de OS'] = df_janelas_grafico['Média de OS'].round(2)
                 df_janelas_grafico = df_janelas_grafico.sort_values(by='Média de OS', ascending=False)
                 
-                st.bar_chart(data=df_janelas_grafico, x='Janela Horário', y='Média de OS', color='#ff9800', use_container_width=True)
+                # Cria a barra do gráfico
+                barras_janela = alt.Chart(df_janelas_grafico).mark_bar(color='#ff9800').encode(
+                    x=alt.X('Janela Horário:N', sort='-y', title='Janela de Horário'),
+                    y=alt.Y('Média de OS:Q', title='Média de O.S.')
+                )
+                # Cria o rótulo com o valor no topo
+                textos_janela = barras_janela.mark_text(
+                    align='center', baseline='bottom', dy=-4, fontWeight='bold'
+                ).encode(text='Média de OS:Q')
+                
+                st.altair_chart(barras_janela + textos_janela, use_container_width=True)
             else:
                 st.info("Nenhuma janela com contrato ativo identificada para cálculo.")
 
