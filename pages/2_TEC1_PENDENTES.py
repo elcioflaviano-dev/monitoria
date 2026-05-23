@@ -65,10 +65,10 @@ def carregar_dados_automatico():
         
         if 'spreadsheets/d/' in url:
             id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0].strip()
-            csv_url = f"https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv"
+            csv_url = "https://docs.google.com/spreadsheets/d/" + id_planilha + "/export?format=csv"
             if 'gid=' in url:
                 gid = url.split('gid=')[1].split('#')[0].split('&')[0].strip()
-                csv_url += f"&gid={gid}"
+                csv_url += "&gid=" + gid
         else:
             csv_url = url
 
@@ -128,6 +128,7 @@ def carregar_dados_automatico():
             elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
             elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
             elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'Recurso'
+            elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo de Atividade'
             
         df_final = df_sheets.rename(columns=colunas_mapeadas)
         st.session_state['dados_rota'] = df_final
@@ -145,14 +146,48 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_planilha is not None:
     df = df_planilha.copy()
     
-    # Filtro de Janela
-    col_janela = 'Janela de Serviço'
-    if col_janela in df.columns:
-        opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
-        janela_sel = st.sidebar.selectbox("Janela Ativa:", opcoes_janela)
-        df_tela = df[df[col_janela] == janela_sel]
+    # === HIGIENIZAÇÃO CRÍTICA DOS DADOS E FILTRO ===
+    df['Contrato_Limpo'] = df['Contrato'].fillna('').astype(str).str.strip()
+    
+    if 'Status da Atividade' in df.columns:
+        df['Status_Atividade_Upper'] = df['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     else:
-        df_tela = df.copy()
+        df['Status_Atividade_Upper'] = ''
+        
+    # Filtro operacional: descarta vazios, #N/A e suspensos
+    cond_contrato_valido = (
+        (df['Contrato_Limpo'] != '') & 
+        (df['Contrato_Limpo'] != 'nan') & 
+        (~df['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
+        (~df['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
+    )
+    
+    # Remove marcações de horário de almoço
+    if 'Tipo de Atividade' in df.columns:
+        cond_contrato_valido = cond_contrato_valido & (~df['Tipo de Atividade'].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
+        
+    df_limpo = df[cond_contrato_valido].copy()
+    
+    # Processamento do seletor de janelas limpas
+    col_janela = 'Janela de Serviço'
+    if col_janela in df_limpo.columns:
+        df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
+        
+        df_janelas_validas = df_limpo[
+            (df_limpo['Intervalo_Tratado'] != '') & 
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+        ]
+        
+        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].unique())
+        
+        if opcoes_janela:
+            janela_sel = st.sidebar.selectbox("Janela Ativa:", opcoes_janela)
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
+        else:
+            df_tela = df_limpo.copy()
+    else:
+        df_tela = df_limpo.copy()
 
     # Filtro de Status: APENAS PENDENTES
     df_pendentes_geral = df_tela[df_tela['Status da Atividade'].str.upper() == 'PENDENTE'] if 'Status da Atividade' in df_tela.columns else pd.DataFrame()
