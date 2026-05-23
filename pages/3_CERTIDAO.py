@@ -213,7 +213,7 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES (BLINDADO CONTRA ACENTOS MINÚSCULOS)
+# BLOCO 2: PAINEL DE PENDENTES (FOCADO EM CONCLUÍDO E PENDENTE)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
@@ -223,7 +223,7 @@ if df_base_online is not None:
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     
-    # 🚨 BLINDAGEM COMPLETA: Deixa tudo minúsculo, remove acento do 'í' e só depois joga para MAIÚSCULO
+    # Tratamento completo de strings para capturar "concluído" e "pendente" da sua planilha
     df_base_online['Status_Atividade_Limpo'] = (
         df_base_online['Status da Atividade']
         .fillna('')
@@ -235,7 +235,9 @@ if df_base_online is not None:
     )
     
     cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
-    cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['INICIADO', 'CONCLUIDO'])
+    
+    # 🔥 REGRA CORRIGIDA: Capturamos os dois status existentes na sua coluna ("CONCLUIDO" e "PENDENTE")
+    cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['CONCLUIDO', 'PENDENTE'])
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
@@ -260,12 +262,13 @@ if df_base_online is not None:
                         status_real_campo = str(row_p['Status_Atividade_Limpo'])
                         nome_tec = str(row_p['Recurso'])[:12].upper()
                         
+                        # Definição visual baseada nos novos status mapeados
                         if "CONCLU" in status_real_campo:
-                            bg_color = "#2e7d32"     
+                            bg_color = "#2e7d32"     # Verde para o que já foi Concluído na rua
                             txt_status = "CONCLUÍDO"
                         else:
-                            bg_color = "#ff9800"     
-                            txt_status = "INICIADO"
+                            bg_color = "#9e9e9e"     # Cinza neutro / Laranja para o que ainda está Pendente na rua
+                            txt_status = "PENDENTE"
                         
                         st.markdown(f"""
                             <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:5px 8px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
