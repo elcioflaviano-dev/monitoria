@@ -68,3 +68,17 @@ div[data-testid="stMetricValue"] div {
     margin-top: 0px;
     letter-spacing: -0.5px;
 }
+
+/* Remove o texto padrão 'streamlit app' e insere o seu texto personalizado */
+div[data-testid="stSidebarNav"]::before {
+    content: "🔄 CLIQUE PARA ATUALIZAR A BASE";
+    color: #008080; /* Cor igual ao padrão do seu sistema */
+    font-weight: 900;
+    font-size: 14px;
+    padding: 20px 20px 10px 20px;
+    display: block;
+    text-align: center;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 15px;
+}
