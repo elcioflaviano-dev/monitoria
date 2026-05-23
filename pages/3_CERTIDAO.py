@@ -154,7 +154,7 @@ with st.container(border=True):
         contrato_input = st.text_input(
             "Número do Contrato:", 
             value=st.session_state["input_contrato_value"],
-            placeholder="Digite o contrato... "
+            placeholder="Digite o contrato e pressione Enter..."
         ).strip()
 
     status_sugerido = "OK"  
@@ -213,7 +213,7 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES (INICIADO & CONCLUÍDO)
+# BLOCO 2: PAINEL DE PENDENTES (MÉTODO CONTAINS - ANTI-ACENTO)
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
@@ -223,21 +223,13 @@ if df_base_online is not None:
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     
-    # Normalização absoluta de strings contra acentuação oculta
-    df_base_online['Status_Atividade_Limpo'] = (
-        df_base_online['Status da Atividade']
-        .fillna('')
-        .astype(str)
-        .str.lower()
-        .str.replace('í', 'i')
-        .str.strip()
-        .str.upper()
-    )
+    # Força apenas o Upper Case bruto para a busca por pedaço de palavra (.contains)
+    df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
     cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
     
-    # 🎯 FILTRO CORRETO: Captura tanto os que já foram "CONCLUIDO" quanto os que estão em andamento "INICIADO"
-    cond_ativ = df_base_online['Status_Atividade_Limpo'].isin(['INICIADO', 'CONCLUIDO'])
+    # 🔥 SOLUÇÃO DEFINITIVA: Varre usando CONTAINS. Captura "INIC" (Iniciado) ou "CONCLU" (concluído / concluída) independente de acento!
+    cond_ativ = df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU") | df_base_online['Status_Atividade_Limpo'].str.contains("INIC")
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
@@ -262,12 +254,12 @@ if df_base_online is not None:
                         status_real_campo = str(row_p['Status_Atividade_Limpo'])
                         nome_tec = str(row_p['Recurso'])[:12].upper()
                         
-                        # Renderização de cor de badge dinâmica por status real de campo
+                        # Atribui a cor correta baseada no pedaço da palavra capturada
                         if "CONCLU" in status_real_campo:
                             bg_color = "#2e7d32"     # Verde escuro para Concluído
                             txt_status = "CONCLUÍDO"
                         else:
-                            bg_color = "#ff9800"     # Laranja vibrante para Iniciado
+                            bg_color = "#ff9800"     # Laranja para Iniciado
                             txt_status = "INICIADO"
                         
                         st.markdown(f"""
