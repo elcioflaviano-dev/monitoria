@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
+from datetime import datetime
 
 # 1. Configuração da página e remoção de espaços
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -9,7 +10,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 # 2. Carregar Estilos Globais
 try:
     with open("style.css", "r") as f:
-        st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 except:
     pass
 
@@ -52,7 +53,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 4. Título de Alerta
-st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 10px;">⚠️ TEC1 - PENDENTES</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 5px;">⚠️ TEC1 - PENDENTES</h1>', unsafe_allow_html=True)
 
 # === FUNÇÃO DE CARGA OPERACIONAL DO GOOGLE SHEETS COM VARREDURA INTEGRA ===
 def carregar_dados_automatico():
@@ -60,18 +61,14 @@ def carregar_dados_automatico():
         return st.session_state['dados_rota']
         
     try:
-        # Se você configurou no Secrets, ele usa a URL da nuvem. Caso contrário, use este fallback seguro:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
         
         if 'spreadsheets/d/' in url:
             id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0].strip()
-            csv_url = "https://docs.google.com/spreadsheets/d/" + id_planilha + "/export?format=csv"
-            
+            csv_url = f"https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv"
             if 'gid=' in url:
                 gid = url.split('gid=')[1].split('#')[0].split('&')[0].strip()
-                csv_url += "&gid=" + gid
-            else:
-                csv_url += "&gid=208394608"
+                csv_url += f"&gid={gid}"
         else:
             csv_url = url
 
@@ -81,12 +78,26 @@ def carregar_dados_automatico():
         if resposta.status_code != 200:
             return None
             
+        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA ===
+        data_header = resposta.headers.get('Date')
+        if data_header:
+            try:
+                dt_gmt = pd.to_datetime(data_header)
+                if dt_gmt.tz is None:
+                    dt_brasil = dt_gmt.tz_localize('UTC').tz_convert('America/Sao_Paulo')
+                else:
+                    dt_brasil = dt_gmt.tz_convert('America/Sao_Paulo')
+                st.session_state['data_da_rota'] = dt_brasil.strftime('%d/%m/%Y às %H:%M:%S')
+            except:
+                st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+        else:
+            st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+
         conteudo_bruto = resposta.text
         if '<html' in conteudo_bruto.lower() or '<!doctype' in conteudo_bruto.lower():
             st.error("🔒 Erro de Permissão: A planilha está PRIVADA. Altere o compartilhamento no Google Sheets.")
             return None
 
-        # Varredura inteligente de cabeçalho para evitar o erro de colunas
         linhas_puras = conteudo_bruto.splitlines()
         linha_do_cabecalho_real = 0
         encontrou_cabecalho = False
@@ -107,15 +118,13 @@ def carregar_dados_automatico():
         if df_sheets is None or df_sheets.empty:
             return None
 
-        # Limpeza rápida de cabeçalhos
         df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
         
-        # Mapeamento para garantir compatibilidade com as colunas do seu código antigo
         colunas_mapeadas = {}
         for col in df_sheets.columns:
             col_upper = col.upper()
             if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
-            elif 'JANELA' in col_upper: colunas_mapeadas[col] = 'Janela de Serviço'
+            elif 'JANELA' in col_upper or 'INTERVALO' in col_upper or 'TEMPO' in col_upper: colunas_mapeadas[col] = 'Janela de Serviço'
             elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
             elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
             elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'Recurso'
@@ -128,6 +137,10 @@ def carregar_dados_automatico():
 
 # Executa a carga inteligente
 df_planilha = carregar_dados_automatico()
+
+# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
+data_rota_texto = st.session_state.get('data_da_rota', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
 if df_planilha is not None:
     df = df_planilha.copy()
@@ -160,7 +173,7 @@ if df_planilha is not None:
     df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
 
     def desenhar_alertas(df_regiao, titulo_regiao):
-        st.markdown('<div class="title-abc-sp">' + str(titulo_regiao) + '</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="title-abc-sp">{titulo_regiao}</div>', unsafe_allow_html=True)
         
         if col_supervisor in df_tela.columns:
             todos_supervisores = sorted(df_tela[col_supervisor].dropna().unique())
@@ -176,14 +189,14 @@ if df_planilha is not None:
             df_super_p = df_regiao[df_regiao[col_supervisor] == super_nome] if not df_regiao.empty else pd.DataFrame()
             
             with st.container(border=True):
-                st.markdown("##### **" + str(super_nome).upper() + "**")
+                st.markdown(f"##### **{super_nome.upper()}**")
                 
                 if not df_super_p.empty:
                     for _, r in df_super_p.iterrows():
                         contrato_limpo = str(r['Contrato']).split('.')[0] if 'Contrato' in r else "N/A"
                         nome_tecnico = str(r['Recurso'])[:25] if 'Recurso' in r else "N/A"
                         
-                        html_item = '<div class="item-pendente-tv"><span class="tecnico-nome-tv">' + str(nome_tecnico) + '</span><span class="contrato-numero-tv">' + str(contrato_limpo) + '</span></div>'
+                        html_item = f'<div class="item-pendente-tv"><span class="tecnico-nome-tv">{nome_tecnico}</span><span class="contrato-numero-tv">{contrato_limpo}</span></div>'
                         st.markdown(html_item, unsafe_allow_html=True)
                 else:
                     st.markdown('<div class="no-pendente-tv">✅ Sem pendências nesta janela</div>', unsafe_allow_html=True)
