@@ -34,7 +34,7 @@ def carregar_banco_historico():
             return pd.DataFrame(columns=colunas_padrao)
     return pd.DataFrame(columns=colunas_padrao)
 
-# === FUNÇÃO DE CARGA OPERACIONAL ONLINE COM CAPTURA DE DATA ===
+# === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
 def buscar_base_rotas_online():
     try:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
@@ -52,13 +52,17 @@ def buscar_base_rotas_online():
         if resposta.status_code != 200:
             return None
             
-        # Captura o horário de modificação vindo do servidor da Google
+        # Captura o horário vindo da Google
         data_header = resposta.headers.get('Date')
         if data_header:
             try:
-                # Converte o fuso horário GMT da Google para o formato brasileiro
-                dt_atualizacao = pd.to_datetime(data_header).tz_convert('America/Sao_Paulo')
-                st.session_state['data_da_rota'] = dt_atualizacao.strftime('%d/%m/%Y às %H:%M:%S')
+                # Converte o fuso UTC/GMT do cabeçalho diretamente para o Horário de Brasília (-3)
+                dt_gmt = pd.to_datetime(data_header)
+                if dt_gmt.tz is None:
+                    dt_brasil = dt_gmt.tz_localize('UTC').tz_convert('America/Sao_Paulo')
+                else:
+                    dt_brasil = dt_gmt.tz_convert('America/Sao_Paulo')
+                st.session_state['data_da_rota'] = dt_brasil.strftime('%d/%m/%Y às %H:%M:%S')
             except:
                 st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
         else:
