@@ -11,9 +11,8 @@ st.markdown("### Bem-vindo! Use o menu lateral para acessar os painéis.")
 # Função com cache automático para carregar os dados
 @st.cache_data(ttl=120)  # Atualiza os dados a cada 2 minutos se a página for recarregada
 def carregar_dados():
-    # ATENÇÃO: Substitua o link abaixo pelo link da sua planilha "rota"
-    # Lembre de mudar o final para /export?format=xlsx
-    URL_SHEETS = "https://docs.google.com/spreadsheets/d/SEU_ID_AQUI/export?format=xlsx"
+    # 🚨 LINK REAL DA SUA PLANILHA APLICADO AQUI:
+    URL_SHEETS = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=xlsx"
     
     df = pd.read_excel(URL_SHEETS)
     df.columns = df.columns.str.strip() # Remove espaços extras nos nomes das colunas
