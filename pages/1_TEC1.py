@@ -92,6 +92,7 @@ def carregar_dados_automatico():
             elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
             elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
             elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'Recurso'
+            elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo de Atividade'
             
         df_final = df_sheets.rename(columns=colunas_mapeadas)
         st.session_state['dados_rota'] = df_final
@@ -109,13 +110,50 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_planilha is not None:
     df = df_planilha.copy()
     
-    col_janela = 'Janela de Serviço'
-    if col_janela in df.columns:
-        opcoes_janela = sorted(df[col_janela].dropna().astype(str).unique())
-        janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-        df_tela = df[df[col_janela] == janela_sel]
+    # === HIGIENIZAÇÃO CRÍTICA DO FILTRO E DOS DADOS ===
+    df['Contrato_Limpo'] = df['Contrato'].fillna('').astype(str).str.strip()
+    
+    if 'Status da Atividade' in df.columns:
+        df['Status_Atividade_Upper'] = df['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     else:
-        df_tela = df.copy()
+        df['Status_Atividade_Upper'] = ''
+        
+    # 🚨 FILTRAGEM PESADA: Elimina nulos, #N/A e status SUSPENSO
+    cond_contrato_valido = (
+        (df['Contrato_Limpo'] != '') & 
+        (df['Contrato_Limpo'] != 'nan') & 
+        (~df['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
+        (~df['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
+    )
+    
+    # Remove as marcações operacionais de almoço (Refeicao)
+    if 'Tipo de Atividade' in df.columns:
+        cond_contrato_valido = cond_contrato_valido & (~df['Tipo de Atividade'].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
+        
+    df_limpo = df[cond_contrato_valido].copy()
+    
+    # Tratamento e montagem do filtro dinâmico de Janelas Válidas
+    col_janela = 'Janela de Serviço'
+    if col_janela in df_limpo.columns:
+        df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
+        
+        # Ignora textos corrompidos ou informativos de sistema da lista
+        df_janelas_validas = df_limpo[
+            (df_limpo['Intervalo_Tratado'] != '') & 
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+        ]
+        
+        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].unique())
+        
+        if opcoes_janela:
+            janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
+        else:
+            df_tela = df_limpo.copy()
+            janela_sel = "N/A"
+    else:
+        df_tela = df_limpo.copy()
         janela_sel = "N/A"
 
     col_supervisor = 'SUPERVISOR'
