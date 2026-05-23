@@ -1,26 +1,32 @@
 import streamlit as st
 
-# 1. Configuração da página (Deve ser a primeira coisa do arquivo principal)
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
-
-# 2. Definição das páginas do seu sistema de forma organizada
-paginas = [
-    st.Page("pages/1_TEC1.py", title="🏠 Painel Geral TEC1"),
-    st.Page("pages/2_TEC1_PENDENTES.py", title="⚠️ Técnicos Pendentes"),
-    st.Page("pages/3_CERTIDAO.py", title="📜 Sistema de Certidão"),
-    st.Page("pages/4_PAINEL_ABC_SP.py", title="📊 Dashboards ABC SP")
-]
-
-# 3. Inicializa o motor de navegação oficial do Streamlit
-# Isso desativa completamente o título nativo "streamlit app"
-pg = st.navigation(paginas)
-
-# 4. Cria o seu título personalizado com ação de atualizar logo acima do menu
-st.sidebar.markdown(
-    '<h3 style="font-size: 14px; font-weight: 900; color: #008080; text-align: center; margin-top: 15px; margin-bottom: 15px; letter-spacing: 0.5px;">🔄 CLIQUE PARA ATUALIZAR A BASE</h3>', 
-    unsafe_allow_html=True
+# Configuração inicial da página principal
+st.set_page_config(
+    page_title="Monitoria TEC1",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
-st.sidebar.markdown("---")
 
-# 5. Executa a página que o usuário clicou
-pg.run()
+# Mensagem de boas-vindas ou redirecionamento na Home
+st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #008080; text-align: center; margin-top: 50px;">Monitoria Operacional TEC1</h1>', unsafe_allow_html=True)
+st.markdown('<p style="text-align: center; color: #666; font-size: 16px;">Utilize o menu lateral para navegar entre os painéis, listas de pendências e relatórios de certidão.</p>', unsafe_allow_html=True)
+
+st.markdown("---")
+
+# Exibe um resumo rápido ou orientações para a operação
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    with st.container(border=True):
+        st.markdown("### 🏠 Painel Geral")
+        st.write("Visualização em tempo real dos status de Pendentes, Em Rota e Iniciados divididos por regiões e supervisores.")
+
+with col2:
+    with st.container(border=True):
+        st.markdown("### ⚠️ Pendentes TV")
+        st.write("Modo de exibição focado em alertas de técnicos com contratos parados na janela de atendimento atual.")
+
+with col3:
+    with st.container(border=True):
+        st.markdown("### 📜 Certidões")
+        st.write("Sistema de auditoria para checar e gravar a validação dos contratos concluídos em campo.")
