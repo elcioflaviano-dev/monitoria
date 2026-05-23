@@ -80,6 +80,8 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'SUPERVISOR'
             elif ('INTERVALO' in col_upper or 'TEMPO' in col_upper) and 'Intervalo de Tempo' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Intervalo de Tempo'
+            elif 'STATUS DA ATIVIDADE' in col_upper or ('STATUS' in col_upper and 'ATIVIDADE' in col_upper) and 'Status da Atividade' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'Status da Atividade'
             elif 'CONTRATO' in col_upper and 'Contrato' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Contrato'
             elif 'CIDADE' in col_upper and 'Cidade' not in colunas_mapeadas.values(): 
@@ -105,23 +107,26 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_dash is not None and not df_dash.empty:
     
     # === HIGIENIZAÇÃO CRÍTICA DOS DADOS ANTES DOS CÁLCULOS ===
-    # 1. Cria coluna limpa eliminando linhas nulas ou marcas operacionais de almoço (#N/A)
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
     
-    # 🚨 TRAVA DE SEGURANÇA OPERACIONAL: Filtra e remove refeições, pausas e contratos inválidos
+    # Criamos a normalização do status para garantir a exclusão perfeita
+    df_dash['Status_Atividade_Upper'] = df_dash['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
+    
+    # 🚨 BLINDAGEM DE FILTRO: Remove nulos, refeições e contratos com status SUSPENSO
     cond_contrato_valido = (
         (df_dash['Contrato_Limpo'] != '') & 
         (df_dash['Contrato_Limpo'] != 'nan') & 
-        (~df_dash['Contrato_Limpo'].str.contains('#N/A', case=False, na=False))
+        (~df_dash['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
+        (~df_dash['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
     )
     
-    # Se existir a coluna 'Tipo de Atividade', reforça tirando registros com nome 'Refeicao'
+    # Se existir a coluna 'Tipo de Atividade', tira também as Refeições
     if 'Tipo de Atividade' in df_dash.columns:
         cond_contrato_valido = cond_contrato_valido & (~df_dash['Tipo de Atividade'].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
         
     df_dash_filtrado = df_dash[cond_contrato_valido].copy()
     
-    # Ajusta o número do contrato para remover casas decimais indesejadas (.0)
+    # Limpa decimais (.0) dos números dos contratos restantes
     df_dash_filtrado['Contrato_Limpo'] = df_dash_filtrado['Contrato_Limpo'].apply(lambda x: x.split('.')[0].strip())
 
     # 2. Cidades tratadas
@@ -151,13 +156,13 @@ if df_dash is not None and not df_dash.empty:
             df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
 
     # ==========================================
-    # BLOCO 1: KPls / MÉTRICAS PRINCIPAIS
+    # BLOCO 1: KPls / MÉTRICAS PRINCIPAS (PURA OPERAÇÃO ATIVA)
     # ==========================================
     total_contratos = df_dash_filtrado['Contrato_Limpo'].nunique()
     total_geral_os = df_dash_filtrado['Total_OS_Num'].sum()
     media_os_por_contrato = df_dash_filtrado['Total_OS_Num'].mean() if total_contratos > 0 else 0.0
 
-    # Média de OS por Janelas Ativas (Removendo Vazios, Nulos e Texto "Sem Janela")
+    # Média de OS por Janelas Ativas (Removendo Vazios, Nulos, Sem Janela e Padrão)
     df_janelas_validas = df_dash_filtrado[
         (df_dash_filtrado['Intervalo_Tratado'] != '') & 
         (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
@@ -209,7 +214,7 @@ if df_dash is not None and not df_dash.empty:
 
     with g2:
         with st.container(border=True):
-            st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento (Com Contratos)")
+            st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento (Com Contratos Ativos)")
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
                 df_janelas_grafico.columns = ['Janela Horário', 'Média de OS']
