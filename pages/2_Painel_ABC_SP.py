@@ -86,6 +86,8 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Cidade'
             elif ('TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper) and 'Total de tarefas' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Total de tarefas'
+            elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper) and 'Tipo de Atividade' not in colunas_mapeadas.values():
+                colunas_mapeadas[col] = 'Tipo de Atividade'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
         df_final = df_final.loc[:, ~df_final.columns.duplicated()]
@@ -102,64 +104,72 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 
 if df_dash is not None and not df_dash.empty:
     
-    # === TRATAMENTO E HIGIENIZAÇÃO DE DADOS PARA OS GRÁFICOS ===
-    # 1. Contratos limpos
-    if 'Contrato' in df_dash.columns:
-        df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
-    else:
-        df_dash['Contrato_Limpo'] = "N/A"
+    # === HIGIENIZAÇÃO CRÍTICA DOS DADOS ANTES DOS CÁLCULOS ===
+    # 1. Cria coluna limpa eliminando linhas nulas ou marcas operacionais de almoço (#N/A)
+    df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
+    
+    # 🚨 TRAVA DE SEGURANÇA OPERACIONAL: Filtra e remove refeições, pausas e contratos inválidos
+    cond_contrato_valido = (
+        (df_dash['Contrato_Limpo'] != '') & 
+        (df_dash['Contrato_Limpo'] != 'nan') & 
+        (~df_dash['Contrato_Limpo'].str.contains('#N/A', case=False, na=False))
+    )
+    
+    # Se existir a coluna 'Tipo de Atividade', reforça tirando registros com nome 'Refeicao'
+    if 'Tipo de Atividade' in df_dash.columns:
+        cond_contrato_valido = cond_contrato_valido & (~df_dash['Tipo de Atividade'].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
+        
+    df_dash_filtrado = df_dash[cond_contrato_valido].copy()
+    
+    # Ajusta o número do contrato para remover casas decimais indesejadas (.0)
+    df_dash_filtrado['Contrato_Limpo'] = df_dash_filtrado['Contrato_Limpo'].apply(lambda x: x.split('.')[0].strip())
 
     # 2. Cidades tratadas
-    if 'Cidade' in df_dash.columns:
-        df_dash['Cidade_Tratada'] = df_dash['Cidade'].fillna('NÃO INFORMADA').astype(str).str.upper().str.strip()
+    if 'Cidade' in df_dash_filtrado.columns:
+        df_dash_filtrado['Cidade_Tratada'] = df_dash_filtrado['Cidade'].fillna('NÃO INFORMADA').astype(str).str.upper().str.strip()
     else:
-        df_dash['Cidade_Tratada'] = 'NÃO INFORMADA'
+        df_dash_filtrado['Cidade_Tratada'] = 'NÃO INFORMADA'
 
     # 3. Conversão numérica do Total de Tarefas (OS)
-    if 'Total de tarefas' in df_dash.columns:
-        df_dash['Total_OS_Num'] = pd.to_numeric(df_dash['Total de tarefas'], errors='coerce').fillna(0).astype(int)
+    if 'Total de tarefas' in df_dash_filtrado.columns:
+        df_dash_filtrado['Total_OS_Num'] = pd.to_numeric(df_dash_filtrado['Total de tarefas'], errors='coerce').fillna(0).astype(int)
     else:
-        df_dash['Total_OS_Num'] = 0
+        df_dash_filtrado['Total_OS_Num'] = 0
 
     # 4. Tratamento de Intervalo de Tempo
-    if 'Intervalo de Tempo' in df_dash.columns:
-        df_dash['Intervalo_Tratado'] = df_dash['Intervalo de Tempo'].fillna('').astype(str).str.strip()
+    if 'Intervalo de Tempo' in df_dash_filtrado.columns:
+        df_dash_filtrado['Intervalo_Tratado'] = df_dash_filtrado['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     else:
-        df_dash['Intervalo_Tratado'] = ''
+        df_dash_filtrado['Intervalo_Tratado'] = ''
 
     # === FILTRO DE SUPERVISOR NA SIDEBAR ===
-    supervisor_sel = "TODOS"
-    if 'SUPERVISOR' in df_dash.columns:
-        lista_supervisores = ["TODOS"] + sorted(df_dash['SUPERVISOR'].dropna().unique())
+    if 'SUPERVISOR' in df_dash_filtrado.columns:
+        lista_supervisores = ["TODOS"] + sorted(df_dash_filtrado['SUPERVISOR'].dropna().unique())
         supervisor_sel = st.sidebar.selectbox("Filtrar por Supervisor:", lista_supervisores)
         
         if supervisor_sel != "TODOS":
-            df_dash = df_dash[df_dash['SUPERVISOR'] == supervisor_sel]
+            df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
 
     # ==========================================
     # BLOCO 1: KPls / MÉTRICAS PRINCIPAIS
     # ==========================================
-    total_contratos = df_dash['Contrato_Limpo'].nunique()
-    total_geral_os = df_dash['Total_OS_Num'].sum()
-    
-    # Média Geral de OS por Contrato
-    media_os_por_contrato = df_dash['Total_OS_Num'].mean() if total_contratos > 0 else 0.0
+    total_contratos = df_dash_filtrado['Contrato_Limpo'].nunique()
+    total_geral_os = df_dash_filtrado['Total_OS_Num'].sum()
+    media_os_por_contrato = df_dash_filtrado['Total_OS_Num'].mean() if total_contratos > 0 else 0.0
 
-    # Média de OS por Janelas Ativas (Removendo Vazios, Nulos e "Padrão / Sem Janela")
-    # Regra aplicada: apenas strings com tamanho > 0 e que tenham caracteres de horários válidos
-    df_janelas_validas = df_dash[
-        (df_dash['Intervalo_Tratado'] != '') & 
-        (~df_dash['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-        (~df_dash['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+    # Média de OS por Janelas Ativas (Removendo Vazios, Nulos e Texto "Sem Janela")
+    df_janelas_validas = df_dash_filtrado[
+        (df_dash_filtrado['Intervalo_Tratado'] != '') & 
+        (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+        (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
     ]
     
     if not df_janelas_validas.empty:
-        # Agrupa por janela para obter a média de cada uma, e depois extrai a média desse conjunto
         media_os_janelas_reais = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().mean()
     else:
         media_os_janelas_reais = 0.0
 
-    # Renderização Visual das Métrica (Cards Estilizados)
+    # Renderização Visual das Métricas
     m1, m2, m3, m4 = st.columns(4)
     with m1:
         with st.container(border=True):
@@ -188,7 +198,7 @@ if df_dash is not None and not df_dash.empty:
     with g1:
         with st.container(border=True):
             st.markdown("#### 🌆 Volume de Contratos por Cidade")
-            df_cidades = df_dash.groupby('Cidade_Tratada')['Contrato_Limpo'].nunique().reset_index()
+            df_cidades = df_dash_filtrado.groupby('Cidade_Tratada')['Contrato_Limpo'].nunique().reset_index()
             df_cidades.columns = ['Cidade', 'Contratos']
             df_cidades = df_cidades.sort_values(by='Contratos', ascending=False)
             
@@ -199,7 +209,7 @@ if df_dash is not None and not df_dash.empty:
 
     with g2:
         with st.container(border=True):
-            st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento")
+            st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento (Com Contratos)")
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
                 df_janelas_grafico.columns = ['Janela Horário', 'Média de OS']
@@ -207,17 +217,15 @@ if df_dash is not None and not df_dash.empty:
                 
                 st.bar_chart(data=df_janelas_grafico, x='Janela Horário', y='Média de OS', color='#ff9800', use_container_width=True)
             else:
-                st.info("Nenhuma janela com horário ativo identificada para cálculo de média.")
+                st.info("Nenhuma janela com contrato ativo identificada para cálculo.")
 
     # ==========================================
     # BLOCO 3: DETALHAMENTO DA TABELA ANALÍTICA
     # ==========================================
     with st.container(border=True):
         st.markdown("#### 🔍 Visão Analítica Consolidada")
-        
-        # Agrupamento estruturado para conferência rápida dos supervisores
-        if 'SUPERVISOR' in df_dash.columns:
-            df_analitico = df_dash.groupby(['SUPERVISOR', 'Cidade_Tratada']).agg(
+        if 'SUPERVISOR' in df_dash_filtrado.columns:
+            df_analitico = df_dash_filtrado.groupby(['SUPERVISOR', 'Cidade_Tratada']).agg(
                 Contratos_Unicos=('Contrato_Limpo', 'nunique'),
                 Total_Tarefas_OS=('Total_OS_Num', 'sum'),
                 Media_OS_Contrato=('Total_OS_Num', 'mean')
@@ -226,7 +234,7 @@ if df_dash is not None and not df_dash.empty:
             df_analitico.columns = ['Supervisor', 'Cidade', 'Contratos Únicos', 'Soma Total OS', 'Média OS/Contrato']
             st.dataframe(df_analitico.sort_values(by='Contratos Únicos', ascending=False), use_container_width=True, hide_index=True)
         else:
-            st.dataframe(df_dash[['Contrato_Limpo', 'Cidade_Tratada', 'Total_OS_Num']], use_container_width=True, hide_index=True)
+            st.dataframe(df_dash_filtrado[['Contrato_Limpo', 'Cidade_Tratada', 'Total_OS_Num']], use_container_width=True, hide_index=True)
 
 else:
     st.warning("⚠️ Não foi possível carregar os dados online da planilha para gerar os dashboards.")
