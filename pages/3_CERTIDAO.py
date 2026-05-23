@@ -52,11 +52,9 @@ def buscar_base_rotas_online():
         if resposta.status_code != 200:
             return None
             
-        # Captura o horário vindo da Google
         data_header = resposta.headers.get('Date')
         if data_header:
             try:
-                # Converte o fuso UTC/GMT do cabeçalho diretamente para o Horário de Brasília (-3)
                 dt_gmt = pd.to_datetime(data_header)
                 if dt_gmt.tz is None:
                     dt_brasil = dt_gmt.tz_localize('UTC').tz_convert('America/Sao_Paulo')
@@ -125,6 +123,10 @@ def buscar_base_rotas_online():
 if "historico_certidoes" not in st.session_state:
     st.session_state["historico_certidoes"] = carregar_banco_historico()
 
+# Lógica para resetar o valor do input de forma forçada
+if "input_contrato_value" not in st.session_state:
+    st.session_state["input_contrato_value"] = ""
+
 df_base_online = buscar_base_rotas_online()
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
@@ -149,7 +151,12 @@ with st.container(border=True):
     col1, col2 = st.columns([3, 2])
 
     with col1:
-        contrato_input = st.text_input("Número do Contrato:", placeholder="Digite o contrato...").strip()
+        # O text_input agora responde à variável controlada pelo Session State
+        contrato_input = st.text_input(
+            "Número do Contrato:", 
+            value=st.session_state["input_contrato_value"],
+            placeholder="Digite o contrato e pressione Enter..."
+        ).strip()
 
     status_sugerido = "OK"  
     supervisor_detectado = "N/A"
@@ -190,8 +197,14 @@ with st.container(border=True):
             
             st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
+            
+            # 🚨 ZERA O CAMPO: Força o valor em memória a voltar para vazio antes de recarregar a tela
+            st.session_state["input_contrato_value"] = ""
+            
             st.success(f"✅ Contrato {contrato_input} atualizado como {status_final}!")
             st.rerun()
+        else:
+            st.warning("⚠️ Digite um contrato válido antes de salvar.")
 
 st.markdown("---")
 
