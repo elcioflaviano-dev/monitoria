@@ -220,7 +220,6 @@ st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None:
-    # 🛠️ HIGIENIZAÇÃO PREVENTIVA GLOBAL
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
@@ -246,18 +245,12 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    # 🛠️ CORREÇÃO DEFINITIVA DA COPIA EM LOTE: Monta a lista usando a coluna limpa (Contrato_Limpo)
+                    # 🛠️ AJUSTE VISUAL ABSOLUTO: Monta a string de contratos tratados
                     lista_contratos_reais = [str(c) for c in df_cards_sup['Contrato_Limpo'].unique() if str(c) != '']
                     texto_copia_em_lote = ", ".join(lista_contratos_reais)
                     
-                    # Caixa de lote puxando todos os contratos reais tratados
-                    st.text_area(
-                        label="Copiar todos da coluna:",
-                        value=texto_copia_em_lote,
-                        height=65,
-                        key=f"area_{super_nome}",
-                        label_visibility="collapsed"
-                    )
+                    # 🆕 NOVO FORMATO DINÂMICO: st.code se auto-expande em múltiplas linhas e tem botão de cópia nativo!
+                    st.code(texto_copia_em_lote, language="text")
                     
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
                     
@@ -285,7 +278,7 @@ if df_base_online is not None:
     else:
         st.info(f"✨ Todas as certidões deste intervalo foram validadas! Nenhuma pendência encontrada para: **{janela_sel}**.")
 else:
-    st.info("ℹ nighttime: Aguardando conexão com os dados online.")
+    st.info("ℹ️ Aguardando conexão com os dados online.")
 
 st.markdown("---")
 
