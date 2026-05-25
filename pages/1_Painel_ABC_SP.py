@@ -100,7 +100,6 @@ def calcular_metricas_regiao(df_regiao):
     if not supervisores:
         return pd.DataFrame(), pd.DataFrame()
 
-    # Variáveis acumuladoras para a linha de Total Geral do Excel
     tot_cancelados = 0
     tot_em_aberto = 0
     tot_os_ne = 0
@@ -113,19 +112,23 @@ def calcular_metricas_regiao(df_regiao):
         
         cancelados = len(df_sup[df_sup['Status_Atividade_Upper'] == 'CANCELADO'])
         em_aberto = len(df_sup[df_sup['Status_Atividade_Upper'] == 'PENDENTE'])
-        os_ne = len(df_sup[df_sup['Status_Atividade_Upper'] == 'NÃO EXECUTADO'])
+        
+        # 🛡️ PROTEÇÃO OPERACIONAL: Captura variações como "NÃO EXECUTADO", "O.S NE" ou "NE"
+        os_ne = len(df_sup[df_sup['Status_Atividade_Upper'].str.contains('NE|NÃO EXEC|NAO EXEC', na=False)])
+        
         produtivo = len(df_sup[df_sup['Status_Atividade_Upper'] == 'INICIADO']) + len(df_sup[df_sup['Status_Atividade_Upper'].str.contains('CONCLU', na=False)])
         total_geral = len(df_sup)
         
-        # Acumula os totais
         tot_cancelados += cancelados
         tot_em_aberto += em_aberto
         tot_os_ne += os_ne
         tot_produtivo += produtivo
         tot_geral_base += total_geral
         
+        # 🛠️ EXECUÇÃO MATEMÁTICA FORMAL: QUEBRA = O.S NE / (Produtivo + O.S NE)
         denominador_quebra = produtivo + os_ne
         quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
+        
         eficiencia_pct = (produtivo / total_geral) if total_geral > 0 else 0.0
         projecao = int(produtivo * 1.35)  
         total_tecnicos = df_sup['Recurso_Upper'].nunique()
@@ -138,12 +141,11 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(projecao), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
-        # Df da matriz de serviços
         row_matriz = {"MONITOR": sup}
         for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
             t_serv = len(df_serv)
-            ne_serv = len(df_serv[df_serv['Status_Atividade_Upper'] == 'NÃO EXECUTADO'])
+            ne_serv = len(df_serv[df_serv['Status_Atividade_Upper'].str.contains('NE|NÃO EXEC|NAO EXEC', na=False)])
             p_serv = len(df_serv[df_serv['Status_Atividade_Upper'] == 'INICIADO']) + len(df_serv[df_serv['Status_Atividade_Upper'].str.contains('CONCLU', na=False)])
             
             denom_q_serv = p_serv + ne_serv
@@ -152,7 +154,6 @@ def calcular_metricas_regiao(df_regiao):
         row_matriz["QUEBRA GERAL"] = quebra_pct * 100
         lista_matriz.append(row_matriz)
         
-    # 🛠️ INJEÇÃO EXATA DA LINHA DO TOTAL GERAL DA BASE OPERACIONAL
     denom_q_total = tot_produtivo + tot_os_ne
     quebra_total_pct = (tot_os_ne / denom_q_total) if denom_q_total > 0 else 0.0
     eficiencia_total_pct = (tot_produtivo / tot_geral_base) if tot_geral_base > 0 else 0.0
@@ -166,12 +167,10 @@ def calcular_metricas_regiao(df_regiao):
         "PROJEÇÃO": int(projecao_total), "TOTAL TÉCNICOS": int(tot_tecnicos_unicos), "MEDIA EQUIPE": f"{media_total_equipe:.2f}"
     })
 
-    # Linha total para a matriz de serviços
     row_total_matriz = {"MONITOR": "Total Geral"}
     for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
         df_serv_total = df_regiao[df_regiao['Tipo_Servico'] == serv]
-        t_s = len(df_serv_total)
-        ne_s = len(df_serv_total[df_serv_total['Status_Atividade_Upper'] == 'NÃO EXECUTADO'])
+        ne_s = len(df_serv_total[df_serv_total['Status_Atividade_Upper'].str.contains('NE|NÃO EXEC|NAO EXEC', na=False)])
         p_s = len(df_serv_total[df_serv_total['Status_Atividade_Upper'] == 'INICIADO']) + len(df_serv_total[df_serv_total['Status_Atividade_Upper'].str.contains('CONCLU', na=False)])
         
         denom_s = p_s + ne_s
@@ -184,7 +183,6 @@ def calcular_metricas_regiao(df_regiao):
 # --- CORPO PRINCIPAL DO RENDER ---
 if df_dash is not None and not df_dash.empty:
     
-    # === PREPARAÇÃO GLOBAL DOS DADOS ===
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
     df_dash['Status_Atividade_Upper'] = df_dash['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
@@ -203,7 +201,6 @@ if df_dash is not None and not df_dash.empty:
         df_global.loc[df_global['Tipo de Atividade'].str.contains('PME', case=False, na=False), 'Tipo_Servico'] = 'PME'
         df_global.loc[df_global['Tipo de Atividade'].str.contains('GPON', case=False, na=False), 'Tipo_Servico'] = 'GPON'
 
-    # Divisão física regional
     df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc_base = df_global[~df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
@@ -224,7 +221,6 @@ if df_dash is not None and not df_dash.empty:
             if col != "MONITOR": df_vitrine_abc[col] = df_vitrine_abc[col].apply(lambda x: f"{x:.2f}%")
         st.dataframe(df_vitrine_abc, use_container_width=True, hide_index=True)
         
-        # Filtra o Total Geral do gráfico para não poluir o visual das barras
         df_melt_abc = df_mat_abc[df_mat_abc['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
         graf_abc = alt.Chart(df_melt_abc).mark_bar().encode(
             x=alt.X('Serviço:N', title=None),
@@ -256,7 +252,6 @@ if df_dash is not None and not df_dash.empty:
             if col != "MONITOR": df_vitrine_sp[col] = df_vitrine_sp[col].apply(lambda x: f"{x:.2f}%")
         st.dataframe(df_vitrine_sp, use_container_width=True, hide_index=True)
         
-        # Filtra o Total Geral do gráfico
         df_melt_sp = df_mat_sp[df_mat_sp['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
         graf_sp = alt.Chart(df_melt_sp).mark_bar().encode(
             x=alt.X('Serviço:N', title=None),
