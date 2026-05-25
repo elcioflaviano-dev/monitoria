@@ -126,57 +126,57 @@ def destacar_linha_total(row):
         pass
     return [''] * len(row)
 
-# --- 🌟 NOVA FUNÇÃO DE PROCESSAMENTO EM BLOCO ISOLADO POR TECNOLOGIA 🌟 ---
+# --- FUNÇÃO DE PROCESSAMENTO EM BLOCO ISOLADO POR TECNOLOGIA ---
 def gerar_tabela_bloco_tecnologia(df_tecnologia):
     lista_bloco = []
     supervisores = [s for s in df_tecnologia['Supervisor_Upper'].unique() if s != 'N/A' and s != '']
     
-    if not supervisores:
-        return pd.DataFrame()
+    if not df_tecnologia.empty and len(supervisores) > 0:
+        tot_em_aberto = 0
+        tot_os_ne = 0
+        tot_produtivo = 0
+        tot_geral = 0
         
-    tot_em_aberto = 0
-    tot_os_ne = 0
-    tot_produtivo = 0
-    tot_geral = 0
-    
-    for sup in sorted(supervisores):
-        df_sup = df_tecnologia[df_tecnologia['Supervisor_Upper'] == sup]
-        
-        em_aberto = df_sup[df_sup['Classificacao_Excel'] == 'EM ABERTO']['QTD_OS_NUM'].sum()
-        os_ne = df_sup[df_sup['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
-        produtivo = df_sup[df_sup['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
-        total_geral = df_sup['QTD_OS_NUM'].sum()
-        
-        tot_em_aberto += em_aberto
-        tot_os_ne += os_ne
-        tot_produtivo += produtivo
-        tot_geral += total_geral
-        
-        denom_quebra = produtivo + os_ne
-        quebra_pct = (os_ne / denom_quebra * 100) if denom_quebra > 0 else 0.0
+        for sup in sorted(supervisores):
+            df_sup = df_tecnologia[df_tecnologia['Supervisor_Upper'] == sup]
+            
+            em_aberto = df_sup[df_sup['Classificacao_Excel'] == 'EM ABERTO']['QTD_OS_NUM'].sum()
+            os_ne = df_sup[df_sup['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
+            produtivo = df_sup[df_sup['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
+            total_geral = df_sup['QTD_OS_NUM'].sum()
+            
+            tot_em_aberto += em_aberto
+            tot_os_ne += os_ne
+            tot_produtivo += produtivo
+            tot_geral += total_geral
+            
+            denom_quebra = produtivo + os_ne
+            quebra_pct = (os_ne / denom_quebra * 100) if denom_quebra > 0 else 0.0
+            
+            lista_bloco.append({
+                "Rótulos de Linha": sup,
+                "Em aberto": int(em_aberto),
+                "O.S NE": int(os_ne),
+                "Produtivo": int(produtivo),
+                "Total Geral": int(total_geral),
+                "QUEBRA": f"{quebra_pct:.2f}%"
+            })
+            
+        denom_quebra_total = tot_produtivo + tot_os_ne
+        quebra_total_pct = (tot_os_ne / denom_quebra_total * 100) if denom_quebra_total > 0 else 0.0
         
         lista_bloco.append({
-            "Rótulos de Linha": sup,
-            "Em aberto": int(em_aberto),
-            "O.S NE": int(os_ne),
-            "Produtivo": int(produtivo),
-            "Total Geral": int(total_geral),
-            "QUEBRA": f"{quebra_pct:.2f}%"
+            "Rótulos de Linha": "Total Geral",
+            "Em aberto": int(tot_em_aberto),
+            "O.S NE": int(tot_os_ne),
+            "Produtivo": int(tot_produtivo),
+            "Total Geral": int(tot_geral),
+            "QUEBRA": f"{quebra_total_pct:.2f}%"
         })
         
-    denom_quebra_total = tot_produtivo + tot_os_ne
-    quebra_total_pct = (tot_os_ne / denom_quebra_total * 100) if denom_quebra_total > 0 else 0.0
-    
-    lista_bloco.append({
-        "Rótulos de Linha": "Total Geral",
-        "Em aberto": int(tot_em_aberto),
-        "O.S NE": int(tot_os_ne),
-        "Produtivo": int(tot_produtivo),
-        "Total Geral": int(tot_geral),
-        "QUEBRA": f"{quebra_total_pct:.2f}%"
-    })
-    
-    return pd.DataFrame(lista_bloco)
+        df_retorno = pd.DataFrame(lista_bloco)
+        return df_retorno.style.apply(destacar_linha_total, axis=1)
+    return None
 
 # --- FUNÇÃO DO RESUMO PRINCIPAL (PAINEL GERAL) ---
 def calcular_metricas_regiao(df_regiao):
@@ -236,9 +236,14 @@ def calcular_metricas_regiao(df_regiao):
         
     return pd.DataFrame(lista_consolidada)
 
-# --- CORPO PRINCIPAL DO RENDER ---
+# --- CORE DO RENDER ---
 if df_dash is not None and not df_dash.empty:
     
+    if 'CATEGORIA_CAPACIDADE' in df_dash.columns:
+        df_dash['Capacidade_Upper'] = df_dash['CATEGORIA_CAPACIDADE'].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df_dash['Capacidade_Upper'] = ''
+        
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
     df_dash['Status_OS1_Upper'] = df_dash['STATUS_OS1'].fillna('').astype(str).str.upper().str.strip()
     df_dash['Status_Geral_Upper'] = df_dash['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
@@ -258,7 +263,39 @@ if df_dash is not None and not df_dash.empty:
     
     df_global = df_dash[cond_validos].copy()
 
-    # Separando as bases das regiões
+    # =========================================================================
+    # 🛠️ SEPARAÇÃO E PARAMETRIZAÇÃO ISOLADA DOS BLOCOS OPERACIONAIS
+    # =========================================================================
+    df_global['Tipo_Servico'] = 'SERVIÇO'
+
+    lista_base_adesao = [
+        "1 - ADESAO - INSTALACAO DE ASSINATURA",
+        "516 - ADESAO ENTREGA STREAMING",
+        "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"
+    ]
+    lista_base_upper = [x.upper().strip() for x in lista_base_adesao]
+
+    # Bloco PME (Filtro Duplo)
+    cond_classe_pme = df_global['Capacidade_Upper'].isin(["CLASSE 1", "CLASSE 1 (PME)"])
+    cond_os_pme = df_global['Tipo_OS_Upper'].isin(lista_base_upper)
+    df_global.loc[cond_classe_pme & cond_os_pme, 'Tipo_Servico'] = 'PME'
+
+    # Bloco N-D
+    df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_base_upper) & (df_global['Tipo_Servico'] != 'PME'), 'Tipo_Servico'] = 'N-D'
+
+    # Bloco GPON
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('515 - ADESAO', na=False), 'Tipo_Servico'] = 'GPON'
+
+    # Bloco MIGRAÇÃO
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
+    
+    # Bloco MP
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
+
+    # Bloco INSTALAÇÃO
+    df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
+
+    # Divisão Regional
     df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc_base = df_global[~df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
@@ -269,20 +306,19 @@ if df_dash is not None and not df_dash.empty:
     
     df_cons_abc = calcular_metricas_regiao(df_abc_base)
     if not df_cons_abc.empty:
-        st.markdown("##### 📈 Resumo de Produtividade e Eficiência Geral (ABC)")
+        st.markdown("##### 📈 Resumo Geral - Produtividade e Eficiência (ABC)")
         st.dataframe(df_cons_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
         
-        # --- 🧱 BLOCO N-D ISOLADO (ABC) ---
-        lista_nd_oficial = ["1 - ADESAO - INSTALACAO DE ASSINATURA", "516 - ADESAO ENTREGA STREAMING", "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"]
-        df_nd_abc = df_abc_base[df_abc_base['Tipo_OS_Upper'].isin([x.upper().strip() for x in lista_nd_oficial])]
+        st.markdown("<br><h4>🧱 MATRIZ POR TECNOLOGIA (ABC)</h4>", unsafe_allow_html=True)
         
-        st.markdown("<br><b>📉 Bloco Desempenho - Categoria: N-D (ABC)</b>", unsafe_allow_html=True)
-        df_res_nd_abc = gerar_tabela_bloco_tecnologia(df_nd_abc)
-        if not df_res_nd_abc.empty:
-            st.dataframe(df_res_nd_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
-        else:
-            st.info("Sem registros para N-D nesta área.")
-            
+        for tecnologia in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
+            df_tec = df_abc_base[df_abc_base['Tipo_Servico'] == tecnologia]
+            res_bloco = gerar_tabela_bloco_tecnologia(df_tec)
+            if res_bloco is not None:
+                st.markdown(f"**📌 Tabela Desempenho - {tecnologia} (ABC)**")
+                st.dataframe(res_bloco, use_container_width=True, hide_index=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # =========================================================================
@@ -292,18 +328,17 @@ if df_dash is not None and not df_dash.empty:
     
     df_cons_sp = calcular_metricas_regiao(df_sp_base)
     if not df_cons_sp.empty:
-        st.markdown("##### 📈 Resumo de Produtividade e Eficiência Geral (SP)")
+        st.markdown("##### 📈 Resumo Geral - Produtividade e Eficiência (SP)")
         st.dataframe(df_cons_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
         
-        # --- 🧱 BLOCO N-D ISOLADO (SP) ---
-        df_nd_sp = df_sp_base[df_sp_base['Tipo_OS_Upper'].isin([x.upper().strip() for x in lista_nd_oficial])]
+        st.markdown("<br><h4>🧱 MATRIZ POR TECNOLOGIA (SP)</h4>", unsafe_allow_html=True)
         
-        st.markdown("<br><b>📉 Bloco Desempenho - Categoria: N-D (SP)</b>", unsafe_allow_html=True)
-        df_res_nd_sp = gerar_tabela_bloco_tecnologia(df_nd_sp)
-        if not df_res_nd_sp.empty:
-            st.dataframe(df_res_nd_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
-        else:
-            st.info("Sem registros para N-D nesta área.")
-
+        for tecnologia in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
+            df_tec = df_sp_base[df_sp_base['Tipo_Servico'] == tecnologia]
+            res_bloco = gerar_tabela_bloco_tecnologia(df_tec)
+            if res_bloco is not None:
+                st.markdown(f"**📌 Tabela Desempenho - {tecnologia} (SP)**")
+                st.dataframe(res_bloco, use_container_width=True, hide_index=True)
+                st.markdown("<br>", unsafe_allow_html=True)
 else:
     st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
