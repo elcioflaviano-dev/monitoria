@@ -14,13 +14,20 @@ def carregar_dados():
     # 🚨 LINK REAL DA SUA PLANILHA APLICADO AQUI:
     URL_SHEETS = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=xlsx"
     
-    df = pd.read_excel(URL_SHEETS)
-    df.columns = df.columns.str.strip() # Remove espaços extras nos nomes das colunas
+    # 🛠️ CORREÇÃO CRÍTICA: Força a leitura de todas as colunas como TEXTO (String)
+    df = pd.read_excel(URL_SHEETS, dtype=str)
+    
+    # Remove espaços extras nos nomes das colunas
+    df.columns = df.columns.str.strip() 
+    
+    # Preenche células vazias com texto vazio para não quebrar o .str das páginas internas
+    df = df.fillna('')
+    
     return df
 
 try:
     st.session_state['dados_rota'] = carregar_dados()
-    st.success("✅ Conexão estabelecida! Dados da planilha 'rota' atualizados.")
+    st.success("✅ Conexão estabelecida! Dados da planilha 'rota' updated.")
     
     total_linhas = len(st.session_state['dados_rota'])
     st.metric(label="Total de Atividades na Base", value=f"{total_linhas} registros")
