@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
-import altair as alt  
 from datetime import datetime
 
 # 1. Configuração da página ampla
@@ -127,14 +126,64 @@ def destacar_linha_total(row):
         pass
     return [''] * len(row)
 
-# --- FUNÇÃO INTERNA PARA CALCULAR OS INDICADORES OPERACIONAIS ---
+# --- 🌟 NOVA FUNÇÃO DE PROCESSAMENTO EM BLOCO ISOLADO POR TECNOLOGIA 🌟 ---
+def gerar_tabela_bloco_tecnologia(df_tecnologia):
+    lista_bloco = []
+    supervisores = [s for s in df_tecnologia['Supervisor_Upper'].unique() if s != 'N/A' and s != '']
+    
+    if not supervisores:
+        return pd.DataFrame()
+        
+    tot_em_aberto = 0
+    tot_os_ne = 0
+    tot_produtivo = 0
+    tot_geral = 0
+    
+    for sup in sorted(supervisores):
+        df_sup = df_tecnologia[df_tecnologia['Supervisor_Upper'] == sup]
+        
+        em_aberto = df_sup[df_sup['Classificacao_Excel'] == 'EM ABERTO']['QTD_OS_NUM'].sum()
+        os_ne = df_sup[df_sup['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
+        produtivo = df_sup[df_sup['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
+        total_geral = df_sup['QTD_OS_NUM'].sum()
+        
+        tot_em_aberto += em_aberto
+        tot_os_ne += os_ne
+        tot_produtivo += produtivo
+        tot_geral += total_geral
+        
+        denom_quebra = produtivo + os_ne
+        quebra_pct = (os_ne / denom_quebra * 100) if denom_quebra > 0 else 0.0
+        
+        lista_bloco.append({
+            "Rótulos de Linha": sup,
+            "Em aberto": int(em_aberto),
+            "O.S NE": int(os_ne),
+            "Produtivo": int(produtivo),
+            "Total Geral": int(total_geral),
+            "QUEBRA": f"{quebra_pct:.2f}%"
+        })
+        
+    denom_quebra_total = tot_produtivo + tot_os_ne
+    quebra_total_pct = (tot_os_ne / denom_quebra_total * 100) if denom_quebra_total > 0 else 0.0
+    
+    lista_bloco.append({
+        "Rótulos de Linha": "Total Geral",
+        "Em aberto": int(tot_em_aberto),
+        "O.S NE": int(tot_os_ne),
+        "Produtivo": int(tot_produtivo),
+        "Total Geral": int(tot_geral),
+        "QUEBRA": f"{quebra_total_pct:.2f}%"
+    })
+    
+    return pd.DataFrame(lista_bloco)
+
+# --- FUNÇÃO DO RESUMO PRINCIPAL (PAINEL GERAL) ---
 def calcular_metricas_regiao(df_regiao):
     lista_consolidada = []
-    lista_matriz = []
-    
     supervisores = [s for s in df_regiao['Supervisor_Upper'].unique() if s != 'N/A' and s != '']
     if not supervisores:
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame()
 
     tot_cancelados = 0
     tot_em_aberto = 0
@@ -172,18 +221,6 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(round(projecao)), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
-        # 🛠️ ESTRUTURA INICIAL DA MATRIZ (ZURADA)
-        row_matriz = {"MONITOR": sup}
-        for serv in ['N-D', 'OUTROS']:
-            df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
-            ne_serv = df_serv[df_serv['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
-            p_serv = df_serv[df_serv['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
-            
-            denom_q_serv = p_serv + ne_serv
-            row_matriz[serv] = (ne_serv / denom_q_serv * 100) if denom_q_serv > 0 else None
-            
-        lista_matriz.append(row_matriz)
-        
     denom_q_total = tot_produtivo + tot_os_ne
     quebra_total_pct = (tot_os_ne / denom_q_total) if denom_q_total > 0 else 0.0
     eficiencia_total_pct = 1.0 - quebra_total_pct
@@ -196,19 +233,8 @@ def calcular_metricas_regiao(df_regiao):
         "QUEBRA": f"{quebra_total_pct*100:.2f}%", "EFICIÊNCIA": f"{eficiencia_total_pct*100:.2f}%",
         "PROJEÇÃO": int(round(projecao_total)), "TOTAL TÉCNICOS": int(tot_tecnicos_unicos), "MEDIA EQUIPE": f"{media_total_equipe:.2f}"
     })
-
-    row_total_matriz = {"MONITOR": "Total Geral"}
-    for serv in ['N-D', 'OUTROS']:
-        df_serv_total = df_regiao[df_regiao['Tipo_Servico'] == serv]
-        ne_s = df_serv_total[df_serv_total['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
-        p_s = df_serv_total[df_serv_total['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
         
-        denom_s = p_s + ne_s
-        row_total_matriz[serv] = (ne_s / denom_s * 100) if denom_s > 0 else None
-        
-    lista_matriz.append(row_total_matriz)
-        
-    return pd.DataFrame(lista_consolidada), pd.DataFrame(lista_matriz)
+    return pd.DataFrame(lista_consolidada)
 
 # --- CORPO PRINCIPAL DO RENDER ---
 if df_dash is not None and not df_dash.empty:
@@ -232,69 +258,52 @@ if df_dash is not None and not df_dash.empty:
     
     df_global = df_dash[cond_validos].copy()
 
-    # =========================================================================
-    # 🛠️ CLASSIFICAÇÃO EXCLUSIVA E ZERADA DO GRUPO N-D (RECOMEÇO)
-    # =========================================================================
-    df_global['Tipo_Servico'] = 'OUTROS'
-
-    # Lista dos três critérios oficiais em maiúsculo
-    lista_nd_oficial = [
-        "1 - ADESAO - INSTALACAO DE ASSINATURA",
-        "516 - ADESAO ENTREGA STREAMING",
-        "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"
-    ]
-    lista_nd_upper = [x.upper().strip() for x in lista_nd_oficial]
-
-    # Atribui N-D estritamente se estiver contido na lista acima
-    df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_nd_upper), 'Tipo_Servico'] = 'N-D'
-    # =========================================================================
-
+    # Separando as bases das regiões
     df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc_base = df_global[~df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # ==========================================
-    # 🔴 SEÇÃO ABC
-    # ==========================================
+    # =========================================================================
+    # 🔴 RENDERIZAÇÃO DA REGIÃO ABC
+    # =========================================================================
     st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BLOCADO - REGIÃO ABC</h2></div>', unsafe_allow_html=True)
     
-    df_cons_abc, df_mat_abc = calcular_metricas_regiao(df_abc_base)
-    
+    df_cons_abc = calcular_metricas_regiao(df_abc_base)
     if not df_cons_abc.empty:
-        st.markdown("##### 📈 Resumo de Produtividade e Eficiência (ABC)")
+        st.markdown("##### 📈 Resumo de Produtividade e Eficiência Geral (ABC)")
         st.dataframe(df_cons_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
         
-        st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (ABC)")
-        df_vitrine_abc = df_mat_abc.copy()
-        for col in df_vitrine_abc.columns:
-            if col != "MONITOR":
-                df_vitrine_abc[col] = df_vitrine_abc[col].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "-")
-        st.dataframe(df_vitrine_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
+        # --- 🧱 BLOCO N-D ISOLADO (ABC) ---
+        lista_nd_oficial = ["1 - ADESAO - INSTALACAO DE ASSINATURA", "516 - ADESAO ENTREGA STREAMING", "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"]
+        df_nd_abc = df_abc_base[df_abc_base['Tipo_OS_Upper'].isin([x.upper().strip() for x in lista_nd_oficial])]
         
-    else:
-        st.info("Nenhum dado ativo mapeado para a região ABC.")
-
+        st.markdown("<br><b>📉 Bloco Desempenho - Categoria: N-D (ABC)</b>", unsafe_allow_html=True)
+        df_res_nd_abc = gerar_tabela_bloco_tecnologia(df_nd_abc)
+        if not df_res_nd_abc.empty:
+            st.dataframe(df_res_nd_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
+        else:
+            st.info("Sem registros para N-D nesta área.")
+            
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-    # ==========================================
-    # 🔵 SEÇÃO SÃO PAULO (SP)
-    # ==========================================
+    # =========================================================================
+    # 🔵 RENDERIZAÇÃO DA REGIÃO SÃO PAULO (SP)
+    # =========================================================================
     st.markdown('<div style="background-color:#b30000; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BLOCADO - REGIÃO SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
-    df_cons_sp, df_mat_sp = calcular_metricas_regiao(df_sp_base)
-    
+    df_cons_sp = calcular_metricas_regiao(df_sp_base)
     if not df_cons_sp.empty:
-        st.markdown("##### 📈 Resumo de Produtividade e Eficiência (SP)")
+        st.markdown("##### 📈 Resumo de Produtividade e Eficiência Geral (SP)")
         st.dataframe(df_cons_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
         
-        st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (SP)")
-        df_vitrine_sp = df_mat_sp.copy()
-        for col in df_vitrine_sp.columns:
-            if col != "MONITOR":
-                df_vitrine_sp[col] = df_vitrine_sp[col].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "-")
-        st.dataframe(df_vitrine_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
+        # --- 🧱 BLOCO N-D ISOLADO (SP) ---
+        df_nd_sp = df_sp_base[df_sp_base['Tipo_OS_Upper'].isin([x.upper().strip() for x in lista_nd_oficial])]
         
-    else:
-        st.info("Nenhum dado ativo mapeado para a região SP.")
+        st.markdown("<br><b>📉 Bloco Desempenho - Categoria: N-D (SP)</b>", unsafe_allow_html=True)
+        df_res_nd_sp = gerar_tabela_bloco_tecnologia(df_nd_sp)
+        if not df_res_nd_sp.empty:
+            st.dataframe(df_res_nd_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
+        else:
+            st.info("Sem registros para N-D nesta área.")
 
 else:
     st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
