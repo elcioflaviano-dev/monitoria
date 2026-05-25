@@ -39,6 +39,7 @@ def buscar_base_rotas_online():
         fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
         st.session_state['data_da_rota_dash'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
 
+        # 🛠️ CORREÇÃO DA LINHA 44: Limpeza do erro de sintaxe do NameError
         conteudo_bruto = resposta.text
         linhas_puras = conteudo_bruto.splitlines()
         
@@ -95,7 +96,7 @@ df_dash = buscar_base_rotas_online()
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# 🛠️ FUNÇÃO DE MAPEAMENTO DINÂMICO BASEADO NAS CORES DO EXCEL
+# 🛠️ FUNÇÃO DE MAPEAMENTO DINÂMICO DE STATUS DO SEU EXCEL
 def classificar_status_excel(linha):
     baixa = str(linha.get('STATUS_OS1', '')).upper().strip()
     status_at = str(linha.get('STATUS_ATIVIDADE', '')).upper().strip()
@@ -116,15 +117,16 @@ def classificar_status_excel(linha):
         
     return "PRODUTIVO"
 
-# 🛠️ FUNÇÃO INJETORA DE ESTILOS CSS NAS TABELAS (PINTA O TOTAL GERAL)
+# 🛠️ FUNÇÃO INJETORA DE ESTILOS CSS NAS TABELAS (TOTAL GERAL DESTACADO)
 def destacar_linha_total(row):
-    # Verifica se a primeira célula da linha identifica o Total Geral
-    col_index = row.index[0]
-    if row[col_index] == "Total Geral":
-        return ['background-color: #eae5da; font-weight: bold; color: #111111; border-top: 1px solid #b5b5b5;'] * len(row)
+    try:
+        if str(row.iloc[0]).strip() == "Total Geral":
+            return ['background-color: #eae5da; font-weight: bold; color: #111111; border-top: 1px solid #b5b5b5;'] * len(row)
+    except:
+        pass
     return [''] * len(row)
 
-# --- FUNÇÃO INTERNA PARA CALCULAR OS INDICADORES UTILIZANDO SOMA OPERACIONAL ---
+# --- FUNÇÃO INTERNA PARA CALCULAR OS INDICADORES OPERACIONAIS ---
 def calcular_metricas_regiao(df_regiao):
     lista_consolidada = []
     lista_matriz = []
@@ -229,4 +231,75 @@ if df_dash is not None and not df_dash.empty:
     
     df_global = df_dash[cond_validos].copy()
 
-    df_
+    df_global['Tipo_Servico'] = 'SERVIÇO'
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('INSTALA', na=False), 'Tipo_Servico'] = 'INSTALAÇÃO'
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRA', na=False), 'Tipo_Servico'] = 'MIGRAÇÃO'
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MP', na=False), 'Tipo_Servico'] = 'MP'
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('PME', na=False), 'Tipo_Servico'] = 'PME'
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('GPON', na=False), 'Tipo_Servico'] = 'GPON'
+
+    df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
+    df_abc_base = df_global[~df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
+
+    # ==========================================
+    # 🔴 SEÇÃO ABC
+    # ==========================================
+    st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BLOCADO - REGIÃO ABC</h2></div>', unsafe_allow_html=True)
+    
+    df_cons_abc, df_mat_abc = calcular_metricas_regiao(df_abc_base)
+    
+    if not df_cons_abc.empty:
+        st.markdown("##### 📈 Resumo de Produtividade e Eficiência (ABC)")
+        st.dataframe(df_cons_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
+        
+        st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (ABC)")
+        df_vitrine_abc = df_mat_abc.copy()
+        for col in df_vitrine_abc.columns:
+            if col != "MONITOR": df_vitrine_abc[col] = df_vitrine_abc[col].apply(lambda x: f"{x:.2f}%")
+        st.dataframe(df_vitrine_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
+        
+        df_melt_abc = df_mat_abc[df_mat_abc['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
+        graf_abc = alt.Chart(df_melt_abc).mark_bar().encode(
+            x=alt.X('Serviço:N', title=None),
+            y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
+            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='tableau10')),
+            column=alt.Column('MONITOR:N', title=None)
+        ).properties(width=160, height=220)
+        st.altair_chart(graf_abc, use_container_width=False)
+        
+    else:
+        st.info("Nenhum dado ativo mapeado para a região ABC.")
+
+    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+
+    # ==========================================
+    # 🔵 SEÇÃO SÃO PAULO (SP)
+    # ==========================================
+    st.markdown('<div style="background-color:#b30000; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BLOCADO - REGIÃO SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
+    
+    df_cons_sp, df_mat_sp = calcular_metricas_regiao(df_sp_base)
+    
+    if not df_cons_sp.empty:
+        st.markdown("##### 📈 Resumo de Produtividade e Eficiência (SP)")
+        st.dataframe(df_cons_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
+        
+        st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (SP)")
+        df_vitrine_sp = df_mat_sp.copy()
+        for col in df_vitrine_sp.columns:
+            if col != "MONITOR": df_vitrine_sp[col] = df_vitrine_sp[col].apply(lambda x: f"{x:.2f}%")
+        st.dataframe(df_vitrine_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
+        
+        df_melt_sp = df_mat_sp[df_mat_sp['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
+        graf_sp = alt.Chart(df_melt_sp).mark_bar().encode(
+            x=alt.X('Serviço:N', title=None),
+            y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
+            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='category10')),
+            column=alt.Column('MONITOR:N', title=None)
+        ).properties(width=160, height=220)
+        st.altair_chart(graf_sp, use_container_width=False)
+        
+    else:
+        st.info("Nenhum dado ativo mapeado para a região SP.")
+
+else:
+    st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
