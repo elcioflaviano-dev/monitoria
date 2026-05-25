@@ -79,7 +79,8 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Tipo O.S 1'
             elif ('RECURSO' in col_upper or 'TECNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Recurso'
-            elif ('QTD O.S' in col_upper or 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper) and 'QTD_OS_COL' not in colunas_mapeadas.values():
+            # 🌟 PARAMETRIZAÇÃO CRÍTICA: Mapeia a coluna "Total de tarefas" para saber o total de OS
+            elif ('TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'QTD O.S' in col_upper or 'VOLUME' in col_upper) and 'QTD_OS_COL' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'QTD_OS_COL'
             elif ('CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper) and 'CATEGORIA_CAPACIDADE' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
@@ -140,6 +141,7 @@ def gerar_tabela_bloco_tecnologia(df_tecnologia):
         for sup in sorted(supervisores):
             df_sup = df_tecnologia[df_tecnologia['Supervisor_Upper'] == sup]
             
+            # 🌟 Puxa a soma real baseada nos valores numéricos da coluna "Total de tarefas"
             em_aberto = df_sup[df_sup['Classificacao_Excel'] == 'EM ABERTO']['QTD_OS_NUM'].sum()
             os_ne = df_sup[df_sup['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
             produtivo = df_sup[df_sup['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
@@ -251,6 +253,7 @@ if df_dash is not None and not df_dash.empty:
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
+    # Converte os valores da coluna "Total de tarefas" para números inteiros
     if 'QTD_OS_COL' in df_dash.columns:
         df_dash['QTD_OS_NUM'] = pd.to_numeric(df_dash['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
     else:
@@ -264,9 +267,9 @@ if df_dash is not None and not df_dash.empty:
     df_global = df_dash[cond_validos].copy()
 
     # =========================================================================
-    # 🛠️ SEPARAÇÃO E PARAMETRIZAÇÃO ISOLADA DOS BLOCOS OPERACIONAIS
+    # ⚡ REGRA ULTRA RÁPIDA: CLASSIFICAÇÃO POR PALAVRAS-CHAVE DA SUA IMAGEM
     # =========================================================================
-    df_global['Tipo_Servico'] = 'SERVIÇO'
+    df_global['Tipo_Servico'] = 'SERVIÇO' # Tudo cai em Serviço por padrão
 
     lista_base_adesao = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
@@ -275,25 +278,26 @@ if df_dash is not None and not df_dash.empty:
     ]
     lista_base_upper = [x.upper().strip() for x in lista_base_adesao]
 
-    # Bloco PME (Filtro Duplo)
+    # 1. Bloco PME (Filtro Duplo)
     cond_classe_pme = df_global['Capacidade_Upper'].isin(["CLASSE 1", "CLASSE 1 (PME)"])
     cond_os_pme = df_global['Tipo_OS_Upper'].isin(lista_base_upper)
     df_global.loc[cond_classe_pme & cond_os_pme, 'Tipo_Servico'] = 'PME'
 
-    # Bloco N-D
+    # 2. Bloco N-D
     df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_base_upper) & (df_global['Tipo_Servico'] != 'PME'), 'Tipo_Servico'] = 'N-D'
 
-    # Bloco GPON
+    # 3. Bloco GPON
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('515 - ADESAO', na=False), 'Tipo_Servico'] = 'GPON'
 
-    # Bloco MIGRAÇÃO
+    # 4. Bloco MIGRAÇÃO
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
     
-    # Bloco MP
+    # 5. Bloco MP
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
 
-    # Bloco INSTALAÇÃO
+    # 6. Bloco INSTALAÇÃO (Filtro Inteligente de Termos)
     df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
+    # =========================================================================
 
     # Divisão Regional
     df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
