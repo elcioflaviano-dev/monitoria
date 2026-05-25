@@ -8,18 +8,24 @@ st.title("📊 Painel Operacional de Rotas - ABC & SP")
 st.write("---")
 st.markdown("### Bem-vindo! Use o menu lateral para acessar os painéis.")
 
-# Injeta um script para bloquear atalhos de teclado (como a tecla 'C') que abrem caixas de diálogo
+# 🛠️ BLINDAGEM MÁXIMA: Remove visualmente os botões de cache do topo e bloqueia a tecla 'C'
+st.markdown("""
+    <style>
+    /* Esconde o menu de opções do canto superior direito e botões de desenvolvedor */
+    #MainMenu, footer, header {visibility: hidden !important;}
+    .stAppDeployButton {display:none !important;}
+    </style>
+""", unsafe_allow_html=True)
+
 st.components.v1.html("""
     <script>
-    const constBloquearAtalhos = (e) => {
-        // Bloqueia a tecla 'c' ou 'C' e atalhos comuns que geram janelas no Streamlit
-        if (e.key.toLowerCase() === 'c' || e.key === 'Escape') {
-            e.stopImmediatePropagation();
+    // Bloqueia a execução do menu de cache no navegador pai (onde a tela renderiza)
+    window.parent.document.addEventListener('keydown', function(e) {
+        if (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'r') {
+            e.preventDefault();
+            e.stopPropagation();
         }
-    };
-    // Aplica o bloqueio tanto no documento principal quanto nas barras de navegação
-    window.parent.document.addEventListener('keydown', constBloquearAtalhos, true);
-    document.addEventListener('keydown', constBloquearAtalhos, true);
+    }, true);
     </script>
 """, height=0)
 
@@ -42,7 +48,6 @@ def carregar_dados():
 
 try:
     st.session_state['dados_rota'] = carregar_dados()
-    # 🛠️ CORREÇÃO TEXTUAL: Texto alterado para português correto
     st.success("✅ Conexão estabelecida! Dados da planilha 'rota' atualizados.")
     
     total_linhas = len(st.session_state['dados_rota'])
