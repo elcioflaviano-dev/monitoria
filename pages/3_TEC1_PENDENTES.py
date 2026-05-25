@@ -78,20 +78,10 @@ def carregar_dados_automatico():
         if resposta.status_code != 200:
             return None
             
-        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA ===
-        data_header = resposta.headers.get('Date')
-        if data_header:
-            try:
-                dt_gmt = pd.to_datetime(data_header)
-                if dt_gmt.tz is None:
-                    dt_brasil = dt_gmt.tz_localize('UTC').tz_convert('America/Sao_Paulo')
-                else:
-                    dt_brasil = dt_gmt.tz_convert('America/Sao_Paulo')
-                st.session_state['data_da_rota'] = dt_brasil.strftime('%d/%m/%Y às %H:%M:%S')
-            except:
-                st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
-        else:
-            st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO E BLINDADO ===
+        import zoneinfo
+        fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
+        st.session_state['data_da_rota'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
 
         conteudo_bruto = resposta.text
         if '<html' in conteudo_bruto.lower() or '<!doctype' in conteudo_bruto.lower():
@@ -197,12 +187,12 @@ if df_planilha is not None:
     df_abc_lista, df_sp_lista = [], []
     
     if col_supervisor in df_pendentes_geral.columns and not df_pendentes_geral.empty:
-        for _, linha in df_pendentes_geral.iterrows():
-            nome_super = str(linha[col_supervisor]).upper()
+        for _, Server_linha in df_pendentes_geral.iterrows():
+            nome_super = str(Server_linha[col_supervisor]).upper()
             if "FRANCISCO" in nome_super or "ALAN" in nome_super:
-                df_sp_lista.append(linha)
+                df_sp_lista.append(Server_linha)
             else:
-                df_abc_lista.append(linha)
+                df_abc_lista.append(Server_linha)
                 
     df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
     df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
@@ -243,7 +233,7 @@ if df_planilha is not None:
     with c2:
         desenhar_alertas(df_sp, "SP")
 
-    # === AUTOMAÇÃO MODO TV (RETORNA APÓS 30 SEGUNDOS) ===
+    # === MODO TV SINCADO COM A NOVA NUMERAÇÃO DE PAINÉIS ===
     st.components.v1.html("""
         <script>
         setTimeout(function(){
