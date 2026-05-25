@@ -39,7 +39,6 @@ def buscar_base_rotas_online():
         fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
         st.session_state['data_da_rota_dash'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
 
-        # 🛠️ CORREÇÃO DA LINHA 44: Limpeza do erro de sintaxe do NameError
         conteudo_bruto = resposta.text
         linhas_puras = conteudo_bruto.splitlines()
         
@@ -94,9 +93,9 @@ def buscar_base_rotas_online():
 df_dash = buscar_base_rotas_online()
 
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados updated: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# 🛠️ FUNÇÃO DE MAPEAMENTO DINÂMICO DE STATUS DO SEU EXCEL
+# 🛠 Implantação da classificação com base na baixa e status da atividade
 def classificar_status_excel(linha):
     baixa = str(linha.get('STATUS_OS1', '')).upper().strip()
     status_at = str(linha.get('STATUS_ATIVIDADE', '')).upper().strip()
@@ -117,7 +116,7 @@ def classificar_status_excel(linha):
         
     return "PRODUTIVO"
 
-# 🛠️ FUNÇÃO INJETORA DE ESTILOS CSS NAS TABELAS (TOTAL GERAL DESTACADO)
+# 🛠 Injetora de layouts de cor suaves para a linha final
 def destacar_linha_total(row):
     try:
         if str(row.iloc[0]).strip() == "Total Geral":
@@ -231,9 +230,21 @@ if df_dash is not None and not df_dash.empty:
     
     df_global = df_dash[cond_validos].copy()
 
+    # 🛠 APLICAÇÃO CRITÉRIO N-D CORRIGIDO CONFORME ATUALIZAÇÃO DO SEU PROMPT
     df_global['Tipo_Servico'] = 'SERVIÇO'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('INSTALA', na=False), 'Tipo_Servico'] = 'INSTALAÇÃO'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRA', na=False), 'Tipo_Servico'] = 'MIGRAÇÃO'
+    
+    lista_nd_criterios = [
+        "1 - ADESAO - INSTALACAO DE ASSINATURA",
+        "516 - ADESAO ENTREGA STREAMING",
+        "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"  # 🌟 Termo corrigido aqui!
+    ]
+    lista_nd_upper = [item.upper().strip() for item in lista_nd_criterios]
+    
+    df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_nd_upper), 'Tipo_Servico'] = 'N-D'
+    
+    # Demais mapeamentos por palavra-chave (respeitando a blindagem do N-D)
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('INSTALA', na=False) & (df_global['Tipo_Servico'] != 'N-D'), 'Tipo_Servico'] = 'INSTALAÇÃO'
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRA', na=False) & (df_global['Tipo_Servico'] != 'N-D'), 'Tipo_Servico'] = 'MIGRAÇÃO'
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MP', na=False), 'Tipo_Servico'] = 'MP'
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('PME', na=False), 'Tipo_Servico'] = 'PME'
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('GPON', na=False), 'Tipo_Servico'] = 'GPON'
