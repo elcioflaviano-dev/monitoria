@@ -17,7 +17,7 @@ except:
 
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PERFORMANCE OPERACIONAL - ABC & SP</h1>', unsafe_allow_html=True)
 
-# === FUNÇÃO DE CARGA OPERACIONAL ONLINE (FUSO BRASÍLIA) ===
+# === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
 def buscar_base_rotas_online():
     try:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
@@ -82,7 +82,7 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Recurso'
             elif ('QTD O.S' in col_upper or 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper) and 'QTD_OS_COL' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'QTD_OS_COL'
-            elif ('CATEGORIAS DA CAPACIDADE' in col_upper or 'CATEGORIA DA CAPACIDADE' in col_upper or 'CATEGORIA CAPACIDADE' in col_upper or 'CAPACIDADE' in col_upper) and 'CATEGORIA_CAPACIDADE' not in colunas_mapeadas.values():
+            elif ('CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper) and 'CATEGORIA_CAPACIDADE' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
@@ -97,7 +97,7 @@ df_dash = buscar_base_rotas_online()
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# 🛠️ Classificação de status operacionais (Excel)
+# 🛠️ Classificação de status operacionais baseada na coluna de Baixa
 def classificar_status_excel(linha):
     baixa = str(linha.get('STATUS_OS1', '')).upper().strip()
     status_at = str(linha.get('STATUS_ATIVIDADE', '')).upper().strip()
@@ -172,8 +172,9 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(round(projecao)), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
+        # 🛠️ ESTRUTURA INICIAL DA MATRIZ (ZURADA)
         row_matriz = {"MONITOR": sup}
-        for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
+        for serv in ['N-D', 'OUTROS']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
             ne_serv = df_serv[df_serv['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
             p_serv = df_serv[df_serv['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
@@ -197,7 +198,7 @@ def calcular_metricas_regiao(df_regiao):
     })
 
     row_total_matriz = {"MONITOR": "Total Geral"}
-    for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
+    for serv in ['N-D', 'OUTROS']:
         df_serv_total = df_regiao[df_regiao['Tipo_Servico'] == serv]
         ne_s = df_serv_total[df_serv_total['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
         p_s = df_serv_total[df_serv_total['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
@@ -219,12 +220,6 @@ if df_dash is not None and not df_dash.empty:
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
-    # Mapeamento seguro e isolado para a coluna de capacidade sem afetar o fluxo principal
-    if 'CATEGORIA_CAPACIDADE' in df_dash.columns:
-        df_dash['Capacidade_Upper'] = df_dash['CATEGORIA_CAPACIDADE'].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df_dash['Capacidade_Upper'] = ''
-    
     if 'QTD_OS_COL' in df_dash.columns:
         df_dash['QTD_OS_NUM'] = pd.to_numeric(df_dash['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
     else:
@@ -238,38 +233,20 @@ if df_dash is not None and not df_dash.empty:
     df_global = df_dash[cond_validos].copy()
 
     # =========================================================================
-    # 🛠️ MAPEAMENTO SEGURO E RESTAURADO DE CATEGORIAS DE SERVIÇOS
+    # 🛠️ CLASSIFICAÇÃO EXCLUSIVA E ZERADA DO GRUPO N-D (RECOMEÇO)
     # =========================================================================
-    df_global['Tipo_Servico'] = 'SERVIÇO'
+    df_global['Tipo_Servico'] = 'OUTROS'
 
-    # Lista base das O.S de adesão compartilhadas
-    lista_adesao_pme = [
+    # Lista dos três critérios oficiais em maiúsculo
+    lista_nd_oficial = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
         "516 - ADESAO ENTREGA STREAMING",
         "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"
     ]
-    lista_pme_upper = [x.upper().strip() for x in lista_adesao_pme]
+    lista_nd_upper = [x.upper().strip() for x in lista_nd_oficial]
 
-    # 🌟 1. Critério PME (Apenas se bater a classe + as O.S específicas)
-    cond_classe_pme = df_global['Capacidade_Upper'].isin(["CLASSE 1", "CLASSE 1 (PME)"])
-    cond_os_pme = df_global['Tipo_OS_Upper'].isin(lista_pme_upper)
-    df_global.loc[cond_classe_pme & cond_os_pme, 'Tipo_Servico'] = 'PME'
-
-    # 🌟 2. Critério N-D (Restaura o funcionamento perfeito do N-D que estava correto)
-    df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_pme_upper) & (df_global['Tipo_Servico'] != 'PME'), 'Tipo_Servico'] = 'N-D'
-
-    # 3. Grupo GPON
-    criterios_gpon = ["515 - ADESAO - INSTALACAO DE ASSINATURA FIBRA"]
-    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_gpon]), 'Tipo_Servico'] = 'GPON'
-
-    # 4. Grupo MIGRAÇÃO
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
-    
-    # 5. Grupo MP
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
-
-    # 🌟 6. Grupo INSTALAÇÃO (Restaura o filtro textual amplo que estava funcionando 100% correto)
-    df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
+    # Atribui N-D estritamente se estiver contido na lista acima
+    df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_nd_upper), 'Tipo_Servico'] = 'N-D'
     # =========================================================================
 
     df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
@@ -293,16 +270,6 @@ if df_dash is not None and not df_dash.empty:
                 df_vitrine_abc[col] = df_vitrine_abc[col].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "-")
         st.dataframe(df_vitrine_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
         
-        df_melt_abc = df_mat_abc[df_mat_abc['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
-        df_melt_abc = df_melt_abc.dropna(subset=['Porcentagem'])
-        graf_abc = alt.Chart(df_melt_abc).mark_bar().encode(
-            x=alt.X('Serviço:N', title=None),
-            y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
-            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='tableau10')),
-            column=alt.Column('MONITOR:N', title=None)
-        ).properties(width=160, height=220)
-        st.altair_chart(graf_abc, use_container_width=False)
-        
     else:
         st.info("Nenhum dado ativo mapeado para a região ABC.")
 
@@ -325,16 +292,6 @@ if df_dash is not None and not df_dash.empty:
             if col != "MONITOR":
                 df_vitrine_sp[col] = df_vitrine_sp[col].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "-")
         st.dataframe(df_vitrine_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
-        
-        df_melt_sp = df_mat_sp[df_mat_sp['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
-        df_melt_sp = df_melt_sp.dropna(subset=['Porcentagem'])
-        graf_sp = alt.Chart(df_melt_sp).mark_bar().encode(
-            x=alt.X('Serviço:N', title=None),
-            y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
-            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='category10')),
-            column=alt.Column('MONITOR:N', title=None)
-        ).properties(width=160, height=220)
-        st.altair_chart(graf_sp, use_container_width=False)
         
     else:
         st.info("Nenhum dado ativo mapeado para a região SP.")
