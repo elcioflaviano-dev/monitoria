@@ -8,19 +8,24 @@ st.title("📊 Painel Operacional de Rotas - ABC & SP")
 st.write("---")
 st.markdown("### Bem-vindo! Use o menu lateral para acessar os painéis.")
 
-# 🛠️ BLINDAGEM MÁXIMA: Remove visualmente os botões de cache do topo e bloqueia a tecla 'C'
+# 🛠️ REMOVE O MENU DO TOPO E AS BARRAS QUE DISPARAM DIÁLOGOS
 st.markdown("""
     <style>
-    /* Esconde o menu de opções do canto superior direito e botões de desenvolvedor */
     #MainMenu, footer, header {visibility: hidden !important;}
     .stAppDeployButton {display:none !important;}
     </style>
 """, unsafe_allow_html=True)
 
+# 🛠️ CORREÇÃO CIRÚRGICA: Bloqueia a tecla 'C' sozinha, mas LIBERA o 'Ctrl + C' para copiar!
 st.components.v1.html("""
     <script>
-    // Bloqueia a execução do menu de cache no navegador pai (onde a tela renderiza)
     window.parent.document.addEventListener('keydown', function(e) {
+        // Se a pessoa estiver apertando Ctrl (ou Command no Mac) junto com o C, deixa copiar normal!
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+            return; 
+        }
+        
+        # Se for APENAS a tecla 'C' ou 'R' sozinha, bloqueia pro aviso de cache não subir
         if (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'r') {
             e.preventDefault();
             e.stopPropagation();
