@@ -68,6 +68,13 @@ def carregar_dados():
 
 try:
     st.session_state['dados_rota'] = carregar_dados()
+    
+    # 🛠️ FORÇA O HORÁRIO DE BRASÍLIA DIRETO DA MÁQUINA CLOUD
+    from datetime import datetime
+    import zoneinfo
+    fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
+    st.session_state['data_da_rota'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
+    
     st.success("✅ Conexão estabelecida! Dados da planilha 'rota' atualizados.")
     
     total_linhas = len(st.session_state['dados_rota'])
