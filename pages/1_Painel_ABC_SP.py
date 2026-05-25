@@ -15,9 +15,9 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 DESEMPENHO E QUEBRA OPERACIONAL - ABC & SP</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PERFORMANCE OPERACIONAL - ABC & SP</h1>', unsafe_allow_html=True)
 
-# === FUNÇÃO DE CARGA OPERACIONAL ONLINE CORRIGIDA (FUSO BRASÍLIA) ===
+# === FUNÇÃO DE CARGA OPERACIONAL ONLINE (FUSO BRASÍLIA) ===
 def buscar_base_rotas_online():
     try:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
@@ -89,47 +89,16 @@ def buscar_base_rotas_online():
 df_dash = buscar_base_rotas_online()
 
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados em fuso local: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-if df_dash is not None and not df_dash.empty:
-    
-    # === TRATAMENTO BASE DOS DADOS OPERACIONAIS ===
-    df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
-    df_dash['Status_Atividade_Upper'] = df_dash['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
-    df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
-    df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
-    
-    # Filtra registros nulos ou almoços
-    cond_validos = (df_dash['Contrato_Limpo'] != '') & (df_dash['Contrato_Limpo'] != 'nan')
-    if 'Tipo de Atividade' in df_dash.columns:
-        cond_validos = cond_validos & (~df_dash['Tipo de Atividade'].str.contains('Refeicao', case=False, na=False))
-    df_limpo = df_dash[cond_validos].copy()
-
-    # Mapeia tipos de O.S simplificados baseado no seu modelo (Filtros de exemplo)
-    df_limpo['Tipo_Servico'] = 'SERVIÇO'
-    if 'Tipo de Atividade' in df_limpo.columns:
-        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('Instala', case=False, na=False), 'Tipo_Servico'] = 'INSTALAÇÃO'
-        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('Migra', case=False, na=False), 'Tipo_Servico'] = 'MIGRAÇÃO'
-        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('MP', case=False, na=False), 'Tipo_Servico'] = 'MP'
-        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('PME', case=False, na=False), 'Tipo_Servico'] = 'PME'
-        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('GPON', case=False, na=False), 'Tipo_Servico'] = 'GPON'
-
-    # Seletor regional na barra lateral
-    regiao_sel = st.sidebar.radio("Região Operacional:", ["TODOS", "ABC", "SP"])
-    if regiao_sel == "ABC":
-        df_limpo = df_limpo[~df_limpo['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)]
-    elif regiao_sel == "SP":
-        df_limpo = df_limpo[df_limpo['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)]
-
-    # ==========================================
-    # FORMULAS EXCEL CONVERTIDAS PARA PYTHON (TABELA 1)
-    # ==========================================
-    st.markdown("### 📋 Consolidação Volumétrica por Equipe")
-    
+# --- FUNÇÃO INTERNA PARA CALCULAR OS INDICADORES EXATOS ---
+def calcular_metricas_regiao(df_regiao):
     lista_consolidada = []
-    for sup in df_limpo['Supervisor_Upper'].unique():
-        if sup == 'N/A': continue
-        df_sup = df_limpo[df_limpo['Supervisor_Upper'] == sup]
+    lista_matriz = []
+    
+    for sup in sorted(df_regiao['Supervisor_Upper'].unique()):
+        if sup == 'N/A' or sup == '': continue
+        df_sup = df_regiao[df_regiao['Supervisor_Upper'] == sup]
         
         cancelados = len(df_sup[df_sup['Status_Atividade_Upper'] == 'CANCELADO'])
         em_aberto = len(df_sup[df_sup['Status_Atividade_Upper'] == 'PENDENTE'])
@@ -137,82 +106,125 @@ if df_dash is not None and not df_dash.empty:
         produtivo = len(df_sup[df_sup['Status_Atividade_Upper'] == 'INICIADO']) + len(df_sup[df_sup['Status_Atividade_Upper'].str.contains('CONCLU', na=False)])
         total_geral = len(df_sup)
         
-        # Fórmulas matemáticas idênticas ao Excel
-        quebra_pct = ((cancelados + os_ne) / total_geral) if total_geral > 0 else 0.0
+        # 🛠️ FÓRMULA SOLICITADA: =(os ne/(produtivo+os ne))
+        denominador_quebra = produtivo + os_ne
+        quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
+        
         eficiencia_pct = (produtivo / total_geral) if total_geral > 0 else 0.0
-        projecao = int(produtivo * 1.5)  # Fator de projeção exemplo do seu Excel
+        projecao = int(produtivo * 1.35)  
         total_tecnicos = df_sup['Recurso_Upper'].nunique()
         media_equipe = (produtivo / total_tecnicos) if total_tecnicos > 0 else 0.0
         
         lista_consolidada.append({
-            "MONITOR / SUPERVISOR": sup,
-            "Cancelado": cancelados,
-            "Em Aberto": em_aberto,
-            "O.S NE": os_ne,
-            "Produtivo": produtivo,
-            "Total Geral": total_geral,
-            "QUEBRA": f"{quebra_pct*100:.2f}%",
-            "EFICIÊNCIA": f"{eficiencia_pct*100:.2f}%",
-            "PROJEÇÃO": projecao,
-            "TOTAL TÉCNICOS": total_tecnicos,
-            "MÉDIA EQUIPE": round(media_equipe, 2)
+            "Rótulos de Linha": sup, "cancelado": cancelados, "Em aberto": em_aberto,
+            "O.S NE": os_ne, "Produtivo": produtivo, "Total Geral": total_geral,
+            "QUEBRA": f"{quebra_pct*100:.2f}%", "EFICIÊNCIA": f"{eficiencia_pct*100:.2f}%",
+            "PROJEÇÃO": str(projecao), "TOTAL TÉCNICOS": str(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
-    df_tabela_1 = pd.DataFrame(lista_consolidada)
-    if not df_tabela_1.empty:
-        st.dataframe(df_tabela_1, use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
-
-    # ==========================================
-    # MATRIZ DE QUEBRA POR TIPO DE SERVIÇO (TABELA 2 + GRÁFICO)
-    # ==========================================
-    st.markdown("### 📉 Desempenho - Matriz de Quebra por Serviço (%)")
-    
-    lista_matriz = []
-    tipos_colunas = ['N-D', 'INSTAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']
-    
-    for sup in df_limpo['Supervisor_Upper'].unique():
-        if sup == 'N/A': continue
-        df_sup = df_limpo[df_limpo['Supervisor_Upper'] == sup]
-        
+        # Estrutura de matriz de quebras por tipo de serviço
         row_matriz = {"MONITOR": sup}
-        total_quebras_sup = 0
-        total_geral_sup = len(df_sup)
-        
-        for serv in ['N-D', 'INSTAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
+        for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
-            total_serv = len(df_serv)
-            quebras_serv = len(df_serv[df_serv['Status_Atividade_Upper'].isin(['CANCELADO', 'NÃO EXECUTADO'])])
-            total_quebras_sup += quebras_serv
+            t_serv = len(df_serv)
+            ne_serv = len(df_serv[df_serv['Status_Atividade_Upper'] == 'NÃO EXECUTADO'])
+            p_serv = len(df_serv[df_serv['Status_Atividade_Upper'] == 'INICIADO']) + len(df_serv[df_serv['Status_Atividade_Upper'].str.contains('CONCLU', na=False)])
             
-            # % de quebra por célula
-            row_matriz[serv] = (quebras_serv / total_serv * 100) if total_serv > 0 else 0.0
+            denom_q_serv = p_serv + ne_serv
+            row_matriz[serv] = (ne_serv / denom_q_serv * 100) if denom_q_serv > 0 else 0.0
             
-        row_matriz["QUEBRA GERAL"] = (total_quebras_sup / total_geral_sup * 100) if total_geral_sup > 0 else 0.0
+        row_matriz["QUEBRA GERAL"] = quebra_pct * 100
         lista_matriz.append(row_matriz)
         
-    df_tabela_2 = pd.DataFrame(lista_matriz)
+    return pd.DataFrame(lista_consolidada), pd.DataFrame(lista_matriz)
+
+# --- CORPO PRINCIPAL DO RENDER ---
+if df_dash is not None and not df_dash.empty:
     
-    if not df_tabela_2.empty:
-        # Formata para exibição visual limpa
-        df_vitrine = df_tabela_2.copy()
-        for col in df_vitrine.columns:
-            if col != "MONITOR":
-                df_vitrine[col] = df_vitrine[col].apply(lambda x: f"{x:.1f}%")
-        st.dataframe(df_vitrine, use_container_width=True, hide_index=True)
+    # === PREPARAÇÃO GLOBAL DOS DADOS ===
+    df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
+    df_dash['Status_Atividade_Upper'] = df_dash['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
+    df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
+    df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
+    
+    cond_validos = (df_dash['Contrato_Limpo'] != '') & (df_dash['Contrato_Limpo'] != 'nan')
+    if 'Tipo de Atividade' in df_dash.columns:
+        cond_validos = cond_validos & (~df_dash['Tipo de Atividade'].str.contains('Refeicao', case=False, na=False))
+    df_global = df_dash[cond_validos].copy()
+
+    df_global['Tipo_Servico'] = 'SERVIÇO'
+    if 'Tipo de Atividade' in df_global.columns:
+        df_global.loc[df_global['Tipo de Atividade'].str.contains('Instala', case=False, na=False), 'Tipo_Servico'] = 'INSTALAÇÃO'
+        df_global.loc[df_global['Tipo de Atividade'].str.contains('Migra', case=False, na=False), 'Tipo_Servico'] = 'MIGRAÇÃO'
+        df_global.loc[df_global['Tipo de Atividade'].str.contains('MP', case=False, na=False), 'Tipo_Servico'] = 'MP'
+        df_global.loc[df_global['Tipo de Atividade'].str.contains('PME', case=False, na=False), 'Tipo_Servico'] = 'PME'
+        df_global.loc[df_global['Tipo de Atividade'].str.contains('GPON', case=False, na=False), 'Tipo_Servico'] = 'GPON'
+
+    # Separação física dos DataFrames regionais
+    df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
+    df_abc_base = df_global[~df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
+
+    # ==========================================
+    # 🔴 SEÇÃO 1: REGIAO ABC
+    # ==========================================
+    st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BLOCADO - REGIÃO ABC</h2></div>', unsafe_allow_html=True)
+    
+    df_cons_abc, df_mat_abc = calcular_metricas_regiao(df_abc_base)
+    
+    if not df_cons_abc.empty:
+        st.markdown("##### 📈 Resumo de Produtividade e Eficiência (ABC)")
+        st.dataframe(df_cons_abc, use_container_width=True, hide_index=True)
         
-        # Desenha o Gráfico de Barras Agrupadas do Altair baseado no seu modelo
-        df_melted = df_tabela_2.melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
+        st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (ABC)")
+        df_vitrine_abc = df_mat_abc.copy()
+        for col in df_vitrine_abc.columns:
+            if col != "MONITOR": df_vitrine_abc[col] = df_vitrine_abc[col].apply(lambda x: f"{x:.2f}%")
+        st.dataframe(df_vitrine_abc, use_container_width=True, hide_index=True)
         
-        grafico_quebra = alt.Chart(df_melted).mark_bar().encode(
+        # Gráfico ABC
+        df_melt_abc = df_mat_abc.melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
+        graf_abc = alt.Chart(df_melt_abc).mark_bar().encode(
             x=alt.X('Serviço:N', title=None),
             y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
-            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='tableau20')),
-            column=alt.Column('MONITOR:N', title="Supervisor / Base Operacional")
-        ).properties(width=150, height=300)
+            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='tableau10')),
+            column=alt.Column('MONITOR:N', title=None)
+        ).properties(width=160, height=220)
+        st.altair_chart(graf_abc, use_container_width=False)
         
-        st.altair_chart(grafico_quebra, use_container_width=False)
+    else:
+        st.info("Nenhum dado ativo mapeado para a região ABC.")
+
+    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+
+    # ==========================================
+    # 🔵 SEÇÃO 2: REGIAO SP
+    # ==========================================
+    st.markdown('<div style="background-color:#b30000; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BLOCADO - REGIÃO SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
+    
+    df_cons_sp, df_mat_sp = calcular_metricas_regiao(df_sp_base)
+    
+    if not df_cons_sp.empty:
+        st.markdown("##### 📈 Resumo de Produtividade e Eficiência (SP)")
+        st.dataframe(df_cons_sp, use_container_width=True, hide_index=True)
+        
+        st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (SP)")
+        df_vitrine_sp = df_mat_sp.copy()
+        for col in df_vitrine_sp.columns:
+            if col != "MONITOR": df_vitrine_sp[col] = df_vitrine_sp[col].apply(lambda x: f"{x:.2f}%")
+        st.dataframe(df_vitrine_sp, use_container_width=True, hide_index=True)
+        
+        # Gráfico SP
+        df_melt_sp = df_mat_sp.melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
+        graf_sp = alt.Chart(df_melt_sp).mark_bar().encode(
+            x=alt.X('Serviço:N', title=None),
+            y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
+            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='category10')),
+            column=alt.Column('MONITOR:N', title=None)
+        ).properties(width=160, height=220)
+        st.altair_chart(graf_sp, use_container_width=False)
+        
+    else:
+        st.info("Nenhum dado ativo mapeado para a região SP.")
 
 else:
     st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
