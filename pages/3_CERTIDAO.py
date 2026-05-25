@@ -259,13 +259,14 @@ if df_base_online is not None:
                             bg_color = "#ff9800"     
                             txt_status = "INICIADO"
                         
+                        # 🛠️ NOVO LAYOUT ATUALIZADO: Contrato - Técnico - Status (Tudo alinhado perfeitamente)
                         st.markdown(f"""
                             <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:6px 10px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    <span style="font-family:monospace; font-weight:900; color:#111; font-size:14px; background:#eee; padding:2px 5px; border-radius:3px; -webkit-user-select: all; user-select: all;" title="Clique duplo para copiar">{c_num}</span>
-                                    <span style="background-color:{bg_color}; color:white; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px; letter-spacing:0.3px;">{txt_status}</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-family:monospace; font-weight:900; color:#111; font-size:14px; background:#eee; padding:2px 5px; border-radius:3px; -webkit-user-select: all; user-select: all;" title="Clique para selecionar e copiar">{c_num}</span>
+                                    <span style="color:#555; font-size:12px; font-weight:700;">- 👤 {nome_tec}</span>
                                 </div>
-                                <span style="color:#555; font-size:11px; font-weight:700; text-transform:uppercase;">👤 {nome_tec}</span>
+                                <span style="background-color:{bg_color}; color:white; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px; letter-spacing:0.3px;">{txt_status}</span>
                             </div>
                         """, unsafe_allow_html=True)
     else:
