@@ -93,9 +93,9 @@ def buscar_base_rotas_online():
 df_dash = buscar_base_rotas_online()
 
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados updated: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# 🛠 Implantação da classificação com base na baixa e status da atividade
+# 🛠️ Classificação de status operacionais (Excel)
 def classificar_status_excel(linha):
     baixa = str(linha.get('STATUS_OS1', '')).upper().strip()
     status_at = str(linha.get('STATUS_ATIVIDADE', '')).upper().strip()
@@ -116,7 +116,7 @@ def classificar_status_excel(linha):
         
     return "PRODUTIVO"
 
-# 🛠 Injetora de layouts de cor suaves para a linha final
+# 🛠️ Injetora de layouts de cor para o Total Geral
 def destacar_linha_total(row):
     try:
         if str(row.iloc[0]).strip() == "Total Geral":
@@ -230,24 +230,61 @@ if df_dash is not None and not df_dash.empty:
     
     df_global = df_dash[cond_validos].copy()
 
-    # 🛠 APLICAÇÃO CRITÉRIO N-D CORRIGIDO CONFORME ATUALIZAÇÃO DO SEU PROMPT
-    df_global['Tipo_Servico'] = 'SERVIÇO'
-    
-    lista_nd_criterios = [
+    # =========================================================================
+    # 🛠️ PARAMETRIZAÇÃO OFICIAL DA MATRIZ (CONFORME IMAGEM ENVIADA)
+    # =========================================================================
+    df_global['Tipo_Servico'] = 'SERVIÇO' # Padrão para tudo que não se encaixar abaixo
+
+    # 1. Grupo N-D
+    criterios_nd = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
         "516 - ADESAO ENTREGA STREAMING",
-        "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"  # 🌟 Termo corrigido aqui!
+        "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"
     ]
-    lista_nd_upper = [item.upper().strip() for item in lista_nd_criterios]
-    
-    df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_nd_upper), 'Tipo_Servico'] = 'N-D'
-    
-    # Demais mapeamentos por palavra-chave (respeitando a blindagem do N-D)
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('INSTALA', na=False) & (df_global['Tipo_Servico'] != 'N-D'), 'Tipo_Servico'] = 'INSTALAÇÃO'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRA', na=False) & (df_global['Tipo_Servico'] != 'N-D'), 'Tipo_Servico'] = 'MIGRAÇÃO'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MP', na=False), 'Tipo_Servico'] = 'MP'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('PME', na=False), 'Tipo_Servico'] = 'PME'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('GPON', na=False), 'Tipo_Servico'] = 'GPON'
+    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_nd]), 'Tipo_Servico'] = 'N-D'
+
+    # 2. Grupo INSTALAÇÃO
+    criterios_instalacao = [
+        "12 - HABILITACAO DE PONTO ADICIONAL",
+        "14 - SUBSTITUICAO DE DECODIFICADOR",
+        "21 - MUDANCA DE ENDERECO RESIDENCIAL",
+        "362 - INSTALACAO PONTO ADICIONAL GRATUITO",
+        "517 - RETIRADA EQUIPAMENTO COMODATO",
+        "519 - ASSISTENCIA TECNICA REMOCAO DE VIRUS",
+        "552 - RETIRADA COMPLEMENTAR DE EQUIPAMENTO RESIDENCIAL",
+        "571 - RETIRADA COMPLEMENTAR DE EQUIPAMENTO INDIDUAL"
+    ]
+    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_instalacao]), 'Tipo_Servico'] = 'INSTALAÇÃO'
+
+    # 3. Grupo MIGRAÇÃO
+    criterios_migracao = [
+        "44 - MIGRAÇÃO DE TECNOLOGIA"
+    ]
+    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_migracao]), 'Tipo_Servico'] = 'MIGRAÇÃO'
+
+    # 4. Grupo MP
+    criterios_mp = [
+        "2 - ASSISTENCIA TECNICA",
+        "555 - ASSISTENCIA TECNICA FIBRA"
+    ]
+    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_mp]), 'Tipo_Servico'] = 'MP'
+
+    # 5. Grupo PME
+    criterios_pme = [
+        "111 - ADESAO - INSTALACAO DE ASSINATURA - PME",
+        "112 - ASSISTENCIA TECNICA - PME",
+        "121 - MUDANCA DE ENDERECO - PME",
+        "144 - MIGRAÇÃO DE TECNOLOGIA - PME",
+        "556 - ASSISTENCIA TECNICA FIBRA - PME"
+    ]
+    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_pme]), 'Tipo_Servico'] = 'PME'
+
+    # 6. Grupo GPON
+    criterios_gpon = [
+        "515 - ADESAO - INSTALACAO DE ASSINATURA FIBRA"
+    ]
+    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_gpon]), 'Tipo_Servico'] = 'GPON'
+    # =========================================================================
 
     df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc_base = df_global[~df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
