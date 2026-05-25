@@ -82,8 +82,6 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Recurso'
             elif ('QTD O.S' in col_upper or 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper) and 'QTD_OS_COL' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'QTD_OS_COL'
-            elif ('CATEGORIAS DA CAPACIDADE' in col_upper or 'CATEGORIA DA CAPACIDADE' in col_upper or 'CATEGORIA CAPACIDADE' in col_upper) and 'CATEGORIA_CAPACIDADE' not in colunas_mapeadas.values():
-                colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
         df_final = df_final.loc[:, ~df_final.columns.duplicated()]
@@ -172,6 +170,7 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(round(projecao)), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
+        # 🛠️ TRATAMENTO DA MATRIZ POR CÉLULA (CRÍTICO)
         row_matriz = {"MONITOR": sup}
         for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
@@ -179,11 +178,12 @@ def calcular_metricas_regiao(df_regiao):
             p_serv = df_serv[df_serv['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
             
             denom_q_serv = p_serv + ne_serv
-            row_matriz[serv] = (ne_serv / denom_q_serv * 100) if denom_q_serv > 0 else 0.0
+            # 🌟 Se não houve O.S na célula, joga None para ficar em branco (-) igual ao seu Excel
+            row_matriz[serv] = (ne_serv / denom_q_serv * 100) if denom_q_serv > 0 else None
             
-        row_matriz["QUEBRA GERAL"] = quebra_pct * 100
         lista_matriz.append(row_matriz)
         
+    # Totais consolidados da base regional
     denom_q_total = tot_produtivo + tot_os_ne
     quebra_total_pct = (tot_os_ne / denom_q_total) if denom_q_total > 0 else 0.0
     eficiencia_total_pct = 1.0 - quebra_total_pct
@@ -197,6 +197,7 @@ def calcular_metricas_regiao(df_regiao):
         "PROJEÇÃO": int(round(projecao_total)), "TOTAL TÉCNICOS": int(tot_tecnicos_unicos), "MEDIA EQUIPE": f"{media_total_equipe:.2f}"
     })
 
+    # 🌟 CALCULO DA LINHA DE TOTAL DA MATRIZ BASEADO SÓ EM QUEM OPEROU
     row_total_matriz = {"MONITOR": "Total Geral"}
     for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
         df_serv_total = df_regiao[df_regiao['Tipo_Servico'] == serv]
@@ -204,8 +205,8 @@ def calcular_metricas_regiao(df_regiao):
         p_s = df_serv_total[df_serv_total['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
         
         denom_s = p_s + ne_s
-        row_total_matriz[serv] = (ne_s / denom_s * 100) if denom_s > 0 else 0.0
-    row_total_matriz["QUEBRA GERAL"] = quebra_total_pct * 100
+        row_total_matriz[serv] = (ne_s / denom_s * 100) if denom_s > 0 else None
+        
     lista_matriz.append(row_total_matriz)
         
     return pd.DataFrame(lista_consolidada), pd.DataFrame(lista_matriz)
@@ -219,12 +220,6 @@ if df_dash is not None and not df_dash.empty:
     df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
-    
-    # Adicionada e higienizada a coluna de Capacidade
-    if 'CATEGORIA_CAPACIDADE' in df_dash.columns:
-        df_dash['Capacidade_Upper'] = df_dash['CATEGORIA_CAPACIDADE'].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df_dash['Capacidade_Upper'] = ''
     
     if 'QTD_OS_COL' in df_dash.columns:
         df_dash['QTD_OS_NUM'] = pd.to_numeric(df_dash['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
@@ -243,7 +238,6 @@ if df_dash is not None and not df_dash.empty:
     # =========================================================================
     df_global['Tipo_Servico'] = 'SERVIÇO'
 
-    # Lista Base das Três Nomenclaturas de Adesão Solicitadas
     lista_adesao_pme = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
         "516 - ADESAO ENTREGA STREAMING",
@@ -251,25 +245,18 @@ if df_dash is not None and not df_dash.empty:
     ]
     lista_pme_upper = [x.upper().strip() for x in lista_adesao_pme]
 
-    # 🌟 1. Grupo PME (Aplica estritamente o critério duplo solicitado: Classe + Tipo O.S)
     cond_classe_pme = df_global['Capacidade_Upper'].isin(["CLASSE 1", "CLASSE 1 (PME)"])
     cond_os_pme = df_global['Tipo_OS_Upper'].isin(lista_pme_upper)
     df_global.loc[cond_classe_pme & cond_os_pme, 'Tipo_Servico'] = 'PME'
 
-    # 2. Grupo N-D (Se não for PME, mas for uma dessas O.S, entra em N-D)
     df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_pme_upper) & (df_global['Tipo_Servico'] != 'PME'), 'Tipo_Servico'] = 'N-D'
 
-    # 3. Grupo GPON
     criterios_gpon = ["515 - ADESAO - INSTALACAO DE ASSINATURA FIBRA"]
     df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in  criterios_gpon]), 'Tipo_Servico'] = 'GPON'
 
-    # 4. Grupo MIGRAÇÃO
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
-
-    # 5. Grupo MP
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
 
-    # 6. Grupo INSTALAÇÃO
     df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
     # =========================================================================
 
@@ -290,10 +277,14 @@ if df_dash is not None and not df_dash.empty:
         st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (ABC)")
         df_vitrine_abc = df_mat_abc.copy()
         for col in df_vitrine_abc.columns:
-            if col != "MONITOR": df_vitrine_abc[col] = df_vitrine_abc[col].apply(lambda x: f"{x:.2f}%")
+            if col != "MONITOR":
+                # 🌟 Formata com traço (-) se a célula for nula para espelhar o Excel
+                df_vitrine_abc[col] = df_vitrine_abc[col].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "-")
         st.dataframe(df_vitrine_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
         
+        # Gráfico ABC ignorando nulos para não gerar distorções
         df_melt_abc = df_mat_abc[df_mat_abc['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
+        df_melt_abc = df_melt_abc.dropna(subset=['Porcentagem'])
         graf_abc = alt.Chart(df_melt_abc).mark_bar().encode(
             x=alt.X('Serviço:N', title=None),
             y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
@@ -321,10 +312,14 @@ if df_dash is not None and not df_dash.empty:
         st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (SP)")
         df_vitrine_sp = df_mat_sp.copy()
         for col in df_vitrine_sp.columns:
-            if col != "MONITOR": df_vitrine_sp[col] = df_vitrine_sp[col].apply(lambda x: f"{x:.2f}%")
+            if col != "MONITOR":
+                # 🌟 Formata com traço (-) se a célula for nula para espelhar o Excel
+                df_vitrine_sp[col] = df_vitrine_sp[col].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "-")
         st.dataframe(df_vitrine_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
         
+        # Gráfico SP ignorando nulos
         df_melt_sp = df_mat_sp[df_mat_sp['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
+        df_melt_sp = df_melt_sp.dropna(subset=['Porcentagem'])
         graf_sp = alt.Chart(df_melt_sp).mark_bar().encode(
             x=alt.X('Serviço:N', title=None),
             y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
