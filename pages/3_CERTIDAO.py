@@ -247,6 +247,22 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
+                    # 🛠️ GERA O TEXTO DE TODOS OS CONTRATOS JUNTOS PARA ESSE SUPERVISOR
+                    lista_contratos_sup = df_cards_sup['Contrato_Limpo'].unique().tolist()
+                    texto_copia_em_lote = ", ".join(lista_contratos_sup)
+                    
+                    # 🆕 ATALHO EM LOTE: Cria um campo compacto com botão de cópia automática do próprio Streamlit
+                    st.text_area(
+                        label="Copiar todos da coluna:",
+                        value=texto_copia_em_lote,
+                        height=65,
+                        key=f"area_{super_nome}",
+                        label_visibility="collapsed"
+                    )
+                    
+                    st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
+                    
+                    # Exibe a lista visual ordenada item por item abaixo do botão de lote
                     for _, row_p in df_cards_sup.iterrows():
                         c_num = str(row_p['Contrato_Limpo'])
                         status_real_campo = str(row_p['Status_Atividade_Limpo'])
@@ -259,14 +275,13 @@ if df_base_online is not None:
                             bg_color = "#ff9800"     
                             txt_status = "INICIADO"
                         
-                        # 🛠️ NOVO LAYOUT ATUALIZADO: Contrato - Técnico - Status (Tudo alinhado perfeitamente)
                         st.markdown(f"""
                             <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:6px 10px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span style="font-family:monospace; font-weight:900; color:#111; font-size:14px; background:#eee; padding:2px 5px; border-radius:3px; -webkit-user-select: all; user-select: all;" title="Clique para selecionar e copiar">{c_num}</span>
-                                    <span style="color:#555; font-size:12px; font-weight:700;">- 👤 {nome_tec}</span>
+                                <div style="font-size:13px; color:#333; font-weight:700;">
+                                    <span style="font-family:monospace; color:#111; font-size:13px; font-weight:bold;">{c_num}</span>
+                                    <span> - 👤 {nome_tec}</span>
                                 </div>
-                                <span style="background-color:{bg_color}; color:white; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px; letter-spacing:0.3px;">{txt_status}</span>
+                                <span style="background-color:{bg_color}; color:white; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px;">{txt_status}</span>
                             </div>
                         """, unsafe_allow_html=True)
     else:
