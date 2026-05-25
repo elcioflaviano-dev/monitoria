@@ -82,7 +82,7 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Recurso'
             elif ('QTD O.S' in col_upper or 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper) and 'QTD_OS_COL' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'QTD_OS_COL'
-            elif ('CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper) and 'CATEGORIA_CAPACIDADE' not in colunas_mapeadas.values():
+            elif ('CATEGORIAS DA CAPACIDADE' in col_upper or 'CATEGORIA DA CAPACIDADE' in col_upper or 'CATEGORIA CAPACIDADE' in col_upper or 'CAPACIDADE' in col_upper) and 'CATEGORIA_CAPACIDADE' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
@@ -212,18 +212,18 @@ def calcular_metricas_regiao(df_regiao):
 # --- CORPO PRINCIPAL DO RENDER ---
 if df_dash is not None and not df_dash.empty:
     
-    # 🛠️ CORREÇÃO E BLINDAGEM DA COLUNA DE CAPACIDADE DIRETO NA CRIAÇÃO DO DATAFRAME GLOBAL
-    if 'CATEGORIA_CAPACIDADE' in df_dash.columns:
-        df_dash['Capacidade_Upper'] = df_dash['CATEGORIA_CAPACIDADE'].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df_dash['Capacidade_Upper'] = '' # Evita o KeyError se a coluna vier em branco do Sheets
-        
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
     df_dash['Status_OS1_Upper'] = df_dash['STATUS_OS1'].fillna('').astype(str).str.upper().str.strip()
     df_dash['Status_Geral_Upper'] = df_dash['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
     df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
+    
+    # Mapeamento seguro e isolado para a coluna de capacidade sem afetar o fluxo principal
+    if 'CATEGORIA_CAPACIDADE' in df_dash.columns:
+        df_dash['Capacidade_Upper'] = df_dash['CATEGORIA_CAPACIDADE'].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df_dash['Capacidade_Upper'] = ''
     
     if 'QTD_OS_COL' in df_dash.columns:
         df_dash['QTD_OS_NUM'] = pd.to_numeric(df_dash['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
@@ -238,10 +238,11 @@ if df_dash is not None and not df_dash.empty:
     df_global = df_dash[cond_validos].copy()
 
     # =========================================================================
-    # 🛠️ PARAMETRIZAÇÃO DAS CATEGORIAS DE SERVIÇOS
+    # 🛠️ MAPEAMENTO SEGURO E RESTAURADO DE CATEGORIAS DE SERVIÇOS
     # =========================================================================
     df_global['Tipo_Servico'] = 'SERVIÇO'
 
+    # Lista base das O.S de adesão compartilhadas
     lista_adesao_pme = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
         "516 - ADESAO ENTREGA STREAMING",
@@ -249,25 +250,25 @@ if df_dash is not None and not df_dash.empty:
     ]
     lista_pme_upper = [x.upper().strip() for x in lista_adesao_pme]
 
-    # 🌟 Grupo PME (Dupla Validação protegida contra KeyError)
+    # 🌟 1. Critério PME (Apenas se bater a classe + as O.S específicas)
     cond_classe_pme = df_global['Capacidade_Upper'].isin(["CLASSE 1", "CLASSE 1 (PME)"])
     cond_os_pme = df_global['Tipo_OS_Upper'].isin(lista_pme_upper)
     df_global.loc[cond_classe_pme & cond_os_pme, 'Tipo_Servico'] = 'PME'
 
-    # Grupo N-D
+    # 🌟 2. Critério N-D (Restaura o funcionamento perfeito do N-D que estava correto)
     df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_pme_upper) & (df_global['Tipo_Servico'] != 'PME'), 'Tipo_Servico'] = 'N-D'
 
-    # Grupo GPON
+    # 3. Grupo GPON
     criterios_gpon = ["515 - ADESAO - INSTALACAO DE ASSINATURA FIBRA"]
-    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in  criterios_gpon]), 'Tipo_Servico'] = 'GPON'
+    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_gpon]), 'Tipo_Servico'] = 'GPON'
 
-    # Grupo MIGRAÇÃO
+    # 4. Grupo MIGRAÇÃO
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
     
-    # Grupo MP
+    # 5. Grupo MP
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
 
-    # Grupo INSTALAÇÃO
+    # 🌟 6. Grupo INSTALAÇÃO (Restaura o filtro textual amplo que estava funcionando 100% correto)
     df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
     # =========================================================================
 
