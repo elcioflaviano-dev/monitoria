@@ -151,10 +151,12 @@ def calcular_metricas_regiao(df_regiao):
         denominador_quebra = produtivo + os_ne
         quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
         
-        # 🛠️ NOVA FÓRMULA SOLICITADA: Eficiencia = 1 - Quebra
+        # FÓRMULA OFICIAL DA EFICIÊNCIA
         eficiencia_pct = 1.0 - quebra_pct
         
-        projecao = int(produtivo * 1.35)  
+        # 🛠️ NOVA FÓRMULA SOLICITADA DA PROJEÇÃO: =produtivo+(em aberto*eficiencia)
+        projecao = produtivo + (em_aberto * eficiencia_pct)
+        
         total_tecnicos = df_sup['Recurso_Upper'].nunique()
         media_equipe = (produtivo / total_tecnicos) if total_tecnicos > 0 else 0.0
         
@@ -162,7 +164,7 @@ def calcular_metricas_regiao(df_regiao):
             "Rótulos de Linha": sup, "cancelado": int(cancelados), "Em aberto": int(em_aberto),
             "O.S NE": int(os_ne), "Produtivo": int(produtivo), "Total Geral": int(total_geral),
             "QUEBRA": f"{quebra_pct*100:.2f}%", "EFICIÊNCIA": f"{eficiencia_pct*100:.2f}%",
-            "PROJEÇÃO": int(projecao), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
+            "PROJEÇÃO": int(round(projecao)), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
         # Matriz por tipo de serviço
@@ -181,18 +183,18 @@ def calcular_metricas_regiao(df_regiao):
     # Totais consolidados da base regional
     denom_q_total = tot_produtivo + tot_os_ne
     quebra_total_pct = (tot_os_ne / denom_q_total) if denom_q_total > 0 else 0.0
-    
-    # 🛠️ AJUSTE NA EFICIÊNCIA DO TOTAL GERAL: Eficiencia = 1 - Quebra
     eficiencia_total_pct = 1.0 - quebra_total_pct
     
-    projecao_total = int(tot_produtivo * 1.35)
+    # 🛠️ AJUSTE NA PROJEÇÃO DO TOTAL GERAL CONFORME A NOVA REGRA
+    projecao_total = tot_produtivo + (tot_em_aberto * eficiencia_total_pct)
+    
     media_total_equipe = (tot_produtivo / tot_tecnicos_unicos) if tot_tecnicos_unicos > 0 else 0.0
 
     lista_consolidada.append({
         "Rótulos de Linha": "Total Geral", "cancelado": int(tot_cancelados), "Em aberto": int(tot_em_aberto),
         "O.S NE": int(tot_os_ne), "Produtivo": int(tot_produtivo), "Total Geral": int(tot_geral_base),
         "QUEBRA": f"{quebra_total_pct*100:.2f}%", "EFICIÊNCIA": f"{eficiencia_total_pct*100:.2f}%",
-        "PROJEÇÃO": int(projecao_total), "TOTAL TÉCNICOS": int(tot_tecnicos_unicos), "MEDIA EQUIPE": f"{media_total_equipe:.2f}"
+        "PROJEÇÃO": int(round(projecao_total)), "TOTAL TÉCNICOS": int(tot_tecnicos_unicos), "MEDIA EQUIPE": f"{media_total_equipe:.2f}"
     })
 
     row_total_matriz = {"MONITOR": "Total Geral"}
