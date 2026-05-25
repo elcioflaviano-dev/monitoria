@@ -52,19 +52,10 @@ def buscar_base_rotas_online():
         if resposta.status_code != 200:
             return None
             
-        data_header = resposta.headers.get('Date')
-        if data_header:
-            try:
-                dt_gmt = pd.to_datetime(data_header)
-                if dt_gmt.tz is None:
-                    dt_brasil = dt_gmt.tz_localize('UTC').tz_convert('America/Sao_Paulo')
-                else:
-                    dt_brasil = dt_gmt.tz_convert('America/Sao_Paulo')
-                st.session_state['data_da_rota'] = dt_brasil.strftime('%d/%m/%Y às %H:%M:%S')
-            except:
-                st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
-        else:
-            st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO E BLINDADO ===
+        import zoneinfo
+        fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
+        st.session_state['data_da_rota'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
 
         conteudo_bruto = resposta.text
         linhas_puras = conteudo_bruto.splitlines()
@@ -245,11 +236,11 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    # 🛠️ AJUSTE VISUAL ABSOLUTO: Monta a string de contratos tratados
+                    # AJUSTE VISUAL ABSOLUTO: Monta a string de contratos tratados
                     lista_contratos_reais = [str(c) for c in df_cards_sup['Contrato_Limpo'].unique() if str(c) != '']
                     texto_copia_em_lote = ", ".join(lista_contratos_reais)
                     
-                    # 🆕 NOVO FORMATO DINÂMICO: st.code se auto-expande em múltiplas linhas e tem botão de cópia nativo!
+                    # NOVO FORMATO DINÂMICO: st.code se auto-expande em múltiplas linhas e tem botão de cópia nativo!
                     st.code(texto_copia_em_lote, language="text")
                     
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
