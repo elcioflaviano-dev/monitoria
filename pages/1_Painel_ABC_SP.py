@@ -17,7 +17,7 @@ except:
 
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PERFORMANCE OPERACIONAL - ABC & SP</h1>', unsafe_allow_html=True)
 
-# === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
+# === FUNÇÃO DE CARGA OPERACIONAL ONLINE (FUSO BRASÍLIA) ===
 def buscar_base_rotas_online():
     try:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
@@ -39,7 +39,7 @@ def buscar_base_rotas_online():
         fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
         st.session_state['data_da_rota_dash'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
 
-        conteudo_bruto = response_text = resposta.text
+        conteudo_bruto = resposta.text
         linhas_puras = conteudo_bruto.splitlines()
         
         linha_do_cabecalho_real = 0
@@ -95,24 +95,21 @@ df_dash = buscar_base_rotas_online()
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# 🛠️ FUNÇÃO DE MAPEAMENTO DINÂMICO BASEADO NAS PARAS ENVIADAS PELO USER
+# --- FUNÇÃO DE MAPEAMENTO DINÂMICO BASEADO NAS CORES DO EXCEL ---
 def classificar_status_excel(linha):
     baixa = str(linha.get('STATUS_OS1', '')).upper().strip()
     status_at = str(linha.get('STATUS_ATIVIDADE', '')).upper().strip()
     
-    # Lista de códigos de O.S NE enviados na imagem
     codigos_ne = [
         "101", "106", "110", "112", "113", "125", "203", "205", "206", "301", 
         "305", "306", "402", "103", "104", "105", "107", "108", "114", "204", 
         "302", "303", "307", "308", "312", "316", "400", "100"
     ]
     
-    # Verifica se a baixa começa com algum dos códigos de quebra
     for cod in codigos_ne:
         if baixa.startswith(cod) or f"{cod} -" in baixa:
             return "O.S NE"
             
-    # Tratamento explícito das condições de Em Aberto
     if "PENDENTE" in baixa or "INICIADO" in baixa or "EM ROTA" in baixa or \
        "PENDENTE" in status_at or "INICIADO" in status_at or "EM ROTA" in status_at:
         return "EM ABERTO"
@@ -138,7 +135,6 @@ def calcular_metricas_regiao(df_regiao):
     for sup in sorted(supervisores):
         df_sup = df_regiao[df_regiao['Supervisor_Upper'] == sup]
         
-        # Realiza as somas baseadas na nossa nova classificação de para
         cancelados = df_sup[df_sup['Status_Geral_Upper'] == 'CANCELADO']['QTD_OS_NUM'].sum()
         em_aberto = df_sup[df_sup['Classificacao_Excel'] == 'EM ABERTO']['QTD_OS_NUM'].sum()
         os_ne = df_sup[df_sup['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
@@ -151,11 +147,13 @@ def calcular_metricas_regiao(df_regiao):
         tot_produtivo += produtivo
         tot_geral_base += total_geral
         
-        # FÓRMULA OFICIAL: QUEBRA = O.S NE / (Produtivo + O.S NE)
+        # FÓRMULA OFICIAL DA QUEBRA
         denominador_quebra = produtivo + os_ne
         quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
         
-        eficiencia_pct = (produtivo / total_geral) if total_geral > 0 else 0.0
+        # 🛠️ NOVA FÓRMULA SOLICITADA: Eficiencia = 1 - Quebra
+        eficiencia_pct = 1.0 - quebra_pct
+        
         projecao = int(produtivo * 1.35)  
         total_tecnicos = df_sup['Recurso_Upper'].nunique()
         media_equipe = (produtivo / total_tecnicos) if total_tecnicos > 0 else 0.0
@@ -167,7 +165,7 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(projecao), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
-        # Matriz de Quebras por tipo de serviço
+        # Matriz por tipo de serviço
         row_matriz = {"MONITOR": sup}
         for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
@@ -180,9 +178,13 @@ def calcular_metricas_regiao(df_regiao):
         row_matriz["QUEBRA GERAL"] = quebra_pct * 100
         lista_matriz.append(row_matriz)
         
+    # Totais consolidados da base regional
     denom_q_total = tot_produtivo + tot_os_ne
     quebra_total_pct = (tot_os_ne / denom_q_total) if denom_q_total > 0 else 0.0
-    eficiencia_total_pct = (tot_produtivo / tot_geral_base) if tot_geral_base > 0 else 0.0
+    
+    # 🛠️ AJUSTE NA EFICIÊNCIA DO TOTAL GERAL: Eficiencia = 1 - Quebra
+    eficiencia_total_pct = 1.0 - quebra_total_pct
+    
     projecao_total = int(tot_produtivo * 1.35)
     media_total_equipe = (tot_produtivo / tot_tecnicos_unicos) if tot_tecnicos_unicos > 0 else 0.0
 
@@ -216,16 +218,13 @@ if df_dash is not None and not df_dash.empty:
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
-    # Processa coluna quantitativa de O.S da tabela dinâmica
     if 'QTD_OS_COL' in df_dash.columns:
         df_dash['QTD_OS_NUM'] = pd.to_numeric(df_dash['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
     else:
         df_dash['QTD_OS_NUM'] = 1
         
-    # Executa a nova classificação cirúrgica por linha
     df_dash['Classificacao_Excel'] = df_dash.apply(classificar_status_excel, axis=1)
     
-    # FILTRAGEM DINÂMICA: Limpa nulos e REMOVE ORDENS DE RETORNO
     cond_validos = (df_dash['Contrato_Limpo'] != '') & (df_dash['Contrato_Limpo'] != 'nan')
     cond_validos = cond_validos & (~df_dash['Tipo_OS_Upper'].str.contains('RETORNO', na=False))
     
