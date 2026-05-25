@@ -13,19 +13,35 @@ st.markdown("""
     <style>
     #MainMenu, footer, header {visibility: hidden !important;}
     .stAppDeployButton {display:none !important;}
+    
+    /* Personaliza o topo do menu lateral com instruções profissionais */
+    div[data-testid="stSidebarNav"] > div:first-child {
+        font-size: 0px !important;
+        color: transparent !important;
+        padding: 0px !important;
+    }
+    div[data-testid="stSidebarNav"]::before {
+        content: "🔄 CLIQUE AQUI PARA ATUALIZAR A BASE";
+        color: #008080;
+        font-weight: 900;
+        font-size: 13px;
+        padding: 20px 15px 15px 15px;
+        display: block;
+        text-align: center;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #f0f2f6;
+        margin-bottom: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# 🛠️ CORREÇÃO CIRÚRGICA: Bloqueia a tecla 'C' sozinha, mas LIBERA o 'Ctrl + C' para copiar!
+# 🛠️ BLOQUEIO ABSOLUTO DO POP-UP DE CACHE (Ctrl+C Liberado)
 st.components.v1.html("""
     <script>
     window.parent.document.addEventListener('keydown', function(e) {
-        // Se a pessoa estiver apertando Ctrl (ou Command no Mac) junto com o C, deixa copiar normal!
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
             return; 
         }
-        
-        # Se for APENAS a tecla 'C' ou 'R' sozinha, bloqueia pro aviso de cache não subir
         if (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'r') {
             e.preventDefault();
             e.stopPropagation();
@@ -37,16 +53,15 @@ st.components.v1.html("""
 # Função com cache automático para carregar os dados
 @st.cache_data(ttl=120)  # Atualiza os dados a cada 2 minutos se a página for recarregada
 def carregar_dados():
-    # 🚨 LINK REAL DA SUA PLANILHA APLICADO AQUI:
     URL_SHEETS = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=xlsx"
     
-    # 🛠️ CORREÇÃO CRÍTICA: Força a leitura de todas as colunas como TEXTO (String)
+    # Força a leitura de todas as colunas como TEXTO (String)
     df = pd.read_excel(URL_SHEETS, dtype=str)
     
     # Remove espaços extras nos nomes das colunas
     df.columns = df.columns.str.strip() 
     
-    # Preenche células vazias com texto vazio para não quebrar o .str das páginas internas
+    # Preenche células vazias com texto vazio
     df = df.fillna('')
     
     return df
