@@ -95,7 +95,7 @@ df_dash = buscar_base_rotas_online()
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# 🛠️ Classificação de status operacionais (Excel)
+# 🛠️ Classificação de status operacionais baseada na tabela de de/para
 def classificar_status_excel(linha):
     baixa = str(linha.get('STATUS_OS1', '')).upper().strip()
     status_at = str(linha.get('STATUS_ATIVIDADE', '')).upper().strip()
@@ -156,7 +156,7 @@ def calcular_metricas_regiao(df_regiao):
         tot_produtivo += produtivo
         tot_geral_base += total_geral
         
-        # 🌟 UNIFICAÇÃO DA FÓRMULA OFICIAL DE QUEBRA PARA TODOS OS NÍVEIS
+        # Fórmula Padrão de Quebra: O.S NE / (Produtivo + O.S NE)
         denominador_quebra = produtivo + os_ne
         quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
         eficiencia_pct = 1.0 - quebra_pct
@@ -171,7 +171,7 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(round(projecao)), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
-        # 🌟 APLICADA A MESMA FÓRMULA PADRÃO DE QUEBRA NA MATRIZ DE SERVIÇOS
+        # 🛠️ AJUSTE CRÍTICO NA MATRIZ POR SERVIÇO: Aplica estritamente a mesma regra
         row_matriz = {"MONITOR": sup}
         for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
@@ -233,11 +233,10 @@ if df_dash is not None and not df_dash.empty:
     df_global = df_dash[cond_validos].copy()
 
     # =========================================================================
-    # 🛠️ PARAMETRIZAÇÃO INDEPENDENTE POR PALAVRAS-CHAVE 
+    # 🛠️ PARAMETRIZAÇÃO DE CATEGORIAS POR PALAVRAS-CHAVE
     # =========================================================================
     df_global['Tipo_Servico'] = 'SERVIÇO'
 
-    # 1. Grupo N-D
     criterios_nd = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
         "516 - ADESAO ENTREGA STREAMING",
@@ -245,7 +244,6 @@ if df_dash is not None and not df_dash.empty:
     ]
     df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_nd]), 'Tipo_Servico'] = 'N-D'
 
-    # 2. Grupo PME
     criterios_pme = [
         "111 - ADESAO - INSTALACAO DE ASSINATURA - PME",
         "112 - ASSISTENCIA TECNICA - PME",
@@ -255,19 +253,15 @@ if df_dash is not None and not df_dash.empty:
     ]
     df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_pme]), 'Tipo_Servico'] = 'PME'
 
-    # 3. Grupo GPON
     criterios_gpon = [
         "515 - ADESAO - INSTALACAO DE ASSINATURA FIBRA"
     ]
     df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_gpon]), 'Tipo_Servico'] = 'GPON'
 
-    # 4. Grupo MIGRAÇÃO 
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
-
-    # 5. Grupo MP 
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
 
-    # 6. Grupo INSTALAÇÃO
+    # Captura abrangente para INSTALAÇÃO
     df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
     # =========================================================================
 
