@@ -154,11 +154,13 @@ def calcular_metricas_regiao(df_regiao):
         # FÓRMULA OFICIAL DA EFICIÊNCIA
         eficiencia_pct = 1.0 - quebra_pct
         
-        # 🛠️ NOVA FÓRMULA SOLICITADA DA PROJEÇÃO: =produtivo+(em aberto*eficiencia)
+        # FÓRMULA OFICIAL DA PROJEÇÃO
         projecao = produtivo + (em_aberto * eficiencia_pct)
         
         total_tecnicos = df_sup['Recurso_Upper'].nunique()
-        media_equipe = (produtivo / total_tecnicos) if total_tecnicos > 0 else 0.0
+        
+        # 🛠️ NOVA FÓRMULA SOLICITADA DA MÉDIA EQUIPE: = total geral de os / total de técnicos
+        media_equipe = (total_geral / total_tecnicos) if total_tecnicos > 0 else 0.0
         
         lista_consolidada.append({
             "Rótulos de Linha": sup, "cancelado": int(cancelados), "Em aberto": int(em_aberto),
@@ -184,11 +186,10 @@ def calcular_metricas_regiao(df_regiao):
     denom_q_total = tot_produtivo + tot_os_ne
     quebra_total_pct = (tot_os_ne / denom_q_total) if denom_q_total > 0 else 0.0
     eficiencia_total_pct = 1.0 - quebra_total_pct
-    
-    # 🛠️ AJUSTE NA PROJEÇÃO DO TOTAL GERAL CONFORME A NOVA REGRA
     projecao_total = tot_produtivo + (tot_em_aberto * eficiencia_total_pct)
     
-    media_total_equipe = (tot_produtivo / tot_tecnicos_unicos) if tot_tecnicos_unicos > 0 else 0.0
+    # 🛠️ AJUSTE NA MÉDIA DO TOTAL GERAL CONFORME A NOVA REGRA DE SOMA TOTAL
+    media_total_equipe = (tot_geral_base / tot_tecnicos_unicos) if tot_tecnicos_unicos > 0 else 0.0
 
     lista_consolidada.append({
         "Rótulos de Linha": "Total Geral", "cancelado": int(tot_cancelados), "Em aberto": int(tot_em_aberto),
