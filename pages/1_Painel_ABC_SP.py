@@ -70,8 +70,10 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'SUPERVISOR'
             elif ('INTERVALO' in col_upper or 'TEMPO' in col_upper) and 'Intervalo de Tempo' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Intervalo de Tempo'
-            elif 'STATUS' in col_upper and 'STATUS' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'STATUS'
+            elif 'STATUS DA O.S 1' in col_upper and 'STATUS_OS1' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'STATUS_OS1'
+            elif 'STATUS' in col_upper and 'STATUS_GERAL' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'STATUS_GERAL'
             elif 'CONTRATO' in col_upper and 'Contrato' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Contrato'
             elif ('TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper or 'TIPO ATIVIDADE' in col_upper) and 'Tipo O.S 1' not in colunas_mapeadas.values(): 
@@ -93,7 +95,7 @@ df_dash = buscar_base_rotas_online()
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# --- FUNÇÃO INTERNA PARA CALCULAR OS INDICADORES UTILIZANDO SOMA OPERACIONAL (DINA) ---
+# --- FUNÇÃO INTERNA PARA CALCULAR OS INDICADORES UTILIZANDO SOMA OPERACIONAL ---
 def calcular_metricas_regiao(df_regiao):
     lista_consolidada = []
     lista_matriz = []
@@ -112,17 +114,14 @@ def calcular_metricas_regiao(df_regiao):
     for sup in sorted(supervisores):
         df_sup = df_regiao[df_regiao['Supervisor_Upper'] == sup]
         
-        # 🛠️ AGORA SOMA OS VALORES DA COLUNA QUANTITATIVA (IGUAL AO EXCEL)
-        cancelados = df_sup[df_sup['Status_Atividade_Upper'] == 'CANCELADO']['QTD_OS_NUM'].sum()
-        em_aberto = df_sup[df_sup['Status_Atividade_Upper'] == 'PENDENTE']['QTD_OS_NUM'].sum()
-        os_ne = df_sup[df_sup['Status_Atividade_Upper'].str.contains('NE|NÃO EXEC|NAO EXEC', na=False)]['QTD_OS_NUM'].sum()
-        produtivo = df_sup[df_sup['Status_Atividade_Upper'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
+        # 🛠️ FILTRAGEM COM OS NOVOS TERMOS NA COLUNA 'Status da O.S 1'
+        os_ne = df_sup[df_sup['Status_OS1_Upper'].str.contains('NÃO EXECUTADA|NAO EXECUTADA|NE', na=False)]['QTD_OS_NUM'].sum()
+        produtivo = df_sup[df_sup['Status_OS1_Upper'].str.contains('EXECUTADA', na=False)]['QTD_OS_NUM'].sum()
         
-        # Se os termos literais não baterem com "PRODUTIVO", consolida INICIADOS + CONCLUÍDOS automaticamente
-        if produtivo == 0:
-            produtivo = df_sup[df_sup['Status_Atividade_Upper'] == 'INICIADO']['QTD_OS_NUM'].sum() + \
-                        df_sup[df_sup['Status_Atividade_Upper'].str.contains('CONCLU', na=False)]['QTD_OS_NUM'].sum()
-                        
+        # Fallbacks de segurança para colunas gerais se a coluna OS 1 estiver vazia para o monitor
+        cancelados = df_sup[df_sup['Status_Geral_Upper'] == 'CANCELADO']['QTD_OS_NUM'].sum()
+        em_aberto = df_sup[df_sup['Status_Geral_Upper'] == 'PENDENTE']['QTD_OS_NUM'].sum()
+        
         total_geral = df_sup['QTD_OS_NUM'].sum()
         
         tot_cancelados += cancelados
@@ -131,7 +130,7 @@ def calcular_metricas_regiao(df_regiao):
         tot_produtivo += produtivo
         tot_geral_base += total_geral
         
-        # 🛠️ FÓRMULA OFICIAL DO EXCEL: QUEBRA = O.S NE / (Produtivo + O.S NE)
+        # 🛠️ FÓRMULA OFICIAL: QUEBRA = O.S NE / (Produtivo + O.S NE)
         denominador_quebra = produtivo + os_ne
         quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
         
@@ -147,15 +146,12 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(projecao), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
-        # Estrutura matricial por serviço aplicando a mesma correção de Soma de Quantidades
+        # Matriz por tipo de serviço
         row_matriz = {"MONITOR": sup}
         for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
-            ne_serv = df_serv[df_serv['Status_Atividade_Upper'].str.contains('NE|NÃO EXEC|NAO EXEC', na=False)]['QTD_OS_NUM'].sum()
-            p_serv = df_serv[df_serv['Status_Atividade_Upper'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
-            if p_serv == 0:
-                p_serv = df_serv[df_serv['Status_Atividade_Upper'] == 'INICIADO']['QTD_OS_NUM'].sum() + \
-                         df_serv[df_serv['Status_Atividade_Upper'].str.contains('CONCLU', na=False)]['QTD_OS_NUM'].sum()
+            ne_serv = df_serv[df_serv['Status_OS1_Upper'].str.contains('NÃO EXECUTADA|NAO EXECUTADA|NE', na=False)]['QTD_OS_NUM'].sum()
+            p_serv = df_serv[df_serv['Status_OS1_Upper'].str.contains('EXECUTADA', na=False)]['QTD_OS_NUM'].sum()
             
             denom_q_serv = p_serv + ne_serv
             row_matriz[serv] = (ne_serv / denom_q_serv * 100) if denom_q_serv > 0 else 0.0
@@ -179,11 +175,8 @@ def calcular_metricas_regiao(df_regiao):
     row_total_matriz = {"MONITOR": "Total Geral"}
     for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
         df_serv_total = df_regiao[df_regiao['Tipo_Servico'] == serv]
-        ne_s = df_serv_total[df_serv_total['Status_Atividade_Upper'].str.contains('NE|NÃO EXEC|NAO EXEC', na=False)]['QTD_OS_NUM'].sum()
-        p_s = df_serv_total[df_serv_total['Status_Atividade_Upper'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
-        if p_s == 0:
-            p_s = df_serv_total[df_serv_total['Status_Atividade_Upper'] == 'INICIADO']['QTD_OS_NUM'].sum() + \
-                  df_serv_total[df_serv_total['Status_Atividade_Upper'].str.contains('CONCLU', na=False)]['QTD_OS_NUM'].sum()
+        ne_s = df_serv_total[df_serv_total['Status_OS1_Upper'].str.contains('NÃO EXECUTADA|NAO EXECUTADA|NE', na=False)]['QTD_OS_NUM'].sum()
+        p_s = df_serv_total[df_serv_total['Status_OS1_Upper'].str.contains('EXECUTADA', na=False)]['QTD_OS_NUM'].sum()
         
         denom_s = p_s + ne_s
         row_total_matriz[serv] = (ne_s / denom_s * 100) if denom_s > 0 else 0.0
@@ -196,18 +189,19 @@ def calcular_metricas_regiao(df_regiao):
 if df_dash is not None and not df_dash.empty:
     
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
-    df_dash['Status_Atividade_Upper'] = df_dash['STATUS'].fillna('').astype(str).str.upper().str.strip()
+    df_dash['Status_OS1_Upper'] = df_dash['STATUS_OS1'].fillna('').astype(str).str.upper().str.strip()
+    df_dash['Status_Geral_Upper'] = df_dash['STATUS_GERAL'].fillna('').astype(str).str.upper().str.strip()
     df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
-    # Converte e higieniza a coluna quantitativa de O.S vinda da tabela dinâmica
+    # Validação e processamento da coluna quantitativa de O.S da tabela dinâmica
     if 'QTD_OS_COL' in df_dash.columns:
         df_dash['QTD_OS_NUM'] = pd.to_numeric(df_dash['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
     else:
-        df_dash['QTD_OS_NUM'] = 1  # Caso falte, adota contagem padrão por segurança
+        df_dash['QTD_OS_NUM'] = 1
     
-    # 🛠️ FILTRAGEM DE TABELA DINÂMICA: Descarta nulos e REMOVE ORDENS DE RETORNO
+    # FILTRAGEM: Limpa nulos e REMOVE DEFINITIVAMENTE ORDENS DE RETORNO
     cond_validos = (df_dash['Contrato_Limpo'] != '') & (df_dash['Contrato_Limpo'] != 'nan')
     cond_validos = cond_validos & (~df_dash['Tipo_OS_Upper'].str.contains('RETORNO', na=False))
     
