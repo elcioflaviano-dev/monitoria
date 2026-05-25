@@ -2,11 +2,10 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
-import os
 import altair as alt  
 from datetime import datetime
 
-# 1. Configuração da página
+# 1. Configuração da página ampla
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 # 2. Carregar Estilos Globais
@@ -16,9 +15,9 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📊 PAINEL ABC SP - DASHBOARDS</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 DESEMPENHO E QUEBRA OPERACIONAL - ABC & SP</h1>', unsafe_allow_html=True)
 
-# === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
+# === FUNÇÃO DE CARGA OPERACIONAL ONLINE CORRIGIDA (FUSO BRASÍLIA) ===
 def buscar_base_rotas_online():
     try:
         url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
@@ -36,19 +35,9 @@ def buscar_base_rotas_online():
         if resposta.status_code != 200:
             return None
             
-        data_header = resposta.headers.get('Date')
-        if data_header:
-            try:
-                dt_gmt = pd.to_datetime(data_header)
-                if dt_gmt.tz is None:
-                    dt_brasil = dt_gmt.tz_localize('UTC').tz_convert('America/Sao_Paulo')
-                else:
-                    dt_brasil = dt_gmt.tz_convert('America/Sao_Paulo')
-                st.session_state['data_da_rota_dash'] = dt_brasil.strftime('%d/%m/%Y às %H:%M:%S')
-            except:
-                st.session_state['data_da_rota_dash'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
-        else:
-            st.session_state['data_da_rota_dash'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+        import zoneinfo
+        fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
+        st.session_state['data_da_rota_dash'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
 
         conteudo_bruto = resposta.text
         linhas_puras = conteudo_bruto.splitlines()
@@ -85,12 +74,10 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Status da Atividade'
             elif 'CONTRATO' in col_upper and 'Contrato' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Contrato'
-            elif 'CIDADE' in col_upper and 'Cidade' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'Cidade'
-            elif ('TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper) and 'Total de tarefas' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'Total de tarefas'
-            elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper) and 'Tipo de Atividade' not in colunas_mapeadas.values():
+            elif 'TIPO' in col_upper and 'Tipo de Atividade' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Tipo de Atividade'
+            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'Recurso'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
         df_final = df_final.loc[:, ~df_final.columns.duplicated()]
@@ -101,155 +88,131 @@ def buscar_base_rotas_online():
 
 df_dash = buscar_base_rotas_online()
 
-# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO ---
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 25px;">🔄 Dados updated em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados em fuso local: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
 if df_dash is not None and not df_dash.empty:
     
-    # === HIGIENIZAÇÃO DOS DADOS ===
+    # === TRATAMENTO BASE DOS DADOS OPERACIONAIS ===
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
     df_dash['Status_Atividade_Upper'] = df_dash['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
+    df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
+    df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     
-    cond_contrato_valido = (
-        (df_dash['Contrato_Limpo'] != '') & 
-        (df_dash['Contrato_Limpo'] != 'nan') & 
-        (~df_dash['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
-        (~df_dash['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
-    )
-    
+    # Filtra registros nulos ou almoços
+    cond_validos = (df_dash['Contrato_Limpo'] != '') & (df_dash['Contrato_Limpo'] != 'nan')
     if 'Tipo de Atividade' in df_dash.columns:
-        cond_contrato_valido = cond_contrato_valido & (~df_dash['Tipo de Atividade'].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
-        
-    df_dash_filtrado = df_dash[cond_contrato_valido].copy()
-    df_dash_filtrado['Contrato_Limpo'] = df_dash_filtrado['Contrato_Limpo'].apply(lambda x: x.split('.')[0].strip())
+        cond_validos = cond_validos & (~df_dash['Tipo de Atividade'].str.contains('Refeicao', case=False, na=False))
+    df_limpo = df_dash[cond_validos].copy()
 
-    if 'Cidade' in df_dash_filtrado.columns:
-        df_dash_filtrado['Cidade_Tratada'] = df_dash_filtrado['Cidade'].fillna('NÃO INFORMADA').astype(str).str.upper().str.strip()
-    else:
-        df_dash_filtrado['Cidade_Tratada'] = 'NÃO INFORMADA'
+    # Mapeia tipos de O.S simplificados baseado no seu modelo (Filtros de exemplo)
+    df_limpo['Tipo_Servico'] = 'SERVIÇO'
+    if 'Tipo de Atividade' in df_limpo.columns:
+        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('Instala', case=False, na=False), 'Tipo_Servico'] = 'INSTALAÇÃO'
+        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('Migra', case=False, na=False), 'Tipo_Servico'] = 'MIGRAÇÃO'
+        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('MP', case=False, na=False), 'Tipo_Servico'] = 'MP'
+        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('PME', case=False, na=False), 'Tipo_Servico'] = 'PME'
+        df_limpo.loc[df_limpo['Tipo de Atividade'].str.contains('GPON', case=False, na=False), 'Tipo_Servico'] = 'GPON'
 
-    if 'Total de tarefas' in df_dash_filtrado.columns:
-        df_dash_filtrado['Total_OS_Num'] = pd.to_numeric(df_dash_filtrado['Total de tarefas'], errors='coerce').fillna(0).astype(int)
-    else:
-        df_dash_filtrado['Total_OS_Num'] = 0
-
-    if 'Intervalo de Tempo' in df_dash_filtrado.columns:
-        df_dash_filtrado['Intervalo_Tratado'] = df_dash_filtrado['Intervalo de Tempo'].fillna('').astype(str).str.strip()
-    else:
-        df_dash_filtrado['Intervalo_Tratado'] = ''
-
-    # === FILTRO DE SUPERVISOR ===
-    if 'SUPERVISOR' in df_dash_filtrado.columns:
-        lista_supervisores = ["TODOS"] + sorted(df_dash_filtrado['SUPERVISOR'].dropna().unique())
-        supervisor_sel = st.sidebar.selectbox("Filtrar por Supervisor:", lista_supervisores)
-        
-        if supervisor_sel != "TODOS":
-            df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
+    # Seletor regional na barra lateral
+    regiao_sel = st.sidebar.radio("Região Operacional:", ["TODOS", "ABC", "SP"])
+    if regiao_sel == "ABC":
+        df_limpo = df_limpo[~df_limpo['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)]
+    elif regiao_sel == "SP":
+        df_limpo = df_limpo[df_limpo['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)]
 
     # ==========================================
-    # BLOCO 1: KPIs
+    # FORMULAS EXCEL CONVERTIDAS PARA PYTHON (TABELA 1)
     # ==========================================
-    total_contratos = df_dash_filtrado['Contrato_Limpo'].nunique()
-    total_geral_os = df_dash_filtrado['Total_OS_Num'].sum()
-    media_os_por_contrato = df_dash_filtrado['Total_OS_Num'].mean() if total_contratos > 0 else 0.0
-
-    df_janelas_validas = df_dash_filtrado[
-        (df_dash_filtrado['Intervalo_Tratado'] != '') & 
-        (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-        (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
-    ]
+    st.markdown("### 📋 Consolidação Volumétrica por Equipe")
     
-    if not df_janelas_validas.empty:
-        media_os_janelas_reais = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().mean()
-    else:
-        media_os_janelas_reais = 0.0
-
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        with st.container(border=True):
-            st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">📋 Total Contratos</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:28px; font-weight:900; color:#008080;">{total_contratos}</div>', unsafe_allow_html=True)
-    with m2:
-        with st.container(border=True):
-            st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🛠️ Volume Total OS</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:28px; font-weight:900; color:#333;">{total_geral_os}</div>', unsafe_allow_html=True)
-    with m3:
-        with st.container(border=True):
-            st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🧮 Média OS / Contrato</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:28px; font-weight:900; color:#008080;">{media_os_por_contrato:.2f}</div>', unsafe_allow_html=True)
-    with m4:
-        with st.container(border=True):
-            st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">⏳ Média OS / Janela Real</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:28px; font-weight:900; color:#ff9800;">{media_os_janelas_reais:.2f}</div>', unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    lista_consolidada = []
+    for sup in df_limpo['Supervisor_Upper'].unique():
+        if sup == 'N/A': continue
+        df_sup = df_limpo[df_limpo['Supervisor_Upper'] == sup]
+        
+        cancelados = len(df_sup[df_sup['Status_Atividade_Upper'] == 'CANCELADO'])
+        em_aberto = len(df_sup[df_sup['Status_Atividade_Upper'] == 'PENDENTE'])
+        os_ne = len(df_sup[df_sup['Status_Atividade_Upper'] == 'NÃO EXECUTADO'])
+        produtivo = len(df_sup[df_sup['Status_Atividade_Upper'] == 'INICIADO']) + len(df_sup[df_sup['Status_Atividade_Upper'].str.contains('CONCLU', na=False)])
+        total_geral = len(df_sup)
+        
+        # Fórmulas matemáticas idênticas ao Excel
+        quebra_pct = ((cancelados + os_ne) / total_geral) if total_geral > 0 else 0.0
+        eficiencia_pct = (produtivo / total_geral) if total_geral > 0 else 0.0
+        projecao = int(produtivo * 1.5)  # Fator de projeção exemplo do seu Excel
+        total_tecnicos = df_sup['Recurso_Upper'].nunique()
+        media_equipe = (produtivo / total_tecnicos) if total_tecnicos > 0 else 0.0
+        
+        lista_consolidada.append({
+            "MONITOR / SUPERVISOR": sup,
+            "Cancelado": cancelados,
+            "Em Aberto": em_aberto,
+            "O.S NE": os_ne,
+            "Produtivo": produtivo,
+            "Total Geral": total_geral,
+            "QUEBRA": f"{quebra_pct*100:.2f}%",
+            "EFICIÊNCIA": f"{eficiencia_pct*100:.2f}%",
+            "PROJEÇÃO": projecao,
+            "TOTAL TÉCNICOS": total_tecnicos,
+            "MÉDIA EQUIPE": round(media_equipe, 2)
+        })
+        
+    df_tabela_1 = pd.DataFrame(lista_consolidada)
+    if not df_tabela_1.empty:
+        st.dataframe(df_tabela_1, use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
 
     # ==========================================
-    # BLOCO 2: GRÁFICOS ANALÍTICOS (ALTAIR)
+    # MATRIZ DE QUEBRA POR TIPO DE SERVIÇO (TABELA 2 + GRÁFICO)
     # ==========================================
-    g1, g2 = st.columns(2)
-
-    with g1:
-        with st.container(border=True):
-            # 🔥 ALTERADO: Foco total na Soma Total de O.S. (Tarefas) por Cidade
-            st.markdown("#### 🌆 Volume Total de O.S. por Cidade")
-            df_cidades_os = df_dash_filtrado.groupby('Cidade_Tratada')['Total_OS_Num'].sum().reset_index()
-            df_cidades_os.columns = ['Cidade', 'Total OS']
-            df_cidades_os = df_cidades_os.sort_values(by='Total OS', ascending=False)
+    st.markdown("### 📉 Desempenho - Matriz de Quebra por Serviço (%)")
+    
+    lista_matriz = []
+    tipos_colunas = ['N-D', 'INSTAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']
+    
+    for sup in df_limpo['Supervisor_Upper'].unique():
+        if sup == 'N/A': continue
+        df_sup = df_limpo[df_limpo['Supervisor_Upper'] == sup]
+        
+        row_matriz = {"MONITOR": sup}
+        total_quebras_sup = 0
+        total_geral_sup = len(df_sup)
+        
+        for serv in ['N-D', 'INSTAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
+            df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
+            total_serv = len(df_serv)
+            quebras_serv = len(df_serv[df_serv['Status_Atividade_Upper'].isin(['CANCELADO', 'NÃO EXECUTADO'])])
+            total_quebras_sup += quebras_serv
             
-            if not df_cidades_os.empty:
-                # Desenha o gráfico de barras
-                barras_cidade = alt.Chart(df_cidades_os).mark_bar(color='#008080').encode(
-                    x=alt.X('Cidade:N', sort='-y', title='Cidade'),
-                    y=alt.Y('Total OS:Q', title='Volume de O.S.')
-                )
-                # Carimba o número exato de O.S. no topo de cada barra
-                textos_cidade = barras_cidade.mark_text(
-                    align='center', baseline='bottom', dy=-4, fontWeight='bold'
-                ).encode(text='Total OS:Q')
-                
-                st.altair_chart(barras_cidade + textos_cidade, use_container_width=True)
-            else:
-                st.caption("Nenhum dado de O.S. por cidade disponível.")
-
-    with g2:
-        with st.container(border=True):
-            st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento (Com Contratos Ativos)")
-            if not df_janelas_validas.empty:
-                df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
-                df_janelas_grafico.columns = ['Janela Horário', 'Média de OS']
-                df_janelas_grafico['Média de OS'] = df_janelas_grafico['Média de OS'].round(2)
-                df_janelas_grafico = df_janelas_grafico.sort_values(by='Média de OS', ascending=False)
-                
-                barras_janela = alt.Chart(df_janelas_grafico).mark_bar(color='#ff9800').encode(
-                    x=alt.X('Janela Horário:N', sort='-y', title='Janela de Horário'),
-                    y=alt.Y('Média de OS:Q', title='Média de O.S.')
-                )
-                textos_janela = barras_janela.mark_text(
-                    align='center', baseline='bottom', dy=-4, fontWeight='bold'
-                ).encode(text='Média de OS:Q')
-                
-                st.altair_chart(barras_janela + textos_janela, use_container_width=True)
-            else:
-                st.info("Nenhuma janela com contrato ativo identificada para cálculo.")
-
-    # ==========================================
-    # BLOCO 3: DETALHAMENTO DA TABELA ANALÍTICA
-    # ==========================================
-    with st.container(border=True):
-        st.markdown("#### 🔍 Visão Analítica Consolidada")
-        if 'SUPERVISOR' in df_dash_filtrado.columns:
-            df_analitico = df_dash_filtrado.groupby(['SUPERVISOR', 'Cidade_Tratada']).agg(
-                Contratos_Unicos=('Contrato_Limpo', 'nunique'),
-                Total_Tarefas_OS=('Total_OS_Num', 'sum'),
-                Media_OS_Contrato=('Total_OS_Num', 'mean')
-            ).reset_index()
+            # % de quebra por célula
+            row_matriz[serv] = (quebras_serv / total_serv * 100) if total_serv > 0 else 0.0
             
-            df_analitico.columns = ['Supervisor', 'Cidade', 'Contratos Únicos', 'Soma Total OS', 'Média OS/Contrato']
-            st.dataframe(df_analitico.sort_values(by='Contratos Únicos', ascending=False), use_container_width=True, hide_index=True)
-        else:
-            st.dataframe(df_dash_filtrado[['Contrato_Limpo', 'Cidade_Tratada', 'Total_OS_Num']], use_container_width=True, hide_index=True)
+        row_matriz["QUEBRA GERAL"] = (total_quebras_sup / total_geral_sup * 100) if total_geral_sup > 0 else 0.0
+        lista_matriz.append(row_matriz)
+        
+    df_tabela_2 = pd.DataFrame(lista_matriz)
+    
+    if not df_tabela_2.empty:
+        # Formata para exibição visual limpa
+        df_vitrine = df_tabela_2.copy()
+        for col in df_vitrine.columns:
+            if col != "MONITOR":
+                df_vitrine[col] = df_vitrine[col].apply(lambda x: f"{x:.1f}%")
+        st.dataframe(df_vitrine, use_container_width=True, hide_index=True)
+        
+        # Desenha o Gráfico de Barras Agrupadas do Altair baseado no seu modelo
+        df_melted = df_tabela_2.melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
+        
+        grafico_quebra = alt.Chart(df_melted).mark_bar().encode(
+            x=alt.X('Serviço:N', title=None),
+            y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
+            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='tableau20')),
+            column=alt.Column('MONITOR:N', title="Supervisor / Base Operacional")
+        ).properties(width=150, height=300)
+        
+        st.altair_chart(grafico_quebra, use_container_width=False)
 
 else:
-    st.warning("⚠️ Não foi possível carregar os dados online da planilha para gerar os dashboards.")
+    st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
