@@ -229,7 +229,7 @@ if df_planilha is not None:
     st.components.v1.html("""
         <script>
         setTimeout(function(){
-            window.parent.location.hash = "#2-tec1-pendentes";
+            window.parent.location.hash = "#3-tec1-pendentes";
         }, 30000);
         </script>
     """, height=0)
