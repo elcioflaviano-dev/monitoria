@@ -59,6 +59,7 @@ div[data-testid="stMetricValue"] div {
     font-weight: 900 !important;
     color: #333333 !important;
 }
+
 /* Título Principal do Painel */
 .main-dashboard-title {
     font-size: 32px;
@@ -68,29 +69,3 @@ div[data-testid="stMetricValue"] div {
     margin-top: 0px;
     letter-spacing: -0.5px;
 }
-
-# Força a substituição real e limpa do texto "streamlit app"
-st.markdown("""
-    <style>
-    /* 1. Seleciona o contêiner do título original e zera o texto nativo */
-    div[data-testid="stSidebarNav"] > div:first-child {
-        font-size: 0px !important;
-        color: transparent !important;
-        padding: 0px !important;
-    }
-
-    /* 2. Injeta o novo texto explicativo no topo com design profissional */
-    div[data-testid="stSidebarNav"]::before {
-        content: "🔄 CLIQUE AQUI PARA ATUALIZAR A BASE";
-        color: #008080; /* Azul/Verde padrão do seu sistema */
-        font-weight: 900;
-        font-size: 13px;
-        padding: 20px 15px 15px 15px;
-        display: block;
-        text-align: center;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid #f0f2f6;
-        margin-bottom: 10px;
-    }
-    </style>
-""", unsafe_allow_html=True)
