@@ -38,7 +38,7 @@ def buscar_base_rotas_online():
         fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
         st.session_state['data_da_rota_ativar'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
 
-        conteudo_bruto = resposta.text
+        conteudo_bruto = response_text = resposta.text
         linhas_puras = conteudo_bruto.splitlines()
         
         linha_do_cabecalho_real = 0
@@ -67,8 +67,8 @@ def buscar_base_rotas_online():
             col_upper = col.upper()
             if ('SUPERVISOR' in col_upper or 'MONITOR' in col_upper) and 'SUPERVISOR' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'SUPERVISOR'
-            elif 'STATUS' in col_upper and 'STATUS_ATIVIDADE' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
+            elif ('STATUS DA ATIVIDADE' in col_upper or 'STATUS ATIVIDADE' in col_upper) and 'STATUS_CONCLUSAO' not in colunas_mapeadas.values():
+                colunas_mapeadas[col] = 'STATUS_CONCLUSAO'
             elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Recurso'
         
@@ -96,19 +96,30 @@ def destacar_linha_total(row):
 # --- CORPO PRINCIPAL DO FILTRO ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # Higienização de strings
+    # Higienização e padronização das colunas
     df_ativar['Supervisor_Upper'] = df_ativar['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_ativar['Recurso_Original'] = df_ativar['Recurso'].fillna('N/A').astype(str).str.strip()
-    df_ativar['Status_Atividade_Upper'] = df_ativar['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
     
-    # FILTRO CIRÚRGICO: Remove todo mundo que já iniciou o dia ("NA BASE")
-    df_pendentes = df_ativar[df_ativar['Status_Atividade_Upper'] != "NA BASE"].copy()
-    
-    # Agrupa apenas para remover duplicados e ter a lista limpa de nomes de técnicos por supervisor
+    # Se a coluna de conclusão não existir na planilha, cria como vazia para não quebrar
+    if 'STATUS_CONCLUSAO' in df_ativar.columns:
+        df_ativar['Status_Conclusao_Upper'] = df_ativar['STATUS_CONCLUSAO'].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df_ativar['Status_Conclusao_Upper'] = ''
+
+    # 🌟 PASSO 1: Descobrir a lista de técnicos que JÁ TÊM alguma atividade "CONCLUIDO"
+    tecnicos_ativos = df_ativar[df_ativar['Status_Conclusao_Upper'] == "CONCLUIDO"]['Recurso_Original'].unique()
+
+    # 🌟 PASSO 2: Filtrar a base para manter apenas quem NÃO está nessa lista (ou seja, está totalmente em branco)
+    df_pendentes = df_ativar[~df_ativar['Recurso_Original'].isin(tecnicos_ativos)].copy()
+
+    # Agrupa por Supervisor e Técnico para gerar a lista limpa sem duplicados
     df_lista = df_pendentes.groupby(['SUPERVISOR', 'Recurso_Original']).size().reset_index()
     df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Recurso_Original': 'Técnico Pendente'})
-    df_lista = df_lista[['Supervisor', 'Técnico Pendente']] # Mantém apenas as colunas de identificação
-    
+    df_lista = df_lista[['Supervisor', 'Técnico Pendente']]
+
+    # Filtra e remove linhas onde o técnico seja "N/A" ou inválido
+    df_lista = df_lista[df_lista['Técnico Pendente'] != 'N/A']
+
     # Divisão Regional (Padrão Francisco/Alan para SP, restante ABC)
     df_sp = df_lista[df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_lista[~df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
@@ -121,7 +132,6 @@ if df_ativar is not None and not df_ativar.empty:
     if not df_abc.empty:
         st.dataframe(df_abc, use_container_width=True, hide_index=True)
         
-        # Mostra o totalizador de pessoas que faltam em destaque no rodapé
         tot_tecs_abc = df_abc['Técnico Pendente'].nunique()
         df_tot_abc = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Técnico Pendente": f"{tot_tecs_abc} Técnicos ausentes"}])
         st.dataframe(df_tot_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
@@ -138,7 +148,6 @@ if df_ativar is not None and not df_ativar.empty:
     if not df_sp.empty:
         st.dataframe(df_sp, use_container_width=True, hide_index=True)
         
-        # Mostra o totalizador de pessoas que faltam em destaque no rodapé
         tot_tecs_sp = df_sp['Técnico Pendente'].nunique()
         df_tot_sp = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Técnico Pendente": f"{tot_tecs_sp} Técnicos ausentes"}])
         st.dataframe(df_tot_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
