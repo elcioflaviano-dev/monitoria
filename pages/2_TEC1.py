@@ -43,20 +43,10 @@ def carregar_dados_automatico():
         if resposta.status_code != 200:
             return None
             
-        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA ===
-        data_header = resposta.headers.get('Date')
-        if data_header:
-            try:
-                dt_gmt = pd.to_datetime(data_header)
-                if dt_gmt.tz is None:
-                    dt_brasil = dt_gmt.tz_localize('UTC').tz_convert('America/Sao_Paulo')
-                else:
-                    dt_brasil = dt_gmt.tz_convert('America/Sao_Paulo')
-                st.session_state['data_da_rota'] = dt_brasil.strftime('%d/%m/%Y às %H:%M:%S')
-            except:
-                st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
-        else:
-            st.session_state['data_da_rota'] = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO E BLINDADO ===
+        import zoneinfo
+        fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
+        st.session_state['data_da_rota'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
 
         conteudo_bruto = resposta.text
         if '<html' in conteudo_bruto.lower() or '<!doctype' in conteudo_bruto.lower():
@@ -118,7 +108,7 @@ if df_planilha is not None:
     else:
         df['Status_Atividade_Upper'] = ''
         
-    # 🚨 FILTRAGEM PESADA: Elimina nulos, #N/A e status SUSPENSO
+    # FILTRAGEM PESADA: Elimina nulos, #N/A e status SUSPENSO
     cond_contrato_valido = (
         (df['Contrato_Limpo'] != '') & 
         (df['Contrato_Limpo'] != 'nan') & 
@@ -226,6 +216,7 @@ if df_planilha is not None:
         else:
             st.info("Nenhum supervisor ativo em SP nesta janela.")
 
+    # MODO TV AUTOMÁTICO SINCADO COM A NOVA NUMERAÇÃO DE PÁGINAS
     st.components.v1.html("""
         <script>
         setTimeout(function(){
