@@ -156,6 +156,7 @@ def calcular_metricas_regiao(df_regiao):
         tot_produtivo += produtivo
         tot_geral_base += total_geral
         
+        # 🌟 UNIFICAÇÃO DA FÓRMULA OFICIAL DE QUEBRA PARA TODOS OS NÍVEIS
         denominador_quebra = produtivo + os_ne
         quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
         eficiencia_pct = 1.0 - quebra_pct
@@ -170,6 +171,7 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(round(projecao)), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
+        # 🌟 APLICADA A MESMA FÓRMULA PADRÃO DE QUEBRA NA MATRIZ DE SERVIÇOS
         row_matriz = {"MONITOR": sup}
         for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
@@ -231,7 +233,7 @@ if df_dash is not None and not df_dash.empty:
     df_global = df_dash[cond_validos].copy()
 
     # =========================================================================
-    # 🛠️ PARAMETRIZAÇÃO INDEPENDENTE POR PALAVRAS-CHAVE (BLINDADA CONTRA KEYERROR)
+    # 🛠️ PARAMETRIZAÇÃO INDEPENDENTE POR PALAVRAS-CHAVE 
     # =========================================================================
     df_global['Tipo_Servico'] = 'SERVIÇO'
 
@@ -259,13 +261,13 @@ if df_dash is not None and not df_dash.empty:
     ]
     df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_gpon]), 'Tipo_Servico'] = 'GPON'
 
-    # 4. Grupo MIGRAÇÃO (Busca Inteligente por Palavra-Chave)
+    # 4. Grupo MIGRAÇÃO 
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
 
-    # 5. Grupo MP (Busca Inteligente por Palavra-Chave)
+    # 5. Grupo MP 
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
 
-    # 🌟 6. Grupo INSTALAÇÃO (Filtro Abrangente com todos os padrões da sua imagem de O.S)
+    # 6. Grupo INSTALAÇÃO
     df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
     # =========================================================================
 
