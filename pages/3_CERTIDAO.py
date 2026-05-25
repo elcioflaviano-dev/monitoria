@@ -220,13 +220,12 @@ st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None:
+    # 🛠️ HIGIENIZAÇÃO PREVENTIVA GLOBAL
     df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
-    
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
     cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
-    
     cond_ativ = df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU") | df_base_online['Status_Atividade_Limpo'].str.contains("INIC")
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
@@ -247,11 +246,11 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    # 🛠️ GERA O TEXTO DE TODOS OS CONTRATOS JUNTOS PARA ESSE SUPERVISOR
-                    lista_contratos_sup = df_cards_sup['Contrato_Limpo'].unique().tolist()
-                    texto_copia_em_lote = ", ".join(lista_contratos_sup)
+                    # 🛠️ CORREÇÃO DEFINITIVA DA COPIA EM LOTE: Monta a lista usando a coluna limpa (Contrato_Limpo)
+                    lista_contratos_reais = [str(c) for c in df_cards_sup['Contrato_Limpo'].unique() if str(c) != '']
+                    texto_copia_em_lote = ", ".join(lista_contratos_reais)
                     
-                    # 🆕 ATALHO EM LOTE: Cria um campo compacto com botão de cópia automática do próprio Streamlit
+                    # Caixa de lote puxando todos os contratos reais tratados
                     st.text_area(
                         label="Copiar todos da coluna:",
                         value=texto_copia_em_lote,
@@ -262,7 +261,6 @@ if df_base_online is not None:
                     
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
                     
-                    # Exibe a lista visual ordenada item por item abaixo do botão de lote
                     for _, row_p in df_cards_sup.iterrows():
                         c_num = str(row_p['Contrato_Limpo'])
                         status_real_campo = str(row_p['Status_Atividade_Limpo'])
@@ -287,7 +285,7 @@ if df_base_online is not None:
     else:
         st.info(f"✨ Todas as certidões deste intervalo foram validadas! Nenhuma pendência encontrada para: **{janela_sel}**.")
 else:
-    st.info("ℹ️ Aguardando conexão com os dados online.")
+    st.info("ℹ nighttime: Aguardando conexão com os dados online.")
 
 st.markdown("---")
 
