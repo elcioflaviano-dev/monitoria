@@ -82,8 +82,6 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Recurso'
             elif ('QTD O.S' in col_upper or 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper) and 'QTD_OS_COL' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'QTD_OS_COL'
-            elif ('QUEBRA' in col_upper or 'CLASSIFICACAO' in col_upper or 'CLASSIFICAÇÃO' in col_upper) and 'COLUNA_QUEBRA_EXCEL' not in colunas_mapeadas.values():
-                colunas_mapeadas[col] = 'COLUNA_QUEBRA_EXCEL'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
         df_final = df_final.loc[:, ~df_final.columns.duplicated()]
@@ -219,7 +217,6 @@ if df_dash is not None and not df_dash.empty:
     df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
-    df_dash['Quebra_Excel_Upper'] = df_dash['COLUNA_QUEBRA_EXCEL'].fillna('').astype(str).str.upper().str.strip()
     
     if 'QTD_OS_COL' in df_dash.columns:
         df_dash['QTD_OS_NUM'] = pd.to_numeric(df_dash['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
@@ -234,11 +231,11 @@ if df_dash is not None and not df_dash.empty:
     df_global = df_dash[cond_validos].copy()
 
     # =========================================================================
-    # 🛠️ NOVO PARAMETRAMENTO DINÂMICO INTELIGENTE POR COLUNA DO EXCEL
+    # 🛠️ PARAMETRIZAÇÃO INDEPENDENTE POR PALAVRAS-CHAVE (BLINDADA CONTRA KEYERROR)
     # =========================================================================
     df_global['Tipo_Servico'] = 'SERVIÇO'
 
-    # 1. Filtro do Grupo N-D
+    # 1. Grupo N-D
     criterios_nd = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
         "516 - ADESAO ENTREGA STREAMING",
@@ -246,7 +243,7 @@ if df_dash is not None and not df_dash.empty:
     ]
     df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_nd]), 'Tipo_Servico'] = 'N-D'
 
-    # 2. Filtro do Grupo PME
+    # 2. Grupo PME
     criterios_pme = [
         "111 - ADESAO - INSTALACAO DE ASSINATURA - PME",
         "112 - ASSISTENCIA TECNICA - PME",
@@ -256,20 +253,20 @@ if df_dash is not None and not df_dash.empty:
     ]
     df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_pme]), 'Tipo_Servico'] = 'PME'
 
-    # 3. Filtro do Grupo GPON
+    # 3. Grupo GPON
     criterios_gpon = [
         "515 - ADESAO - INSTALACAO DE ASSINATURA FIBRA"
     ]
     df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_gpon]), 'Tipo_Servico'] = 'GPON'
 
-    # 4. Filtro do Grupo MIGRAÇÃO
+    # 4. Grupo MIGRAÇÃO (Busca Inteligente por Palavra-Chave)
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
 
-    # 5. Filtro do Grupo MP
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
+    # 5. Grupo MP (Busca Inteligente por Palavra-Chave)
+    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
 
-    # 🌟 6. FILTRO AUTOMÁTICO DE INSTALAÇÃO: Puxa direto da coluna de classificação do seu Excel!
-    df_global.loc[df_global['Quebra_Excel_Upper'].str.contains('INSTALACAO|INSTALAÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
+    # 🌟 6. Grupo INSTALAÇÃO (Filtro Abrangente com todos os padrões da sua imagem de O.S)
+    df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
     # =========================================================================
 
     df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
