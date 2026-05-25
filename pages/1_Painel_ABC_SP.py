@@ -82,6 +82,8 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Recurso'
             elif ('QTD O.S' in col_upper or 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper) and 'QTD_OS_COL' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'QTD_OS_COL'
+            elif ('CATEGORIAS DA CAPACIDADE' in col_upper or 'CATEGORIA DA CAPACIDADE' in col_upper or 'CATEGORIA CAPACIDADE' in col_upper) and 'CATEGORIA_CAPACIDADE' not in colunas_mapeadas.values():
+                colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
         
         df_final = df_final.rename(columns=colunas_mapeadas)
         df_final = df_final.loc[:, ~df_final.columns.duplicated()]
@@ -95,7 +97,7 @@ df_dash = buscar_base_rotas_online()
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# 🛠️ Classificação de status operacionais baseada na tabela de de/para
+# 🛠️ Classificação de status operacionais (Excel)
 def classificar_status_excel(linha):
     baixa = str(linha.get('STATUS_OS1', '')).upper().strip()
     status_at = str(linha.get('STATUS_ATIVIDADE', '')).upper().strip()
@@ -156,7 +158,6 @@ def calcular_metricas_regiao(df_regiao):
         tot_produtivo += produtivo
         tot_geral_base += total_geral
         
-        # Fórmula Padrão de Quebra: O.S NE / (Produtivo + O.S NE)
         denominador_quebra = produtivo + os_ne
         quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
         eficiencia_pct = 1.0 - quebra_pct
@@ -171,7 +172,6 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(round(projecao)), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
-        # 🛠️ AJUSTE CRÍTICO NA MATRIZ POR SERVIÇO: Aplica estritamente a mesma regra
         row_matriz = {"MONITOR": sup}
         for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
@@ -220,6 +220,12 @@ if df_dash is not None and not df_dash.empty:
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
+    # Adicionada e higienizada a coluna de Capacidade
+    if 'CATEGORIA_CAPACIDADE' in df_dash.columns:
+        df_dash['Capacidade_Upper'] = df_dash['CATEGORIA_CAPACIDADE'].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df_dash['Capacidade_Upper'] = ''
+    
     if 'QTD_OS_COL' in df_dash.columns:
         df_dash['QTD_OS_NUM'] = pd.to_numeric(df_dash['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
     else:
@@ -233,35 +239,37 @@ if df_dash is not None and not df_dash.empty:
     df_global = df_dash[cond_validos].copy()
 
     # =========================================================================
-    # 🛠️ PARAMETRIZAÇÃO DE CATEGORIAS POR PALAVRAS-CHAVE
+    # 🛠️ PARAMETRIZAÇÃO DAS CATEGORIAS DE SERVIÇOS
     # =========================================================================
     df_global['Tipo_Servico'] = 'SERVIÇO'
 
-    criterios_nd = [
+    # Lista Base das Três Nomenclaturas de Adesão Solicitadas
+    lista_adesao_pme = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
         "516 - ADESAO ENTREGA STREAMING",
         "51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL"
     ]
-    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_nd]), 'Tipo_Servico'] = 'N-D'
+    lista_pme_upper = [x.upper().strip() for x in lista_adesao_pme]
 
-    criterios_pme = [
-        "111 - ADESAO - INSTALACAO DE ASSINATURA - PME",
-        "112 - ASSISTENCIA TECNICA - PME",
-        "121 - MUDANCA DE ENDERECO - PME",
-        "144 - MIGRAÇÃO DE TECNOLOGIA - PME",
-        "556 - ASSISTENCIA TECNICA FIBRA - PME"
-    ]
-    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_pme]), 'Tipo_Servico'] = 'PME'
+    # 🌟 1. Grupo PME (Aplica estritamente o critério duplo solicitado: Classe + Tipo O.S)
+    cond_classe_pme = df_global['Capacidade_Upper'].isin(["CLASSE 1", "CLASSE 1 (PME)"])
+    cond_os_pme = df_global['Tipo_OS_Upper'].isin(lista_pme_upper)
+    df_global.loc[cond_classe_pme & cond_os_pme, 'Tipo_Servico'] = 'PME'
 
-    criterios_gpon = [
-        "515 - ADESAO - INSTALACAO DE ASSINATURA FIBRA"
-    ]
-    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in criterios_gpon]), 'Tipo_Servico'] = 'GPON'
+    # 2. Grupo N-D (Se não for PME, mas for uma dessas O.S, entra em N-D)
+    df_global.loc[df_global['Tipo_OS_Upper'].isin(lista_pme_upper) & (df_global['Tipo_Servico'] != 'PME'), 'Tipo_Servico'] = 'N-D'
 
+    # 3. Grupo GPON
+    criterios_gpon = ["515 - ADESAO - INSTALACAO DE ASSINATURA FIBRA"]
+    df_global.loc[df_global['Tipo_OS_Upper'].isin([x.upper().strip() for x in  criterios_gpon]), 'Tipo_Servico'] = 'GPON'
+
+    # 4. Grupo MIGRAÇÃO
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRAÇÃO|MIGRACAO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MIGRAÇÃO'
+
+    # 5. Grupo MP
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
 
-    # Captura abrangente para INSTALAÇÃO
+    # 6. Grupo INSTALAÇÃO
     df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
     # =========================================================================
 
