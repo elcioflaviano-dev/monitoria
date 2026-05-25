@@ -95,7 +95,7 @@ df_dash = buscar_base_rotas_online()
 data_rota_texto = st.session_state.get('data_da_rota_dash', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Dados atualizados: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 
-# --- FUNÇÃO DE MAPEAMENTO DINÂMICO BASEADO NAS CORES DO EXCEL ---
+# 🛠️ FUNÇÃO DE MAPEAMENTO DINÂMICO BASEADO NAS CORES DO EXCEL
 def classificar_status_excel(linha):
     baixa = str(linha.get('STATUS_OS1', '')).upper().strip()
     status_at = str(linha.get('STATUS_ATIVIDADE', '')).upper().strip()
@@ -115,6 +115,14 @@ def classificar_status_excel(linha):
         return "EM ABERTO"
         
     return "PRODUTIVO"
+
+# 🛠️ FUNÇÃO INJETORA DE ESTILOS CSS NAS TABELAS (PINTA O TOTAL GERAL)
+def destacar_linha_total(row):
+    # Verifica se a primeira célula da linha identifica o Total Geral
+    col_index = row.index[0]
+    if row[col_index] == "Total Geral":
+        return ['background-color: #eae5da; font-weight: bold; color: #111111; border-top: 1px solid #b5b5b5;'] * len(row)
+    return [''] * len(row)
 
 # --- FUNÇÃO INTERNA PARA CALCULAR OS INDICADORES UTILIZANDO SOMA OPERACIONAL ---
 def calcular_metricas_regiao(df_regiao):
@@ -147,19 +155,11 @@ def calcular_metricas_regiao(df_regiao):
         tot_produtivo += produtivo
         tot_geral_base += total_geral
         
-        # FÓRMULA OFICIAL DA QUEBRA
         denominador_quebra = produtivo + os_ne
         quebra_pct = (os_ne / denominador_quebra) if denominador_quebra > 0 else 0.0
-        
-        # FÓRMULA OFICIAL DA EFICIÊNCIA
         eficiencia_pct = 1.0 - quebra_pct
-        
-        # FÓRMULA OFICIAL DA PROJEÇÃO
         projecao = produtivo + (em_aberto * eficiencia_pct)
-        
         total_tecnicos = df_sup['Recurso_Upper'].nunique()
-        
-        # 🛠️ NOVA FÓRMULA SOLICITADA DA MÉDIA EQUIPE: = total geral de os / total de técnicos
         media_equipe = (total_geral / total_tecnicos) if total_tecnicos > 0 else 0.0
         
         lista_consolidada.append({
@@ -169,7 +169,6 @@ def calcular_metricas_regiao(df_regiao):
             "PROJEÇÃO": int(round(projecao)), "TOTAL TÉCNICOS": int(total_tecnicos), "MEDIA EQUIPE": f"{media_equipe:.2f}"
         })
         
-        # Matriz por tipo de serviço
         row_matriz = {"MONITOR": sup}
         for serv in ['N-D', 'INSTALAÇÃO', 'SERVIÇO', 'MIGRAÇÃO', 'MP', 'PME', 'GPON']:
             df_serv = df_sup[df_sup['Tipo_Servico'] == serv]
@@ -182,13 +181,10 @@ def calcular_metricas_regiao(df_regiao):
         row_matriz["QUEBRA GERAL"] = quebra_pct * 100
         lista_matriz.append(row_matriz)
         
-    # Totais consolidados da base regional
     denom_q_total = tot_produtivo + tot_os_ne
     quebra_total_pct = (tot_os_ne / denom_q_total) if denom_q_total > 0 else 0.0
     eficiencia_total_pct = 1.0 - quebra_total_pct
     projecao_total = tot_produtivo + (tot_em_aberto * eficiencia_total_pct)
-    
-    # 🛠️ AJUSTE NA MÉDIA DO TOTAL GERAL CONFORME A NOVA REGRA DE SOMA TOTAL
     media_total_equipe = (tot_geral_base / tot_tecnicos_unicos) if tot_tecnicos_unicos > 0 else 0.0
 
     lista_consolidada.append({
@@ -233,75 +229,4 @@ if df_dash is not None and not df_dash.empty:
     
     df_global = df_dash[cond_validos].copy()
 
-    df_global['Tipo_Servico'] = 'SERVIÇO'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('INSTALA', na=False), 'Tipo_Servico'] = 'INSTALAÇÃO'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MIGRA', na=False), 'Tipo_Servico'] = 'MIGRAÇÃO'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('MP', na=False), 'Tipo_Servico'] = 'MP'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('PME', na=False), 'Tipo_Servico'] = 'PME'
-    df_global.loc[df_global['Tipo_OS_Upper'].str.contains('GPON', na=False), 'Tipo_Servico'] = 'GPON'
-
-    df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
-    df_abc_base = df_global[~df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
-
-    # ==========================================
-    # 🔴 SEÇÃO ABC
-    # ==========================================
-    st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BLOCADO - REGIÃO ABC</h2></div>', unsafe_allow_html=True)
-    
-    df_cons_abc, df_mat_abc = calcular_metricas_regiao(df_abc_base)
-    
-    if not df_cons_abc.empty:
-        st.markdown("##### 📈 Resumo de Produtividade e Eficiência (ABC)")
-        st.dataframe(df_cons_abc, use_container_width=True, hide_index=True)
-        
-        st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (ABC)")
-        df_vitrine_abc = df_mat_abc.copy()
-        for col in df_vitrine_abc.columns:
-            if col != "MONITOR": df_vitrine_abc[col] = df_vitrine_abc[col].apply(lambda x: f"{x:.2f}%")
-        st.dataframe(df_vitrine_abc, use_container_width=True, hide_index=True)
-        
-        df_melt_abc = df_mat_abc[df_mat_abc['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
-        graf_abc = alt.Chart(df_melt_abc).mark_bar().encode(
-            x=alt.X('Serviço:N', title=None),
-            y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
-            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='tableau10')),
-            column=alt.Column('MONITOR:N', title=None)
-        ).properties(width=160, height=220)
-        st.altair_chart(graf_abc, use_container_width=False)
-        
-    else:
-        st.info("Nenhum dado ativo mapeado para a região ABC.")
-
-    st.markdown("<br><hr><br>", unsafe_allow_html=True)
-
-    # ==========================================
-    # 🔵 SEÇÃO SÃO PAULO (SP)
-    # ==========================================
-    st.markdown('<div style="background-color:#b30000; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BLOCADO - REGIÃO SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
-    
-    df_cons_sp, df_mat_sp = calcular_metricas_regiao(df_sp_base)
-    
-    if not df_cons_sp.empty:
-        st.markdown("##### 📈 Resumo de Produtividade e Eficiência (SP)")
-        st.dataframe(df_cons_sp, use_container_width=True, hide_index=True)
-        
-        st.markdown("##### 📉 Desempenho - Matriz de Quebra por Tipo de Serviço (SP)")
-        df_vitrine_sp = df_mat_sp.copy()
-        for col in df_vitrine_sp.columns:
-            if col != "MONITOR": df_vitrine_sp[col] = df_vitrine_sp[col].apply(lambda x: f"{x:.2f}%")
-        st.dataframe(df_vitrine_sp, use_container_width=True, hide_index=True)
-        
-        df_melt_sp = df_mat_sp[df_mat_sp['MONITOR'] != 'Total Geral'].melt(id_vars=["MONITOR"], var_name="Serviço", value_name="Porcentagem")
-        graf_sp = alt.Chart(df_melt_sp).mark_bar().encode(
-            x=alt.X('Serviço:N', title=None),
-            y=alt.Y('Porcentagem:Q', title='Taxa de Quebra (%)'),
-            color=alt.Color('Serviço:N', scale=alt.Scale(scheme='category10')),
-            column=alt.Column('MONITOR:N', title=None)
-        ).properties(width=160, height=220)
-        st.altair_chart(graf_sp, use_container_width=False)
-        
-    else:
-        st.info("Nenhum dado ativo mapeado para a região SP.")
-
-else:
-    st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
+    df_
