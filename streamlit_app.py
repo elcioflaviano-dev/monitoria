@@ -27,7 +27,8 @@ def carregar_dados():
 
 try:
     st.session_state['dados_rota'] = carregar_dados()
-    st.success("✅ Conexão estabelecida! Dados da planilha 'rota' updated.")
+    # 🛠️ CORREÇÃO TEXTUAL: Texto alterado para português correto
+    st.success("✅ Conexão estabelecida! Dados da planilha 'rota' atualizados.")
     
     total_linhas = len(st.session_state['dados_rota'])
     st.metric(label="Total de Atividades na Base", value=f"{total_linhas} registros")
