@@ -8,6 +8,21 @@ st.title("📊 Painel Operacional de Rotas - ABC & SP")
 st.write("---")
 st.markdown("### Bem-vindo! Use o menu lateral para acessar os painéis.")
 
+# Injeta um script para bloquear atalhos de teclado (como a tecla 'C') que abrem caixas de diálogo
+st.components.v1.html("""
+    <script>
+    const constBloquearAtalhos = (e) => {
+        // Bloqueia a tecla 'c' ou 'C' e atalhos comuns que geram janelas no Streamlit
+        if (e.key.toLowerCase() === 'c' || e.key === 'Escape') {
+            e.stopImmediatePropagation();
+        }
+    };
+    // Aplica o bloqueio tanto no documento principal quanto nas barras de navegação
+    window.parent.document.addEventListener('keydown', constBloquearAtalhos, true);
+    document.addEventListener('keydown', constBloquearAtalhos, true);
+    </script>
+""", height=0)
+
 # Função com cache automático para carregar os dados
 @st.cache_data(ttl=120)  # Atualiza os dados a cada 2 minutos se a página for recarregada
 def carregar_dados():
