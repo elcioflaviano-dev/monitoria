@@ -103,4 +103,60 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Status da O.S 1'
             elif 'CONTRATO' in col_upper and 'Contrato' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Contrato'
-            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values
+            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values():
+                colunas_mapeadas[col] = 'Recurso'
+        
+        df_final = df_final.rename(columns=colunas_mapeadas)
+        df_final = df_final.loc[:, ~df_final.columns.duplicated()]
+
+        if 'Intervalo de Tempo' not in df_final.columns: df_final['Intervalo de Tempo'] = 'Padrão / Sem Janela'
+        if 'Status da Atividade' not in df_final.columns: df_final['Status da Atividade'] = 'PENDENTE'
+        if 'Status da O.S 1' not in df_final.columns: df_final['Status da O.S 1'] = 'NÃO EXECUTADO'
+        if 'SUPERVISOR' not in df_final.columns: df_final['SUPERVISOR'] = 'N/A'
+        if 'Recurso' not in df_final.columns: df_final['Recurso'] = 'Técnico Não Identificado'
+        if 'Contrato' not in df_final.columns: df_final = df_final.rename(columns={df_final.columns[0]: 'Contrato'})
+            
+        return df_final
+    except:
+        return None
+
+if "historico_certidoes" not in st.session_state:
+    st.session_state["historico_certidoes"] = carregar_banco_historico()
+
+if "input_contrato_value" not in st.session_state:
+    st.session_state["input_contrato_value"] = ""
+
+df_base_online = buscar_base_rotas_online()
+
+# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
+data_rota_texto = st.session_state.get('data_da_rota', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+
+# --- MONTAGEM DO FILTRO LATERAL ---
+janela_sel = "Padrão / Sem Janela"
+if df_base_online is not None:
+    try:
+        df_base_online['Intervalo de Tempo'] = df_base_online['Intervalo de Tempo'].fillna('Padrão / Sem Janela').astype(str).str.strip()
+        opcoes_janela = sorted(df_base_online['Intervalo de Tempo'].unique())
+        if opcoes_janela:
+            janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_janela)
+    except:
+        pass
+
+# ==========================================
+# BLOCO 1: FORMULÁRIO DE ENTRADA
+# ==========================================
+with st.container(border=True):
+    st.markdown("#### 📥 Verificar e Registrar Contrato")
+    col1, col2, col3 = st.columns([2, 2, 3])
+
+    with col1:
+        contrato_input = st.text_input(
+            "Número do Contrato:", 
+            value=st.session_state["input_contrato_value"],
+            placeholder="Digite o contrato e pressione Enter..."
+        ).strip()
+
+    status_sugerido = "OK"  
+    supervisor_detectado = "N/A"
+    tecnico_
