@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA: ACEITA DOIS OU MAIS ARQUIVOS SIMULTÂNEOS ===
+# === MOTOR MÁSTER DE CARGA: CORRIGIDO CONTRA ERRO DE ZIP/READER INTERNO ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -37,8 +37,10 @@ def carregar_dados_sistema():
         
         try:
             for arquivo in arquivos_postados:
+                # 🌟 CORREÇÃO AQUI: Lemos o arquivo e depois convertemos para String pura
                 if arquivo.name.endswith('.xlsx'):
-                    df_individual = pd.read_excel(arquivo, dtype=str)
+                    df_individual = pd.read_excel(arquivo)
+                    df_individual = df_individual.astype(str)
                 else:
                     df_individual = pd.read_csv(arquivo, dtype=str, on_bad_lines='skip')
                 
@@ -72,7 +74,6 @@ def carregar_dados_sistema():
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
             
             if 'ID_Tecnico_Bruto' in df_bruto.columns:
-                # 🌟 BLINDAGEM AQUI: Convertemos explicitamente para String (.astype(str)) antes de aplicar o .str
                 df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').astype(str).str.upper().str.strip()
                 df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').astype(str).str.strip()
             else:
@@ -100,7 +101,6 @@ def carregar_dados_sistema():
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A')
                 df_final['REGIAO_BASE'] = df_final['BASE_MAP'].fillna('N/A').astype(str).str.upper().str.strip()
                 
-                # 🌟 BLINDAGEM EXTRA: Garante que as colunas de controle interno geradas no merge também sejam strings puras
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR'].astype(str)
                 df_final['REGIAO_BASE'] = df_final['REGIAO_BASE'].astype(str)
                 
@@ -134,7 +134,6 @@ def classificar_status_excel(baixa, status_at):
 def processar_bloco_regional(df_bloco, nome_bloco):
     st.markdown(f'<div style="background-color:#005088; padding:8px 15px; color:white; font-weight:bold; font-size:18px; border-radius:4px; margin-top:20px; margin-bottom:10px;">{nome_bloco}</div>', unsafe_allow_html=True)
     
-    # Garantindo tratamento como string para as operações de filtro locais
     df_bloco['Supervisor_Upper'] = df_bloco['SUPERVISOR'].fillna('#N/A').astype(str).str.upper().str.strip()
     df_bloco['Status_Atividade_Upper'] = df_bloco['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
     df_bloco['Recurso_Upper'] = df_bloco['Recurso'].fillna('').astype(str).str.upper().str.strip()
