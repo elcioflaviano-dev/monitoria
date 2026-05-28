@@ -5,46 +5,52 @@ from datetime import datetime
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Injeta CSS customizado para remover margens desnecessárias e ajustar fontes
+# Injeta CSS customizado para remover margens desnecessárias e ajustar fontes grandes
 st.markdown("""
     <style>
         .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
         .stDeployButton { display:none; }
-        .title-abc-sp { font-size: 22px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
+        .title-abc-sp { font-size: 24px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
         
         /* Barra do Supervisor com Total na mesma linha */
         .super-bar {
             background-color: #f0f2f6;
-            padding: 4px 10px;
+            padding: 6px 12px;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: bold;
             color: #333;
-            margin-top: 10px;
-            margin-bottom: 5px;
+            margin-top: 12px;
+            margin-bottom: 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-left: 4px solid #cc6600;
+            border-left: 5px solid #cc6600;
         }
         .super-total {
             background-color: #ffebee;
             color: #c62828;
-            padding: 2px 8px;
+            padding: 2px 10px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 900;
         }
         
-        /* Linhas dos Contratos e Técnicos */
+        /* Linhas dos Contratos e Técnicos OTIMIZADAS e MAIORES */
         .item-linha {
-            font-size: 13px;
-            padding: 3px 10px;
+            font-size: 16px; /* Fonte aumentada para Modo TV */
+            padding: 5px 12px;
             border-bottom: 1px solid #eee;
             color: #222;
         }
         .item-contrato {
-            font-weight: bold;
+            font-weight: 900;
             color: #cc6600;
+            font-size: 17px;
+        }
+        .divisor-item {
+            color: #bbb;
+            margin: 0 8px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -145,41 +151,15 @@ if df_master is not None and not df_master.empty:
                     df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
                     total_pendentes = df_super['P_COUNT'].sum()
                     
-                    # Barra do Supervisor + Total na mesma linha
                     st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {total_pendentes}</span></div>', unsafe_allow_html=True)
                     
-                    # Lista corrida de Técnicos e Contratos logo abaixo
+                    # 🌟 LISTA DE TEXTO LIMPA: Sem as palavras repetitivas e com fonte maior
                     for idx, linha in df_super.iterrows():
                         contrato_num = linha.get('Contrato', 'N/A')
                         tecnico_nome = linha.get('Recurso_Tratado', 'N/A')
-                        st.markdown(f'<div class="item-linha">📄 Contrato: <span class="item-contrato">{contrato_num}</span> | Técnico: {tecnico_nome}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{contrato_num}</span> <span class="divisor-item">|</span> 👤 {tecnico_nome}</div>', unsafe_allow_html=True)
             else:
                 st.info("Nenhum pendente no ABC.")
 
         with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
-            if not df_sp.empty:
-                supervisores_sp = sorted(df_sp['SUPERVISOR_MOSTRAR'].unique())
-                for supervisor in supervisores_sp:
-                    df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
-                    total_pendentes = df_super['P_COUNT'].sum()
-                    
-                    # Barra do Supervisor + Total na mesma linha
-                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {total_pendentes}</span></div>', unsafe_allow_html=True)
-                    
-                    # Lista corrida de Técnicos e Contratos logo abaixo
-                    for idx, linha in df_super.iterrows():
-                        contrato_num = linha.get('Contrato', 'N/A')
-                        tecnico_nome = linha.get('Recurso_Tratado', 'N/A')
-                        st.markdown(f'<div class="item-linha">📄 Contrato: <span class="item-contrato">{contrato_num}</span> | Técnico: {tecnico_nome}</div>', unsafe_allow_html=True)
-            else:
-                st.info("Nenhum pendente em SP.")
-
-    # MODO TV AUTOMÁTICO
-    st.components.v1.html("""
-        <script>
-        setTimeout(function(){ window.parent.location.hash = "#certidao"; }, 30000);
-        </script>
-    """, height=0)
-else:
-    st.warning("👈 Insira os arquivos na página inicial primeiro.")
+            st.markdown('<div class="title-abc-
