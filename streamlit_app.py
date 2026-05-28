@@ -61,7 +61,7 @@ def carregar_dados_sistema():
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
             
-            # 🌟 PROCURA AS COLUNAS USANDO OS NOMES REAIS DO SEU ARQUIVO
+            # PROCURA AS COLUNAS USANDO OS NOMES REAIS DO SEU ARQUIVO
             colunas_mapeadas = {}
             for col in list(df_bruto.columns):
                 col_upper = str(col).upper().strip()
@@ -84,14 +84,13 @@ def carregar_dados_sistema():
                 df_bruto['Login_Match_Clean'] = df_bruto['Login_Match'].fillna('').astype(str).str.strip().str.upper()
                 df_bruto['Recurso'] = df_bruto['Login_Match'].fillna('').astype(str).str.strip()
             else:
-                # Fallback se o nome vier diferente por encoding
                 for c in df_bruto.columns:
                     if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
                         df_bruto['Login_Match_Clean'] = df_bruto[c].fillna('').astype(str).str.strip().str.upper()
                         df_bruto['Recurso'] = df_bruto[c].fillna('').astype(str).str.strip()
                         break
 
-            # 🧠 BUSCA ABA "SUPERVISORES" NO GOOGLE SHEETS
+            # BUSCA ABA "SUPERVISORES" NO GOOGLE SHEETS
             url_base = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
             res_aux = requests.get(url_base, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
             
@@ -101,14 +100,10 @@ def carregar_dados_sistema():
                 
                 # Padroniza os cabeçalhos do Sheets (LOGIN, NOME, SUPERVISOR, BASE)
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
-                
-                # Limpa e prepara a chave do Sheets para o PROCV
                 df_aux['LOGIN_SHEETS_CLEAN'] = df_aux['LOGIN'].fillna('').astype(str).str.strip().str.upper()
-                
-                # Seleciona apenas as colunas necessárias para o cruzamento
                 df_aux = df_aux[['LOGIN_SHEETS_CLEAN', 'SUPERVISOR', 'BASE', 'NOME']].drop_duplicates()
                 
-                # 🌟 EXECUTA O PROCV PERFEITO IGUAL AO EXCEL
+                # EXECUTA O PROCV (Merge)
                 df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match_Clean', right_on='LOGIN_SHEETS_CLEAN', how='left')
                 
                 # Aplica as variáveis vindas da planilha de cadastro
@@ -116,10 +111,9 @@ def carregar_dados_sistema():
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('#N/A').astype(str).str.strip().str.upper()
                 df_final['REGIAO_BASE'] = df_final['BASE'].fillna('N/A').astype(str).str.strip().str.upper()
                 
-                # Limpa colunas de controle da memória
                 df_final = df_final.drop(columns=['Login_Match_Clean', 'LOGIN_SHEETS_CLEAN', 'NOME', 'BASE'], errors='ignore')
                 
-                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) processado(s) com PROCV!")
+                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) processado(s) com sucesso!")
                 st.session_state['df_rota_ativa'] = df_final
                 return df_final
             else:
@@ -133,67 +127,31 @@ def carregar_dados_sistema():
 
 df_master = carregar_dados_sistema()
 
-# Lógica de classificação (Regra Máster do Excel)
-def classificar_status_excel(baixa, status_at):
-    baixa = str(baixa).upper().strip()
-    status_at = str(status_at).upper().strip()
-    codigos_ne = ["101", "106", "110", "112", "113", "125", "203", "205", "206", "301", "305", "306", "402", "100"]
-    for cod in codigos_ne:
-        if baixa.startswith(cod) or f"{cod} -" in baixa: return "O.S NE"
-    if "PENDENTE" in baixa or "INICIADO" in baixa or "EM ROTA" in baixa or "PENDENTE" in status_at: return "EM ABERTO"
-    return "PRODUTIVO"
+# === LAYOUT DA TELA PRINCIPAL LIMPO E ATUALIZADO ===
+if df_master is not None and not df_master.empty:
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # Card centralizado indicando sucesso absoluto de carga
+    with st.container(border=True):
+        st.markdown(
+            """
+            <div style="text-align: center; padding: 25px 10px;">
+                <h2 style="color: #2e7d32; font-size: 28px; margin-bottom: 10px;">🚀 UPLOAD CONCLUÍDO COM SUCESSO!</h2>
+                <p style="color: #444; font-size: 16px; margin-bottom: 20px;">
+                    Todos os arquivos da rota diária foram carregados e integrados com a base de supervisores.
+                </p>
+                <div style="display: inline-block; background-color: #e8f5e9; color: #1b5e20; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 14px;">
+                    🎯 Dados Prontos para Monitoramento
+                </div>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.info("💡 Use o menu lateral esquerdo para navegar entre os painéis operacionais e acompanhar os cartões de status em tempo real.")
 
-# Renderizador de Blocos na tela
-def processar_bloco_regional(df_bloco, nome_bloco):
-    st.markdown(f'<div style="background-color:#005088; padding:8px 15px; color:white; font-weight:bold; font-size:18px; border-radius:4px; margin-top:20px; margin-bottom:10px;">{nome_bloco}</div>', unsafe_allow_html=True)
-    
-    if df_bloco.empty:
-        st.info(f"Nenhum dado ativo para a regional {nome_bloco} neste arquivo.")
-        return
-        
-    df_bloco['Supervisor_Upper'] = df_bloco['SUPERVISOR'].apply(lambda x: str(x).strip().upper())
-    df_bloco['Status_Atividade_Upper'] = df_bloco['STATUS_ATIVIDADE'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else '')
-    df_bloco['Recurso_Upper'] = df_bloco['Recurso'].apply(lambda x: str(x).strip().upper())
-    
-    df_bloco = df_bloco[(~df_bloco['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & (df_bloco['Status_Atividade_Upper'] != "SUSPENSO")].copy()
-    df_bloco = df_bloco[~df_bloco['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)].copy()
-    
-    if df_bloco.empty:
-        st.info(f"Nenhum dado ativo para a regional {nome_bloco} após filtros.")
-        return
-        
-    if 'QTD_OS_COL' in df_bloco.columns:
-        df_bloco['QTD_OS_NUM'] = pd.to_numeric(df_bloco['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
-    else:
-        df_bloco['QTD_OS_NUM'] = 1
-        
-    df_bloco['Status_Calculado'] = df_bloco.apply(lambda r: classificar_status_excel(r['STATUS_OS1'], r['STATUS_ATIVIDADE']), axis=1)
-    
-    matriz = df_bloco.groupby(['SUPERVISOR', 'Status_Calculado'])['QTD_OS_NUM'].sum().unstack(fill_value=0).reset_index()
-    
-    for col in ['PRODUTIVO', 'O.S NE', 'EM ABERTO']:
-        if col not in matriz.columns: matriz[col] = 0
-        
-    matriz['Total Geral'] = matriz['PRODUTIVO'] + matriz['O.S NE'] + matriz['EM ABERTO']
-    matriz['Quebra (%)'] = matriz.apply(
-        lambda r: round((r['O.S NE'] / (r['PRODUTIVO'] + r['O.S NE'])) * 100, 1) if (r['PRODUTIVO'] + r['O.S NE']) > 0 else 0.0, axis=1
-    )
-    
-    matriz = matriz[['SUPERVISOR', 'PRODUTIVO', 'O.S NE', 'EM ABERTO', 'Total Geral', 'Quebra (%)']]
-    
-    st.dataframe(
-        matriz.style.format({'Quebra (%)': '{:.1f}%'}).background_gradient(subset=['Quebra (%)'], cmap='Reds', vmin=0, vmax=35),
-        use_container_width=True, hide_index=True
-    )
-
-# EXIBIÇÃO EM TELA
-if df_master is not None:
-    df_abc = df_master[df_master['REGIAO_BASE'] == 'ABC'].copy()
-    df_gua = df_master[df_master['REGIAO_BASE'] == 'GUARULHOS'].copy()
-    df_sp = df_master[df_master['REGIAO_BASE'].isin(['SÃO PAULO', 'SP'])].copy()
-    
-    processar_bloco_regional(df_abc, "📍 BLOCO REGIONAL - ABCDM")
-    processar_bloco_regional(df_gua, "📍 BLOCO REGIONAL - GUARULHOS")
-    processar_bloco_regional(df_sp, "📍 BLOCO REGIONAL - SÃO PAULO")
 else:
-    st.warning("👈 Use o menu lateral esquerdo para fazer o upload dos ficheiros de rota (.xlsx ou .csv).")
+    # Mensagem caso nenhum arquivo tenha sido arrastado ainda
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.warning("👈 Aguardando os arquivos. Use o menu lateral esquerdo para arrastar os ficheiros de rota diária (.xlsx ou .csv).")
