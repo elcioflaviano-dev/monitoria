@@ -78,7 +78,7 @@ def carregar_dados_automatico():
         if resposta.status_code != 200:
             return None
             
-        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO E BLINDADO ===
+        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO ===
         import zoneinfo
         fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
         st.session_state['data_da_rota'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
@@ -117,7 +117,7 @@ def carregar_dados_automatico():
             elif 'JANELA' in col_upper or 'INTERVALO' in col_upper or 'TEMPO' in col_upper: colunas_mapeadas[col] = 'Janela de Serviço'
             elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
             elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
-            elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'Recurso'
+            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper): colunas_mapeadas[col] = 'Recurso'
             elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo de Atividade'
             
         df_final = df_sheets.rename(columns=colunas_mapeadas)
@@ -137,6 +137,8 @@ if df_planilha is not None:
     df = df_planilha.copy()
     
     # === HIGIENIZAÇÃO CRÍTICA DOS DADOS E FILTRO ===
+    df['Supervisor_Upper'] = df['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
+    df['Recurso_Upper'] = df['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df['Contrato_Limpo'] = df['Contrato'].fillna('').astype(str).str.strip()
     
     if 'Status da Atividade' in df.columns:
@@ -144,12 +146,14 @@ if df_planilha is not None:
     else:
         df['Status_Atividade_Upper'] = ''
         
-    # Filtro operacional: descarta vazios, #N/A e suspensos
+    # 🌟🌟🌟 APLICAÇÃO DOS FILTROS OPERACIONAIS DE LIMPEZA UNIFICADA 🌟🌟🌟
     cond_contrato_valido = (
         (df['Contrato_Limpo'] != '') & 
         (df['Contrato_Limpo'] != 'nan') & 
-        (~df['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
-        (~df['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
+        (~df['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & # Ignora Supervisor inválido
+        (df['SUPERVISOR'].notna()) &
+        (df['Status_Atividade_Upper'] != "SUSPENSO") & # Remove O.S Suspensas
+        (~df['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)) # Expulsa técnicos testes
     )
     
     # Remove marcações de horário de almoço
@@ -180,9 +184,9 @@ if df_planilha is not None:
         df_tela = df_limpo.copy()
 
     # Filtro de Status: APENAS PENDENTES
-    df_pendentes_geral = df_tela[df_tela['Status da Atividade'].str.upper() == 'PENDENTE'] if 'Status da Atividade' in df_tela.columns else pd.DataFrame()
+    df_pendentes_geral = df_tela[df_tela['Status_Atividade_Upper'] == 'PENDENTE'].copy() if 'Status_Atividade_Upper' in df_tela.columns else pd.DataFrame()
 
-    # Lógica de Separação (ABC | SP)
+    # Lógica de Separação Regional Perfeita (ABC | SP)
     col_supervisor = 'SUPERVISOR'
     df_abc_lista, df_sp_lista = [], []
     
@@ -201,17 +205,17 @@ if df_planilha is not None:
         st.markdown(f'<div class="title-abc-sp">{titulo_regiao}</div>', unsafe_allow_html=True)
         
         if col_supervisor in df_tela.columns:
-            todos_supervisores = sorted(df_tela[col_supervisor].dropna().unique())
+            todos_supervisores = sorted(df_tela['Supervisor_Upper'].dropna().unique())
         else:
             todos_supervisores = []
         
         if titulo_regiao == "SP":
-            meus_supers = [s for s in todos_supervisores if "FRANCISCO" in s.upper() or "ALAN" in s.upper()]
+            meus_supers = [s for s in todos_supervisores if "FRANCISCO" in s or "ALAN" in s]
         else:
-            meus_supers = [s for s in todos_supervisores if "FRANCISCO" not in s.upper() and "ALAN" not in s.upper()]
+            meus_supers = [s for s in todos_supervisores if "FRANCISCO" not in s and "ALAN" not in s]
 
         for super_nome in meus_supers:
-            df_super_p = df_regiao[df_regiao[col_supervisor] == super_nome] if not df_regiao.empty else pd.DataFrame()
+            df_super_p = df_regiao[df_regiao['Supervisor_Upper'] == super_nome] if not df_regiao.empty else pd.DataFrame()
             
             with st.container(border=True):
                 st.markdown(f"##### **{super_nome.upper()}**")
@@ -243,4 +247,4 @@ if df_planilha is not None:
     """, height=0)
 
 else:
-    st.error("⚠️ Não foi possível obter dados estáveis da planilha online ou os cabeçalhos não estão alinhados.")
+    st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
