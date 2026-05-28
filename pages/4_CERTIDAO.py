@@ -38,14 +38,15 @@ if "historico_certidoes" not in st.session_state:
 if "input_contrato_value" not in st.session_state:
     st.session_state["input_contrato_value"] = ""
 
-# 🌟 HERANÇA INTELIGENTE: Substitui o download antigo pelo arquivo atualizado do Upload da Home
+# 🔄 HERANÇA INTELIGENTE
 df_master = st.session_state.get('df_rota_ativa', None)
 
 df_base_online = None
 if df_master is not None and not df_master.empty:
-    df_base_online = df_master.copy()
+    # 🌟 CORREÇÃO CRÍTICA: Força o Pandas a criar um objeto 100% novo na memória, evitando o ValueError
+    df_base_online = df_master.copy(deep=True)
     
-    # Padronização e mapeamento das colunas internas para manter a compatibilidade do código antigo
+    # Padronização e mapeamento seguro das colunas internas
     df_base_online['Contrato'] = df_base_online['Contrato'].fillna('').astype(str).str.strip()
     
     col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_base_online.columns else 'Intervalo de Tempo'
@@ -54,7 +55,12 @@ if df_master is not None and not df_master.empty:
     col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_base_online.columns else 'Status da Atividade'
     df_base_online['Status da Atividade'] = df_base_online[col_status_at].fillna('PENDENTE').astype(str).str.upper().str.strip()
     
-    df_base_online['Status da O.S 1'] = df_base_online['STATUS_OS1'].fillna('NÃO EXECUTADO') if 'STATUS_OS1' in df_base_online.columns else 'NÃO EXECUTADO'
+    # Criação segura usando indexação direta do Pandas
+    if 'STATUS_OS1' in df_base_online.columns:
+        df_base_online['Status da O.S 1'] = df_base_online['STATUS_OS1'].fillna('NÃO EXECUTADO')
+    else:
+        df_base_online['Status da O.S 1'] = 'NÃO EXECUTADO'
+        
     df_base_online['Recurso'] = df_base_online['Recurso'].fillna('Técnico Não Identificado')
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
@@ -99,7 +105,6 @@ with st.container(border=True):
         
         if not contrato_encontrado.empty:
             linha_contrato = contrato_encontrado.iloc[0]
-            # 🌟 PROCV AUTOMÁTICO: Puxa o supervisor cruzado corretamente da Home
             supervisor_detectado = str(linha_contrato.get('SUPERVISOR', 'N/A')).upper().strip()
             tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper().strip()
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
@@ -137,7 +142,7 @@ with st.container(border=True):
             
             st.session_state["input_contrato_value"] = ""
             
-            st.success(f"✅ Contrato {contrato_input} atualizado como {status_final}!")
+            st.success(f"✅ Contrato {contrato_input} updated como {status_final}!")
             st.rerun()
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
@@ -168,7 +173,6 @@ if df_base_online is not None:
         df_exibir_pendentes = df_base_filtrada
 
     if not df_exibir_pendentes.empty:
-        # Garante que não exiba cabeçalhos vazios ou nulos de supervisor
         df_exibir_pendentes = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'].fillna('').astype(str).str.strip() != ''].copy()
         supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
         
