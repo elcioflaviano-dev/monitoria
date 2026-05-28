@@ -1,250 +1,70 @@
 import streamlit as st
 import pandas as pd
-import requests
-import io
-from datetime import datetime
 
-# 1. Configuração da página e remoção de espaços
+# 1. Configuração da página ampla (Mantendo o padrão do seu projeto)
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 # 2. Carregar Estilos Globais
 try:
     with open("style.css", "r") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+        st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
 except:
     pass
 
-# 3. Estilo específico para técnicos pendentes
-st.markdown("""
-    <style>
-    .item-pendente-tv {
-        background-color: #ffe6e6 !important;
-        border: 2px solid #ff9999 !important;
-        border-radius: 6px;
-        padding: 6px 12px !important;
-        margin-bottom: 6px !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        width: 100% !important;
-    }
-    .tecnico-nome-tv {
-        color: #b30000 !important;
-        font-size: 14px !important;
-        font-weight: 900 !important;
-        text-transform: uppercase !important;
-    }
-    .contrato-numero-tv {
-        background-color: #b30000 !important;
-        color: white !important;
-        padding: 3px 10px !important;
-        border-radius: 4px !important;
-        font-weight: bold !important;
-        font-size: 14px !important;
-    }
-    .no-pendente-tv {
-        color: #2e7d32;
-        font-weight: bold;
-        font-size: 14px;
-        text-align: center;
-        padding: 5px;
-    }
-    </style>
-""", unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #cc6600; text-align: center; margin-top: 20px; margin-bottom: 5px;">⏳ LISTAGEM DE TÉCNICOS PENDENTES</h1>', unsafe_allow_html=True)
+st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Visualização detalhada de profissionais sem supervisor ou identificados como TEC1</div>', unsafe_allow_html=True)
 
-# 4. Título de Alerta
-st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #b30000; text-align: center; margin-top: 25px; margin-bottom: 5px;">⚠️ TEC1 - PENDENTES</h1>', unsafe_allow_html=True)
+# 🔄 3. HERANÇA INTELIGENTE: Puxa a tabela unificada e tratada da Home (streamlit_app.py)
+df_master = st.session_state.get('df_rota_ativa', None)
 
-# === FUNÇÃO DE CARGA OPERACIONAL DO GOOGLE SHEETS COM VARREDURA INTEGRA ===
-def carregar_dados_automatico():
-    if 'dados_rota' in st.session_state:
-        return st.session_state['dados_rota']
-        
-    try:
-        url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
-        
-        if 'spreadsheets/d/' in url:
-            id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0].strip()
-            csv_url = "https://docs.google.com/spreadsheets/d/" + id_planilha + "/export?format=csv"
-            if 'gid=' in url:
-                gid = url.split('gid=')[1].split('#')[0].split('&')[0].strip()
-                csv_url += "&gid=" + gid
-        else:
-            csv_url = url
-
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resposta = requests.get(csv_url, headers=headers, timeout=15)
-        
-        if resposta.status_code != 200:
-            return None
-            
-        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO ===
-        import zoneinfo
-        fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
-        st.session_state['data_da_rota'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
-
-        conteudo_bruto = resposta.text
-        if '<html' in conteudo_bruto.lower() or '<!doctype' in conteudo_bruto.lower():
-            st.error("🔒 Erro de Permissão: A planilha está PRIVADA. Altere o compartilhamento no Google Sheets.")
-            return None
-
-        linhas_puras = conteudo_bruto.splitlines()
-        linha_do_cabecalho_real = 0
-        encontrou_cabecalho = False
-        
-        for i, linha_texto in enumerate(linhas_puras[:50]):
-            linha_upper = linha_texto.upper()
-            if 'SUPERVISOR' in linha_upper or 'STATUS' in linha_upper or 'JANELA' in linha_upper or 'CONTRATO' in linha_upper:
-                linha_do_cabecalho_real = i
-                encontrou_cabecalho = True
-                break
-
-        if encontrou_cabecalho:
-            texto_corrigido = "\n".join(linhas_puras[linha_do_cabecalho_real:])
-            df_sheets = pd.read_csv(io.StringIO(texto_corrigido), dtype=str, on_bad_lines='skip')
-        else:
-            df_sheets = pd.read_csv(io.StringIO(conteudo_bruto), dtype=str, on_bad_lines='skip')
-            
-        if df_sheets is None or df_sheets.empty:
-            return None
-
-        df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
-        
-        colunas_mapeadas = {}
-        for col in df_sheets.columns:
-            col_upper = col.upper()
-            if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
-            elif 'JANELA' in col_upper or 'INTERVALO' in col_upper or 'TEMPO' in col_upper: colunas_mapeadas[col] = 'Janela de Serviço'
-            elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
-            elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
-            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper): colunas_mapeadas[col] = 'Recurso'
-            elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo de Atividade'
-            
-        df_final = df_sheets.rename(columns=colunas_mapeadas)
-        st.session_state['dados_rota'] = df_final
-        return df_final
-    except:
-        return None
-
-# Executa a carga inteligente
-df_planilha = carregar_dados_automatico()
-
-# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
-data_rota_texto = st.session_state.get('data_da_rota', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
-
-if df_planilha is not None:
-    df = df_planilha.copy()
+if df_master is not None and not df_master.empty:
+    # Cria uma cópia local segura para trabalhar sem afetar as outras telas
+    df = df_master.copy()
     
-    # === HIGIENIZAÇÃO CRÍTICA DOS DADOS E FILTRO ===
-    df['Supervisor_Upper'] = df['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
-    df['Recurso_Upper'] = df['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
-    df['Contrato_Limpo'] = df['Contrato'].fillna('').astype(str).str.strip()
+    # 🌟 CORREÇÃO DO KEYERROR: Garantimos que o Pandas trate os nomes de colunas padronizados da Home
+    # Se por acaso a coluna 'SUPERVISOR' não existir, criamos como '#N/A' para evitar o travamento
+    if 'SUPERVISOR' not in df.columns:
+        df['SUPERVISOR'] = '#N/A'
+        
+    # Encontra a coluna de recurso/técnico gerada na Home
+    col_recurso_reais = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
     
-    if 'Status da Atividade' in df.columns:
-        df['Status_Atividade_Upper'] = df['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
+    # Tratamento absoluto das strings para o filtro funcionar liso
+    df['Recurso_Upper'] = df[col_recurso_reais].fillna('N/A').astype(str).str.upper().str.strip()
+    df['Supervisor_Upper'] = df['SUPERVISOR'].fillna('#N/A').astype(str).str.upper().str.strip()
+    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
+    
+    # 📑 FILTRO OPERACIONAL DA TELA: Captura quem está sem supervisor (#N/A) ou é técnico de teste (TEC1)
+    df_filtrado = df[
+        (df['Supervisor_Upper'] == '#N/A') | 
+        (df['Supervisor_Upper'] == 'PENDENTE CADASTRO') |
+        (df['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False))
+    ].copy()
+    
+    if not df_filtrado.empty:
+        # Padroniza volumes se a coluna de quantidade existir
+        if 'QTD_OS_COL' in df_filtrado.columns:
+            df_filtrado['QTD_OS_NUM'] = pd.to_numeric(df_filtrado['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
+        else:
+            df_filtrado['QTD_OS_NUM'] = 1
+
+        st.markdown(f"### ⚠️ Foram localizados **{df_filtrado['Recurso_Upper'].nunique()}** técnicos pendentes de amarração.")
+        st.info("💡 Dica: Copie o login/nome do técnico listado abaixo e insira na aba 'SUPERVISORES' do seu Google Sheets para vinculá-lo a um supervisor real.")
+        
+        # Consolida e agrupa a quantidade de ordens abertas presas com esses profissionais
+        regiao_col = 'REGIAO_BASE' if 'REGIAO_BASE' in df_filtrado.columns else df_filtrado.columns[0]
+        
+        tabela_exibicao = df_filtrado.groupby([regiao_col, col_recurso_reais])['QTD_OS_NUM'].sum().reset_index()
+        tabela_exibicao = tabela_exibicao.rename(columns={
+            regiao_col: 'Região Detectada',
+            col_recurso_reais: 'Login / Identificação do Técnico',
+            'QTD_OS_NUM': 'Quantidade de O.S.'
+        }).sort_values(by='Quantidade de O.S.', ascending=False)
+        
+        # Exibe a tabela organizada na tela
+        st.dataframe(tabela_exibicao, use_container_width=True, hide_index=True)
+        
     else:
-        df['Status_Atividade_Upper'] = ''
-        
-    # 🌟🌟🌟 APLICAÇÃO DOS FILTROS OPERACIONAIS DE LIMPEZA UNIFICADA 🌟🌟🌟
-    cond_contrato_valido = (
-        (df['Contrato_Limpo'] != '') & 
-        (df['Contrato_Limpo'] != 'nan') & 
-        (~df['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & # Ignora Supervisor inválido
-        (df['SUPERVISOR'].notna()) &
-        (df['Status_Atividade_Upper'] != "SUSPENSO") & # Remove O.S Suspensas
-        (~df['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)) # Expulsa técnicos testes
-    )
-    
-    # Remove marcações de horário de almoço
-    if 'Tipo de Atividade' in df.columns:
-        cond_contrato_valido = cond_contrato_valido & (~df['Tipo de Atividade'].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
-        
-    df_limpo = df[cond_contrato_valido].copy()
-    
-    # Processamento do seletor de janelas limpas
-    col_janela = 'Janela de Serviço'
-    if col_janela in df_limpo.columns:
-        df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
-        
-        df_janelas_validas = df_limpo[
-            (df_limpo['Intervalo_Tratado'] != '') & 
-            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
-        ]
-        
-        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].unique())
-        
-        if opcoes_janela:
-            janela_sel = st.sidebar.selectbox("Janela Ativa:", opcoes_janela)
-            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
-        else:
-            df_tela = df_limpo.copy()
-    else:
-        df_tela = df_limpo.copy()
-
-    # Filtro de Status: APENAS PENDENTES
-    df_pendentes_geral = df_tela[df_tela['Status_Atividade_Upper'] == 'PENDENTE'].copy() if 'Status_Atividade_Upper' in df_tela.columns else pd.DataFrame()
-
-    # Lógica de Separação Regional Perfeita (ABC | SP)
-    col_supervisor = 'SUPERVISOR'
-    df_abc_lista, df_sp_lista = [], []
-    
-    if col_supervisor in df_pendentes_geral.columns and not df_pendentes_geral.empty:
-        for _, Server_linha in df_pendentes_geral.iterrows():
-            nome_super = str(Server_linha[col_supervisor]).upper()
-            if "FRANCISCO" in nome_super or "ALAN" in nome_super:
-                df_sp_lista.append(Server_linha)
-            else:
-                df_abc_lista.append(Server_linha)
-                
-    df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
-    df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
-
-    def desenhar_alertas(df_regiao, titulo_regiao):
-        st.markdown(f'<div class="title-abc-sp">{titulo_regiao}</div>', unsafe_allow_html=True)
-        
-        if col_supervisor in df_tela.columns:
-            todos_supervisores = sorted(df_tela['Supervisor_Upper'].dropna().unique())
-        else:
-            todos_supervisores = []
-        
-        if titulo_regiao == "SP":
-            meus_supers = [s for s in todos_supervisores if "FRANCISCO" in s or "ALAN" in s]
-        else:
-            meus_supers = [s for s in todos_supervisores if "FRANCISCO" not in s and "ALAN" not in s]
-
-        for super_nome in meus_supers:
-            df_super_p = df_regiao[df_regiao['Supervisor_Upper'] == super_nome] if not df_regiao.empty else pd.DataFrame()
-            
-            with st.container(border=True):
-                st.markdown(f"##### **{super_nome.upper()}**")
-                
-                if not df_super_p.empty:
-                    for _, r in df_super_p.iterrows():
-                        contrato_limpo = str(r['Contrato']).split('.')[0] if 'Contrato' in r else "N/A"
-                        nome_tecnico = str(r['Recurso'])[:25] if 'Recurso' in r else "N/A"
-                        
-                        html_item = f'<div class="item-pendente-tv"><span class="tecnico-nome-tv">{nome_tecnico}</span><span class="contrato-numero-tv">{contrato_limpo}</span></div>'
-                        st.markdown(html_item, unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="no-pendente-tv">✅ Sem pendências nesta janela</div>', unsafe_allow_html=True)
-
-    # Divisão em duas colunas principais
-    c1, c2 = st.columns(2)
-    with c1:
-        desenhar_alertas(df_abc, "ABC")
-    with c2:
-        desenhar_alertas(df_sp, "SP")
-
-    # === MODO TV SINCADO COM A NOVA NUMERAÇÃO DE PAINÉIS ===
-    st.components.v1.html("""
-        <script>
-        setTimeout(function(){
-            window.parent.location.hash = "#2-tec1";
-        }, 30000);
-        </script>
-    """, height=0)
-
+        st.success("🎉 Excelente! Todos os técnicos ativos na rota possuem um supervisor e base vinculados corretamente no Google Sheets.")
 else:
-    st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
+    st.warning("👈 Dados da rota ativa não localizados. Por favor, acesse a página inicial (streamlit_app.py) primeiro e faça o upload dos arquivos da rota do dia.")
