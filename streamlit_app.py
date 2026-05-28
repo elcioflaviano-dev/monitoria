@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA: TRATAMENTO PÓS-CONCATENAÇÃO ===
+# === MOTOR MÁSTER DE CARGA: TRATAMENTO SEGURO LINHA POR LINHA ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -45,29 +45,29 @@ def carregar_dados_sistema():
                         df_individual = pd.read_csv(arquivo, on_bad_lines='skip')
                     
                     if not df_individual.empty:
-                        # Força a limpeza dos nomes das colunas deste arquivo individual antes de juntar
+                        # Força as colunas a serem strings limpas antes de juntar
                         df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                         lista_dfs.append(df_individual)
                         
                 except Exception as err_arquivo:
-                    st.sidebar.error(f"Erro específico no arquivo {arquivo.name}: {err_arquivo}")
+                    st.sidebar.error(f"Erro no arquivo {arquivo.name}: {err_arquivo}")
                     continue
             
             if not lista_dfs:
-                st.sidebar.error("⚠️ Nenhum dos arquivos enviados pôde ser lido corretamente.")
+                st.sidebar.error("⚠️ Nenhum arquivo pôde ser lido.")
                 return None
                 
-            # 🔄 Junta todas as tabelas na estrutura bruta original
+            # Une os ficheiros
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             
-            # 🌟 BLINDAGEM MÁSTER: Força a tabela inteira consolidada a virar String pura
-            # Isso elimina qualquer erro de tipos numéricos ou objetos mistos antes de usarmos os métodos .str
-            df_bruto = df_bruto.astype(str)
+            # --- BLOCO DE DIAGNÓSTICO TEMPORÁRIO ---
+            # Isto vai mostrar na tela quais colunas o Python detetou no seu ficheiro
+            st.sidebar.write("📌 Colunas detetadas na rota:", list(df_bruto.columns))
             
-            # Mapeamento e padronização das colunas consolidadas
+            # Mapeamento e padronização das colunas
             colunas_mapeadas = {}
             for col in df_bruto.columns:
-                col_upper = col.upper()
+                col_upper = str(col).upper()
                 if ('LOGIN' in col_upper or 'USER' in col_upper or 'RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper): 
                     colunas_mapeadas[col] = 'ID_Tecnico_Bruto'
                 elif ('STATUS' in col_upper and 'OS' not in col_upper): 
@@ -84,48 +84,49 @@ def carregar_dados_sistema():
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
             
             if 'ID_Tecnico_Bruto' in df_bruto.columns:
-                # Agora que a tabela inteira é string pura, estes comandos nunca vão falhar:
-                df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').str.upper().str.strip()
-                df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').str.strip()
+                # 🌟 ABORDAGEM LAMBDA SEGURA CONTRA ERRO DE STRING/OBJECT
+                df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
+                df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip() if pd.notna(x) else 'N/A')
             else:
                 st.sidebar.error("❌ Coluna de identificação do técnico não localizada nas planilhas.")
                 return None
 
-            # 🧠 BUSCA DINÂMICA DA ABA "SUPERVISORES" NO SEU LINK DO SHEETS
+            # 🧠 BUSCA ABA "SUPERVISORES" NO GOOGLE SHEETS
             url_base = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
-            
             res_aux = requests.get(url_base, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
             
             if res_aux.status_code == 200:
                 df_aux = pd.read_csv(io.StringIO(res_aux.text))
-                df_aux = df_aux.astype(str) # Força a aba do Sheets a virar string pura também
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
                 
                 # Mapeia as colunas da aba do Sheets: LOGIN, NOME, SUPERVISOR, BASE
-                df_aux['LOGIN_MATCH'] = df_aux['LOGIN'].fillna('').str.upper().str.strip()
+                df_aux['LOGIN_MATCH'] = df_aux['LOGIN'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else '')
                 df_aux = df_aux.rename(columns={'SUPERVISOR': 'SUPERVISOR_MAP', 'BASE': 'BASE_MAP', 'NOME': 'NOME_MAP'})
                 df_aux = df_aux[['LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP']].drop_duplicates()
                 
-                # Realiza o PROCV (Merge) na tabela consolidada
+                # PROCV (Merge)
                 df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match', right_on='LOGIN_MATCH', how='left')
                 
                 df_final['Recurso'] = df_final['NOME_MAP'].fillna(df_final['Recurso'])
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A')
-                df_final['REGIAO_BASE'] = df_final['BASE_MAP'].fillna('N/A').str.upper().str.strip()
                 
+                # Tratamento seguro da Região Base
+                df_final['REGIAO_BASE'] = df_final['BASE_MAP'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
+                
+                # Limpeza final de colunas do Procv
                 df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
                 
-                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) unificado(s) com sucesso!")
+                st.sidebar.success(f"✅ {len(lista_dfs)} ficheiro(s) processado(s)!")
                 st.session_state['df_rota_ativa'] = df_final
                 return df_final
             else:
-                st.sidebar.error("❌ Não foi possível ler a aba auxiliar de supervisores online.")
+                st.sidebar.error("❌ Erro ao ler a aba de supervisores do Google Sheets.")
                 return None
         except Exception as e:
             st.sidebar.error(f"❌ Erro geral no motor de carga: {e}")
             return None
             
-    return st.session_state.get('df_rota_ativa', None)
+    return st.session_state.get('df_rota_active', None)
 
 df_master = carregar_dados_sistema()
 
@@ -143,9 +144,9 @@ def classificar_status_excel(baixa, status_at):
 def processar_bloco_regional(df_bloco, nome_bloco):
     st.markdown(f'<div style="background-color:#005088; padding:8px 15px; color:white; font-weight:bold; font-size:18px; border-radius:4px; margin-top:20px; margin-bottom:10px;">{nome_bloco}</div>', unsafe_allow_html=True)
     
-    df_bloco['Supervisor_Upper'] = df_bloco['SUPERVISOR'].fillna('#N/A').astype(str).str.upper().str.strip()
-    df_bloco['Status_Atividade_Upper'] = df_bloco['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
-    df_bloco['Recurso_Upper'] = df_bloco['Recurso'].fillna('').astype(str).str.upper().str.strip()
+    df_bloco['Supervisor_Upper'] = df_bloco['SUPERVISOR'].apply(lambda x: str(x).strip().upper())
+    df_bloco['Status_Atividade_Upper'] = df_bloco['STATUS_ATIVIDADE'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else '')
+    df_bloco['Recurso_Upper'] = df_bloco['Recurso'].apply(lambda x: str(x).strip().upper())
     
     df_bloco = df_bloco[(~df_bloco['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & (df_bloco['Status_Atividade_Upper'] != "SUSPENSO")].copy()
     df_bloco = df_bloco[~df_bloco['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)].copy()
@@ -188,4 +189,4 @@ if df_master is not None:
     processar_bloco_regional(df_gua, "📍 BLOCO REGIONAL - GUARULHOS")
     processar_bloco_regional(df_sp, "📍 BLOCO REGIONAL - SÃO PAULO")
 else:
-    st.warning("👈 Para iniciar o monitoramento, acesse a barra lateral esquerda e faça o upload de todos os arquivos de rotas do dia simultaneamente.")
+    st.warning("👈 Use o menu lateral esquerdo para fazer o upload dos ficheiros de rota (.xlsx ou .csv).")
