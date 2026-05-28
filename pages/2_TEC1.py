@@ -40,8 +40,8 @@ if df_master is not None and not df_master.empty:
     
     # Remove as marcações operacionais de almoço (Refeicao)
     if 'Tipo de Atividade' in df_limpo.columns:
-        df_limpo['Tipo_Atividade_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
-        df_limpo = df_limpo[~df_limpo['Tipo_Atividade_Str'].str.contains('Refeicao', case=False, na=False)]
+        df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
+        df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
         
     # Tratamento e montagem do filtro dinâmico de Janelas Válidas
     col_janela = None
@@ -72,28 +72,34 @@ if df_master is not None and not df_master.empty:
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
     else:
-        # 🧠 SE ACHAR #N/A NO SUPERVISOR, PEGA O NOME DO RECURSO/TECNICO PARA MOSTRAR QUEM É
         if 'Recurso' not in df_tela.columns:
             df_tela['Recurso'] = 'TÉCNICO NÃO IDENTIFICADO'
             
-        if 'SUPERVISOR' not in df_tela.columns:
-            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['Recurso'].get(str)
-        else:
-            df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(
-                lambda r: str(r['Recurso']).upper() if str(r['SUPERVISOR']).strip().upper() in ['#N/A', 'NAN', ''] else str(r['SUPERVISOR']).upper(), axis=1
-            )
-            
-        if 'REGIAO_BASE' not in df_tela.columns:
-            df_tela['REGIAO_BASE'] = 'SP'
+        # Define o nome que vai aparecer no topo do cartão
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(
+            lambda r: str(r['Recurso']).upper() if str(r['SUPERVISOR']).strip().upper() in ['#N/A', 'NAN', ''] else str(r['SUPERVISOR']).upper(), axis=1
+        )
 
-        # 🌟 AJUSTE DAS COLUNAS: GUARULHOS AGORA VAI JUNTO COM O ABC
-        df_abc = df_tela[df_tela['REGIAO_BASE'].isin(['ABC', 'GUARULHOS'])].copy()
-        df_sp = df_tela[df_tela['REGIAO_BASE'].isin(['SÃO PAULO', 'SP', 'N/A'])].copy()
+        # 🌟 REGRA DE OURO DO BACKUP RESTAURADA: Separação por nome do Supervisor
+        # Se for Francisco ou Alan, vai para a coluna de SP. O resto vai TODO para o ABC!
+        df_sp_lista, df_abc_lista = [], []
+        
+        for idx, linha in df_tela.iterrows():
+            # Checa o supervisor original do Procv
+            super_original = str(linha.get('SUPERVISOR', '')).upper()
+            if "FRANCISCO" in super_original or "ALAN" in super_original:
+                df_sp_lista.append(linha)
+            else:
+                # Técnicos sem supervisor ou do ABC caem aqui
+                df_abc_lista.append(linha)
+                
+        df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
+        df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
         with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             
             supervisores_abc = df_abc['SUPERVISOR_MOSTRAR'].dropna().unique() if not df_abc.empty else []
             if len(supervisores_abc) > 0:
@@ -116,7 +122,7 @@ if df_master is not None and not df_master.empty:
                         with m3:
                             st.metric(label="🟢 INICIADO", value=iniciados)
             else:
-                st.info("Nenhum supervisor ou técnico ativo no ABC/Guarulhos nesta janela.")
+                st.info("Nenhum supervisor ou técnico ativo no ABC nesta janela.")
 
         with col_coluna_sp:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
