@@ -79,17 +79,14 @@ def processar_tabela_gerencial(df_bloco, nome_bloco):
     )
 
 if df_master is not None and not df_master.empty:
-    # Separação das bases usando as regras de PROCV da Home
-    df_master['SUPERVISOR_CHECK'] = df_master['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip()
-    df_master['BASE_CHECK'] = df_master['REGIAO_BASE'].fillna('').astype(str).str.upper().str.strip()
+    # 🌟 CRÍTICO: Padroniza estritamente a coluna da base regional vinda do Sheets
+    df_master['BASE_CHECK'] = df_master['REGIAO_BASE'].fillna('N/A').astype(str).str.upper().str.strip()
     
-    # Filtros de divisão regional por bloco
-    cond_sp = df_master['BASE_CHECK'].isin(['SÃO PAULO', 'SP']) | df_master['SUPERVISOR_CHECK'].isin(['FRANCISCO', 'ALAN'])
+    # 🌟 SEPARAÇÃO DIRETA: Confia 100% no cadastro de "BASE" mapeado no Sheets
+    df_sp = df_master[df_master['BASE_CHECK'].isin(['SÃO PAULO', 'SP', 'SAO PAULO'])].copy()
+    df_abc = df_master[df_master['BASE_CHECK'] == 'ABC'].copy()
     
-    df_abc = df_master[~cond_sp].copy()
-    df_sp = df_master[cond_sp].copy()
-    
-    # Renderiza os blocos TOA tradicionais na tela
+    # Renderiza os blocos TOA tradicionais e separados na tela
     processar_tabela_gerencial(df_abc, "📍 BLOCO REGIONAL - ABCDM")
     processar_tabela_gerencial(df_sp, "📍 BLOCO REGIONAL - SÃO PAULO")
 
