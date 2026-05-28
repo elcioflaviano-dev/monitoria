@@ -35,10 +35,9 @@ def carregar_banco_historico():
 if "historico_certidoes" not in st.session_state:
     st.session_state["historico_certidoes"] = carregar_banco_historico()
 
-# 🌟 FUNÇÃO DE SUPORTE: Executa o reset limpando a chave do Widget de forma nativa
-def resetar_campo_contrato():
-    st.session_state["valor_contrato_temporario"] = st.session_state["widget_contrato_input"]
-    st.session_state["widget_contrato_input"] = ""
+# 🌟 Estado para controle de limpeza do input
+if "limpar_input_proxima" not in st.session_state:
+    st.session_state["limpar_input_proxima"] = False
 
 # 🔄 HERANÇA INTELIGENTE
 df_master = st.session_state.get('df_rota_ativa', None)
@@ -106,12 +105,18 @@ with st.container(border=True):
     col1, col2, col3 = st.columns([2, 2, 3])
 
     with col1:
-        # 🌟 VÍNCULO SEGURO: Captura o valor via widget de sessão direto e limpa instantaneamente ao mudar
+        # Se a flag de limpeza estiver ativa, injeta string vazia na tela de forma forçada
+        valor_padrao_input = "" if st.session_state["limpar_input_proxima"] else st.session_state.get("contrato_antigo_digitado", "")
+        
         contrato_input = st.text_input(
             "Número do Contrato:", 
-            key="widget_contrato_input",
+            value=valor_padrao_input,
             placeholder="Digite o contrato e pressione Enter..."
         ).strip()
+        
+        # Reseta o gatilho da flag
+        st.session_state["limpar_input_proxima"] = False
+        st.session_state["contrato_antigo_digitado"] = contrato_input
 
     supervisor_detectado = "N/A"
     tecnico_detectado = "N/A"
@@ -143,15 +148,14 @@ with st.container(border=True):
     with col3:
         obs_input = st.text_input("Observações / Motivo:", placeholder="Insira notas adicionais aqui...").strip()
 
-    # Botão de gravação executa o callback nativo de limpeza do campo antes do refresh
-    if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True, on_click=resetar_campo_contrato):
-        # Puxa o contrato temporário que salvamos no clique da função
-        contrato_salvar = st.session_state.get("valor_contrato_temporario", "").strip()
-        
-        if contrato_salvar != "":
+    # 🌟 CRÍTICO: Removido on_click do botão. O processamento agora é feito em ordem sequencial perfeita
+    if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True):
+        if contrato_input != "":
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            
+            # Garante que vai salvar os dados encontrados antes de limpar qualquer coisa!
             nova_linha = pd.DataFrame([{
-                "Data/Hora": agora, "Contrato": contrato_salvar, "Status": status_final,
+                "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
                 "Intervalo de Tempo": "AUTOMÁTICO", "Observação": obs_input if obs_input != "" else "OK"
             }])
@@ -162,7 +166,11 @@ with st.container(border=True):
             st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
             
-            st.success(f"✅ Contrato {contrato_salvar} atualizado como {status_final}!")
+            # 🌟 LIMPEZA POSTERIOR: Ativa as flags de reset pós-gravação
+            st.session_state["limpar_input_proxima"] = True
+            st.session_state["contrato_antigo_digitado"] = ""
+            
+            st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
             st.rerun()
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
