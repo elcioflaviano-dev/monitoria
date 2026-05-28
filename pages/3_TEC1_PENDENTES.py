@@ -125,15 +125,21 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             
             if not df_abc.empty:
-                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')['P_COUNT'].sum().reset_index()
+                # Pega a lista de supervisores únicos
+                supervisores_abc = sorted(df_abc['SUPERVISOR_MOSTRAR'].unique())
                 
-                for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
-                    total_pendentes = int(matriz_abc[matriz_abc['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]['P_COUNT'])
+                for supervisor in supervisores_abc:
+                    df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
+                    total_pendentes = df_super['P_COUNT'].sum()
                     
                     with st.container(border=True):
                         st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + '</div>', unsafe_allow_html=True)
-                        # 🌟 MUDANÇA: Exibe apenas a caixa vermelha de Pendentes ocupando a largura total
-                        st.markdown('<div class="custom-pendente-box" style="width: 100%;"><div class="custom-pendente-label">🔴 CONTRATOS PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
+                        st.markdown('<div class="custom-pendente-box" style="width: 100%; margin-bottom:12px;"><div class="custom-pendente-label">🔴 CONTRATOS PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
+                        
+                        # 🌟 NOVO: Lista aberta de contratos e técnicos deste bloco
+                        df_lista_super = df_super[['Contrato', 'Recurso_Tratado']].copy()
+                        df_lista_super = df_lista_super.rename(columns={'Contrato': 'Nº Contrato', 'Recurso_Tratado': 'Técnico / Login'})
+                        st.dataframe(df_lista_super, use_container_width=True, hide_index=True)
             else:
                 st.info("Nenhum contrato pendente localizado para o ABC nesta janela.")
 
@@ -141,15 +147,21 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             
             if not df_sp.empty:
-                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')['P_COUNT'].sum().reset_index()
+                # Pega a lista de supervisores únicos
+                supervisores_sp = sorted(df_sp['SUPERVISOR_MOSTRAR'].unique())
                 
-                for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
-                    total_pendentes = int(matriz_sp[matriz_sp['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]['P_COUNT'])
+                for supervisor in supervisores_sp:
+                    df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
+                    total_pendentes = df_super['P_COUNT'].sum()
                     
                     with st.container(border=True):
                         st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + '</div>', unsafe_allow_html=True)
-                        # 🌟 MUDANÇA: Exibe apenas a caixa vermelha de Pendentes ocupando a largura total
-                        st.markdown('<div class="custom-pendente-box" style="width: 100%;"><div class="custom-pendente-label">🔴 CONTRATOS PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
+                        st.markdown('<div class="custom-pendente-box" style="width: 100%; margin-bottom:12px;"><div class="custom-pendente-label">🔴 CONTRATOS PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
+                        
+                        # 🌟 NOVO: Lista aberta de contratos e técnicos deste bloco
+                        df_lista_super = df_super[['Contrato', 'Recurso_Tratado']].copy()
+                        df_lista_super = df_lista_super.rename(columns={'Contrato': 'Nº Contrato', 'Recurso_Tratado': 'Técnico / Login'})
+                        st.dataframe(df_lista_super, use_container_width=True, hide_index=True)
             else:
                 st.info("Nenhum contrato pendente localizado para SP nesta janela.")
 
