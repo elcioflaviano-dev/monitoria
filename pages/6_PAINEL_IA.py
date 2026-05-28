@@ -1,4 +1,4 @@
-import streamlit st
+import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -20,7 +20,7 @@ df_master = st.session_state.get('df_rota_ativa', None)
 
 df_ia = None
 if df_master is not None and not df_master.empty:
-    # 🌟 CORREÇÃO MÁSTER: Extração isolada por fatiamento para prevenir duplicidade de colunas no Excel
+    # Extração isolada por fatiamento para prevenir duplicidade de colunas no Excel
     col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_master.columns else 'Intervalo de Tempo'
     col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_master.columns else 'Status da Atividade'
     
@@ -30,12 +30,11 @@ if df_master is not None and not df_master.empty:
         for c in df_master.columns:
             if 'OS' in str(c).upper() and 'STATUS' not in str(c).upper(): col_tipo_os = c; break
 
-    # Reconstrói as listas puras puxando apenas a primeira ocorrência das colunas na marra (.iloc[:, 0])
+    # Reconstrói as listas puras puxando apenas a primeira ocorrência das colunas (.iloc[:, 0])
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_master['SUPERVISOR']).iloc[:, 0].fillna('N/A').tolist()] if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
     lista_recurso = [str(x).upper().strip() for x in pd.DataFrame(df_master['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_master.columns else ['N/A'] * len(df_master)
     lista_status_at = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_status_at]).iloc[:, 0].fillna('PENDENTE').tolist()] if col_status_at in df_master.columns else ['PENDENTE'] * len(df_master)
     
-    # Resolve o erro de atributo tratando a coluna Tipo O.S 1 duplicada
     if col_tipo_os:
         lista_tipo_os = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_tipo_os]).iloc[:, 0].fillna('N/A').tolist()]
     else:
@@ -54,7 +53,7 @@ if df_master is not None and not df_master.empty:
         'Tipo_OS_Upper': lista_tipo_os,
         'STATUS_OS1': lista_status_os1,
         'Tipo_Ativ_Check': lista_tipo_ativ,
-        'SUPERVISOR': lista_supervisor  # Mantém compatibilidade com agrupamentos antigos
+        'SUPERVISOR': lista_supervisor
     })
 
 # 🌟 CALIBRAGEM DO HORÁRIO (IGUAL AO TEC1 - FUSO BRASÍLIA BLINDADO)
