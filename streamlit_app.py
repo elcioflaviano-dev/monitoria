@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA: TRATAMENTO SEGURO LINHA POR LINHA ===
+# === MOTOR MÁSTER DE CARGA: VARREDURA ULTRA SEGURA DE COLUNAS ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -45,7 +45,7 @@ def carregar_dados_sistema():
                         df_individual = pd.read_csv(arquivo, on_bad_lines='skip')
                     
                     if not df_individual.empty:
-                        # Força as colunas a serem strings limpas antes de juntar
+                        # Força todos os nomes de colunas a serem strings limpas antes de qualquer tratamento
                         df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                         lista_dfs.append(df_individual)
                         
@@ -57,38 +57,40 @@ def carregar_dados_sistema():
                 st.sidebar.error("⚠️ Nenhum arquivo pôde ser lido.")
                 return None
                 
-            # Une os ficheiros
+            # Une todas as planilhas carregadas
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             
-            # --- BLOCO DE DIAGNÓSTICO TEMPORÁRIO ---
-            # Isto vai mostrar na tela quais colunas o Python detetou no seu ficheiro
-            st.sidebar.write("📌 Colunas detetadas na rota:", list(df_bruto.columns))
-            
-            # Mapeamento e padronização das colunas
+            # 🌟 NOVO MAPEAMENTO ULTRA SEGURO: Evita o erro de ambiguidade do Pandas
             colunas_mapeadas = {}
-            for col in df_bruto.columns:
-                col_upper = str(col).upper()
-                if ('LOGIN' in col_upper or 'USER' in col_upper or 'RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper): 
+            for col in list(df_bruto.columns):
+                col_upper = str(col).upper().strip()
+                
+                # Procura a coluna do login/técnico
+                if any(x in col_upper for x in ['LOGIN', 'USER', 'RECURSO', 'TECNICO', 'TÉCNICO']):
                     colunas_mapeadas[col] = 'ID_Tecnico_Bruto'
-                elif ('STATUS' in col_upper and 'OS' not in col_upper): 
+                # Procura a coluna de status da atividade
+                elif 'STATUS' in col_upper and 'OS' not in col_upper:
                     colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
-                elif ('TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper or 'TIPO ATIVIDADE' in col_upper): 
+                # Procura a coluna de tipo de O.S
+                elif any(x in col_upper for x in ['TIPO O.S 1', 'TIPO DE OS', 'TIPO ATIVIDADE']):
                     colunas_mapeadas[col] = 'Tipo O.S 1'
-                elif ('STATUS DA O.S 1' in col_upper or 'STATUS OS 1' in col_upper or 'BAIXA' in col_upper): 
+                # Procura a coluna de baixa/status os 1
+                elif any(x in col_upper for x in ['STATUS DA O.S 1', 'STATUS OS 1', 'BAIXA']):
                     colunas_mapeadas[col] = 'STATUS_OS1'
-                elif ('TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper): 
+                # Procura a coluna de total de tarefas
+                elif any(x in col_upper for x in ['TOTAL DE TAREFAS', 'TOTAL TAREFAS', 'VOLUME', 'QTD']):
                     colunas_mapeadas[col] = 'QTD_OS_COL'
-                elif ('CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper): 
+                # Procura a coluna de categoria/capacidade
+                elif any(x in col_upper for x in ['CATEGORIA', 'CAPACIDADE']):
                     colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
             
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
             
             if 'ID_Tecnico_Bruto' in df_bruto.columns:
-                # 🌟 ABORDAGEM LAMBDA SEGURA CONTRA ERRO DE STRING/OBJECT
                 df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
                 df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip() if pd.notna(x) else 'N/A')
             else:
-                st.sidebar.error("❌ Coluna de identificação do técnico não localizada nas planilhas.")
+                st.sidebar.error("❌ Coluna de identificação do técnico não localizada. Verifique os cabeçalhos dos arquivos.")
                 return None
 
             # 🧠 BUSCA ABA "SUPERVISORES" NO GOOGLE SHEETS
@@ -97,36 +99,36 @@ def carregar_dados_sistema():
             
             if res_aux.status_code == 200:
                 df_aux = pd.read_csv(io.StringIO(res_aux.text))
+                
+                # Força os cabeçalhos da aba de supervisores a serem strings limpas
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
                 
-                # Mapeia as colunas da aba do Sheets: LOGIN, NOME, SUPERVISOR, BASE
+                # Mapeia as colunas usando lambdas seguras
                 df_aux['LOGIN_MATCH'] = df_aux['LOGIN'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else '')
                 df_aux = df_aux.rename(columns={'SUPERVISOR': 'SUPERVISOR_MAP', 'BASE': 'BASE_MAP', 'NOME': 'NOME_MAP'})
                 df_aux = df_aux[['LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP']].drop_duplicates()
                 
-                # PROCV (Merge)
+                # Realiza o PROCV (Merge) seguro
                 df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match', right_on='LOGIN_MATCH', how='left')
                 
                 df_final['Recurso'] = df_final['NOME_MAP'].fillna(df_final['Recurso'])
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A')
-                
-                # Tratamento seguro da Região Base
                 df_final['REGIAO_BASE'] = df_final['BASE_MAP'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
                 
-                # Limpeza final de colunas do Procv
+                # Descarta colunas temporárias geradas no merge
                 df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
                 
-                st.sidebar.success(f"✅ {len(lista_dfs)} ficheiro(s) processado(s)!")
+                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) processado(s) com sucesso!")
                 st.session_state['df_rota_ativa'] = df_final
                 return df_final
             else:
-                st.sidebar.error("❌ Erro ao ler a aba de supervisores do Google Sheets.")
+                st.sidebar.error("❌ Erro ao conectar com a aba de supervisores do Google Sheets.")
                 return None
         except Exception as e:
             st.sidebar.error(f"❌ Erro geral no motor de carga: {e}")
             return None
             
-    return st.session_state.get('df_rota_active', None)
+    return st.session_state.get('df_rota_ativa', None)
 
 df_master = carregar_dados_sistema()
 
