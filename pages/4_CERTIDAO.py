@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -77,33 +77,27 @@ if df_master is not None and not df_master.empty:
         'SUPERVISOR': lista_supervisor
     })
 
+# 🌟 AUTOMATIZAÇÃO DAS JANELAS (IGUAL AO TEC1 - FUSO BRASÍLIA) 🌟
+hora_brasilia = (datetime.utcnow() - timedelta(hours=3)).hour
+
+if hora_brasilia < 11:
+    janelas_automaticas = ['08 - 10', '08 - 11', '08 - 12', '08:00 - 08:03']
+    texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Focado: Janelas da Manhã"
+elif 11 <= hora_brasilia < 15:
+    janelas_automaticas = ['08 - 10', '08 - 11', '08 - 12', '08:00 - 08:03', '11 - 14', '11:50 - 14:50', '12:00 - 15:00']
+    texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela do Meio do Dia + Pendências da Manhã"
+else:
+    janelas_automaticas = ['08 - 10', '08 - 11', '08 - 12', '08:00 - 08:03', '11 - 14', '11:50 - 14:50', '12:00 - 15:00', '15 - 18']
+    texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Tarde Ativa + Tudo Acumulado Pendente do Dia"
+
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
-data_rota_texto = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 if df_base_online is not None:
-    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em tempo real via Upload de hoje</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 20px;">{texto_status_janela}</div>', unsafe_allow_html=True)
 else:
     st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando upload dos arquivos na página inicial</div>', unsafe_allow_html=True)
 
-# --- MONTAGEM DO FILTRO LATERAL COM HISTOGRAMA LIMPO ---
-janela_sel = "Padrão / Sem Janela"
-if df_base_online is not None:
-    try:
-        # 🌟 FILTRAGEM DO MENU: Cria uma cópia temporária contendo apenas os contratos ativos para extrair as janelas reais
-        df_ativos_menu = df_base_online[
-            (df_base_online['Status da Atividade'].str.contains("CONCLU|INIC|PENDENTE|ROTA", na=False)) &
-            (df_base_online['Intervalo de Tempo'] != '') &
-            (~df_base_online['Intervalo de Tempo'].str.upper().str.contains('SEM JANELA')) &
-            (df_base_online['Intervalo de Tempo'].str.len() <= 7) # Garante apenas padrões como "08 - 12" ou "11 - 14"
-        ].copy()
-        
-        opcoes_janela = sorted(df_ativos_menu['Intervalo de Tempo'].unique())
-        if opcoes_janela:
-            janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_janela)
-        else:
-            opcoes_fallback = sorted([j for j in df_base_online['Intervalo de Tempo'].unique() if len(j) <= 7])
-            janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_fallback if opcoes_fallback else ["Padrão / Sem Janela"])
-    except:
-        pass
+# Filtro lateral invisível ou desnecessário mantido em fallback automático
+janela_sel = "AUTOMÁTICO"
 
 # ==========================================
 # BLOCO 1: FORMULÁRIO DE ENTRADA
@@ -156,7 +150,7 @@ with st.container(border=True):
             nova_linha = pd.DataFrame([{
                 "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
-                "Intervalo de Tempo": janela_sel, "Observação": obs_input if obs_input != "" else "OK"
+                "Intervalo de Tempo": "AUTOMÁTICO", "Observação": obs_input if obs_input != "" else "OK"
             }])
             
             df_total = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True)
@@ -175,7 +169,7 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES
+# BLOCO 2: PAINEL DE PENDENTES AUTOMÁTICO
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
@@ -186,7 +180,8 @@ if df_base_online is not None:
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
-    cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
+    # 🌟 FILTRO POR HORÁRIO AUTOMÁTICO COORDENADO
+    cond_janela = df_base_online['Intervalo_Limpo'].isin(janelas_automaticas)
     
     cond_ativ = (
         df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU", na=False) | 
@@ -198,6 +193,7 @@ if df_base_online is not None:
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
     if not df_banco_atual.empty:
+        # 🌟 FILTRO LIMPA-TRILHOS: Remove tudo que já foi carimbado como OK ou NÃO ADERENTE no dia
         contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_validados)]
     else:
@@ -249,7 +245,7 @@ if df_base_online is not None:
                             </div>
                         """, unsafe_allow_html=True)
     else:
-        st.info(f"✨ Todas as certidões deste intervalo foram validadas! Nenhuma pendência encontrada para: **{janela_sel}**.")
+        st.info("✨ Todas as certidões das janelas acumuladas até o momento foram validadas!")
 else:
     st.info("ℹ️ Aguardando o upload dos dados operacionais na página inicial.")
 
