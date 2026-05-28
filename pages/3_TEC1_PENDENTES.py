@@ -2,45 +2,56 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Configura a página e força layout 100% compacto
+# Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Injeta CSS customizado para enxugar espaços e fixar tamanhos
+# Injeta CSS customizado para remover margens desnecessárias e ajustar fontes
 st.markdown("""
     <style>
-        /* Reduz margens do Streamlit */
         .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
         .stDeployButton { display:none; }
+        .title-abc-sp { font-size: 22px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
         
-        /* Reduz tamanhos dos títulos de blocos */
-        .title-abc-sp { font-size: 20px !important; font-weight: 800 !important; margin-bottom: 5px !important; text-align: center; }
-        
-        /* Caixa de Pendentes Compacta */
-        .compact-box {
-            background-color: #ffebee;
-            border: 2px solid #ef9a9a;
-            border-radius: 6px;
-            padding: 8px;
-            text-align: center;
+        /* Barra do Supervisor com Total na mesma linha */
+        .super-bar {
+            background-color: #f0f2f6;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #cc6600;
         }
-        .compact-label { font-size: 11px !important; font-weight: bold; color: #c62828; }
-        .compact-value { font-size: 28px !important; font-weight: 900; color: #b71c1c; line-height: 1.1; }
-        
-        /* Tabela Compacta Interna */
-        .scroll-table {
-            max-height: 120px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
+        .super-total {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 2px 8px;
             border-radius: 4px;
             font-size: 12px;
-            background: #fff;
+        }
+        
+        /* Linhas dos Contratos e Técnicos */
+        .item-linha {
+            font-size: 13px;
+            padding: 3px 10px;
+            border-bottom: 1px solid #eee;
+            color: #222;
+        }
+        .item-contrato {
+            font-weight: bold;
+            color: #cc6600;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # Título Principal Enxuto
 st.markdown(
-    '<h1 style="font-size: 28px; font-weight: 900; color: #cc6600; text-align: center; margin-top: 5px; margin-bottom: 2px;">⏳ TEC1 PENDENTES</h1>', 
+    '<h1 style="font-size: 32px; font-weight: 900; color: #cc6600; text-align: center; margin-top: 5px; margin-bottom: 5px;">⏳ TEC1 PENDENTES</h1>', 
     unsafe_allow_html=True
 )
 
@@ -123,7 +134,7 @@ if df_master is not None and not df_master.empty:
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
 
-        # Renderização em Duas Colunas Lado a Lado
+        # Renderização Lado a Lado
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
         with col_coluna_abc:
@@ -134,16 +145,14 @@ if df_master is not None and not df_master.empty:
                     df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
                     total_pendentes = df_super['P_COUNT'].sum()
                     
-                    # Container ultra compacto: Caixa vermelha à esquerda, Lista à direita
-                    with st.container(border=True):
-                        st.markdown(f'<div style="font-size:13px; font-weight:bold; margin-bottom:4px; color:#111;">👤 {supervisor}</div>', unsafe_allow_html=True)
-                        c1, c2 = st.columns([1, 2])
-                        with c1:
-                            st.markdown(f'<div class="compact-box"><div class="compact-label">PENDENTES</div><div class="compact-value">{total_pendentes}</div></div>', unsafe_allow_html=True)
-                        with c2:
-                            df_mini = df_super[['Contrato', 'Recurso_Tratado']].rename(columns={'Contrato':'Contrato', 'Recurso_Tratado':'Técnico'})
-                            # Renderiza como DataFrame nativo mas super achatado para não criar scroll na página principal
-                            st.dataframe(df_mini, use_container_width=True, hide_index=True, height=65)
+                    # Barra do Supervisor + Total na mesma linha
+                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {total_pendentes}</span></div>', unsafe_allow_html=True)
+                    
+                    # Lista corrida de Técnicos e Contratos logo abaixo
+                    for idx, linha in df_super.iterrows():
+                        contrato_num = linha.get('Contrato', 'N/A')
+                        tecnico_nome = linha.get('Recurso_Tratado', 'N/A')
+                        st.markdown(f'<div class="item-linha">📄 Contrato: <span class="item-contrato">{contrato_num}</span> | Técnico: {tecnico_nome}</div>', unsafe_allow_html=True)
             else:
                 st.info("Nenhum pendente no ABC.")
 
@@ -155,15 +164,14 @@ if df_master is not None and not df_master.empty:
                     df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
                     total_pendentes = df_super['P_COUNT'].sum()
                     
-                    # Container ultra compacto: Caixa vermelha à esquerda, Lista à direita
-                    with st.container(border=True):
-                        st.markdown(f'<div style="font-size:13px; font-weight:bold; margin-bottom:4px; color:#111;">👤 {supervisor}</div>', unsafe_allow_html=True)
-                        c1, c2 = st.columns([1, 2])
-                        with c1:
-                            st.markdown(f'<div class="compact-box"><div class="compact-label">PENDENTES</div><div class="compact-value">{total_pendentes}</div></div>', unsafe_allow_html=True)
-                        with c2:
-                            df_mini = df_super[['Contrato', 'Recurso_Tratado']].rename(columns={'Contrato':'Contrato', 'Recurso_Tratado':'Técnico'})
-                            st.dataframe(df_mini, use_container_width=True, hide_index=True, height=65)
+                    # Barra do Supervisor + Total na mesma linha
+                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {total_pendentes}</span></div>', unsafe_allow_html=True)
+                    
+                    # Lista corrida de Técnicos e Contratos logo abaixo
+                    for idx, linha in df_super.iterrows():
+                        contrato_num = linha.get('Contrato', 'N/A')
+                        tecnico_nome = linha.get('Recurso_Tratado', 'N/A')
+                        st.markdown(f'<div class="item-linha">📄 Contrato: <span class="item-contrato">{contrato_num}</span> | Técnico: {tecnico_nome}</div>', unsafe_allow_html=True)
             else:
                 st.info("Nenhum pendente em SP.")
 
