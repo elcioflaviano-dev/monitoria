@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA: ANTIDUPLICIDADE DE COLUNAS ===
+# === MOTOR MÁSTER DE CARGA COM PROCV BLINDADO POR LOGIN ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -45,10 +45,7 @@ def carregar_dados_sistema():
                         df_individual = pd.read_csv(arquivo, on_bad_lines='skip')
                     
                     if not df_individual.empty:
-                        # 🌟 PASSO 1 DE BLINDAGEM: Remove na hora colunas totalmente duplicadas no arquivo individual
                         df_individual = df_individual.loc[:, ~df_individual.columns.duplicated()]
-                        
-                        # Força todos os cabeçalhos a virarem texto limpo
                         df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                         lista_dfs.append(df_individual)
                         
@@ -60,18 +57,14 @@ def carregar_dados_sistema():
                 st.sidebar.error("⚠️ Nenhum arquivo pôde ser lido.")
                 return None
                 
-            # Une todas as tabelas brutas
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
-            
-            # 🌟 PASSO 2 DE BLINDAGEM: Se a junção gerou colunas repetidas, elimina novamente
             df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
             
-            # Criamos o dicionário de mapeamento usando uma lista de strings limpa do Python
             colunas_mapeadas = {}
             for col in list(df_bruto.columns):
                 col_upper = str(col).upper().strip()
                 
-                # Validações estritas usando strings isoladas para evitar o erro de Series do Pandas
+                # Mapeamento do Login do Técnico no arquivo bruto
                 if 'LOGIN' in col_upper or 'USER' in col_upper or 'RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper:
                     colunas_mapeadas[col] = 'ID_Tecnico_Bruto'
                 elif 'STATUS' in col_upper and 'OS' not in col_upper:
@@ -86,15 +79,14 @@ def carregar_dados_sistema():
                     colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
             
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
-            
-            # Garante a eliminação de duplicados pós-renomeação caso colunas diferentes tenham virado o mesmo nome mapeado
             df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
             
+            # 🌟 HIGIENIZAÇÃO MÁSTER DO LOGIN DA ROTA (Chave do PROCV)
             if 'ID_Tecnico_Bruto' in df_bruto.columns:
-                df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
-                df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip() if pd.notna(x) else 'N/A')
+                df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].fillna('').astype(str).str.strip().str.upper()
+                df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].fillna('').astype(str).str.strip()
             else:
-                st.sidebar.error("❌ Coluna de identificação do técnico (Login/Recurso) não localizada.")
+                st.sidebar.error("❌ Coluna de identificação do técnico (Login/Recurso) não localizada nos arquivos.")
                 return None
 
             # 🧠 BUSCA ABA "SUPERVISORES" NO GOOGLE SHEETS
@@ -103,26 +95,31 @@ def carregar_dados_sistema():
             
             if res_aux.status_code == 200:
                 df_aux = pd.read_csv(io.StringIO(res_aux.text))
-                
-                # Garante remoção de colunas duplicadas na planilha do Sheets também
                 df_aux = df_aux.loc[:, ~df_aux.columns.duplicated()]
+                
+                # Padroniza os cabeçalhos do Sheets para maiúsculo
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
                 
-                df_aux['LOGIN_MATCH'] = df_aux['LOGIN'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else '')
+                # 🌟 HIGIENIZAÇÃO MÁSTER DO LOGIN DO SHEETS (Garante que comece pelo Login limpo)
+                col_login_sheets = 'LOGIN' if 'LOGIN' in df_aux.columns else df_aux.columns[0]
+                df_aux['LOGIN_MATCH_SHEETS'] = df_aux[col_login_sheets].fillna('').astype(str).str.strip().str.upper()
+                
+                # Garante os nomes corretos para o mapeamento pós-PROCV
                 df_aux = df_aux.rename(columns={'SUPERVISOR': 'SUPERVISOR_MAP', 'BASE': 'BASE_MAP', 'NOME': 'NOME_MAP'})
-                df_aux = df_aux[['LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP']].drop_duplicates()
+                df_aux = df_aux[['LOGIN_MATCH_SHEETS', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP']].drop_duplicates()
                 
-                # PROCV (Merge)
-                df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match', right_on='LOGIN_MATCH', how='left')
+                # 🌟 EXECUTA O PROCV (Merge) EXATAMENTE IGUAL AO EXCEL
+                df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match', right_on='LOGIN_MATCH_SHEETS', how='left')
                 
+                # Aplica os valores encontrados no cruzamento
                 df_final['Recurso'] = df_final['NOME_MAP'].fillna(df_final['Recurso'])
-                df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A')
-                df_final['REGIAO_BASE'] = df_final['BASE_MAP'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
+                df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A').astype(str).str.strip().str.upper()
+                df_final['REGIAO_BASE'] = df_final['BASE_MAP'].fillna('N/A').astype(str).str.strip().str.upper()
                 
-                # Eliminação final de colunas do Merge
-                df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
+                # Limpa colunas temporárias
+                df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH_SHEETS', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
                 
-                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) processado(s) com sucesso!")
+                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) cruzado(s) com o Sheets!")
                 st.session_state['df_rota_ativa'] = df_final
                 return df_final
             else:
@@ -150,6 +147,10 @@ def classificar_status_excel(baixa, status_at):
 def processar_bloco_regional(df_bloco, nome_bloco):
     st.markdown(f'<div style="background-color:#005088; padding:8px 15px; color:white; font-weight:bold; font-size:18px; border-radius:4px; margin-top:20px; margin-bottom:10px;">{nome_bloco}</div>', unsafe_allow_html=True)
     
+    if df_bloco.empty:
+        st.info(f"Nenhum dado ativo para a regional {nome_bloco} neste arquivo.")
+        return
+        
     df_bloco['Supervisor_Upper'] = df_bloco['SUPERVISOR'].apply(lambda x: str(x).strip().upper())
     df_bloco['Status_Atividade_Upper'] = df_bloco['STATUS_ATIVIDADE'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else '')
     df_bloco['Recurso_Upper'] = df_bloco['Recurso'].apply(lambda x: str(x).strip().upper())
@@ -158,7 +159,7 @@ def processar_bloco_regional(df_bloco, nome_bloco):
     df_bloco = df_bloco[~df_bloco['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)].copy()
     
     if df_bloco.empty:
-        st.info(f"Nenhum dado ativo para a regional {nome_bloco} neste arquivo.")
+        st.info(f"Nenhum dado ativo para a regional {nome_bloco} após filtros.")
         return
         
     if 'QTD_OS_COL' in df_bloco.columns:
