@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import requests
-import io
 import altair as alt
 from datetime import datetime
 
@@ -18,75 +16,58 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 INDICADORES IA - ANÁLISE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">TMA, Ranking de Produtividade Técnica e Causa Raiz de O.S NE</div>', unsafe_allow_html=True)
 
-# === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
-def buscar_base_rotas_online():
-    try:
-        url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
-        if 'spreadsheets/d/' in url:
-            id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0].strip()
-            csv_url = f"https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv"
-            if 'gid=' in url:
-                gid = url.split('gid=')[1].split('#')[0].split('&')[0].strip()
-                csv_url += f"&gid={gid}"
-        else:
-            csv_url = url
+# 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
+df_master = st.session_state.get('df_rota_ativa', None)
 
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resposta = requests.get(csv_url, headers=headers, timeout=15)
-        if resposta.status_code != 200:
-            return None
+df_av = None
+if df_master is not None and not df_master.empty:
+    # Mapeamento seguro preventivo contra colunas duplicadas no Excel (.iloc[:, 0])
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_master.columns else 'Intervalo de Tempo'
+    col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_master.columns else 'Status da Atividade'
+    
+    col_tipo_os = 'Tipo O.S 1' if 'Tipo O.S 1' in df_master.columns else ('Tipo de OS' if 'Tipo de OS' in df_master.columns else None)
+    if not col_tipo_os:
+        for c in df_master.columns:
+            if 'OS' in str(c).upper() and 'STATUS' not in str(c).upper(): col_tipo_os = c; break
             
-        import zoneinfo
-        fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
-        st.session_state['data_avancados'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
-
-        conteudo_bruto = resposta.text
-        linhas_puras = conteudo_bruto.splitlines()
+    lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_master['SUPERVISOR']).iloc[:, 0].fillna('N/A').tolist()] if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
+    lista_recurso = [str(x).upper().strip() for x in pd.DataFrame(df_master['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_master.columns else ['N/A'] * len(df_master)
+    lista_status_at = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_status_at]).iloc[:, 0].fillna('PENDENTE').tolist()] if col_status_at in df_master.columns else ['PENDENTE'] * len(df_master)
+    
+    if col_tipo_os:
+        lista_tipo_os = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_tipo_os]).iloc[:, 0].fillna('N/A').tolist()]
+    else:
+        lista_tipo_os = ['N/A'] * len(df_master)
         
-        linha_do_cabecalho_real = 0
-        encontrou_cabecalho = False
-        for i, texto_linha in enumerate(linhas_puras[:30]):
-            linha_upper = texto_linha.upper()
-            if 'SUPERVISOR' in linha_upper or 'CONTRATO' in linha_upper or 'INTERVALO' in linha_upper or 'STATUS' in linha_upper:
-                linha_do_cabecalho_real = i
-                encontrou_cabecalho = True
-                break
+    lista_status_os1 = [str(x).strip() for x in pd.DataFrame(df_master['STATUS_OS1']).iloc[:, 0].fillna('').tolist()] if 'STATUS_OS1' in df_master.columns else [''] * len(df_master)
+    
+    col_tipo_ativ = 'Tipo de Atividade' if 'Tipo de Atividade' in df_master.columns else 'TIPO_ATIVIDADE_COL'
+    lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_tipo_ativ]).iloc[:, 0].fillna('').tolist()] if col_tipo_ativ in df_master.columns else [''] * len(df_master)
 
-        if encontrou_cabecalho:
-            texto_corrigido = "\n".join(linhas_puras[linha_do_cabecalho_real:])
-            df_sheets = pd.read_csv(io.StringIO(texto_corrigido), dtype=str, on_bad_lines='skip')
-        else:
-            df_sheets = pd.read_csv(io.StringIO(conteudo_bruto), dtype=str, on_bad_lines='skip')
-            
-        if df_sheets is None or df_sheets.empty:
-            return None
+    lista_janela = [str(x).strip() for x in pd.DataFrame(df_master[col_janela]).iloc[:, 0].fillna('SEM JANELA').tolist()] if col_janela in df_master.columns else ['SEM JANELA'] * len(df_master)
+    col_vol = 'Total de Tarefas' if 'Total de Tarefas' in df_master.columns else ('VOLUME' if 'VOLUME' in df_master.columns else 'QTD_OS_COL')
+    lista_vol = [str(x).strip() for x in pd.DataFrame(df_master[col_vol]).iloc[:, 0].fillna('1').tolist()] if col_vol in df_master.columns else ['1'] * len(df_master)
 
-        df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
-        df_final = df_sheets.copy()
-        
-        colunas_mapeadas = {}
-        for col in df_sheets.columns:
-            col_upper = col.upper()
-            if 'SUPERVISOR' in col_upper: colunas_mapeadas[col] = 'SUPERVISOR'
-            elif ('INTERVALO' in col_upper or 'TEMPO' in col_upper or 'JANELA' in col_upper): colunas_mapeadas[col] = 'Janela'
-            elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
-            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper): colunas_mapeadas[col] = 'Recurso'
-            elif ('TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo O.S 1'
-            elif ('STATUS DA O.S 1' in col_upper or 'STATUS OS 1' in col_upper or 'BAIXA' in col_upper): colunas_mapeadas[col] = 'STATUS_OS1'
-            elif ('TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper): colunas_mapeadas[col] = 'QTD_OS_COL'
-            elif ('CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper): colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
-        
-        df_final = df_final.rename(columns=colunas_mapeadas)
-        df_final = df_final.loc[:, ~df_final.columns.duplicated()]
-            
-        return df_final
-    except:
-        return None
+    # Criação do DataFrame unificado e higienizado para os Indicadores Analíticos
+    df_av = pd.DataFrame({
+        'Supervisor_Upper': lista_supervisor,
+        'Recurso_Upper': lista_recurso,
+        'STATUS_ATIVIDADE': lista_status_at,
+        'Tipo_OS_Upper': lista_tipo_os,
+        'STATUS_OS1': lista_status_os1,
+        'Tipo_Ativ_Check': lista_tipo_ativ,
+        'Janela': lista_janela,
+        'QTD_OS_COL': lista_vol,
+        'SUPERVISOR': lista_supervisor,
+        'Recurso': lista_recurso
+    })
 
-df_av = buscar_base_rotas_online()
-
-data_sinc = st.session_state.get('data_avancados', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 25px;">🔄 Motor de IA Sincronizado: <span style="color: #006677;">{data_sinc}</span></div>', unsafe_allow_html=True)
+# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
+data_sinc = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+if df_av is not None:
+    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 25px;">🔄 Motor de Indicadores Sincronizado em tempo real via Upload: <span style="color: #006677;">{data_sinc}</span></div>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 13px; font-weight: bold; margin-bottom: 25px;">⚠️ Aguardando upload dos arquivos na página inicial</div>', unsafe_allow_html=True)
 
 # Lógica padrão de conversão de status
 def status_operacional(baixa, status_at):
@@ -100,15 +81,8 @@ def status_operacional(baixa, status_at):
 
 if df_av is not None and not df_av.empty:
     
-    # Higienização Geral da Base
-    df_av['Supervisor_Upper'] = df_av['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
-    df_av['Recurso_Upper'] = df_av['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
-    df_av['Status_Atividade_Upper'] = df_av['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
-    df_av['Tipo_OS_Upper'] = df_av['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
-    df_av['STATUS_OS1'] = df_av['STATUS_OS1'].fillna('').astype(str).str.strip()
-    
-    # Filtros de Limpeza Rígidos
-    df_av = df_av[(~df_av['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & (df_av['Status_Atividade_Upper'] != "SUSPENSO")].copy()
+    # Filtros de Limpeza Rígidos originais
+    df_av = df_av[(~df_av['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & (df_av['STATUS_ATIVIDADE'] != "SUSPENSO")].copy()
     df_av = df_av[~df_av['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)].copy()
     
     # Conversão de volume real baseado na coluna Total de Tarefas
@@ -135,8 +109,11 @@ if df_av is not None and not df_av.empty:
         st.dataframe(df_produtivos, use_container_width=True, hide_index=False)
     with c_rank2:
         st.markdown("**⭐ Destaques da Operação (Top 3)**")
-        for i, row in df_produtivos.head(3).iterrows():
-            st.success(f"🏅 **{i}º Lugar:** {row['Nome do Técnico']} ({row['Total O.S Produtivas']} OS) - Equipe: {row['Supervisor']}")
+        if not df_produtivos.empty:
+            for i, row in df_produtivos.head(3).iterrows():
+                st.success(f"🏅 **{i}º Lugar:** {row['Nome do Técnico']} ({row['Total O.S Produtivas']} OS) - Equipe: {row['Supervisor']}")
+        else:
+            st.info("Aguardando confirmação de ordens produtivas na base.")
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
@@ -188,4 +165,6 @@ if df_av is not None and not df_av.empty:
         st.success("✅ Excelente! Nenhuma quebra por O.S NE foi registrada na base de dados hoje.")
 
 else:
-    st.warning("⚠️ Aguardando carregamento estável dos dados para renderizar as análises.")
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro para processar os indicadores analíticos.")
+
+st.markdown("---")
