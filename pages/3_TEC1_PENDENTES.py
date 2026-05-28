@@ -1,70 +1,165 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
-# 1. Configuração da página ampla (Mantendo o padrão do seu projeto)
+# Configura a página para ocupar toda a largura da tela (Idêntico ao TEC1)
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# 2. Carregar Estilos Globais
+# Abre e injeta o arquivo style.css externo
 try:
     with open("style.css", "r") as f:
         st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
 except:
     pass
 
-st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #cc6600; text-align: center; margin-top: 20px; margin-bottom: 5px;">⏳ LISTAGEM DE TÉCNICOS PENDENTES</h1>', unsafe_allow_html=True)
-st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Visualização detalhada de profissionais sem supervisor ou identificados como TEC1</div>', unsafe_allow_html=True)
+# Título Centralizado no mesmo padrão visual
+st.markdown(
+    '<h1 style="font-size: 42px; font-weight: 900; color: #cc6600; text-align: center; margin-top: 25px; margin-bottom: 5px;">TEC1 PENDENTES</h1>', 
+    unsafe_allow_html=True
+)
 
-# 🔄 3. HERANÇA INTELIGENTE: Puxa a tabela unificada e tratada da Home (streamlit_app.py)
+# 🔄 HERANÇA INTELIGENTE: Puxa o DataFrame unificado da memória global (Home)
 df_master = st.session_state.get('df_rota_ativa', None)
 
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em tempo real via Upload</div>', unsafe_allow_html=True)
+
 if df_master is not None and not df_master.empty:
-    # Cria uma cópia local segura para trabalhar sem afetar as outras telas
     df = df_master.copy()
     
-    # 🌟 CORREÇÃO DO KEYERROR: Garantimos que o Pandas trate os nomes de colunas padronizados da Home
-    # Se por acaso a coluna 'SUPERVISOR' não existir, criamos como '#N/A' para evitar o travamento
-    if 'SUPERVISOR' not in df.columns:
-        df['SUPERVISOR'] = '#N/A'
-        
-    # Encontra a coluna de recurso/técnico gerada na Home
-    col_recurso_reais = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
+    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
+    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else ('Status da Atividade' if 'Status da Atividade' in df.columns else None)
     
-    # Tratamento absoluto das strings para o filtro funcionar liso
-    df['Recurso_Upper'] = df[col_recurso_reais].fillna('N/A').astype(str).str.upper().str.strip()
-    df['Supervisor_Upper'] = df['SUPERVISOR'].fillna('#N/A').astype(str).str.upper().str.strip()
-    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
-    
-    # 📑 FILTRO OPERACIONAL DA TELA: Captura quem está sem supervisor (#N/A) ou é técnico de teste (TEC1)
-    df_filtrado = df[
-        (df['Supervisor_Upper'] == '#N/A') | 
-        (df['Supervisor_Upper'] == 'PENDENTE CADASTRO') |
-        (df['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False))
-    ].copy()
-    
-    if not df_filtrado.empty:
-        # Padroniza volumes se a coluna de quantidade existir
-        if 'QTD_OS_COL' in df_filtrado.columns:
-            df_filtrado['QTD_OS_NUM'] = pd.to_numeric(df_filtrado['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
-        else:
-            df_filtrado['QTD_OS_NUM'] = 1
-
-        st.markdown(f"### ⚠️ Foram localizados **{df_filtrado['Recurso_Upper'].nunique()}** técnicos pendentes de amarração.")
-        st.info("💡 Dica: Copie o login/nome do técnico listado abaixo e insira na aba 'SUPERVISORES' do seu Google Sheets para vinculá-lo a um supervisor real.")
-        
-        # Consolida e agrupa a quantidade de ordens abertas presas com esses profissionais
-        regiao_col = 'REGIAO_BASE' if 'REGIAO_BASE' in df_filtrado.columns else df_filtrado.columns[0]
-        
-        tabela_exibicao = df_filtrado.groupby([regiao_col, col_recurso_reais])['QTD_OS_NUM'].sum().reset_index()
-        tabela_exibicao = tabela_exibicao.rename(columns={
-            regiao_col: 'Região Detectada',
-            col_recurso_reais: 'Login / Identificação do Técnico',
-            'QTD_OS_NUM': 'Quantidade de O.S.'
-        }).sort_values(by='Quantidade de O.S.', ascending=False)
-        
-        # Exibe a tabela organizada na tela
-        st.dataframe(tabela_exibicao, use_container_width=True, hide_index=True)
-        
+    if col_status:
+        df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
     else:
-        st.success("🎉 Excelente! Todos os técnicos ativos na rota possuem um supervisor e base vinculados corretamente no Google Sheets.")
+        df['Status_Atividade_Upper'] = ''
+        
+    # Filtragem de segurança: Remove suspensos
+    df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
+    
+    # Remove as marcações operacionais de almoço (Refeicao)
+    for c in df_limpo.columns:
+        if 'TIPO' in str(c).upper():
+            df_limpo['Tipo_Activity_Str'] = df_limpo[c].fillna('').astype(str)
+            df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
+            break
+        
+    # Tratamento e montagem do filtro dinâmico de Janelas
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_limpo.columns else None
+    if not col_janela:
+        for c in df_limpo.columns:
+            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
+                col_janela = c
+                break
+            
+    if col_janela is not None:
+        df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
+        df_janelas_validas = df_limpo[
+            (df_limpo['Intervalo_Tratado'] != '') & 
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA'))
+        ].copy()
+        
+        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].dropna().unique())
+        opcoes_janela = [j for j in opcoes_janela if j.upper() not in ['NAN', 'NONE', 'N/A']]
+        
+        if opcoes_janela:
+            janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel].copy()
+        else:
+            df_tela = df_limpo.copy()
+    else:
+        df_tela = df_limpo.copy()
+
+    if df_tela.empty:
+        st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
+    else:
+        # 🌟 FILTRO CRÍTICO: Conta e mantém APENAS quem tem status PENDENTE ou EM ABERTO
+        df_tela['P_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
+        
+        # Filtra a tabela para focar estritamente em pendências de campo
+        df_tela = df_tela[df_tela['P_COUNT'] > 0].copy()
+
+        # Identifica o nome ou login do recurso
+        col_rec = 'Recurso' if 'Recurso' in df_tela.columns else None
+        if not col_rec:
+            for c in df_tela.columns:
+                if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
+                    col_rec = c
+                    break
+        df_tela['Recurso_Tratado'] = df_tela[col_rec].fillna('TÉCNICO PENDENTE').astype(str).str.upper() if col_rec else 'TÉCNICO PENDENTE'
+
+        # Define quem vai aparecer no topo do cartão (Se tiver supervisor amarrado mostra ele, senão mostra o técnico)
+        if 'SUPERVISOR' in df_tela.columns:
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(
+                lambda r: str(r['Recurso_Tratado']).upper() if str(r['SUPERVISOR']).strip().upper() in ['#N/A', 'NAN', '', 'PENDENTE CADASTRO'] else str(r['SUPERVISOR']).upper(), axis=1
+            )
+        else:
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['Recurso_Tratado']
+            
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
+
+        # Divisão Regional utilizando as travas de segurança da Home
+        cond_sp = (
+            df_tela['REGIAO_BASE'].fillna('').astype(str).str.upper().str.strip().str.contains('SÃO PAULO|SP', na=False) |
+            df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+        )
+        
+        df_sp = df_tela[cond_sp].copy()
+        df_abc = df_tela[~cond_sp].copy()
+
+        col_coluna_abc, col_coluna_sp = st.columns(2)
+        
+        with col_coluna_abc:
+            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
+            
+            if not df_abc.empty:
+                # Agrupa e soma os contratos pendentes
+                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')['P_COUNT'].sum().reset_index()
+                
+                for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
+                    total_pendentes = int(matriz_abc[matriz_abc['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]['P_COUNT'])
+                    
+                    with st.container(border=True):
+                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#ffebee; padding:2px 8px; border-radius:4px; color:#c62828;">Pendentes: ' + str(total_pendentes) + '</span></div>', unsafe_allow_html=True)
+                        
+                        m1, m2, m3 = st.columns(3)
+                        with m1:
+                            st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
+                        with m2:
+                            st.metric(label="🟣 EM ROTA", value=0)
+                        with m3:
+                            st.metric(label="🟢 INICIADO", value=0)
+            else:
+                st.info("Nenhum contrato pendente localizado para o ABC nesta janela.")
+
+        with col_coluna_sp:
+            st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            
+            if not df_sp.empty:
+                # Agrupa e soma os contratos pendentes
+                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')['P_COUNT'].sum().reset_index()
+                
+                for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
+                    total_pendentes = int(matriz_sp[matriz_sp['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]['P_COUNT'])
+                    
+                    with st.container(border=True):
+                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#ffebee; padding:2px 8px; border-radius:4px; color:#c62828;">Pendentes: ' + str(total_pendentes) + '</span></div>', unsafe_allow_html=True)
+                        
+                        m1, m2, m3 = st.columns(3)
+                        with m1:
+                            st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
+                        with m2:
+                            st.metric(label="🟣 EM ROTA", value=0)
+                        with m3:
+                            st.metric(label="🟢 INICIADO", value=0)
+            else:
+                st.info("Nenhum contrato pendente localizado para SP nesta janela.")
+
+    # MODO TV AUTOMÁTICO (Sincronizado)
+    st.components.v1.html("""
+        <script>
+        setTimeout(function(){ window.parent.location.hash = "#certidao"; }, 30000);
+        </script>
+    """, height=0)
 else:
-    st.warning("👈 Dados da rota ativa não localizados. Por favor, acesse a página inicial (streamlit_app.py) primeiro e faça o upload dos arquivos da rota do dia.")
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro.")
