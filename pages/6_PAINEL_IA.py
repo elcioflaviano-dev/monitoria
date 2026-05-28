@@ -29,6 +29,7 @@ if df_master is not None and not df_master.empty:
         for c in df_master.columns:
             if 'OS' in str(c).upper() and 'STATUS' not in str(c).upper(): col_tipo_os = c; break
 
+    lista_contrato = [str(x).strip() for x in pd.DataFrame(df_master['Contrato']).iloc[:, 0].fillna('').tolist()] if 'Contrato' in df_master.columns else [''] * len(df_master)
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_master['SUPERVISOR']).iloc[:, 0].fillna('N/A').tolist()] if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
     lista_recurso = [str(x).upper().strip() for x in pd.DataFrame(df_master['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_master.columns else ['N/A'] * len(df_master)
     lista_status_at = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_status_at]).iloc[:, 0].fillna('PENDENTE').tolist()] if col_status_at in df_master.columns else ['PENDENTE'] * len(df_master)
@@ -45,6 +46,7 @@ if df_master is not None and not df_master.empty:
 
     # Criação do DataFrame unificado e higienizado
     df_ia = pd.DataFrame({
+        'Contrato': lista_contrato,
         'Supervisor_Upper': lista_supervisor,
         'Recurso_Upper': lista_recurso,
         'Status_Atividade_Upper': lista_status_at,
@@ -72,15 +74,6 @@ def inteligência_status_excel(baixa, status_at):
         if baixa.startswith(cod): return "O.S NE"
     if "PENDENTE" in baixa or "INICIADO" in baixa or "EM ROTA" in baixa or "PENDENTE" in status_at: return "EM ABERTO"
     return "PRODUTIVO"
-
-# Função auxiliar para atribuir pontos com base no nome aproximado da O.S (Regras de Produtividade)
-def calcular_pontos_os(nome_os):
-    nome = str(nome_os).upper()
-    if "INSTALACAO" in nome or "INSTALA" in nome: return 15
-    if "REPARO" in nome or "MANUTEN" in nome: return 10
-    if "MUDANCA" in nome or "ENDERECO" in nome: return 12
-    if "RETIRADA" in nome or "RECOLHA" in nome: return 8
-    return 5  # Valor padrão para demais nomenclaturas
 
 if df_ia is not None and not df_ia.empty:
     
@@ -154,49 +147,15 @@ if df_ia is not None and not df_ia.empty:
     st.markdown("<hr>", unsafe_allow_html=True)
 
     # =========================================================================
-    # 📊 MÓDULO 3: SIMULADOR DE PONTUAÇÃO DE PRODUTIVIDADE (NOVO!)
+    # ⏳ MÓDULO 3: PREDITOR DE ESTOURO DE JORNADA / HORA EXTRA (Antigo Módulo 4)
     # =========================================================================
-    st.markdown('### 📊 MÓDULO 3: SIMULADOR PARCIAL DE PONTUAÇÃO (PRODUTIVIDADE)')
+    st.markdown('### ⏳ MÓDULO 3: ALERTA PREDITIVO DE ESTOURO DE JORNADA (HORA EXTRA)')
     
-    # Filtra apenas o que de fato foi produtivo (executado com sucesso)
-    df_produtivo = df_ia[df_ia['Classe_Analitica'] == 'PRODUTIVO'].copy()
-    df_produtivo['Pontos_OS'] = df_produtivo['Tipo_OS_Upper'].apply(calcular_pontos_os)
-    
-    if not df_produtivo.empty:
-        # Agrupamento por Técnico para gerar a somatória de pontos do dia
-        df_ranking_tec = df_produtivo.groupby(['Supervisor_Upper', 'Recurso_Upper']).agg(
-            OS_Concluidas=('Contrato', 'count'),
-            Pontos_Acumulados=('Pontos_OS', 'sum')
-        ).reset_index().sort_values(by='Pontos_Acumulados', ascending=False)
-        
-        df_ranking_tec = df_ranking_tec.rename(columns={
-            'Supervisor_Upper': 'Supervisor', 'Recurso_Upper': 'Técnico',
-            'OS_Concluidas': 'Qtd O.S Feitas', 'Pontos_Acumulados': 'Pontuação Conquistada'
-        })
-        
-        c1, col_ranking = st.columns([1, 3])
-        with c1:
-            st.metric(label="🏆 Maior Pontuação Atual", value=f"{df_ranking_tec['Pontuação Conquistada'].max()} pts")
-            st.metric(label="📈 Média da Equipe", value=f"{round(df_ranking_tec['Pontuação Conquistada'].mean(), 1)} pts")
-        with col_ranking:
-            st.dataframe(df_ranking_tec, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhuma O.S concluída na base para calcular pontuação até o momento.")
-
-    st.markdown("<hr>", unsafe_allow_html=True)
-
-    # =========================================================================
-    # ⏳ MÓDULO 4: PREDITOR DE ESTOURO DE JORNADA / HORA EXTRA (NOVO!)
-    # =========================================================================
-    st.markdown('### ⏳ MÓDULO 4: ALERTA PREDITIVO DE ESTOURO DE JORNADA (HORA EXTRA)')
-    
-    # Filtra contratos pendentes ou iniciados em campo (desconsiderando largada matinal)
     df_pendentes_rua = df_ia[df_ia['Status_Atividade_Upper'].isin(['PENDENTE', 'INICIADO', 'EM ROTA']) & (df_ia['Tipo_OS_Upper'] != 'NA BASE')].copy()
     
     if not df_pendentes_rua.empty:
         df_vol_pendente = df_pendentes_rua.groupby(['Supervisor_Upper', 'Recurso_Upper']).size().reset_index(name='OS_Restantes')
         
-        # Algoritmo de projeção baseado no horário limite (Gera risco severo se passar de 3 OS pendentes após as 15h)
         def calcular_risco_he(qtd_restante):
             if hora_atual < 13: return "BAIXO"
             if 13 <= hora_atual < 16:
@@ -210,7 +169,6 @@ if df_ia is not None and not df_ia.empty:
             'Supervisor_Upper': 'Supervisor', 'Recurso_Upper': 'Técnico em Campo', 'OS_Restantes': 'Contratos Pendentes na Rota'
         })
         
-        # Destaca apenas quem tem risco real de estourar o horário padrão
         st.dataframe(df_vol_pendente, use_container_width=True, hide_index=True)
     else:
         st.success("✅ Sem riscos de hora extra: Todos os técnicos estão com a rota de campo limpa!")
@@ -218,11 +176,10 @@ if df_ia is not None and not df_ia.empty:
     st.markdown("<hr>", unsafe_allow_html=True)
 
     # =========================================================================
-    # 📉 MÓDULO 5: TERMÔMETRO DE CONVERSÃO OPERACIONAL (NOVO!)
+    # 📉 MÓDULO 4: TERMÔMETRO DE CONVERSÃO OPERACIONAL (Antigo Módulo 5)
     # =========================================================================
-    st.markdown('### 📉 MÓDULO 5: TERMÔMETRO DE CONVERSÃO REGIONAL (ABC vs SP)')
+    st.markdown('### 📉 MÓDULO 4: TERMÔMETRO DE CONVERSÃO REGIONAL (ABC vs SP)')
     
-    # Separação Regional nativa baseada na regra Francisco/Alan para SP
     df_ia['Regiao'] = df_ia['Supervisor_Upper'].apply(lambda s: 'SÃO PAULO (SP)' if 'FRANCISCO' in str(s) or 'ALAN' in str(s) else 'ABC')
     
     df_conversao = df_ia[df_ia['Tipo_OS_Upper'] != 'NA BASE'].copy()
@@ -230,7 +187,6 @@ if df_ia is not None and not df_ia.empty:
     if not df_conversao.empty:
         df_grafico = df_conversao.groupby(['Regiao', 'Classe_Analitica']).size().unstack(fill_value=0).reset_index()
         
-        # Adiciona colunas se não existirem para evitar KeyError
         for col in ['PRODUTIVO', 'O.S NE', 'EM ABERTO']:
             if col not in df_grafico.columns: df_grafico[col] = 0
             
