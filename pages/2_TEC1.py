@@ -12,7 +12,7 @@ try:
 except:
     pass
 
-# Título Centralizado
+# Título TEC1 Centralizado e ajustado
 st.markdown(
     '<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 5px;">TEC1</h1>', 
     unsafe_allow_html=True
@@ -21,31 +21,17 @@ st.markdown(
 # 🔄 HERANÇA INTELIGENTE: Puxa o DataFrame unificado da memória global (Home)
 df_master = st.session_state.get('df_rota_ativa', None)
 
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em tempo real via Upload</div>', unsafe_allow_html=True)
-
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === PASSO 1: LIMPEZA ABSOLUTA DE LINHAS VAZIAS ===
-    col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
-    if not col_tecnico_check:
-        for c in df.columns:
-            if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
-                col_tecnico_check = c
-                break
-                
-    if col_tecnico_check:
-        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
-        df = df[df[col_tecnico_check].fillna('').astype(str).str.upper() != 'NAN'].copy()
-    
-    if 'Contrato' in df.columns:
-        df = df[df['Contrato'].fillna('').astype(str).str.strip() != ''].copy()
-        df = df[df['Contrato'].fillna('').astype(str).str.upper() != 'NAN'].copy()
-
     # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
-    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
-    
-    # Filtragem: Remove suspensos
+    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else ('Status da Atividade' if 'Status da Atividade' in df.columns else None)
+    if col_status:
+        df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df['Status_Atividade_Upper'] = ''
+        
+    # FILTRAGEM: Remove apenas status suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
     # Remove as marcações operacionais de almoço (Refeicao)
@@ -53,31 +39,48 @@ if df_master is not None and not df_master.empty:
         df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
         df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
         
-    # Tratamento e montagem do filtro dinâmico de Janelas
+    # Mapeia a coluna de Janela
     col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_limpo.columns else None
     if not col_janela:
         for c in df_limpo.columns:
-            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
-                col_janela = c
-                break
-            
+            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): col_janela = c; break
+
     if col_janela is not None:
         df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
-        df_janelas_validas = df_limpo[
-            (df_limpo['Intervalo_Tratado'] != '') & 
-            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA'))
-        ].copy()
         
-        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].dropna().unique())
-        opcoes_janela = [j for j in opcoes_janela if j.upper() not in ['NAN', 'NONE', 'N/A']]
+        # 🌟 PASSO 3: MOTOR DE HORÁRIO AUTOMÁTICO INTELIGENTE 🌟
+        # Pega a hora atual do sistema (Ex: 14)
+        hora_atual = datetime.now().hour
         
-        if opcoes_janela:
-            janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel].copy()
+        # Define quais janelas acumulam na tela com base no relógio do dia
+        if hora_atual < 11:
+            janelas_automaticas = ['08 - 10']
+            texto_status_janela = "⏰ Exibindo: Janela Atual (08 - 10)"
+        elif 11 <= hora_atual < 14:
+            janelas_automaticas = ['08 - 10', '11 - 14']
+            texto_status_janela = "⏰ Exibindo: Janela Ativa (11 - 14) + Pendências da Manhã"
         else:
-            df_tela = df_limpo.copy()
+            janelas_automaticas = ['08 - 10', '11 - 14', '15 - 18']
+            texto_status_janela = "⏰ Exibindo: Janela da Tarde (15 - 18) + Tudo Acumulado do Dia"
+
+        # Cria a lista de opções na barra lateral (Mantendo as strings limpas)
+        opcoes_janela_todas = sorted(df_limpo['Intervalo_Tratado'].dropna().unique())
+        opcoes_janela_todas = [j for j in opcoes_janela_todas if j.upper() not in ['NAN', 'NONE', 'N/A'] and len(j) <= 7]
+        
+        # Insere a opção "AUTOMÁTICO" no topo da lista do menu lateral
+        lista_selectbox = ["AUTOMÁTICO 🔄"] + opcoes_janela_todas
+        janela_sel = st.sidebar.selectbox("Filtro de Janela:", lista_selectbox)
+        
+        # Executa a filtragem com base na escolha
+        if janela_sel == "AUTOMÁTICO 🔄":
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'].isin(janelas_automaticas)].copy()
+            st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">{texto_status_janela}</div>', unsafe_allow_html=True)
+        else:
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel].copy()
+            st.markdown(f'<div style="text-align: center; color: #555; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🎯 Filtro Manual Forçado: Janela {janela_sel}</div>', unsafe_allow_html=True)
     else:
         df_tela = df_limpo.copy()
+        st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 15px;">🔄 Base sincronizada em tempo real via Upload</div>', unsafe_allow_html=True)
 
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
@@ -87,6 +90,7 @@ if df_master is not None and not df_master.empty:
         df_tela['R_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
         df_tela['I_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
         
+        # Mantém na tela apenas quem tem status válidos de campo ativos
         df_tela = df_tela[(df_tela['P_COUNT'] > 0) | (df_tela['R_COUNT'] > 0) | (df_tela['I_COUNT'] > 0)].copy()
 
         # Padroniza a coluna do Supervisor vinda do PROCV da Home
@@ -97,14 +101,12 @@ if df_master is not None and not df_master.empty:
             
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
 
-        # 🌟 SOLUÇÃO DO INVALIDINDEXERROR: Divisão vetorizada rápida e direta (Sem usar iterrows)
-        # Cria uma regra de verdadeiro/falso para identificar quem pertence a SP
+        # Divisão Regional utilizando as regras da Home
         cond_sp = (
             df_tela['REGIAO_BASE'].fillna('').astype(str).str.upper().str.strip().str.contains('SÃO PAULO|SP', na=False) |
             df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
         )
         
-        # Filtra os blocos inteiros de uma vez, preservando a integridade das colunas
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
 
@@ -156,7 +158,7 @@ if df_master is not None and not df_master.empty:
             else:
                 st.info("Nenhum contrato ativo para SP nesta janela.")
 
-    # MODO TV
+    # MODO TV AUTOMÁTICO
     st.components.v1.html("""
         <script>
         setTimeout(function(){ window.parent.location.hash = "#3-tec1-pendentes"; }, 30000);
