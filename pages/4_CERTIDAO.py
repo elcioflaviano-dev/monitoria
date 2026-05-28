@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import requests
-import io
 import os
 from datetime import datetime
 
@@ -34,101 +32,43 @@ def carregar_banco_historico():
             return pd.DataFrame(columns=colunas_padrao)
     return pd.DataFrame(columns=colunas_padrao)
 
-# === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
-def buscar_base_rotas_online():
-    try:
-        url = st.secrets.get('public_gsheets_url', "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/edit?gid=208394608#gid=208394608").strip()
-        if 'spreadsheets/d/' in url:
-            id_planilha = url.split('/spreadsheets/d/')[1].split('/')[0].strip()
-            csv_url = f"https://docs.google.com/spreadsheets/d/{id_planilha}/export?format=csv"
-            if 'gid=' in url:
-                gid = url.split('gid=')[1].split('#')[0].split('&')[0].strip()
-                csv_url += f"&gid={gid}"
-        else:
-            csv_url = url
-
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resposta = requests.get(csv_url, headers=headers, timeout=15)
-        if resposta.status_code != 200:
-            return None
-            
-        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO E BLINDADO ===
-        import zoneinfo
-        fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
-        st.session_state['data_da_rota'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
-
-        conteudo_bruto = resposta.text
-        linhas_puras = conteudo_bruto.splitlines()
-        
-        linha_do_cabecalho_real = 0
-        encontrou_cabecalho = False
-        for i, texto_linha in enumerate(linhas_puras[:30]):
-            linha_upper = texto_linha.upper()
-            if 'SUPERVISOR' in linha_upper or 'CONTRATO' in linha_upper or 'INTERVALO' in linha_upper or 'STATUS' in linha_upper:
-                linha_do_cabecalho_real = i
-                encontrou_cabecalho = True
-                break
-
-        if encontrou_cabecalho:
-            texto_corrigido = "\n".join(linhas_puras[linha_do_cabecalho_real:])
-            df_sheets = pd.read_csv(io.StringIO(texto_corrigido), dtype=str, on_bad_lines='skip')
-        else:
-            df_sheets = pd.read_csv(io.StringIO(conteudo_bruto), dtype=str, on_bad_lines='skip')
-            
-        if df_sheets is None or df_sheets.empty:
-            return None
-
-        df_sheets.columns = [str(c).strip().replace('\xa0', ' ') for c in df_sheets.columns]
-        df_final = df_sheets.copy()
-        
-        colunas_mapeadas = {}
-        for col in df_sheets.columns:
-            col_upper = col.upper()
-            if 'SUPERVISOR' in col_upper and 'SUPERVISOR' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'SUPERVISOR'
-            elif ('INTERVALO' in col_upper or 'TEMPO' in col_upper) and 'Intervalo de Tempo' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'Intervalo de Tempo'
-            elif 'STATUS DA ATIVIDADE' in col_upper or ('STATUS' in col_upper and 'ATIVIDADE' in col_upper) and 'Status da Atividade' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'Status da Atividade'
-            elif ('STATUS DA O.S 1' in col_upper or 'O.S 1' in col_upper or 'OS 1' in col_upper) and 'Status da O.S 1' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'Status da O.S 1'
-            elif 'CONTRATO' in col_upper and 'Contrato' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'Contrato'
-            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values():
-                colunas_mapeadas[col] = 'Recurso'
-        
-        df_final = df_final.rename(columns=colunas_mapeadas)
-        df_final = df_final.loc[:, ~df_final.columns.duplicated()]
-
-        if 'Intervalo de Tempo' not in df_final.columns: df_final['Intervalo de Tempo'] = 'Padrão / Sem Janela'
-        if 'Status da Atividade' not in df_final.columns: df_final['Status da Atividade'] = 'PENDENTE'
-        if 'Status da O.S 1' not in df_final.columns: df_final['Status da O.S 1'] = 'NÃO EXECUTADO'
-        if 'SUPERVISOR' not in df_final.columns: df_final['SUPERVISOR'] = 'N/A'
-        if 'Recurso' not in df_final.columns: df_final['Recurso'] = 'Técnico Não Identificado'
-        if 'Contrato' not in df_final.columns: df_final = df_final.rename(columns={df_final.columns[0]: 'Contrato'})
-            
-        return df_final
-    except:
-        return None
-
 if "historico_certidoes" not in st.session_state:
     st.session_state["historico_certidoes"] = carregar_banco_historico()
 
 if "input_contrato_value" not in st.session_state:
     st.session_state["input_contrato_value"] = ""
 
-df_base_online = buscar_base_rotas_online()
+# 🌟 HERANÇA INTELIGENTE: Substitui o download antigo pelo arquivo atualizado do Upload da Home
+df_master = st.session_state.get('df_rota_ativa', None)
+
+df_base_online = None
+if df_master is not None and not df_master.empty:
+    df_base_online = df_master.copy()
+    
+    # Padronização e mapeamento das colunas internas para manter a compatibilidade do código antigo
+    df_base_online['Contrato'] = df_base_online['Contrato'].fillna('').astype(str).str.strip()
+    
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_base_online.columns else 'Intervalo de Tempo'
+    df_base_online['Intervalo de Tempo'] = df_base_online[col_janela].fillna('Padrão / Sem Janela').astype(str).str.strip()
+    
+    col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_base_online.columns else 'Status da Atividade'
+    df_base_online['Status da Atividade'] = df_base_online[col_status_at].fillna('PENDENTE').astype(str).str.upper().str.strip()
+    
+    df_base_online['Status da O.S 1'] = df_base_online['STATUS_OS1'].fillna('NÃO EXECUTADO') if 'STATUS_OS1' in df_base_online.columns else 'NÃO EXECUTADO'
+    df_base_online['Recurso'] = df_base_online['Recurso'].fillna('Técnico Não Identificado')
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
-data_rota_texto = st.session_state.get('data_da_rota', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
-st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+data_rota_texto = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+if df_base_online is not None:
+    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em tempo real via Upload de hoje</div>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando upload dos arquivos na página inicial</div>', unsafe_allow_html=True)
 
 # --- MONTAGEM DO FILTRO LATERAL ---
 janela_sel = "Padrão / Sem Janela"
 if df_base_online is not None:
     try:
-        df_base_online['Intervalo de Tempo'] = df_base_online['Intervalo de Tempo'].fillna('Padrão / Sem Janela').astype(str).str.strip()
-        opcoes_janela = sorted(df_base_online['Intervalo de Tempo'].unique())
+        opcoes_janela = sorted([j for j in df_base_online['Intervalo de Tempo'].unique() if len(j) <= 15])
         if opcoes_janela:
             janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_janela)
     except:
@@ -159,6 +99,7 @@ with st.container(border=True):
         
         if not contrato_encontrado.empty:
             linha_contrato = contrato_encontrado.iloc[0]
+            # 🌟 PROCV AUTOMÁTICO: Puxa o supervisor cruzado corretamente da Home
             supervisor_detectado = str(linha_contrato.get('SUPERVISOR', 'N/A')).upper().strip()
             tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper().strip()
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
@@ -167,7 +108,7 @@ with st.container(border=True):
                 status_os1 = status_os1.split("NAME:")[0].strip()
             detalhes_validacao = f"📋 Encontrado | Técnico: {tecnico_detectado} | Status de Campo: {status_os1}"
         else:
-            detalhes_validacao = "❌ Contrato não localizado na base online de hoje."
+            detalhes_validacao = "❌ Contrato não localizado na base de upload de hoje."
 
     if contrato_input:
         st.caption(detalhes_validacao)
@@ -204,7 +145,7 @@ with st.container(border=True):
 st.markdown("---")
 
 # ==========================================
-# BLOCO 2: PAINEL DE PENDENTES (MÉTODO CONTAINS - ANTI-ACENTO)
+# BLOCO 2: PAINEL DE PENDENTES
 # ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
 
@@ -227,7 +168,10 @@ if df_base_online is not None:
         df_exibir_pendentes = df_base_filtrada
 
     if not df_exibir_pendentes.empty:
+        # Garante que não exiba cabeçalhos vazios ou nulos de supervisor
+        df_exibir_pendentes = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'].fillna('').astype(str).str.strip() != ''].copy()
         supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
+        
         cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
         
         for idx_sup, super_nome in enumerate(supervisores_na_tela):
@@ -236,13 +180,10 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    # AJUSTE VISUAL ABSOLUTO: Monta a string de contratos tratados
                     lista_contratos_reais = [str(c) for c in df_cards_sup['Contrato_Limpo'].unique() if str(c) != '']
                     texto_copia_em_lote = ", ".join(lista_contratos_reais)
                     
-                    # NOVO FORMATO DINÂMICO: st.code se auto-expande em múltiplas linhas e tem botão de cópia nativo!
                     st.code(texto_copia_em_lote, language="text")
-                    
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
                     
                     for _, row_p in df_cards_sup.iterrows():
@@ -269,7 +210,7 @@ if df_base_online is not None:
     else:
         st.info(f"✨ Todas as certidões deste intervalo foram validadas! Nenhuma pendência encontrada para: **{janela_sel}**.")
 else:
-    st.info("ℹ️ Aguardando conexão com os dados online.")
+    st.info("ℹ️ Aguardando o upload dos dados operacionais na página inicial.")
 
 st.markdown("---")
 
