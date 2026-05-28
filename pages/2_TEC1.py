@@ -26,28 +26,48 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
-    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else ('Status da Atividade' if 'Status da Atividade' in df.columns else None)
+    # === 🌟 PASSO 1: LIMPEZA ABSOLUTA DE LINHAS VAZIAS 🌟 ===
+    # Identifica dinamicamente a coluna de login e remove linhas sem técnico ou sem contrato
+    col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
+    if not col_tecnico_check:
+        for c in df.columns:
+            if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
+                col_tecnico_check = c
+                break
+                
+    if col_tecnico_check:
+        # Descarta o que for nulo, string 'nan' ou vazio no Login do Técnico
+        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+        df = df[df[col_tecnico_check].fillna('').astype(str).str.upper() != 'NAN'].copy()
     
-    if col_status:
-        df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df['Status_Atividade_Upper'] = ''
-        
+    if 'Contrato' in df.columns:
+        df = df[df['Contrato'].fillna('').astype(str).str.strip() != ''].copy()
+        df = df[df['Contrato'].fillna('').astype(str).str.upper() != 'NAN'].copy()
+
+    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
+    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
+    
     # Filtragem: Remove suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
-    # Tratamento e montagem do filtro dinâmico de Janelas
-    col_janela = None
-    for c in df_limpo.columns:
-        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
-            col_janela = c
-            break
+    # Remove as marcações operacionais de almoço (Refeicao)
+    if 'Tipo de Atividade' in df_limpo.columns:
+        df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
+        df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
+        
+    # Tratamento e montagem do filtro dinâmico de Janelas (Agora 100% limpo sem horários vazios)
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_limpo.columns else None
+    if not col_janela:
+        for c in df_limpo.columns:
+            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
+                col_janela = c
+                break
             
     if col_janela is not None:
         df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
         df_janelas_validas = df_limpo[
-            (df_limpo['Intervalo_Tratado'] != '') & (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA'))
+            (df_limpo['Intervalo_Tratado'] != '') & 
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA'))
         ].copy()
         
         opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].dropna().unique())
@@ -64,27 +84,28 @@ if df_master is not None and not df_master.empty:
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
     else:
-        # Cria as colunas de soma dos status
+        # Cria as colunas de soma dos status operacionais
         df_tela['P_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
         df_tela['R_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
         df_tela['I_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
         
         df_tela = df_tela[(df_tela['P_COUNT'] > 0) | (df_tela['R_COUNT'] > 0) | (df_tela['I_COUNT'] > 0)].copy()
 
-        # 🌟 RESTAURADO: Padroniza a coluna do Supervisor vinda do PROCV da Home
+        # 🌟 PADRONIZAÇÃO DO SUPERVISOR VINDO DO PROCV DA HOME
         if 'SUPERVISOR' in df_tela.columns:
-            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('SEM SUPERVISOR').replace({'#N/A': 'SEM SUPERVISOR', 'NAN': 'SEM SUPERVISOR', '': 'SEM SUPERVISOR'})
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'NAN': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'})
         else:
-            df_tela['SUPERVISOR_MOSTRAR'] = 'SEM SUPERVISOR'
+            df_tela['SUPERVISOR_MOSTRAR'] = 'PENDENTE CADASTRO'
             
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
 
-        # Divisão Regional utilizando o vínculo do PROCV ou filtros secundários
+        # 🌟 DIVISÃO REGIONAL RIGOROSA POR SUPERVISOR (Resgatando São Paulo)
         df_sp_lista, df_abc_lista = [], []
         for idx, linha in df_tela.iterrows():
             regiao_original = str(linha.get('REGIAO_BASE', '')).upper().strip()
             super_mostrar = str(linha.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
+            # Se o Procv vinculou a Alan ou Francisco, joga em SP, caso contrário vai para o ABC
             if 'SÃO PAULO' in regiao_original or 'SP' in regiao_original or 'FRANCISCO' in super_mostrar or 'ALAN' in super_mostrar:
                 df_sp_lista.append(linha)
             else:
@@ -99,7 +120,6 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             
             if not df_abc.empty:
-                # 🌟 AGRUPAMENTO REAL POR SUPERVISOR
                 matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 
                 for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
@@ -117,13 +137,12 @@ if df_master is not None and not df_master.empty:
                         with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
                         with m3: st.metric(label="🟢 INICIADO", value=iniciados)
             else:
-                st.info("Nenhum contrato em aberto para o ABC nesta janela.")
+                st.info("Nenhum contrato ativo para o ABC nesta janela.")
 
         with col_coluna_sp:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             
             if not df_sp.empty:
-                # 🌟 AGRUPAMENTO REAL POR SUPERVISOR
                 matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 
                 for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
@@ -141,7 +160,7 @@ if df_master is not None and not df_master.empty:
                         with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
                         with m3: st.metric(label="🟢 INICIADO", value=iniciados)
             else:
-                st.info("Nenhum contrato em aberto para SP nesta janela.")
+                st.info("Nenhum contrato ativo para SP nesta janela.")
 
     # MODO TV
     st.components.v1.html("""
@@ -150,4 +169,4 @@ if df_master is not None and not df_master.empty:
         </script>
     """, height=0)
 else:
-    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro.")
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro.")
