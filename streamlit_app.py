@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA: CORRIGIDO CONTRA ERRO DE ZIP/READER INTERNO ===
+# === MOTOR MÁSTER DE CARGA: BLINDADO COM ENGINE OPENPYXL ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -37,19 +37,26 @@ def carregar_dados_sistema():
         
         try:
             for arquivo in arquivos_postados:
-                # 🌟 CORREÇÃO AQUI: Lemos o arquivo e depois convertemos para String pura
-                if arquivo.name.endswith('.xlsx'):
-                    df_individual = pd.read_excel(arquivo)
-                    df_individual = df_individual.astype(str)
-                else:
-                    df_individual = pd.read_csv(arquivo, dtype=str, on_bad_lines='skip')
-                
-                if not df_individual.empty:
-                    df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
-                    lista_dfs.append(df_individual)
+                try:
+                    if arquivo.name.endswith('.xlsx'):
+                        # 🌟 SOLUÇÃO DEFINITIVA: Força o motor openpyxl e lê os bytes diretamente
+                        bytes_data = arquivo.read()
+                        df_individual = pd.read_excel(io.BytesIO(bytes_data), engine='openpyxl')
+                    else:
+                        df_individual = pd.read_csv(arquivo, dtype=str, on_bad_lines='skip')
+                    
+                    if not df_individual.empty:
+                        # Converte todo o conteúdo do dataframe para string com segurança
+                        df_individual = df_individual.astype(str)
+                        df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
+                        lista_dfs.append(df_individual)
+                        
+                except Exception as err_arquivo:
+                    st.sidebar.error(f"Erro específico no arquivo {arquivo.name}: {err_arquivo}")
+                    continue
             
             if not lista_dfs:
-                st.sidebar.error("⚠️ Nenhum dos arquivos enviados continha dados válidos.")
+                st.sidebar.error("⚠️ Nenhum dos arquivos enviados pôde ser lido corretamente.")
                 return None
                 
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
@@ -106,14 +113,14 @@ def carregar_dados_sistema():
                 
                 df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
                 
-                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) unificado(s) e processado(s)!")
+                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) unificado(s) com sucesso!")
                 st.session_state['df_rota_ativa'] = df_final
                 return df_final
             else:
                 st.sidebar.error("❌ Não foi possível ler a aba auxiliar de supervisores online.")
                 return None
         except Exception as e:
-            st.sidebar.error(f"❌ Erro ao processar: {e}")
+            st.sidebar.error(f"❌ Erro geral no motor de carga: {e}")
             return None
             
     return st.session_state.get('df_rota_ativa', None)
