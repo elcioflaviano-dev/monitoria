@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA: EVITA AMBIGUIDADE DE COLUNAS ===
+# === MOTOR MÁSTER DE CARGA: ANTIDUPLICIDADE DE COLUNAS ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -45,7 +45,10 @@ def carregar_dados_sistema():
                         df_individual = pd.read_csv(arquivo, on_bad_lines='skip')
                     
                     if not df_individual.empty:
-                        # Força todos os cabeçalhos a virarem texto simples imediatamente
+                        # 🌟 PASSO 1 DE BLINDAGEM: Remove na hora colunas totalmente duplicadas no arquivo individual
+                        df_individual = df_individual.loc[:, ~df_individual.columns.duplicated()]
+                        
+                        # Força todos os cabeçalhos a virarem texto limpo
                         df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                         lista_dfs.append(df_individual)
                         
@@ -60,40 +63,38 @@ def carregar_dados_sistema():
             # Une todas as tabelas brutas
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             
-            # 🌟 SOLUÇÃO DA AMBIGUIDADE: Convertemos os cabeçalhos para uma lista nativa de Strings do Python.
-            # Isso impede que o Pandas tente analisar séries/vetores inteiros na verificação de texto.
-            lista_colunas_reais = [str(c) for c in df_bruto.columns]
-            colunas_mapeadas = {}
+            # 🌟 PASSO 2 DE BLINDAGEM: Se a junção gerou colunas repetidas, elimina novamente
+            df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
             
-            for col in lista_colunas_reais:
-                col_upper = col.upper().strip()
+            # Criamos o dicionário de mapeamento usando uma lista de strings limpa do Python
+            colunas_mapeadas = {}
+            for col in list(df_bruto.columns):
+                col_upper = str(col).upper().strip()
                 
-                # Procura a coluna do login/técnico
+                # Validações estritas usando strings isoladas para evitar o erro de Series do Pandas
                 if 'LOGIN' in col_upper or 'USER' in col_upper or 'RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper:
                     colunas_mapeadas[col] = 'ID_Tecnico_Bruto'
-                # Procura a coluna de status da atividade
                 elif 'STATUS' in col_upper and 'OS' not in col_upper:
                     colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
-                # Procura a coluna de tipo de O.S
                 elif 'TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper or 'TIPO ATIVIDADE' in col_upper:
                     colunas_mapeadas[col] = 'Tipo O.S 1'
-                # Procura a coluna de baixa/status os 1
                 elif 'STATUS DA O.S 1' in col_upper or 'STATUS OS 1' in col_upper or 'BAIXA' in col_upper:
                     colunas_mapeadas[col] = 'STATUS_OS1'
-                # Procura a coluna de total de tarefas
                 elif 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper or 'QTD' in col_upper:
                     colunas_mapeadas[col] = 'QTD_OS_COL'
-                # Procura a coluna de categoria/capacidade
                 elif 'CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper:
                     colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
             
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
             
+            # Garante a eliminação de duplicados pós-renomeação caso colunas diferentes tenham virado o mesmo nome mapeado
+            df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
+            
             if 'ID_Tecnico_Bruto' in df_bruto.columns:
                 df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
                 df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip() if pd.notna(x) else 'N/A')
             else:
-                st.sidebar.error("❌ Coluna de identificação do técnico (Login/Recurso) não localizada nos arquivos.")
+                st.sidebar.error("❌ Coluna de identificação do técnico (Login/Recurso) não localizada.")
                 return None
 
             # 🧠 BUSCA ABA "SUPERVISORES" NO GOOGLE SHEETS
@@ -103,22 +104,22 @@ def carregar_dados_sistema():
             if res_aux.status_code == 200:
                 df_aux = pd.read_csv(io.StringIO(res_aux.text))
                 
-                # Isola cabeçalhos da aba auxiliar como lista de texto puro
+                # Garante remoção de colunas duplicadas na planilha do Sheets também
+                df_aux = df_aux.loc[:, ~df_aux.columns.duplicated()]
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
                 
-                # Mapeia as colunas usando lambdas seguras
                 df_aux['LOGIN_MATCH'] = df_aux['LOGIN'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else '')
                 df_aux = df_aux.rename(columns={'SUPERVISOR': 'SUPERVISOR_MAP', 'BASE': 'BASE_MAP', 'NOME': 'NOME_MAP'})
                 df_aux = df_aux[['LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP']].drop_duplicates()
                 
-                # Realiza o PROCV (Merge) seguro
+                # PROCV (Merge)
                 df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match', right_on='LOGIN_MATCH', how='left')
                 
                 df_final['Recurso'] = df_final['NOME_MAP'].fillna(df_final['Recurso'])
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A')
                 df_final['REGIAO_BASE'] = df_final['BASE_MAP'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
                 
-                # Descarta colunas temporárias geradas no merge
+                # Eliminação final de colunas do Merge
                 df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
                 
                 st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) processado(s) com sucesso!")
