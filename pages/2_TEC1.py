@@ -27,8 +27,7 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === ALINHAMENTO DE COLUNAS OPERACIONAIS PADRONIZADAS DA HOME ===
-    # A Home gera obrigatoriamente a coluna STATUS_ATIVIDADE ou SUPERVISOR
+    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else ('Status da Atividade' if 'Status da Atividade' in df.columns else None)
     
     if col_status:
@@ -36,7 +35,7 @@ if df_master is not None and not df_master.empty:
     else:
         df['Status_Atividade_Upper'] = ''
         
-    # Filtragem de segurança
+    # Filtragem de segurança: Remove suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
     # Remove as marcações operacionais de almoço (Refeicao)
@@ -58,7 +57,7 @@ if df_master is not None and not df_master.empty:
         
         df_janelas_validas = df_limpo[
             (df_limpo['Intervalo_Tratado'] != '') & 
-            (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA') if 'df_janelas_validas' in locals() else True)
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA'))
         ].copy()
         
         opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].dropna().unique())
@@ -77,43 +76,29 @@ if df_master is not None and not df_master.empty:
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
     else:
-        # Recupera a identificação do recurso
-        col_recurso = 'Recurso' if 'Recurso' in df_tela.columns else None
-        if not col_recurso:
-            for c in df_tela.columns:
-                if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper() or 'RECURSO' in str(c).upper():
-                    col_recurso = c
-                    break
-        
-        df_tela['Recurso_Tratado'] = df_tela[col_recurso].fillna('TÉCNICO').astype(str).str.upper() if col_recurso else 'TÉCNICO'
-            
-        # Define o nome que vai aparecer no topo do cartão
-        col_super_master = 'SUPERVISOR' if 'SUPERVISOR' in df_tela.columns else None
-        
-        if col_super_master:
-            df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(
-                lambda r: str(r['Recurso_Tratado']).upper() if str(r[col_super_master]).strip().upper() in ['#N/A', 'NAN', ''] else str(r[col_super_master]).upper(), axis=1
-            )
-        else:
-            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['Recurso_Tratado']
-
-        # 🌟 CLASSIFICAÇÃO EXPLICITA DE STATUS DO CAMPO
+        # 🌟 CLASSIFICAÇÃO E CONTAGEM DOS STATUS VALIDOS DE CONTRATO
         df_tela['P_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
         df_tela['R_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
         df_tela['I_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
         
-        # Filtra a tabela para trazer APENAS quem tem ordens ativas em um desses status de campo
+        # Mantém na tela apenas quem tem status válidos de campo
         df_tela = df_tela[(df_tela['P_COUNT'] > 0) | (df_tela['R_COUNT'] > 0) | (df_tela['I_COUNT'] > 0)].copy()
 
-        # 🌟 SEPARAÇÃO PRECISA POR REGIAO_BASE PREENCHIDA PELA HOME
-        # Se a Home mapeou como ABC ou se o supervisor não for do núcleo de SP, cai no ABC
+        # 🌟 RESTAURAÇÃO DO AGRUPAMENTO: Padroniza o nome do Supervisor (Garante a soma consolidada)
+        if 'SUPERVISOR' in df_tela.columns:
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'nan': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'})
+        else:
+            df_tela['SUPERVISOR_MOSTRAR'] = 'PENDENTE CADASTRO'
+            
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
+
+        # Separação precisa por Região/Supervisor
         df_sp_lista, df_abc_lista = [], []
-        
         for idx, linha in df_tela.iterrows():
             regiao = str(linha.get('REGIAO_BASE', '')).upper().strip()
-            super_original = str(linha.get('SUPERVISOR', '')).upper().strip()
+            super_mostrar = str(linha.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
-            if 'SÃO PAULO' in regiao or 'SP' in regiao or 'FRANCISCO' in super_original or 'ALAN' in super_original:
+            if 'SÃO PAULO' in regiao or 'SP' in regiao or 'FRANCISCO' in super_mostrar or 'ALAN' in super_mostrar:
                 df_sp_lista.append(linha)
             else:
                 df_abc_lista.append(linha)
@@ -127,17 +112,19 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             
             if not df_abc.empty:
-                supervisores_abc = sorted(df_abc['SUPERVISOR_MOSTRAR'].dropna().unique())
-                for supervisor in supervisores_abc:
-                    df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
+                # Agrupa estritamente por Supervisor, somando a quantidade de contratos
+                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
+                
+                for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
+                    dados_super = matriz_abc[matriz_abc['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
                     
-                    pendentes = df_super['P_COUNT'].sum()
-                    em_rota = df_super['R_COUNT'].sum()
-                    iniciados = df_super['I_COUNT'].sum()
+                    pendentes = int(dados_super['P_COUNT'])
+                    em_rota = int(dados_super['R_COUNT'])
+                    iniciados = int(dados_super['I_COUNT'])
                     total_real = pendentes + em_rota + iniciados
                     
                     with st.container(border=True):
-                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
+                        st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
                         
                         m1, m2, m3 = st.columns(3)
                         with m1:
@@ -147,23 +134,25 @@ if df_master is not None and not df_master.empty:
                         with m3:
                             st.metric(label="🟢 INICIADO", value=iniciados)
             else:
-                st.info("Nenhum supervisor ou técnico ativo no ABC nesta janela.")
+                st.info("Nenhum supervisor ativo no ABC nesta janela.")
 
         with col_coluna_sp:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             
             if not df_sp.empty:
-                supervisores_sp = sorted(df_sp['SUPERVISOR_MOSTRAR'].dropna().unique())
-                for supervisor in supervisores_sp:
-                    df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
+                # Agrupa estritamente por Supervisor, somando a quantidade de contratos
+                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
+                
+                for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
+                    dados_super = matriz_sp[matriz_sp['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
                     
-                    pendentes = df_super['P_COUNT'].sum()
-                    em_rota = df_super['R_COUNT'].sum()
-                    iniciados = df_super['I_COUNT'].sum()
+                    pendentes = int(dados_super['P_COUNT'])
+                    em_rota = int(dados_super['R_COUNT'])
+                    iniciados = int(dados_super['I_COUNT'])
                     total_real = pendentes + em_rota + iniciados
                     
                     with st.container(border=True):
-                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
+                        st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
                         
                         m1, m2, m3 = st.columns(3)
                         with m1:
@@ -173,7 +162,7 @@ if df_master is not None and not df_master.empty:
                         with m3:
                             st.metric(label="🟢 INICIADO", value=iniciados)
             else:
-                st.info("Nenhum supervisor ou técnico ativo em SP nesta janela.")
+                st.info("Nenhum supervisor ativo em SP nesta janela.")
 
     # MODO TV AUTOMÁTICO
     st.components.v1.html("""
