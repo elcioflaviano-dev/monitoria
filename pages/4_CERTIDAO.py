@@ -35,9 +35,10 @@ def carregar_banco_historico():
 if "historico_certidoes" not in st.session_state:
     st.session_state["historico_certidoes"] = carregar_banco_historico()
 
-# 🌟 Inicializa a variável que armazena o texto real do contrato de forma segura
-if "valor_contrato_limpo" not in st.session_state:
-    st.session_state["valor_contrato_limpo"] = ""
+# 🌟 FUNÇÃO DE SUPORTE: Executa o reset limpando a chave do Widget de forma nativa
+def resetar_campo_contrato():
+    st.session_state["valor_contrato_temporario"] = st.session_state["widget_contrato_input"]
+    st.session_state["widget_contrato_input"] = ""
 
 # 🔄 HERANÇA INTELIGENTE
 df_master = st.session_state.get('df_rota_ativa', None)
@@ -105,14 +106,13 @@ with st.container(border=True):
     col1, col2, col3 = st.columns([2, 2, 3])
 
     with col1:
-        # 🌟 CORREÇÃO DEFINTIVA: Usa value vindo do estado controlado e remove a key conflitante
+        # 🌟 VÍNCULO SEGURO: Captura o valor via widget de sessão direto e limpa instantaneamente ao mudar
         contrato_input = st.text_input(
             "Número do Contrato:", 
-            value=st.session_state["valor_contrato_limpo"],
+            key="widget_contrato_input",
             placeholder="Digite o contrato e pressione Enter..."
         ).strip()
 
-    status_sugerido = "OK"  
     supervisor_detectado = "N/A"
     tecnico_detectado = "N/A"
     detalhes_validacao = ""
@@ -143,11 +143,15 @@ with st.container(border=True):
     with col3:
         obs_input = st.text_input("Observações / Motivo:", placeholder="Insira notas adicionais aqui...").strip()
 
-    if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True):
-        if contrato_input != "":
+    # Botão de gravação executa o callback nativo de limpeza do campo antes do refresh
+    if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True, on_click=resetar_campo_contrato):
+        # Puxa o contrato temporário que salvamos no clique da função
+        contrato_salvar = st.session_state.get("valor_contrato_temporario", "").strip()
+        
+        if contrato_salvar != "":
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             nova_linha = pd.DataFrame([{
-                "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
+                "Data/Hora": agora, "Contrato": contrato_salvar, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
                 "Intervalo de Tempo": "AUTOMÁTICO", "Observação": obs_input if obs_input != "" else "OK"
             }])
@@ -158,10 +162,7 @@ with st.container(border=True):
             st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
             
-            # 🌟 SOLUÇÃO DO COMPONENTE: Reseta a variável de valor padrão com segurança
-            st.session_state["valor_contrato_limpo"] = ""
-            
-            st.success(f"✅ Contrato {contrato_input} atualizado como {status_final}!")
+            st.success(f"✅ Contrato {contrato_salvar} atualizado como {status_final}!")
             st.rerun()
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
