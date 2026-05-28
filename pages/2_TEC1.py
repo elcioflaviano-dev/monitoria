@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Configura a página para ocupar toda a largura da tela
+# Configura a página para ocupar toda a largura da tela (Igual ao original)
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 # Abre e injeta o arquivo style.css externo
@@ -26,8 +26,7 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === 🌟 PASSO 1: LIMPEZA ABSOLUTA DE LINHAS VAZIAS 🌟 ===
-    # Identifica dinamicamente a coluna de login e remove linhas sem técnico ou sem contrato
+    # === PASSO 1: LIMPEZA ABSOLUTA DE LINHAS VAZIAS ===
     col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
     if not col_tecnico_check:
         for c in df.columns:
@@ -36,7 +35,6 @@ if df_master is not None and not df_master.empty:
                 break
                 
     if col_tecnico_check:
-        # Descarta o que for nulo, string 'nan' ou vazio no Login do Técnico
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
         df = df[df[col_tecnico_check].fillna('').astype(str).str.upper() != 'NAN'].copy()
     
@@ -55,7 +53,7 @@ if df_master is not None and not df_master.empty:
         df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
         df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
         
-    # Tratamento e montagem do filtro dinâmico de Janelas (Agora 100% limpo sem horários vazios)
+    # Tratamento e montagem do filtro dinâmico de Janelas
     col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_limpo.columns else None
     if not col_janela:
         for c in df_limpo.columns:
@@ -91,7 +89,7 @@ if df_master is not None and not df_master.empty:
         
         df_tela = df_tela[(df_tela['P_COUNT'] > 0) | (df_tela['R_COUNT'] > 0) | (df_tela['I_COUNT'] > 0)].copy()
 
-        # 🌟 PADRONIZAÇÃO DO SUPERVISOR VINDO DO PROCV DA HOME
+        # Padroniza a coluna do Supervisor vinda do PROCV da Home
         if 'SUPERVISOR' in df_tela.columns:
             df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'NAN': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'})
         else:
@@ -99,20 +97,16 @@ if df_master is not None and not df_master.empty:
             
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
 
-        # 🌟 DIVISÃO REGIONAL RIGOROSA POR SUPERVISOR (Resgatando São Paulo)
-        df_sp_lista, df_abc_lista = [], []
-        for idx, linha in df_tela.iterrows():
-            regiao_original = str(linha.get('REGIAO_BASE', '')).upper().strip()
-            super_mostrar = str(linha.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
-            
-            # Se o Procv vinculou a Alan ou Francisco, joga em SP, caso contrário vai para o ABC
-            if 'SÃO PAULO' in regiao_original or 'SP' in regiao_original or 'FRANCISCO' in super_mostrar or 'ALAN' in super_mostrar:
-                df_sp_lista.append(linha)
-            else:
-                df_abc_lista.append(linha)
-                
-        df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
-        df_sp = pd.DataFrame(df_sp_lista) if df_sp_lista else pd.DataFrame(columns=df_tela.columns)
+        # 🌟 SOLUÇÃO DO INVALIDINDEXERROR: Divisão vetorizada rápida e direta (Sem usar iterrows)
+        # Cria uma regra de verdadeiro/falso para identificar quem pertence a SP
+        cond_sp = (
+            df_tela['REGIAO_BASE'].fillna('').astype(str).str.upper().str.strip().str.contains('SÃO PAULO|SP', na=False) |
+            df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+        )
+        
+        # Filtra os blocos inteiros de uma vez, preservando a integridade das colunas
+        df_sp = df_tela[cond_sp].copy()
+        df_abc = df_tela[~cond_sp].copy()
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
