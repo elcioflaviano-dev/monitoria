@@ -43,7 +43,6 @@ df_master = st.session_state.get('df_rota_ativa', None)
 
 df_base_online = None
 if df_master is not None and not df_master.empty:
-    # Identifica as colunas dinâmicas mapeadas na Home
     col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_master.columns else 'Intervalo de Tempo'
     col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_master.columns else 'Status da Atividade'
     
@@ -68,7 +67,7 @@ if df_master is not None and not df_master.empty:
     lista_recurso = [str(x).strip() for x in pd.DataFrame(df_master['Recurso']).iloc[:, 0].fillna('Técnico Não Identificado').tolist()] if 'Recurso' in df_master.columns else ['Técnico Não Identificado'] * len(df_master)
     lista_supervisor = [str(x).strip() for x in pd.DataFrame(df_master['SUPERVISOR']).iloc[:, 0].fillna('N/A').tolist()] if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
 
-    # Reconstrói a base limpa e unificada para o formulário
+    # Reconstrói a base limpa e unificada
     df_base_online = pd.DataFrame({
         'Contrato': lista_contrato,
         'Intervalo de Tempo': lista_janela,
@@ -85,13 +84,24 @@ if df_base_online is not None:
 else:
     st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando upload dos arquivos na página inicial</div>', unsafe_allow_html=True)
 
-# --- MONTAGEM DO FILTRO LATERAL ---
+# --- MONTAGEM DO FILTRO LATERAL COM HISTOGRAMA LIMPO ---
 janela_sel = "Padrão / Sem Janela"
 if df_base_online is not None:
     try:
-        opcoes_janela = sorted([j for j in df_base_online['Intervalo de Tempo'].unique() if len(j) <= 15])
+        # 🌟 FILTRAGEM DO MENU: Cria uma cópia temporária contendo apenas os contratos ativos para extrair as janelas reais
+        df_ativos_menu = df_base_online[
+            (df_base_online['Status da Atividade'].str.contains("CONCLU|INIC|PENDENTE|ROTA", na=False)) &
+            (df_base_online['Intervalo de Tempo'] != '') &
+            (~df_base_online['Intervalo de Tempo'].str.upper().str.contains('SEM JANELA')) &
+            (df_base_online['Intervalo de Tempo'].str.len() <= 7) # Garante apenas padrões como "08 - 12" ou "11 - 14"
+        ].copy()
+        
+        opcoes_janela = sorted(df_ativos_menu['Intervalo de Tempo'].unique())
         if opcoes_janela:
             janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_janela)
+        else:
+            opcoes_fallback = sorted([j for j in df_base_online['Intervalo de Tempo'].unique() if len(j) <= 7])
+            janela_sel = st.sidebar.selectbox("Intervalo de Tempo Ativo:", opcoes_fallback if opcoes_fallback else ["Padrão / Sem Janela"])
     except:
         pass
 
@@ -178,7 +188,6 @@ if df_base_online is not None:
     
     cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
     
-    # 🌟 CORREÇÃO MÁSTER: Captura de forma ampla e correta os status ativos da sua nova base (Pendente, Iniciado, Concluído, etc.)
     cond_ativ = (
         df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU", na=False) | 
         df_base_online['Status_Atividade_Limpo'].str.contains("INIC", na=False) |
