@@ -77,9 +77,8 @@ def buscar_base_rotas_online():
                 colunas_mapeadas[col] = 'Contrato'
             elif ('TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper or 'TIPO ATIVIDADE' in col_upper) and 'Tipo O.S 1' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Tipo O.S 1'
-            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values(): 
+            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Recurso'
-            # 🌟 PARAMETRIZAÇÃO CRÍTICA: Mapeia a coluna "Total de tarefas" para saber o total de OS
             elif ('TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'QTD O.S' in col_upper or 'VOLUME' in col_upper) and 'QTD_OS_COL' not in colunas_mapeadas.values():
                 colunas_mapeadas[col] = 'QTD_OS_COL'
             elif ('CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper) and 'CATEGORIA_CAPACIDADE' not in colunas_mapeadas.values():
@@ -141,7 +140,6 @@ def gerar_tabela_bloco_tecnologia(df_tecnologia):
         for sup in sorted(supervisores):
             df_sup = df_tecnologia[df_tecnologia['Supervisor_Upper'] == sup]
             
-            # 🌟 Puxa a soma real baseada nos valores numéricos da coluna "Total de tarefas"
             em_aberto = df_sup[df_sup['Classificacao_Excel'] == 'EM ABERTO']['QTD_OS_NUM'].sum()
             os_ne = df_sup[df_sup['Classificacao_Excel'] == 'O.S NE']['QTD_OS_NUM'].sum()
             produtivo = df_sup[df_sup['Classificacao_Excel'] == 'PRODUTIVO']['QTD_OS_NUM'].sum()
@@ -241,6 +239,21 @@ def calcular_metricas_regiao(df_regiao):
 # --- CORE DO RENDER ---
 if df_dash is not None and not df_dash.empty:
     
+    # Padronização e Higienização Iniciais das Strings
+    df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
+    df_dash['Status_Geral_Upper'] = df_dash['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
+    
+    # 🌟🌟🌟 APLICAÇÃO DOS FILTROS OPERACIONAIS DE LIMPEZA PEDIDOS 🌟🌟🌟
+    # 1. Limpeza de Supervisor: Descarta se for #N/A, N/A, vazio ou nulo
+    df_dash = df_dash[
+        (~df_dash['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & 
+        (df_dash['SUPERVISOR'].notna())
+    ].copy()
+    
+    # 2. Limpeza de Status: Descarta sumariamente se a atividade estiver como "SUSPENSO"
+    df_dash = df_dash[df_dash['Status_Geral_Upper'] != "SUSPENSO"].copy()
+    # 🌟🌟🌟 ======================================================= 🌟🌟🌟
+
     if 'CATEGORIA_CAPACIDADE' in df_dash.columns:
         df_dash['Capacidade_Upper'] = df_dash['CATEGORIA_CAPACIDADE'].fillna('').astype(str).str.upper().str.strip()
     else:
@@ -248,8 +261,6 @@ if df_dash is not None and not df_dash.empty:
         
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
     df_dash['Status_OS1_Upper'] = df_dash['STATUS_OS1'].fillna('').astype(str).str.upper().str.strip()
-    df_dash['Status_Geral_Upper'] = df_dash['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
-    df_dash['Supervisor_Upper'] = df_dash['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Recurso_Upper'] = df_dash['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df_dash['Tipo_OS_Upper'] = df_dash['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
     
@@ -266,10 +277,8 @@ if df_dash is not None and not df_dash.empty:
     
     df_global = df_dash[cond_validos].copy()
 
-    # =========================================================================
-    # ⚡ REGRA ULTRA RÁPIDA: CLASSIFICAÇÃO POR PALAVRAS-CHAVE DA SUA IMAGEM
-    # =========================================================================
-    df_global['Tipo_Servico'] = 'SERVIÇO' # Tudo cai em Serviço por padrão
+    # Blocado por Tecnologia
+    df_global['Tipo_Servico'] = 'SERVIÇO'
 
     lista_base_adesao = [
         "1 - ADESAO - INSTALACAO DE ASSINATURA",
@@ -295,11 +304,10 @@ if df_dash is not None and not df_dash.empty:
     # 5. Bloco MP
     df_global.loc[df_global['Tipo_OS_Upper'].str.contains('ASSISTENCIA TECNICA|ASSISTÊNCIA TÉCNICA|REFAZER MANUTENCAO|REFAZER MANUTENÇÃO', na=False) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'MP'
 
-    # 6. Bloco INSTALAÇÃO (Filtro Inteligente de Termos)
+    # 6. Bloco INSTALAÇÃO
     df_global.loc[(df_global['Tipo_OS_Upper'].str.contains('INSTALACAO|INSTALAÇÃO|HABILITACAO|HABILITAÇÃO|MUDANCA DE ENDERECO|MUDANÇA DE ENDEREÇO|RETIRADA|REMOÇÃO|REMOVE', na=False)) & (df_global['Tipo_Servico'] == 'SERVIÇO'), 'Tipo_Servico'] = 'INSTALAÇÃO'
-    # =========================================================================
 
-    # Divisão Regional
+    # Divisão Regional (Filtro por Supervisor)
     df_sp_base = df_global[df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc_base = df_global[~df_global['Supervisor_Upper'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
