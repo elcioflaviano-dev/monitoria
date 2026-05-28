@@ -1,51 +1,146 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
-# 1. Configuração da página ampla (Igual ao seu original)
+# Configura a página para ocupar toda a largura da tela (Igual ao original)
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# 2. Carregar Estilos Globais
+# Abre e injeta o arquivo style.css externo
 try:
     with open("style.css", "r") as f:
         st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
 except:
     pass
 
-st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #cc6600; text-align: center; margin-top: 20px; margin-bottom: 5px;">⏳ TÉCNICOS PENDENTES (TEC1 / TEC 1)</h1>', unsafe_allow_html=True)
-st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Monitoramento de profissionais sem equipe vinculada ou pendentes de cadastro</div>', unsafe_allow_html=True)
+# Título TEC1 Centralizado e ajustado
+st.markdown(
+    '<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 5px;">TEC1</h1>', 
+    unsafe_allow_html=True
+)
 
-# 🔄 Puxa o DataFrame do estado da sessão (Memória global do seu app)
-df = st.session_state.get('df_rota_ativa', None)
+# 🔄 HERANÇA INTELIGENTE: Puxa o DataFrame unificado da memória global (Home)
+df_master = st.session_state.get('df_rota_ativa', None)
 
-if df is not None and not df.empty:
-    # 🌟 CORREÇÃO CIRÚRGICA (Preservando o comportamento do seu backup):
-    # Forçamos o astype(str) antes de chamar o .str para que o Pandas nunca mais dê o erro de Attribute
-    df['Recurso_Upper'] = df['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
-    df['Supervisor_Upper'] = df['SUPERVISOR'].fillna('#N/A').astype(str).str.upper().str.strip()
+# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
+data_rota_texto = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
+st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em tempo real via Upload</div>', unsafe_allow_html=True)
+
+if df_master is not None and not df_master.empty:
+    df = df_master.copy()
+    
+    # === HIGIENIZAÇÃO CRÍTICA DO FILTRO E DOS DADOS ===
+    # Força conversão para string para evitar erros do Pandas
+    df['Contrato_Limpo'] = df['Contrato'].fillna('').astype(str).str.strip()
     df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
     
-    # 📑 Filtros originais do seu layout anterior
-    df_bloco = df[
-        (df['Supervisor_Upper'] == '#N/A') | 
-        (df['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False))
-    ].copy()
+    # FILTRAGEM PESADA: Elimina nulos, #N/A e status SUSPENSO
+    cond_contrato_valido = (
+        (df['Contrato_Limpo'] != '') & 
+        (df['Contrato_Limpo'] != 'nan') & 
+        (~df['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
+        (~df['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
+    )
     
-    if not df_bloco.empty:
-        if 'QTD_OS_COL' in df_bloco.columns:
-            df_bloco['QTD_OS_NUM'] = pd.to_numeric(df_bloco['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
-        else:
-            df_bloco['QTD_OS_NUM'] = 1
-            
-        # Agrupamento e exibição idênticos ao seu modelo anterior
-        tabela_pendentes = df_bloco.groupby(['REGIAO_BASE', 'Recurso'])['QTD_OS_NUM'].sum().reset_index()
-        tabela_pendentes = tabela_pendentes.rename(columns={
-            'REGIAO_BASE': 'Base Detectada',
-            'Recurso': 'Técnico / Login',
-            'QTD_OS_NUM': 'Quantidade O.S'
-        }).sort_values(by='Quantidade O.S', ascending=False)
+    # Remove as marcações operacionais de almoço (Refeicao)
+    if 'Tipo de Atividade' in df.columns:
+        df['Tipo_Atividade_Str'] = df['Tipo de Atividade'].fillna('').astype(str)
+        cond_contrato_valido = cond_contrato_valido & (~df['Tipo_Atividade_Str'].str.contains('Refeicao', case=False, na=False))
         
-        st.dataframe(tabela_pendentes, use_container_width=True, hide_index=True)
+    df_limpo = df[cond_contrato_valido].copy()
+    
+    # Tratamento e montagem do filtro dinâmico de Janelas Válidas
+    col_janela = 'Janela'
+    if col_janela in df_limpo.columns:
+        df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
+        
+        # Ignora textos corrompidos ou informativos de sistema da lista
+        df_janelas_validas = df_limpo[
+            (df_limpo['Intervalo_Tratado'] != '') & 
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+        ]
+        
+        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].unique())
+        
+        if opcoes_janela:
+            janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == 1] # Filtra a janela selecionada de forma segura
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
+        else:
+            df_tela = df_limpo.copy()
+            janela_sel = "N/A"
     else:
-        st.success("🎉 Nenhum técnico pendente (TEC1 ou #N/A) encontrado na rota atual!")
+        df_tela = df_limpo.copy()
+        janela_sel = "N/A"
+
+    # 🌟 SEPARAÇÃO PRECISA POR COLUNA REGIONAL (Preenchida pelo Procv da Home)
+    df_abc = df_tela[df_tela['REGIAO_BASE'] == 'ABC'].copy()
+    # Captura tanto 'SÃO PAULO' quanto possíveis 'SP' ou 'GUARULHOS' para compor a coluna da direita
+    df_sp = df_tela[df_tela['REGIAO_BASE'].isin(['SÃO PAULO', 'SP', 'GUARULHOS'])].copy()
+
+    col_coluna_abc, col_coluna_sp = st.columns(2)
+    
+    with col_coluna_abc:
+        st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
+        
+        if not df_abc.empty:
+            supervisores_abc = df_abc['SUPERVISOR'].dropna().unique()
+            for supervisor in sorted(supervisores_abc):
+                if str(supervisor).upper() in ['#N/A', 'NAN', '']: continue
+                df_super = df_abc[df_abc['SUPERVISOR'] == supervisor]
+                
+                pendentes = len(df_super[df_super['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper() == 'PENDENTE'])
+                em_rota = len(df_super[df_super['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper() == 'EM ROTA'])
+                iniciados = len(df_super[df_super['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper() == 'INICIADO'])
+                total = len(df_super)
+                
+                with st.container(border=True):
+                    st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">' + str(supervisor).upper() + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total) + '</span></div>', unsafe_allow_html=True)
+                    
+                    m1, m2, m3 = st.columns(3)
+                    with m1:
+                        st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(pendentes) + '</div></div>', unsafe_allow_html=True)
+                    with m2:
+                        st.metric(label="🟣 EM ROTA", value=em_rota)
+                    with m3:
+                        st.metric(label="🟢 INICIADO", value=iniciados)
+        else:
+            st.info("Nenhum supervisor ativo no ABC nesta janela.")
+
+    with col_coluna_sp:
+        st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+        
+        if not df_sp.empty:
+            supervisores_sp = df_sp['SUPERVISOR'].dropna().unique()
+            for supervisor in sorted(supervisores_sp):
+                if str(supervisor).upper() in ['#N/A', 'NAN', '']: continue
+                df_super = df_sp[df_sp['SUPERVISOR'] == supervisor]
+                
+                pendentes = len(df_super[df_super['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper() == 'PENDENTE'])
+                em_rota = len(df_super[df_super['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper() == 'EM ROTA'])
+                iniciados = len(df_super[df_super['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper() == 'INICIADO'])
+                total = len(df_super)
+                
+                with st.container(border=True):
+                    st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">' + str(supervisor).upper() + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total) + '</span></div>', unsafe_allow_html=True)
+                    
+                    m1, m2, m3 = st.columns(3)
+                    with m1:
+                        st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(pendentes) + '</div></div>', unsafe_allow_html=True)
+                    with m2:
+                        st.metric(label="🟣 EM ROTA", value=em_rota)
+                    with m3:
+                        st.metric(label="🟢 INICIADO", value=iniciados)
+        else:
+            st.info("Nenhum supervisor ativo em SP nesta janela.")
+
+    # MODO TV AUTOMÁTICO (Mantido igual ao seu backup)
+    st.components.v1.html("""
+        <script>
+        setTimeout(function(){
+            window.parent.location.hash = "#3-tec1-pendentes";
+        }, 30000);
+        </script>
+    """, height=0)
 else:
-    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro.")
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro.")
