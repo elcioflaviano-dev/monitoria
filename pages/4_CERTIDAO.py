@@ -47,7 +47,7 @@ if df_master is not None and not df_master.empty:
     col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_master.columns else 'Intervalo de Tempo'
     col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_master.columns else 'Status da Atividade'
     
-    # 🌟 EXTRAÇÃO SEGURA (Prevenção absoluta contra duplicidade de colunas usando .values.flatten())
+    # Extração segura e robusta das colunas
     lista_contrato = [str(x).strip() for x in pd.DataFrame(df_master['Contrato']).iloc[:, 0].fillna('').tolist()]
     
     if col_janela in df_master.columns:
@@ -60,7 +60,6 @@ if df_master is not None and not df_master.empty:
     else:
         lista_status_at = ['PENDENTE'] * len(df_master)
         
-    # 🌟 CORREÇÃO DO ATTRIBUTEERROR: Trata a coluna STATUS_OS1 mesmo se ela vier duplicada no Excel
     if 'STATUS_OS1' in df_master.columns:
         lista_status_os1 = [str(x).strip() for x in pd.DataFrame(df_master['STATUS_OS1']).iloc[:, 0].fillna('NÃO EXECUTADO').tolist()]
     else:
@@ -178,7 +177,14 @@ if df_base_online is not None:
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
     cond_janela = df_base_online['Intervalo_Limpo'] == janela_sel.strip()
-    cond_ativ = df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU") | df_base_online['Status_Atividade_Limpo'].str.contains("INIC")
+    
+    # 🌟 CORREÇÃO MÁSTER: Captura de forma ampla e correta os status ativos da sua nova base (Pendente, Iniciado, Concluído, etc.)
+    cond_ativ = (
+        df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU", na=False) | 
+        df_base_online['Status_Atividade_Limpo'].str.contains("INIC", na=False) |
+        df_base_online['Status_Atividade_Limpo'].str.contains("PENDENTE", na=False) |
+        df_base_online['Status_Atividade_Limpo'].str.contains("ROTA", na=False)
+    )
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
@@ -189,7 +195,7 @@ if df_base_online is not None:
         df_exibir_pendentes = df_base_filtrada
 
     if not df_exibir_pendentes.empty:
-        df_exibir_pendentes = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'].fillna('').astype(str).str.strip() != ''].copy()
+        df_exibir_pendentes = df_exibir_pendentes[~df_exibir_pendentes['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip().isin(['', 'N/A', 'NAN', '#N/A'])].copy()
         supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
         
         cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
@@ -214,9 +220,15 @@ if df_base_online is not None:
                         if "CONCLU" in status_real_campo:
                             bg_color = "#2e7d32"     
                             txt_status = "CONCLUÍDO"
-                        else:
+                        elif "INIC" in status_real_campo:
                             bg_color = "#ff9800"     
                             txt_status = "INICIADO"
+                        elif "ROTA" in status_real_campo:
+                            bg_color = "#9c27b0"
+                            txt_status = "EM ROTA"
+                        else:
+                            bg_color = "#d32f2f"
+                            txt_status = "PENDENTE"
                         
                         st.markdown(f"""
                             <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:6px 10px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
