@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit st
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -15,24 +15,47 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">🤖 PAINEL IA - INTELIGÊNCIA PREDITIVA</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 20px;">Análise preditiva em tempo real usando modelos estatísticos locais (R$ 0,00)</div>', unsafe_allow_html=True)
 
-# 🌟 HERANÇA INTELIGENTE: Substitui o download antigo pelos dados reais do Upload da Home
+# 🔄 HERANÇA INTELIGENTE
 df_master = st.session_state.get('df_rota_ativa', None)
 
 df_ia = None
 if df_master is not None and not df_master.empty:
-    df_ia = df_master.copy()
+    # 🌟 CORREÇÃO MÁSTER: Extração isolada por fatiamento para prevenir duplicidade de colunas no Excel
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_master.columns else 'Intervalo de Tempo'
+    col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_master.columns else 'Status da Atividade'
     
-    # Faz o alinhamento das chaves operacionais e colunas esperadas pelo algoritmo preditivo original
-    df_ia['STATUS_ATIVIDADE'] = df_ia['STATUS_ATIVIDADE'].fillna('PENDENTE') if 'STATUS_ATIVIDADE' in df_ia.columns else ('Status da Atividade' if 'Status da Atividade' in df_ia.columns else 'PENDENTE')
-    df_ia['STATUS_OS1'] = df_ia['STATUS_OS1'].fillna('') if 'STATUS_OS1' in df_ia.columns else ''
-    df_ia['Recurso'] = df_ia['Recurso'].fillna('N/A')
-    
-    # Tratamento dinâmico para a coluna 'Tipo O.S 1'
-    col_tipo_os = 'Tipo O.S 1' if 'Tipo O.S 1' in df_ia.columns else ('Tipo de OS' if 'Tipo de OS' in df_ia.columns else None)
+    # Identifica a coluna Tipo O.S 1 com segurança
+    col_tipo_os = 'Tipo O.S 1' if 'Tipo O.S 1' in df_master.columns else ('Tipo de OS' if 'Tipo de OS' in df_master.columns else None)
     if not col_tipo_os:
-        for c in df_ia.columns:
+        for c in df_master.columns:
             if 'OS' in str(c).upper() and 'STATUS' not in str(c).upper(): col_tipo_os = c; break
-    df_ia['Tipo O.S 1'] = df_ia[col_tipo_os].fillna('N/A') if col_tipo_os else 'N/A'
+
+    # Reconstrói as listas puras puxando apenas a primeira ocorrência das colunas na marra (.iloc[:, 0])
+    lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_master['SUPERVISOR']).iloc[:, 0].fillna('N/A').tolist()] if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
+    lista_recurso = [str(x).upper().strip() for x in pd.DataFrame(df_master['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_master.columns else ['N/A'] * len(df_master)
+    lista_status_at = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_status_at]).iloc[:, 0].fillna('PENDENTE').tolist()] if col_status_at in df_master.columns else ['PENDENTE'] * len(df_master)
+    
+    # Resolve o erro de atributo tratando a coluna Tipo O.S 1 duplicada
+    if col_tipo_os:
+        lista_tipo_os = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_tipo_os]).iloc[:, 0].fillna('N/A').tolist()]
+    else:
+        lista_tipo_os = ['N/A'] * len(df_master)
+        
+    lista_status_os1 = [str(x).strip() for x in pd.DataFrame(df_master['STATUS_OS1']).iloc[:, 0].fillna('').tolist()] if 'STATUS_OS1' in df_master.columns else [''] * len(df_master)
+    
+    col_tipo_ativ = 'Tipo de Atividade' if 'Tipo de Atividade' in df_master.columns else 'TIPO_ATIVIDADE_COL'
+    lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_tipo_ativ]).iloc[:, 0].fillna('').tolist()] if col_tipo_ativ in df_master.columns else [''] * len(df_master)
+
+    # Cria o DataFrame 100% novo e isolado na memória
+    df_ia = pd.DataFrame({
+        'Supervisor_Upper': lista_supervisor,
+        'Recurso_Upper': lista_recurso,
+        'Status_Atividade_Upper': lista_status_at,
+        'Tipo_OS_Upper': lista_tipo_os,
+        'STATUS_OS1': lista_status_os1,
+        'Tipo_Ativ_Check': lista_tipo_ativ,
+        'SUPERVISOR': lista_supervisor  # Mantém compatibilidade com agrupamentos antigos
+    })
 
 # 🌟 CALIBRAGEM DO HORÁRIO (IGUAL AO TEC1 - FUSO BRASÍLIA BLINDADO)
 hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
@@ -55,17 +78,11 @@ def inteligência_status_excel(baixa, status_at):
 
 if df_ia is not None and not df_ia.empty:
     
-    # Higienização Padrão Máster das colunas
-    df_ia['Supervisor_Upper'] = df_ia['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
-    df_ia['Recurso_Upper'] = df_ia['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
-    df_ia['Status_Atividade_Upper'] = df_ia['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
-    df_ia['Tipo_OS_Upper'] = df_ia['Tipo O.S 1'].fillna('').astype(str).str.upper().str.strip()
-    
     # Expulsa dados desnecessários ou poluídos
     df_ia = df_ia[(~df_ia['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & (df_ia['Status_Atividade_Upper'] != "SUSPENSO")].copy()
     df_ia = df_ia[~df_ia['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)].copy()
     
-    df_ia['Classe_Analitica'] = df_ia.apply(lambda r: inteligência_status_excel(r['STATUS_OS1'], r['STATUS_ATIVIDADE']), axis=1)
+    df_ia['Classe_Analitica'] = df_ia.apply(lambda r: inteligência_status_excel(r['STATUS_OS1'], r['Status_Atividade_Upper']), axis=1)
 
     # -------------------------------------------------------------------------
     # 🔮 MÓDULO IA 1: MONITOR DE RISCO DE QUEBRA EM TEMPO REAL
@@ -114,12 +131,6 @@ if df_ia is not None and not df_ia.empty:
     # -------------------------------------------------------------------------
     st.markdown('### 🚨 MÓDULO 2: ALERTA PREDITIVO DE ABSENTEÍSMO (LARGADA MATINAL)')
     
-    col_tipo_ativ = 'Tipo de Atividade' if 'Tipo de Atividade' in df_ia.columns else 'TIPO_ATIVIDADE_COL'
-    if col_tipo_ativ in df_ia.columns:
-        df_ia['Tipo_Ativ_Check'] = df_ia[col_tipo_ativ].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df_ia['Tipo_Ativ_Check'] = ''
-        
     df_base = df_ia[df_ia['Tipo_Ativ_Check'] == "NA BASE"].copy()
     
     if not df_base.empty:
