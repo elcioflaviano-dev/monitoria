@@ -43,25 +43,27 @@ df_master = st.session_state.get('df_rota_ativa', None)
 
 df_base_online = None
 if df_master is not None and not df_master.empty:
-    # 🌟 CORREÇÃO CRÍTICA: Força o Pandas a criar um objeto 100% novo na memória, evitando o ValueError
-    df_base_online = df_master.copy(deep=True)
+    # Cria o DataFrame base isolado
+    df_temp = df_master.copy()
     
-    # Padronização e mapeamento seguro das colunas internas
-    df_base_online['Contrato'] = df_base_online['Contrato'].fillna('').astype(str).str.strip()
+    # Mapeia as colunas dinâmicas para evitar erros de falta de chaves
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_temp.columns else 'Intervalo de Tempo'
+    col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else 'Status da Atividade'
     
-    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_base_online.columns else 'Intervalo de Tempo'
-    df_base_online['Intervalo de Tempo'] = df_base_online[col_janela].fillna('Padrão / Sem Janela').astype(str).str.strip()
+    val_status_os1 = df_temp['STATUS_OS1'].fillna('NÃO EXECUTADO') if 'STATUS_OS1' in df_temp.columns else 'NÃO EXECUTADO'
+    val_recurso = df_temp['Recurso'].fillna('Técnico Não Identificado') if 'Recurso' in df_temp.columns else 'Técnico Não Identificado'
+    val_contrato = df_temp['Contrato'].fillna('').astype(str).str.strip() if 'Contrato' in df_temp.columns else ''
     
-    col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_base_online.columns else 'Status da Atividade'
-    df_base_online['Status da Atividade'] = df_base_online[col_status_at].fillna('PENDENTE').astype(str).str.upper().str.strip()
-    
-    # Criação segura usando indexação direta do Pandas
-    if 'STATUS_OS1' in df_base_online.columns:
-        df_base_online['Status da O.S 1'] = df_base_online['STATUS_OS1'].fillna('NÃO EXECUTADO')
-    else:
-        df_base_online['Status da O.S 1'] = 'NÃO EXECUTADO'
-        
-    df_base_online['Recurso'] = df_base_online['Recurso'].fillna('Técnico Não Identificado')
+    # 🌟 SOLUÇÃO DEFINITIVA: O .assign cria e injeta as colunas recriando a estrutura na memória de forma isolada
+    df_base_online = df_temp.assign(
+        Contrato = val_contrato,
+        **{
+            'Intervalo de Tempo': df_temp[col_janela].fillna('Padrão / Sem Janela').astype(str).str.strip() if col_janela in df_temp.columns else 'Padrão / Sem Janela',
+            'Status da Atividade': df_temp[col_status_at].fillna('PENDENTE').astype(str).str.upper().str.strip() if col_status_at in df_temp.columns else 'PENDENTE',
+            'Status da O.S 1': val_status_os1,
+            'Recurso': val_recurso
+        }
+    )
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
 data_rota_texto = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
@@ -142,7 +144,7 @@ with st.container(border=True):
             
             st.session_state["input_contrato_value"] = ""
             
-            st.success(f"✅ Contrato {contrato_input} updated como {status_final}!")
+            st.success(f"✅ Contrato {contrato_input} atualizado como {status_final}!")
             st.rerun()
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
