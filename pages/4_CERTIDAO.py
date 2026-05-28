@@ -43,18 +43,33 @@ df_master = st.session_state.get('df_rota_ativa', None)
 
 df_base_online = None
 if df_master is not None and not df_master.empty:
-    # 🌟 SOLUÇÃO MÁSTER: Extrai as listas puras e reconstrói um dicionário limpo do zero (Evita qualquer erro de fatiamento do Pandas)
+    # Identifica as colunas dinâmicas mapeadas na Home
     col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_master.columns else 'Intervalo de Tempo'
     col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_master.columns else 'Status da Atividade'
     
-    lista_contrato = df_master['Contrato'].fillna('').astype(str).str.strip().tolist()
-    lista_janela = df_master[col_janela].fillna('Padrão / Sem Janela').astype(str).str.strip().tolist() if col_janela in df_master.columns else ['Padrão / Sem Janela'] * len(df_master)
-    lista_status_at = df_master[col_status_at].fillna('PENDENTE').astype(str).str.upper().str.strip().tolist() if col_status_at in df_master.columns else ['PENDENTE'] * len(df_master)
-    lista_status_os1 = df_master['STATUS_OS1'].fillna('NÃO EXECUTADO').tolist() if 'STATUS_OS1' in df_master.columns else ['NÃO EXECUTADO'] * len(df_master)
-    lista_recurso = df_master['Recurso'].fillna('Técnico Não Identificado').tolist() if 'Recurso' in df_master.columns else ['Técnico Não Identificado'] * len(df_master)
-    lista_supervisor = df_master['SUPERVISOR'].fillna('N/A').tolist() if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
+    # 🌟 EXTRAÇÃO SEGURA (Prevenção absoluta contra duplicidade de colunas usando .values.flatten())
+    lista_contrato = [str(x).strip() for x in pd.DataFrame(df_master['Contrato']).iloc[:, 0].fillna('').tolist()]
+    
+    if col_janela in df_master.columns:
+        lista_janela = [str(x).strip() for x in pd.DataFrame(df_master[col_janela]).iloc[:, 0].fillna('Padrão / Sem Janela').tolist()]
+    else:
+        lista_janela = ['Padrão / Sem Janela'] * len(df_master)
+        
+    if col_status_at in df_master.columns:
+        lista_status_at = [str(x).upper().strip() for x in pd.DataFrame(df_master[col_status_at]).iloc[:, 0].fillna('PENDENTE').tolist()]
+    else:
+        lista_status_at = ['PENDENTE'] * len(df_master)
+        
+    # 🌟 CORREÇÃO DO ATTRIBUTEERROR: Trata a coluna STATUS_OS1 mesmo se ela vier duplicada no Excel
+    if 'STATUS_OS1' in df_master.columns:
+        lista_status_os1 = [str(x).strip() for x in pd.DataFrame(df_master['STATUS_OS1']).iloc[:, 0].fillna('NÃO EXECUTADO').tolist()]
+    else:
+        lista_status_os1 = ['NÃO EXECUTADO'] * len(df_master)
+        
+    lista_recurso = [str(x).strip() for x in pd.DataFrame(df_master['Recurso']).iloc[:, 0].fillna('Técnico Não Identificado').tolist()] if 'Recurso' in df_master.columns else ['Técnico Não Identificado'] * len(df_master)
+    lista_supervisor = [str(x).strip() for x in pd.DataFrame(df_master['SUPERVISOR']).iloc[:, 0].fillna('N/A').tolist()] if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
 
-    # Recria o objeto DataFrame isolado de qualquer herança de escrita externa
+    # Reconstrói a base limpa e unificada para o formulário
     df_base_online = pd.DataFrame({
         'Contrato': lista_contrato,
         'Intervalo de Tempo': lista_janela,
