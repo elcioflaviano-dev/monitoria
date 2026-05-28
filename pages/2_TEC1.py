@@ -4,10 +4,10 @@ import requests
 import io
 from datetime import datetime
 
-# Configura a página para ocupar toda a largura da tela
+# 1. Configuração da página ampla
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Abre e injeta o arquivo style.css externo
+# 2. Carregar Estilos Globais
 try:
     with open("style.css", "r") as f:
         st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
@@ -21,7 +21,7 @@ st.markdown(
 )
 
 # === FUNÇÃO DE CARGA OPERACIONAL DO GOOGLE SHEETS COM VARREDURA INTEGRA ===
-def carregar_dados_automatico():
+def buscar_base_rotas_online():
     if 'dados_rota' in st.session_state:
         return st.session_state['dados_rota']
         
@@ -43,7 +43,7 @@ def carregar_dados_automatico():
         if resposta.status_code != 200:
             return None
             
-        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO E BLINDADO ===
+        # === BLOCO DE SINCRONIZAÇÃO DO HORÁRIO DE BRASÍLIA FIXO ===
         import zoneinfo
         fuso_sp = zoneinfo.ZoneInfo("America/Sao_Paulo")
         st.session_state['data_da_rota'] = datetime.now(fuso_sp).strftime('%d/%m/%Y às %H:%M:%S')
@@ -81,7 +81,7 @@ def carregar_dados_automatico():
             elif 'JANELA' in col_upper or 'INTERVALO' in col_upper or 'TEMPO' in col_upper: colunas_mapeadas[col] = 'Janela de Serviço'
             elif 'STATUS' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
             elif 'CONTRATO' in col_upper: colunas_mapeadas[col] = 'Contrato'
-            elif 'RECURSO' in col_upper: colunas_mapeadas[col] = 'Recurso'
+            elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper): colunas_mapeadas[col] = 'Recurso'
             elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper): colunas_mapeadas[col] = 'Tipo de Atividade'
             
         df_final = df_sheets.rename(columns=colunas_mapeadas)
@@ -91,7 +91,7 @@ def carregar_dados_automatico():
         return None
 
 # Executa a carga inteligente
-df_planilha = carregar_dados_automatico()
+df_planilha = buscar_base_rotas_online()
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
 data_rota_texto = st.session_state.get('data_da_rota', datetime.now().strftime('%d/%m/%Y %H:%M:%S'))
@@ -100,7 +100,9 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_planilha is not None:
     df = df_planilha.copy()
     
-    # === HIGIENIZAÇÃO CRÍTICA DO FILTRO E DOS DADOS ===
+    # Padronização de strings para filtragem precisa
+    df['Supervisor_Upper'] = df['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
+    df['Recurso_Upper'] = df['Recurso'].fillna('N/A').astype(str).str.upper().str.strip()
     df['Contrato_Limpo'] = df['Contrato'].fillna('').astype(str).str.strip()
     
     if 'Status da Atividade' in df.columns:
@@ -108,12 +110,14 @@ if df_planilha is not None:
     else:
         df['Status_Atividade_Upper'] = ''
         
-    # FILTRAGEM PESADA: Elimina nulos, #N/A e status SUSPENSO
+    # 🌟🌟🌟 MAPEAMENTO DOS FILTROS OPERACIONAIS DE LIMPEZA PESADA 🌟🌟🌟
     cond_contrato_valido = (
         (df['Contrato_Limpo'] != '') & 
         (df['Contrato_Limpo'] != 'nan') & 
-        (~df['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
-        (~df['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
+        (~df['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN'])) & # Descarta Supervisor #N/A ou vazio
+        (df['SUPERVISOR'].notna()) &
+        (df['Status_Atividade_Upper'] != "SUSPENSO") & # Descarta registros suspensos
+        (~df['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)) # Expulsa "TEC1" e "TEC 1 PENDENTE"
     )
     
     # Remove as marcações operacionais de almoço (Refeicao)
@@ -138,7 +142,7 @@ if df_planilha is not None:
         
         if opcoes_janela:
             janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == JANELA_SEL] if 'JANELA_SEL' in locals() else df_limpo[df_limpo['Intervalo_Tratado'] == opcoes_janela[0]]
         else:
             df_tela = df_limpo.copy()
             janela_sel = "N/A"
