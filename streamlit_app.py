@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA: BLINDADO COM ENGINE OPENPYXL ===
+# === MOTOR MÁSTER DE CARGA: TRATAMENTO PÓS-CONCATENAÇÃO ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -39,15 +39,13 @@ def carregar_dados_sistema():
             for arquivo in arquivos_postados:
                 try:
                     if arquivo.name.endswith('.xlsx'):
-                        # 🌟 SOLUÇÃO DEFINITIVA: Força o motor openpyxl e lê os bytes diretamente
                         bytes_data = arquivo.read()
                         df_individual = pd.read_excel(io.BytesIO(bytes_data), engine='openpyxl')
                     else:
-                        df_individual = pd.read_csv(arquivo, dtype=str, on_bad_lines='skip')
+                        df_individual = pd.read_csv(arquivo, on_bad_lines='skip')
                     
                     if not df_individual.empty:
-                        # Converte todo o conteúdo do dataframe para string com segurança
-                        df_individual = df_individual.astype(str)
+                        # Força a limpeza dos nomes das colunas deste arquivo individual antes de juntar
                         df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                         lista_dfs.append(df_individual)
                         
@@ -59,7 +57,12 @@ def carregar_dados_sistema():
                 st.sidebar.error("⚠️ Nenhum dos arquivos enviados pôde ser lido corretamente.")
                 return None
                 
+            # 🔄 Junta todas as tabelas na estrutura bruta original
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
+            
+            # 🌟 BLINDAGEM MÁSTER: Força a tabela inteira consolidada a virar String pura
+            # Isso elimina qualquer erro de tipos numéricos ou objetos mistos antes de usarmos os métodos .str
+            df_bruto = df_bruto.astype(str)
             
             # Mapeamento e padronização das colunas consolidadas
             colunas_mapeadas = {}
@@ -81,8 +84,9 @@ def carregar_dados_sistema():
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
             
             if 'ID_Tecnico_Bruto' in df_bruto.columns:
-                df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').astype(str).str.upper().str.strip()
-                df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').astype(str).str.strip()
+                # Agora que a tabela inteira é string pura, estes comandos nunca vão falhar:
+                df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').str.upper().str.strip()
+                df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').str.strip()
             else:
                 st.sidebar.error("❌ Coluna de identificação do técnico não localizada nas planilhas.")
                 return None
@@ -93,11 +97,12 @@ def carregar_dados_sistema():
             res_aux = requests.get(url_base, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
             
             if res_aux.status_code == 200:
-                df_aux = pd.read_csv(io.StringIO(res_aux.text), dtype=str)
+                df_aux = pd.read_csv(io.StringIO(res_aux.text))
+                df_aux = df_aux.astype(str) # Força a aba do Sheets a virar string pura também
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
                 
                 # Mapeia as colunas da aba do Sheets: LOGIN, NOME, SUPERVISOR, BASE
-                df_aux['LOGIN_MATCH'] = df_aux['LOGIN'].fillna('').astype(str).str.upper().str.strip()
+                df_aux['LOGIN_MATCH'] = df_aux['LOGIN'].fillna('').str.upper().str.strip()
                 df_aux = df_aux.rename(columns={'SUPERVISOR': 'SUPERVISOR_MAP', 'BASE': 'BASE_MAP', 'NOME': 'NOME_MAP'})
                 df_aux = df_aux[['LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP']].drop_duplicates()
                 
@@ -106,10 +111,7 @@ def carregar_dados_sistema():
                 
                 df_final['Recurso'] = df_final['NOME_MAP'].fillna(df_final['Recurso'])
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A')
-                df_final['REGIAO_BASE'] = df_final['BASE_MAP'].fillna('N/A').astype(str).str.upper().str.strip()
-                
-                df_final['SUPERVISOR'] = df_final['SUPERVISOR'].astype(str)
-                df_final['REGIAO_BASE'] = df_final['REGIAO_BASE'].astype(str)
+                df_final['REGIAO_BASE'] = df_final['BASE_MAP'].fillna('N/A').str.upper().str.strip()
                 
                 df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
                 
