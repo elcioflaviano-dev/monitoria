@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
 
-# 1. Configuração da página ampla padrão
+# 1. Configuração da página ampla padrão para tabelas gerenciais
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 # 2. Carregar Estilos Globais (CSS)
@@ -12,139 +11,89 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 VISÃO REGIONAL - ABC & SÃO PAULO</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #005088; text-align: center; margin-top: 15px; margin-bottom: 5px;">📊 PAINEL TOA - PERFORMANCE REGIONAL</h1>', unsafe_allow_html=True)
+st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 20px;">Acompanhamento macro de produção, ordens não efetuadas (NE) e taxa de quebra</div>', unsafe_allow_html=True)
 
 # 🔄 3. HERANÇA INTELIGENTE: Puxa o DataFrame unificado da memória global (Home)
 df_master = st.session_state.get('df_rota_ativa', None)
 
+# Regra Máster de Classificação do Excel
+def classificar_status_excel(baixa, status_at):
+    baixa = str(baixa).upper().strip()
+    status_at = str(status_at).upper().strip()
+    codigos_ne = ["101", "106", "110", "112", "113", "125", "203", "205", "206", "301", "305", "306", "402", "100"]
+    for cod in codigos_ne:
+        if baixa.startswith(cod) or f"{cod} -" in baixa: return "O.S NE"
+    if "PENDENTE" in baixa or "INICIADO" in baixa or "EM ROTA" in baixa or "PENDENTE" in status_at: return "EM ABERTO"
+    return "PRODUTIVO"
+
+# Função Máster para Renderizar as Tabelas Executivas por Bloco
+def processar_tabela_gerencial(df_bloco, nome_bloco):
+    st.markdown(f'<div style="background-color:#005088; padding:6px 12px; color:white; font-weight:bold; font-size:18px; border-radius:4px; margin-top:15px; margin-bottom:10px;">{nome_bloco}</div>', unsafe_allow_html=True)
+    
+    if df_bloco.empty:
+        st.info(f"Nenhum dado ativo para {nome_bloco} neste arquivo.")
+        return
+        
+    df_bloco['Supervisor_Upper'] = df_bloco['SUPERVISOR'].apply(lambda x: str(x).strip().upper())
+    df_bloco['Status_Atividade_Upper'] = df_bloco['STATUS_ATIVIDADE'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else '')
+    df_bloco['Recurso_Upper'] = df_bloco['Recurso'].apply(lambda x: str(x).strip().upper())
+    
+    # Filtros operacionais originais de limpeza
+    df_bloco = df_bloco[(~df_bloco['Supervisor_Upper'].isin(['#N/A', 'N/A', '', 'NAN', 'PENDENTE CADASTRO'])) & (df_bloco['Status_Atividade_Upper'] != "SUSPENSO")].copy()
+    df_bloco = df_bloco[~df_bloco['Recurso_Upper'].str.contains('TEC1|TEC 1', na=False)].copy()
+    
+    if df_bloco.empty:
+        st.info(f"Nenhum dado consolidado para {nome_bloco} após filtros.")
+        return
+        
+    # Identifica volumes
+    if 'QTD_OS_COL' in df_bloco.columns:
+        df_bloco['QTD_OS_NUM'] = pd.to_numeric(df_bloco['QTD_OS_COL'], errors='coerce').fillna(0).astype(int)
+    else:
+        df_bloco['QTD_OS_NUM'] = 1
+        
+    # Aplica a classificação de colunas
+    df_bloco['Status_Calculado'] = df_bloco.apply(lambda r: classificar_status_excel(r['STATUS_OS1'], r['STATUS_ATIVIDADE']), axis=1)
+    
+    # Agrupamento e pivotagem para gerar a matriz gerencial igual ao Excel
+    matriz = df_bloco.groupby(['SUPERVISOR', 'Status_Calculado'])['QTD_OS_NUM'].sum().unstack(fill_value=0).reset_index()
+    
+    # Garante a existência das colunas padrão
+    for col in ['PRODUTIVO', 'O.S NE', 'EM ABERTO']:
+        if col not in matriz.columns: matriz[col] = 0
+        
+    # Cálculos das métricas de diretoria
+    matriz['Total Geral'] = matriz['PRODUTIVO'] + matriz['O.S NE'] + matriz['EM ABERTO']
+    matriz['Quebra (%)'] = matriz.apply(
+        lambda r: round((r['O.S NE'] / (r['PRODUTIVO'] + r['O.S NE'])) * 100, 1) if (r['PRODUTIVO'] + r['O.S NE']) > 0 else 0.0, axis=1
+    )
+    
+    # Ordenação e seleção de colunas final
+    matriz = matriz[['SUPERVISOR', 'PRODUTIVO', 'O.S NE', 'EM ABERTO', 'Total Geral', 'Quebra (%)']].sort_values(by='Total Geral', ascending=False)
+    
+    # Renderiza a tabela executiva limpa na tela
+    st.dataframe(
+        matriz.style.format({'Quebra (%)': '{:.1f}%'}),
+        use_container_width=True, hide_index=True
+    )
+
 if df_master is not None and not df_master.empty:
-    df = df_master.copy()
+    # Separação das bases usando as regras de PROCV da Home
+    df_master['SUPERVISOR_CHECK'] = df_master['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip()
+    df_master['BASE_CHECK'] = df_master['REGIAO_BASE'].fillna('').astype(str).str.upper().str.strip()
     
-    # === PASSO 1: LIMPEZA DE LINHAS VAZIAS ===
-    col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
-    if not col_tecnico_check:
-        for c in df.columns:
-            if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
-                col_tecnico_check = c
-                break
-                
-    if col_tecnico_check:
-        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
-    if 'Contrato' in df.columns:
-        df = df[df['Contrato'].fillna('').astype(str).str.strip() != ''].copy()
-
-    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
-    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
-    df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
+    # Filtros de divisão regional por bloco
+    cond_sp = df_master['BASE_CHECK'].isin(['SÃO PAULO', 'SP']) | df_master['SUPERVISOR_CHECK'].isin(['FRANCISCO', 'ALAN'])
     
-    # Remove marcações de almoço
-    if 'Tipo de Atividade' in df_limpo.columns:
-        df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
-        df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
-
-    # === PASSO 2: FILTRAGEM PRÉVIA DE STATUS ATIVOS ===
-    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
-    df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
-    df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
+    df_abc = df_master[~cond_sp].copy()
+    df_sp = df_master[cond_sp].copy()
     
-    df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+    # Renderiza os blocos TOA tradicionais na tela
+    processar_tabela_gerencial(df_abc, "📍 BLOCO REGIONAL - ABCDM")
+    processar_tabela_gerencial(df_sp, "📍 BLOCO REGIONAL - SÃO PAULO")
 
-    # Mapeamento e Tratamento de Janelas (Com motor automático e fuso corrigido)
-    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_validos.columns else None
-    if not col_janela:
-        for c in df_validos.columns:
-            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): col_janela = c; break
-
-    if col_janela is not None and not df_validos.empty:
-        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
-        
-        # Fuso Horário de Brasília Blindado
-        hora_brasilia = (datetime.utcnow() - timedelta(hours=3)).hour
-        
-        if hora_brasilia < 11:
-            janelas_automaticas = ['08 - 10']
-            texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela da Manhã (08 - 10)"
-        elif 11 <= hora_brasilia < 15:
-            janelas_automaticas = ['08 - 10', '11 - 14', '12:00 - 15:00']
-            texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela Ativa (11 - 14 / 12 - 15) + Acumulados"
-        else:
-            janelas_automaticas = ['08 - 10', '11 - 14', '12:00 - 15:00', '15 - 18']
-            texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela da Tarde (15 - 18) + Tudo Pendente do Dia"
-
-        # Limpa o menu lateral deixando só o que é real
-        df_janelas_limpas = df_validos[(df_validos['Intervalo_Tratado'] != '') & (~df_validos['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) & (df_validos['Intervalo_Tratado'].str.len() <= 15)].copy()
-        opcoes_janela_todas = sorted(df_janelas_limpas['Intervalo_Tratado'].dropna().unique())
-        
-        lista_selectbox = ["AUTOMÁTICO 🔄"] + opcoes_janela_todas
-        janela_sel = st.sidebar.selectbox("Filtro de Janela:", lista_selectbox)
-        
-        if janela_sel == "AUTOMÁTICO 🔄":
-            df_tela = df_validos[df_validos['Intervalo_Tratado'].isin(janelas_automaticas)].copy()
-            st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">{texto_status_janela}</div>', unsafe_allow_html=True)
-        else:
-            df_tela = df_validos[df_validos['Intervalo_Tratado'] == janela_sel].copy()
-            st.markdown(f'<div style="text-align: center; color: #555; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🎯 Filtro Manual Forçado: Janela {janela_sel}</div>', unsafe_allow_html=True)
-    else:
-        df_tela = df_validos.copy()
-
-    if df_tela.empty:
-        st.warning("⚠️ Não existem dados correspondentes para esta janela.")
-    else:
-        # 🌟 VALIDAÇÃO DA COLUNA DO SUPERVISOR (Evita o KeyError)
-        if 'SUPERVISOR' in df_tela.columns:
-            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'NAN': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'})
-        else:
-            df_tela['SUPERVISOR_MOSTRAR'] = 'PENDENTE CADASTRO'
-            
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
-
-        # Divisão Regional utilizando as regras consolidadas da Home
-        cond_sp = (
-            df_tela['REGIAO_BASE'].fillna('').astype(str).str.upper().str.strip().str.contains('SÃO PAULO|SP', na=False) |
-            df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
-        )
-        
-        df_sp = df_tela[cond_sp].copy()
-        df_abc = df_tela[~cond_sp].copy()
-
-        # Renderização dos KPIs Consolidados das duas Regiões
-        c_abc, c_sp = st.columns(2)
-        
-        with c_abc:
-            st.markdown('<div style="background-color:#005088; padding:8px; color:white; font-weight:bold; font-size:20px; border-radius:4px; text-align:center; margin-bottom:10px;">📍 BLOCO REGIONAL - ABC</div>', unsafe_allow_html=True)
-            if not df_abc.empty:
-                t_p = int(df_abc['P_COUNT'].sum())
-                t_r = int(df_abc['R_COUNT'].sum())
-                t_i = int(df_abc['I_COUNT'].sum())
-                tot = t_p + t_r + t_i
-                
-                with st.container(border=True):
-                    st.markdown(f'<div style="font-size:16px; font-weight:bold; color:#333; margin-bottom:5px;">Total do Bloco: {tot} Contratos</div>', unsafe_allow_html=True)
-                    m1, m2, m3 = st.columns(3)
-                    with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{t_p}</div></div>', unsafe_allow_html=True)
-                    with m2: st.metric(label="🟣 EM ROTA", value=t_r)
-                    with m3: st.metric(label="🟢 INICIADO", value=t_i)
-            else:
-                st.info("Nenhum contrato ativo para o ABC.")
-
-        with c_sp:
-            st.markdown('<div style="background-color:#006677; padding:8px; color:white; font-weight:bold; font-size:20px; border-radius:4px; text-align:center; margin-bottom:10px;">📍 BLOCO REGIONAL - SÃO PAULO</div>', unsafe_allow_html=True)
-            if not df_sp.empty:
-                t_p = int(df_sp['P_COUNT'].sum())
-                t_r = int(df_sp['R_COUNT'].sum())
-                t_i = int(df_sp['I_COUNT'].sum())
-                tot = t_p + t_r + t_i
-                
-                with st.container(border=True):
-                    st.markdown(f'<div style="font-size:16px; font-weight:bold; color:#333; margin-bottom:5px;">Total do Bloco: {tot} Contratos</div>', unsafe_allow_html=True)
-                    m1, m2, m3 = st.columns(3)
-                    with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{t_p}</div></div>', unsafe_allow_html=True)
-                    with m2: st.metric(label="🟣 EM ROTA", value=t_r)
-                    with m3: st.metric(label="🟢 INICIADO", value=t_i)
-            else:
-                st.info("Nenhum contrato ativo para São Paulo.")
-
-    # MODO TV AUTOMÁTICO (Roda para a próxima página da fila)
+    # MODO TV AUTOMÁTICO (Aponta para a rota sequencial correta)
     st.components.v1.html("""
         <script>
         setTimeout(function(){ window.parent.location.hash = "#2-tec1"; }, 30000);
