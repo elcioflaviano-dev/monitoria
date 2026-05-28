@@ -22,7 +22,6 @@ st.markdown(
 df_master = st.session_state.get('df_rota_ativa', None)
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
-data_rota_texto = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em tempo real via Upload</div>', unsafe_allow_html=True)
 
 if df_master is not None and not df_master.empty:
@@ -44,7 +43,7 @@ if df_master is not None and not df_master.empty:
     # Remove as marcações operacionais de almoço (Refeicao)
     if 'Tipo de Atividade' in df.columns:
         df['Tipo_Atividade_Str'] = df['Tipo de Atividade'].fillna('').astype(str)
-        cond_contrato_valido = cond_contrato_valido & (~df['Tipo_Atividade_Str'].str.contains('Refeicao', case=False, na=False))
+        cond_contrato_valido = cond_contrato_valido & (~df['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False))
         
     df_limpo = df[cond_contrato_valido].copy()
     
@@ -64,7 +63,7 @@ if df_master is not None and not df_master.empty:
         
         if opcoes_janela:
             janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == 1] # Filtra a janela selecionada de forma segura
+            # 🌟 CORRIGIDO: Agora o filtro usa estritamente a janela selecionada no menu
             df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
         else:
             df_tela = df_limpo.copy()
@@ -75,7 +74,6 @@ if df_master is not None and not df_master.empty:
 
     # 🌟 SEPARAÇÃO PRECISA POR COLUNA REGIONAL (Preenchida pelo Procv da Home)
     df_abc = df_tela[df_tela['REGIAO_BASE'] == 'ABC'].copy()
-    # Captura tanto 'SÃO PAULO' quanto possíveis 'SP' ou 'GUARULHOS' para compor a coluna da direita
     df_sp = df_tela[df_tela['REGIAO_BASE'].isin(['SÃO PAULO', 'SP', 'GUARULHOS'])].copy()
 
     col_coluna_abc, col_coluna_sp = st.columns(2)
@@ -134,7 +132,7 @@ if df_master is not None and not df_master.empty:
         else:
             st.info("Nenhum supervisor ativo em SP nesta janela.")
 
-    # MODO TV AUTOMÁTICO (Mantido igual ao seu backup)
+    # MODO TV AUTOMÁTICO (Mantido igual ao seu original)
     st.components.v1.html("""
         <script>
         setTimeout(function(){
