@@ -35,6 +35,7 @@ def carregar_banco_historico():
 if "historico_certidoes" not in st.session_state:
     st.session_state["historico_certidoes"] = carregar_banco_historico()
 
+# 🌟 Gerenciamento do estado do campo de texto
 if "input_contrato_value" not in st.session_state:
     st.session_state["input_contrato_value"] = ""
 
@@ -46,7 +47,6 @@ if df_master is not None and not df_master.empty:
     col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_master.columns else 'Intervalo de Tempo'
     col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_master.columns else 'Status da Atividade'
     
-    # Extração segura e robusta das colunas
     lista_contrato = [str(x).strip() for x in pd.DataFrame(df_master['Contrato']).iloc[:, 0].fillna('').tolist()]
     
     if col_janela in df_master.columns:
@@ -67,7 +67,6 @@ if df_master is not None and not df_master.empty:
     lista_recurso = [str(x).strip() for x in pd.DataFrame(df_master['Recurso']).iloc[:, 0].fillna('Técnico Não Identificado').tolist()] if 'Recurso' in df_master.columns else ['Técnico Não Identificado'] * len(df_master)
     lista_supervisor = [str(x).strip() for x in pd.DataFrame(df_master['SUPERVISOR']).iloc[:, 0].fillna('N/A').tolist()] if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
 
-    # Reconstrói a base limpa e unificada
     df_base_online = pd.DataFrame({
         'Contrato': lista_contrato,
         'Intervalo de Tempo': lista_janela,
@@ -106,9 +105,10 @@ with st.container(border=True):
     col1, col2, col3 = st.columns([2, 2, 3])
 
     with col1:
+        # 🌟 MODIFICADO: Associado diretamente à chave controlada 'txt_contrato' para limpar de forma instantânea
         contrato_input = st.text_input(
             "Número do Contrato:", 
-            value=st.session_state["input_contrato_value"],
+            key="txt_contrato",
             placeholder="Digite o contrato e pressione Enter..."
         ).strip()
 
@@ -158,7 +158,8 @@ with st.container(border=True):
             st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
             
-            st.session_state["input_contrato_value"] = ""
+            # 🌟 ALTERAÇÃO OPERACIONAL: Força a limpeza visual do widget limpando o estado de sua Key
+            st.session_state["txt_contrato"] = ""
             
             st.success(f"✅ Contrato {contrato_input} atualizado como {status_final}!")
             st.rerun()
@@ -179,10 +180,7 @@ if df_base_online is not None:
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
-    # Filtro por horário automático coordenado
     cond_janela = df_base_online['Intervalo_Limpo'].isin(janelas_automaticas)
-    
-    # 🌟 FILTRO CIRÚRGICO: Mantém estritamente o que está CONCLUÍDO ou INICIADO em campo
     cond_ativ = (
         df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU", na=False) | 
         df_base_online['Status_Atividade_Limpo'].str.contains("INIC", na=False)
