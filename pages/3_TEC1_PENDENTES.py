@@ -162,4 +162,28 @@ if df_master is not None and not df_master.empty:
                 st.info("Nenhum pendente no ABC.")
 
         with col_coluna_sp:
-            st.markdown('<div class="title-abc-
+            st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            if not df_sp.empty:
+                supervisores_sp = sorted(df_sp['SUPERVISOR_MOSTRAR'].unique())
+                for supervisor in supervisores_sp:
+                    df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
+                    total_pendentes = df_super['P_COUNT'].sum()
+                    
+                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {total_pendentes}</span></div>', unsafe_allow_html=True)
+                    
+                    # 🌟 LISTA DE TEXTO LIMPA: Sem as palavras repetitivas e com fonte maior
+                    for idx, linha in df_super.iterrows():
+                        contrato_num = linha.get('Contrato', 'N/A')
+                        tecnico_nome = linha.get('Recurso_Tratado', 'N/A')
+                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{contrato_num}</span> <span class="divisor-item">|</span> 👤 {tecnico_nome}</div>', unsafe_allow_html=True)
+            else:
+                st.info("Nenhum pendente em SP.")
+
+    # MODO TV AUTOMÁTICO
+    st.components.v1.html("""
+        <script>
+        setTimeout(function(){ window.parent.location.hash = "#certidao"; }, 30000);
+        </script>
+    """, height=0)
+else:
+    st.warning("👈 Insira os arquivos na página inicial primeiro.")
