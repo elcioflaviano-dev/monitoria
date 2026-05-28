@@ -98,8 +98,8 @@ def destacar_linha_total(row):
 # --- CORPO PRINCIPAL DO FILTRO ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # Higienização de strings para as buscas lógicas
-    df_ativar['Supervisor_Upper'] = df_ativar['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
+    # Padronização e higienização das strings para evitar falsos positivos
+    df_ativar['Supervisor_Clean'] = df_ativar['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_ativar['Recurso_Original'] = df_ativar['Recurso'].fillna('N/A').astype(str).str.strip()
     
     if 'TIPO_ATIVIDADE_COL' in df_ativar.columns:
@@ -112,18 +112,29 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         df_ativar['Status_Conclusao_Upper'] = ''
 
-    # 🌟 PASSO 1: Filtrar estritamente apenas as linhas que são "NA BASE"
-    df_somente_na_base = df_ativar[df_ativar['Tipo_Activity_Upper'] == "NA BASE"].copy() if 'Tipo_Activity_Upper' in df_ativar.columns else df_ativar[df_ativar['Tipo_Atividade_Upper'] == "NA BASE"].copy()
-
-    # 🌟 PASSO 2: Dentro do grupo "Na Base", filtrar apenas quem ainda está "PENDENTE"
-    df_pendentes_na_base = df_somente_na_base[df_somente_na_base['Status_Conclusao_Upper'] == "PENDENTE"].copy()
+    # 🌟 APLICAÇÃO DOS FILTROS OPERACIONAIS DE LIMPEZA
     
-    # Agrupa para listar os nomes de forma única por supervisor
+    # 1. Filtra apenas as linhas que são "NA BASE"
+    df_filtrado = df_ativar[df_ativar['Tipo_Atividade_Upper'] == "NA BASE"].copy()
+    
+    # 2. LIMPEZA 1: Ignora se o Supervisor for #N/A, N/A, em branco ou nulo
+    df_filtrado = df_filtrado[
+        (~df_filtrado['Supervisor_Clean'].isin(['#N/A', 'N/A', '', 'NAN'])) & 
+        (df_filtrado['SUPERVISOR'].notna())
+    ].copy()
+    
+    # 3. LIMPEZA 2: Remove da contagem quem estiver com status "SUSPENSO"
+    df_filtrado = df_filtrado[df_filtrado['Status_Conclusao_Upper'] != "SUSPENSO"].copy()
+    
+    # 4. Mantém na lista apenas quem continua com o status como "PENDENTE"
+    df_pendentes_na_base = df_filtrado[df_filtrado['Status_Conclusao_Upper'] == "PENDENTE"].copy()
+    
+    # Agrupa para consolidar a listagem por Supervisor e Técnico único
     df_lista = df_pendentes_na_base.groupby(['SUPERVISOR', 'Recurso_Original']).size().reset_index()
     df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Recurso_Original': 'Técnico Pendente'})
     df_lista = df_lista[['Supervisor', 'Técnico Pendente']]
     
-    # Limpa possíveis registros inválidos do banco
+    # Garante que não suba técnico fantasma ou nulo
     df_lista = df_lista[(df_lista['Técnico Pendente'] != 'N/A') & (df_lista['Técnico Pendente'] != '')]
 
     # Divisão Regional (Padrão Francisco/Alan para SP, restante ABC)
