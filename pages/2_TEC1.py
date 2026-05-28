@@ -48,24 +48,26 @@ if df_master is not None and not df_master.empty:
     if col_janela is not None:
         df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
         
-        # 🌟 PASSO 3: MOTOR DE HORÁRIO AUTOMÁTICO INTELIGENTE 🌟
+        # 🌟 PASSO 3: CORREÇÃO DO MOTOR DE HORÁRIO AUTOMÁTICO 🌟
         # Pega a hora atual do sistema (Ex: 14)
         hora_atual = datetime.now().hour
         
-        # Define quais janelas acumulam na tela com base no relógio do dia
+        # Define quais janelas acumulam na tela com base no relógio real da operação
         if hora_atual < 11:
             janelas_automaticas = ['08 - 10']
-            texto_status_janela = "⏰ Exibindo: Janela Atual (08 - 10)"
-        elif 11 <= hora_atual < 14:
-            janelas_automaticas = ['08 - 10', '11 - 14']
-            texto_status_janela = "⏰ Exibindo: Janela Ativa (11 - 14) + Pendências da Manhã"
+            texto_status_janela = "⏰ Exibindo: Janela da Manhã (08 - 10)"
+        elif 11 <= hora_atual < 15:
+            # 🌟 GARANTIDO: Até as 15:00 a janela ativa é a do meio do dia + arrasto da manhã
+            janelas_automaticas = ['08 - 10', '11 - 14', '12:00 - 15:00']
+            texto_status_janela = "⏰ Exibindo: Janela Ativa (11 - 14 / 12 - 15) + Pendências Acumuladas"
         else:
-            janelas_automaticas = ['08 - 10', '11 - 14', '15 - 18']
-            texto_status_janela = "⏰ Exibindo: Janela da Tarde (15 - 18) + Tudo Acumulado do Dia"
+            # Só após as 15:00 entra a janela da tarde com o arrasto total
+            janelas_automaticas = ['08 - 10', '11 - 14', '12:00 - 15:00', '15 - 18']
+            texto_status_janela = "⏰ Exibindo: Janela da Tarde (15 - 18) + Tudo Pendente do Dia"
 
-        # Cria a lista de opções na barra lateral (Mantendo as strings limpas)
+        # Cria a lista de opções na barra lateral para o plano B manual
         opcoes_janela_todas = sorted(df_limpo['Intervalo_Tratado'].dropna().unique())
-        opcoes_janela_todas = [j for j in opcoes_janela_todas if j.upper() not in ['NAN', 'NONE', 'N/A'] and len(j) <= 7]
+        opcoes_janela_todas = [j for j in opcoes_janela_todas if j.upper() not in ['NAN', 'NONE', 'N/A'] and len(j) <= 15]
         
         # Insere a opção "AUTOMÁTICO" no topo da lista do menu lateral
         lista_selectbox = ["AUTOMÁTICO 🔄"] + opcoes_janela_todas
@@ -73,6 +75,7 @@ if df_master is not None and not df_master.empty:
         
         # Executa a filtragem com base na escolha
         if janela_sel == "AUTOMÁTICO 🔄":
+            # Procura por qualquer uma das janelas mapeadas no bloco de horários
             df_tela = df_limpo[df_limpo['Intervalo_Tratado'].isin(janelas_automaticas)].copy()
             st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">{texto_status_janela}</div>', unsafe_allow_html=True)
         else:
