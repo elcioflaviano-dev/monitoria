@@ -80,17 +80,13 @@ if df_master is not None and not df_master.empty:
             lambda r: str(r['Recurso']).upper() if str(r['SUPERVISOR']).strip().upper() in ['#N/A', 'NAN', ''] else str(r['SUPERVISOR']).upper(), axis=1
         )
 
-        # 🌟 REGRA DE OURO DO BACKUP RESTAURADA: Separação por nome do Supervisor
-        # Se for Francisco ou Alan, vai para a coluna de SP. O resto vai TODO para o ABC!
+        # 🌟 SEPARAÇÃO POR SUPERVISOR
         df_sp_lista, df_abc_lista = [], []
-        
         for idx, linha in df_tela.iterrows():
-            # Checa o supervisor original do Procv
             super_original = str(linha.get('SUPERVISOR', '')).upper()
             if "FRANCISCO" in super_original or "ALAN" in super_original:
                 df_sp_lista.append(linha)
             else:
-                # Técnicos sem supervisor ou do ABC caem aqui
                 df_abc_lista.append(linha)
                 
         df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
@@ -106,9 +102,10 @@ if df_master is not None and not df_master.empty:
                 for supervisor in sorted(supervisores_abc):
                     df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
                     
-                    pendentes = len(df_super[df_super['Status_Atividade_Upper'] == 'PENDENTE'])
-                    em_rota = len(df_super[df_super['Status_Atividade_Upper'] == 'EM ROTA'])
-                    iniciados = len(df_super[df_super['Status_Atividade_Upper'] == 'INICIADO'])
+                    # 🌟 RECONHECIMENTO FLEXÍVEL (Contêm texto): Resolve o erro de zerar os cartões
+                    pendentes = len(df_super[df_super['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO', na=False)])
+                    em_rota = len(df_super[df_super['Status_Atividade_Upper'].str.contains('ROTA|DESLOC', na=False)])
+                    iniciados = len(df_super[df_super['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO', na=False)])
                     total = len(df_super)
                     
                     with st.container(border=True):
@@ -132,9 +129,10 @@ if df_master is not None and not df_master.empty:
                 for supervisor in sorted(supervisores_sp):
                     df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
                     
-                    pendentes = len(df_super[df_super['Status_Atividade_Upper'] == 'PENDENTE'])
-                    em_rota = len(df_super[df_super['Status_Atividade_Upper'] == 'EM ROTA'])
-                    iniciados = len(df_super[df_super['Status_Atividade_Upper'] == 'INICIADO'])
+                    # 🌟 RECONHECIMENTO FLEXÍVEL PARA SP TAMBÉM
+                    pendentes = len(df_super[df_super['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO', na=False)])
+                    em_rota = len(df_super[df_super['Status_Atividade_Upper'].str.contains('ROTA|DESLOC', na=False)])
+                    iniciados = len(df_super[df_super['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO', na=False)])
                     total = len(df_super)
                     
                     with st.container(border=True):
