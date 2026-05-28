@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Configura a página para ocupar toda a largura da tela (Igual ao original)
+# Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 # Abre e injeta o arquivo style.css externo
@@ -21,7 +21,6 @@ st.markdown(
 # 🔄 HERANÇA INTELIGENTE: Puxa o DataFrame unificado da memória global (Home)
 df_master = st.session_state.get('df_rota_ativa', None)
 
-# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
 st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em tempo real via Upload</div>', unsafe_allow_html=True)
 
 if df_master is not None and not df_master.empty:
@@ -35,17 +34,10 @@ if df_master is not None and not df_master.empty:
     else:
         df['Status_Atividade_Upper'] = ''
         
-    # Filtragem de segurança: Remove suspensos
+    # Filtragem: Remove suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
-    # Remove as marcações operacionais de almoço (Refeicao)
-    for c in df_limpo.columns:
-        if 'TIPO' in str(c).upper():
-            df_limpo['Tipo_Activity_Str'] = df_limpo[c].fillna('').astype(str)
-            df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
-            break
-        
-    # Tratamento e montagem do filtro dinâmico de Janelas Válidas
+    # Tratamento e montagem do filtro dinâmico de Janelas
     col_janela = None
     for c in df_limpo.columns:
         if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
@@ -54,10 +46,8 @@ if df_master is not None and not df_master.empty:
             
     if col_janela is not None:
         df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
-        
         df_janelas_validas = df_limpo[
-            (df_limpo['Intervalo_Tratado'] != '') & 
-            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA'))
+            (df_limpo['Intervalo_Tratado'] != '') & (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA'))
         ].copy()
         
         opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].dropna().unique())
@@ -68,39 +58,34 @@ if df_master is not None and not df_master.empty:
             df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel].copy()
         else:
             df_tela = df_limpo.copy()
-            janela_sel = "N/A"
     else:
         df_tela = df_limpo.copy()
-        janela_sel = "N/A"
 
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
     else:
-        # 🌟 SOMA DOS STATUS OPERACIONAIS
+        # Cria as colunas de soma dos status
         df_tela['P_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
         df_tela['R_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
         df_tela['I_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
         
-        # Mantém na tela apenas quem tem status válidos de campo
         df_tela = df_tela[(df_tela['P_COUNT'] > 0) | (df_tela['R_COUNT'] > 0) | (df_tela['I_COUNT'] > 0)].copy()
 
-        # Encontra a coluna de identificação técnica (recurso/login)
-        col_rec = 'Recurso' if 'Recurso' in df_tela.columns else None
-        if not col_rec:
-            for c in df_tela.columns:
-                if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
-                    col_rec = c
-                    break
+        # 🌟 RESTAURADO: Padroniza a coluna do Supervisor vinda do PROCV da Home
+        if 'SUPERVISOR' in df_tela.columns:
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('SEM SUPERVISOR').replace({'#N/A': 'SEM SUPERVISOR', 'NAN': 'SEM SUPERVISOR', '': 'SEM SUPERVISOR'})
+        else:
+            df_tela['SUPERVISOR_MOSTRAR'] = 'SEM SUPERVISOR'
+            
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
 
-        # 🌟 NOVA SEPARAÇÃO INTELIGENTE SP VS ABC PELO LOGIN DO RECURSO
+        # Divisão Regional utilizando o vínculo do PROCV ou filtros secundários
         df_sp_lista, df_abc_lista = [], []
         for idx, linha in df_tela.iterrows():
-            login_rec = str(linha.get(col_rec, '')).upper().strip() if col_rec else ''
             regiao_original = str(linha.get('REGIAO_BASE', '')).upper().strip()
-            super_original = str(linha.get('SUPERVISOR', '')).upper().strip()
+            super_mostrar = str(linha.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
-            # Se a região indicar SP, se o supervisor for Alan/Francisco, ou se o login começar com padrão de SP
-            if 'SÃO PAULO' in regiao_original or 'SP' in regiao_original or 'FRANCISCO' in super_original or 'ALAN' in super_original or login_rec.startswith(('SP', 'SPO', '20')):
+            if 'SÃO PAULO' in regiao_original or 'SP' in regiao_original or 'FRANCISCO' in super_mostrar or 'ALAN' in super_mostrar:
                 df_sp_lista.append(linha)
             else:
                 df_abc_lista.append(linha)
@@ -114,22 +99,23 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             
             if not df_abc.empty:
-                pendentes = df_abc['P_COUNT'].sum()
-                em_rota = df_abc['R_COUNT'].sum()
-                iniciados = df_abc['I_COUNT'].sum()
-                total_real = pendentes + em_rota + iniciados
+                # 🌟 AGRUPAMENTO REAL POR SUPERVISOR
+                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 
-                # 🌟 TROCADO PARA: CONTRATOS ABERTOS
-                with st.container(border=True):
-                    st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 CONTRATOS ABERTOS <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
+                for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
+                    dados_super = matriz_abc[matriz_abc['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
+                    pendentes = int(dados_super['P_COUNT'])
+                    em_rota = int(dados_super['R_COUNT'])
+                    iniciados = int(dados_super['I_COUNT'])
+                    total_real = pendentes + em_rota + iniciados
                     
-                    m1, m2, m3 = st.columns(3)
-                    with m1:
-                        st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(pendentes) + '</div></div>', unsafe_allow_html=True)
-                    with m2:
-                        st.metric(label="🟣 EM ROTA", value=em_rota)
-                    with m3:
-                        st.metric(label="🟢 INICIADO", value=iniciados)
+                    with st.container(border=True):
+                        st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
+                        
+                        m1, m2, m3 = st.columns(3)
+                        with m1: st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(pendentes) + '</div></div>', unsafe_allow_html=True)
+                        with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
+                        with m3: st.metric(label="🟢 INICIADO", value=iniciados)
             else:
                 st.info("Nenhum contrato em aberto para o ABC nesta janela.")
 
@@ -137,46 +123,31 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             
             if not df_sp.empty:
-                pendentes = df_sp['P_COUNT'].sum()
-                em_rota = df_sp['R_COUNT'].sum()
-                iniciados = df_sp['I_COUNT'].sum()
-                total_real = pendentes + em_rota + iniciados
+                # 🌟 AGRUPAMENTO REAL POR SUPERVISOR
+                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 
-                # 🌟 TROCADO PARA: CONTRATOS ABERTOS
-                with st.container(border=True):
-                    st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 CONTRATOS ABERTOS <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
+                for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
+                    dados_super = matriz_sp[matriz_sp['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
+                    pendentes = int(dados_super['P_COUNT'])
+                    em_rota = int(dados_super['R_COUNT'])
+                    iniciados = int(dados_super['I_COUNT'])
+                    total_real = pendentes + em_rota + iniciados
                     
-                    m1, m2, m3 = st.columns(3)
-                    with m1:
-                        st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(pendentes) + '</div></div>', unsafe_allow_html=True)
-                    with m2:
-                        st.metric(label="🟣 EM ROTA", value=em_rota)
-                    with m3:
-                        st.metric(label="🟢 INICIADO", value=iniciados)
-            else:
-                # Caso a lista caia vazia por filtro de janela, busca volume genérico da base
-                pendentes = df_tela['P_COUNT'].sum() // 2
-                em_rota = df_tela['R_COUNT'].sum() // 2
-                iniciados = df_tela['I_COUNT'].sum() - df_abc['I_COUNT'].sum()
-                total_real = pendentes + em_rota + iniciados
-                
-                if total_real > 0:
                     with st.container(border=True):
-                        st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 CONTRATOS ABERTOS <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
+                        st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: ' + str(total_real) + '</span></div>', unsafe_allow_html=True)
+                        
                         m1, m2, m3 = st.columns(3)
                         with m1: st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(pendentes) + '</div></div>', unsafe_allow_html=True)
                         with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
                         with m3: st.metric(label="🟢 INICIADO", value=iniciados)
-                else:
-                    st.info("Nenhum contrato em aberto para SP nesta janela.")
+            else:
+                st.info("Nenhum contrato em aberto para SP nesta janela.")
 
-    # MODO TV AUTOMÁTICO
+    # MODO TV
     st.components.v1.html("""
         <script>
-        setTimeout(function(){
-            window.parent.location.hash = "#3-tec1-pendentes";
-        }, 30000);
+        setTimeout(function(){ window.parent.location.hash = "#3-tec1-pendentes"; }, 30000);
         </script>
     """, height=0)
 else:
-    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro.")
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro.")
