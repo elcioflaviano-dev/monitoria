@@ -14,7 +14,7 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">🚀 ATIVAR ROTA - BASE PENDENTE</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">🚀 ATIVAR ROTA - LARGADA MATINAL</h1>', unsafe_allow_html=True)
 
 # === FUNÇÃO DE CARGA OPERACIONAL ONLINE ===
 def buscar_base_rotas_online():
@@ -67,8 +67,10 @@ def buscar_base_rotas_online():
             col_upper = col.upper()
             if ('SUPERVISOR' in col_upper or 'MONITOR' in col_upper) and 'SUPERVISOR' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'SUPERVISOR'
-            elif ('STATUS DA ATIVIDADE' in col_upper or 'STATUS ATIVIDADE' in col_upper) and 'STATUS_INTERNO' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'STATUS_INTERNO'
+            elif ('TIPO DE ATIVIDADE' in col_upper or 'TIPO ATIVIDADE' in col_upper or 'TIPO_ATIVIDADE' in col_upper) and 'TIPO_ATIVIDADE_COL' not in colunas_mapeadas.values():
+                colunas_mapeadas[col] = 'TIPO_ATIVIDADE_COL'
+            elif ('STATUS DA ATIVIDADE' in col_upper or 'STATUS ATIVIDADE' in col_upper or 'STATUS_ATIVIDADE' in col_upper) and 'STATUS_CONCLUSAO_COL' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'STATUS_CONCLUSAO_COL'
             elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Recurso'
         
@@ -96,28 +98,33 @@ def destacar_linha_total(row):
 # --- CORPO PRINCIPAL DO FILTRO ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # Higienização de strings para evitar erros de leitura
+    # Higienização de strings para as buscas lógicas
     df_ativar['Supervisor_Upper'] = df_ativar['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_ativar['Recurso_Original'] = df_ativar['Recurso'].fillna('N/A').astype(str).str.strip()
     
-    if 'STATUS_INTERNO' in df_ativar.columns:
-        df_ativar['Status_Atividade_Upper'] = df_ativar['STATUS_INTERNO'].fillna('').astype(str).str.upper().str.strip()
+    if 'TIPO_ATIVIDADE_COL' in df_ativar.columns:
+        df_ativar['Tipo_Atividade_Upper'] = df_ativar['TIPO_ATIVIDADE_COL'].fillna('').astype(str).str.upper().str.strip()
     else:
-        df_ativar['Status_Atividade_Upper'] = ''
+        df_ativar['Tipo_Atividade_Upper'] = ''
+        
+    if 'STATUS_CONCLUSAO_COL' in df_ativar.columns:
+        df_ativar['Status_Conclusao_Upper'] = df_ativar['STATUS_CONCLUSAO_COL'].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df_ativar['Status_Conclusao_Upper'] = ''
+
+    # 🌟 PASSO 1: Filtrar estritamente apenas as linhas que são "NA BASE"
+    df_somente_na_base = df_ativar[df_ativar['Tipo_Activity_Upper'] == "NA BASE"].copy() if 'Tipo_Activity_Upper' in df_ativar.columns else df_ativar[df_ativar['Tipo_Atividade_Upper'] == "NA BASE"].copy()
+
+    # 🌟 PASSO 2: Dentro do grupo "Na Base", filtrar apenas quem ainda está "PENDENTE"
+    df_pendentes_na_base = df_somente_na_base[df_somente_na_base['Status_Conclusao_Upper'] == "PENDENTE"].copy()
     
-    # 🌟 PASSO 1: Criar uma lista real de todos os técnicos que possuem pelo menos 1 "CONCLUIDO" no dia
-    lista_tecnicos_concluidos = df_ativar[df_ativar['Status_Atividade_Upper'] == "CONCLUIDO"]['Recurso_Original'].unique()
-    
-    # 🌟 PASSO 2: Filtrar a base para manter APENAS quem NÃO concluiu nada (está com tudo em branco/pendente)
-    df_pendentes = df_ativar[~df_ativar['Recurso_Original'].isin(lista_tecnicos_concluidos)].copy()
-    
-    # Agrupa apenas para listar os nomes de forma única na tela
-    df_lista = df_pendentes.groupby(['SUPERVISOR', 'Recurso_Original']).size().reset_index()
-    df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Recurso_Original': 'Técnico com Base Pendente'})
-    df_lista = df_lista[['Supervisor', 'Técnico com Base Pendente']]
+    # Agrupa para listar os nomes de forma única por supervisor
+    df_lista = df_pendentes_na_base.groupby(['SUPERVISOR', 'Recurso_Original']).size().reset_index()
+    df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Recurso_Original': 'Técnico Pendente'})
+    df_lista = df_lista[['Supervisor', 'Técnico Pendente']]
     
     # Limpa possíveis registros inválidos do banco
-    df_lista = df_lista[(df_lista['Técnico com Base Pendente'] != 'N/A') & (df_lista['Técnico com Base Pendente'] != '')]
+    df_lista = df_lista[(df_lista['Técnico Pendente'] != 'N/A') & (df_lista['Técnico Pendente'] != '')]
 
     # Divisão Regional (Padrão Francisco/Alan para SP, restante ABC)
     df_sp = df_lista[df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
@@ -126,32 +133,32 @@ if df_ativar is not None and not df_ativar.empty:
     # ==========================================
     # 🔴 SEÇÃO ABC
     # ==========================================
-    st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BASE PENDENTE - REGIÃO ABC</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 PENDENTES DO "NA BASE" - REGIÃO ABC</h2></div>', unsafe_allow_html=True)
     
     if not df_abc.empty:
         st.dataframe(df_abc, use_container_width=True, hide_index=True)
         
-        tot_tecs_abc = df_abc['Técnico com Base Pendente'].nunique()
-        df_tot_abc = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Técnico com Base Pendente": f"{tot_tecs_abc} Técnicos travados"}])
+        tot_tecs_abc = df_abc['Técnico Pendente'].nunique()
+        df_tot_abc = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Técnico Pendente": f"{tot_tecs_abc} Técnicos sem ativação"}])
         st.dataframe(df_tot_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
     else:
-        st.success("✅ 100% da equipe ABC com status ativo na base!")
+        st.success("✅ 100% da equipe ABC realizou a largada do 'Na Base'!")
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # ==========================================
     # 🔵 SEÇÃO SÃO PAULO (SP)
     # ==========================================
-    st.markdown('<div style="background-color:#b30000; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 BASE PENDENTE - REGIÃO SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div style="background-color:#b30000; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 PENDENTES DO "NA BASE" - REGIÃO SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
     if not df_sp.empty:
         st.dataframe(df_sp, use_container_width=True, hide_index=True)
         
-        tot_tecs_sp = df_sp['Técnico com Base Pendente'].nunique()
-        df_tot_sp = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Técnico com Base Pendente": f"{tot_tecs_sp} Técnicos travados"}])
+        tot_tecs_sp = df_sp['Técnico Pendente'].nunique()
+        df_tot_sp = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Técnico Pendente": f"{tot_tecs_sp} Técnicos sem ativação"}])
         st.dataframe(df_tot_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
     else:
-        st.success("✅ 100% da equipe SP com status ativo na base!")
+        st.success("✅ 100% da equipe SP realizou a largada do 'Na Base'!")
 
 else:
     st.warning("⚠️ Aguardando sincronização de dados estáveis do Google Sheets.")
