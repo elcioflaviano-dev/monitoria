@@ -26,59 +26,71 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
-    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else ('Status da Atividade' if 'Status da Atividade' in df.columns else None)
+    # === PASSO 1: LIMPEZA ABSOLUTA DE LINHAS VAZIAS ===
+    col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
+    if not col_tecnico_check:
+        for c in df.columns:
+            if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
+                col_tecnico_check = c
+                break
+                
+    if col_tecnico_check:
+        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+        df = df[df[col_tecnico_check].fillna('').astype(str).str.upper() != 'NAN'].copy()
     
-    if col_status:
-        df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df['Status_Atividade_Upper'] = ''
-        
+    if 'Contrato' in df.columns:
+        df = df[df['Contrato'].fillna('').astype(str).str.strip() != ''].copy()
+        df = df[df['Contrato'].fillna('').astype(str).str.upper() != 'NAN'].copy()
+
+    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
+    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
+    
     # Filtragem de segurança: Remove suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
     # Remove as marcações operacionais de almoço (Refeicao)
-    for c in df_limpo.columns:
-        if 'TIPO' in str(c).upper():
-            df_limpo['Tipo_Activity_Str'] = df_limpo[c].fillna('').astype(str)
-            df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
-            break
+    if 'Tipo de Atividade' in df_limpo.columns:
+        df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
+        df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
+
+    # PASSO 2: MARCAÇÃO E FILTRAGEM PRÉVIA DOS CONTRATOS PENDENTES
+    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
+    
+    # Mantém estritamente os contratos com status pendentes ativos antes de verificar os horários
+    df_validos = df_limpo[df_limpo['P_COUNT'] > 0].copy()
         
     # Tratamento e montagem do filtro dinâmico de Janelas
-    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_limpo.columns else None
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_validos.columns else None
     if not col_janela:
-        for c in df_limpo.columns:
+        for c in df_validos.columns:
             if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
                 col_janela = c
                 break
             
-    if col_janela is not None:
-        df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
-        df_janelas_validas = df_limpo[
-            (df_limpo['Intervalo_Tratado'] != '') & 
-            (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA'))
+    if col_janela is not None and not df_validos.empty:
+        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
+        
+        # Filtra a lista de opções para remover horários quebrados/sujeira
+        df_janelas_filtradas = df_validos[
+            (df_validos['Intervalo_Tratado'] != '') & 
+            (~df_validos['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+            (df_validos['Intervalo_Tratado'].str.len() <= 7)
         ].copy()
         
-        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].dropna().unique())
+        opcoes_janela = sorted(df_janelas_filtradas['Intervalo_Tratado'].dropna().unique())
         opcoes_janela = [j for j in opcoes_janela if j.upper() not in ['NAN', 'NONE', 'N/A']]
         
         if opcoes_janela:
             janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel].copy()
+            df_tela = df_validos[df_validos['Intervalo_Tratado'] == janela_sel].copy()
         else:
-            df_tela = df_limpo.copy()
+            df_tela = df_validos.copy()
     else:
-        df_tela = df_limpo.copy()
+        df_tela = df_validos.copy()
 
     if df_tela.empty:
-        st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
+        st.warning("⚠️ Não existem contratos pendentes para os filtros aplicados nesta janela.")
     else:
-        # 🌟 FILTRO CRÍTICO: Conta e mantém APENAS quem tem status PENDENTE ou EM ABERTO
-        df_tela['P_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
-        
-        # Filtra a tabela para focar estritamente em pendências de campo
-        df_tela = df_tela[df_tela['P_COUNT'] > 0].copy()
-
         # Identifica o nome ou login do recurso
         col_rec = 'Recurso' if 'Recurso' in df_tela.columns else None
         if not col_rec:
@@ -88,7 +100,7 @@ if df_master is not None and not df_master.empty:
                     break
         df_tela['Recurso_Tratado'] = df_tela[col_rec].fillna('TÉCNICO PENDENTE').astype(str).str.upper() if col_rec else 'TÉCNICO PENDENTE'
 
-        # Define quem vai aparecer no topo do cartão (Se tiver supervisor amarrado mostra ele, senão mostra o técnico)
+        # Define quem vai aparecer no topo do cartão
         if 'SUPERVISOR' in df_tela.columns:
             df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(
                 lambda r: str(r['Recurso_Tratado']).upper() if str(r['SUPERVISOR']).strip().upper() in ['#N/A', 'NAN', '', 'PENDENTE CADASTRO'] else str(r['SUPERVISOR']).upper(), axis=1
@@ -113,22 +125,15 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             
             if not df_abc.empty:
-                # Agrupa e soma os contratos pendentes
                 matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')['P_COUNT'].sum().reset_index()
                 
                 for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
                     total_pendentes = int(matriz_abc[matriz_abc['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]['P_COUNT'])
                     
                     with st.container(border=True):
-                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#ffebee; padding:2px 8px; border-radius:4px; color:#c62828;">Pendentes: ' + str(total_pendentes) + '</span></div>', unsafe_allow_html=True)
-                        
-                        m1, m2, m3 = st.columns(3)
-                        with m1:
-                            st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
-                        with m2:
-                            st.metric(label="🟣 EM ROTA", value=0)
-                        with m3:
-                            st.metric(label="🟢 INICIADO", value=0)
+                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + '</div>', unsafe_allow_html=True)
+                        # 🌟 MUDANÇA: Exibe apenas a caixa vermelha de Pendentes ocupando a largura total
+                        st.markdown('<div class="custom-pendente-box" style="width: 100%;"><div class="custom-pendente-label">🔴 CONTRATOS PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
             else:
                 st.info("Nenhum contrato pendente localizado para o ABC nesta janela.")
 
@@ -136,26 +141,19 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             
             if not df_sp.empty:
-                # Agrupa e soma os contratos pendentes
                 matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')['P_COUNT'].sum().reset_index()
                 
                 for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
                     total_pendentes = int(matriz_sp[matriz_sp['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]['P_COUNT'])
                     
                     with st.container(border=True):
-                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#ffebee; padding:2px 8px; border-radius:4px; color:#c62828;">Pendentes: ' + str(total_pendentes) + '</span></div>', unsafe_allow_html=True)
-                        
-                        m1, m2, m3 = st.columns(3)
-                        with m1:
-                            st.markdown('<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
-                        with m2:
-                            st.metric(label="🟣 EM ROTA", value=0)
-                        with m3:
-                            st.metric(label="🟢 INICIADO", value=0)
+                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + '</div>', unsafe_allow_html=True)
+                        # 🌟 MUDANÇA: Exibe apenas a caixa vermelha de Pendentes ocupando a largura total
+                        st.markdown('<div class="custom-pendente-box" style="width: 100%;"><div class="custom-pendente-label">🔴 CONTRATOS PENDENTES</div><div class="custom-pendente-value">' + str(total_pendentes) + '</div></div>', unsafe_allow_html=True)
             else:
                 st.info("Nenhum contrato pendente localizado para SP nesta janela.")
 
-    # MODO TV AUTOMÁTICO (Sincronizado)
+    # MODO TV AUTOMÁTICO
     st.components.v1.html("""
         <script>
         setTimeout(function(){ window.parent.location.hash = "#certidao"; }, 30000);
