@@ -25,7 +25,6 @@ st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margi
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
-    # 🌟 ATIVADO: accept_multiple_files=True permite selecionar ou arrastar vários arquivos juntos
     arquivos_postados = st.sidebar.file_uploader(
         "Arraste todos os arquivos da rota aqui de uma vez", 
         type=["csv", "xlsx"],
@@ -37,7 +36,6 @@ def carregar_dados_sistema():
         lista_dfs = []
         
         try:
-            # Loop para ler e acumular todos os arquivos que você subiu
             for arquivo in arquivos_postados:
                 if arquivo.name.endswith('.xlsx'):
                     df_individual = pd.read_excel(arquivo, dtype=str)
@@ -45,7 +43,6 @@ def carregar_dados_sistema():
                     df_individual = pd.read_csv(arquivo, dtype=str, on_bad_lines='skip')
                 
                 if not df_individual.empty:
-                    # Limpeza inicial de colunas do arquivo individual
                     df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                     lista_dfs.append(df_individual)
             
@@ -53,7 +50,6 @@ def carregar_dados_sistema():
                 st.sidebar.error("⚠️ Nenhum dos arquivos enviados continha dados válidos.")
                 return None
                 
-            # 🔄 CONCATENAÇÃO: Junta todas as planilhas subidas em uma só tabela máster
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             
             # Mapeamento e padronização das colunas consolidadas
@@ -76,6 +72,7 @@ def carregar_dados_sistema():
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
             
             if 'ID_Tecnico_Bruto' in df_bruto.columns:
+                # 🌟 BLINDAGEM AQUI: Convertemos explicitamente para String (.astype(str)) antes de aplicar o .str
                 df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').astype(str).str.upper().str.strip()
                 df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].fillna('N/A').astype(str).str.strip()
             else:
@@ -103,12 +100,13 @@ def carregar_dados_sistema():
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A')
                 df_final['REGIAO_BASE'] = df_final['BASE_MAP'].fillna('N/A').astype(str).str.upper().str.strip()
                 
+                # 🌟 BLINDAGEM EXTRA: Garante que as colunas de controle interno geradas no merge também sejam strings puras
+                df_final['SUPERVISOR'] = df_final['SUPERVISOR'].astype(str)
+                df_final['REGIAO_BASE'] = df_final['REGIAO_BASE'].astype(str)
+                
                 df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
                 
-                # Avisa quantos arquivos foram unificados
                 st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) unificado(s) e processado(s)!")
-                
-                # Guarda na memória global do Streamlit para as outras abas usarem
                 st.session_state['df_rota_ativa'] = df_final
                 return df_final
             else:
@@ -136,6 +134,7 @@ def classificar_status_excel(baixa, status_at):
 def processar_bloco_regional(df_bloco, nome_bloco):
     st.markdown(f'<div style="background-color:#005088; padding:8px 15px; color:white; font-weight:bold; font-size:18px; border-radius:4px; margin-top:20px; margin-bottom:10px;">{nome_bloco}</div>', unsafe_allow_html=True)
     
+    # Garantindo tratamento como string para as operações de filtro locais
     df_bloco['Supervisor_Upper'] = df_bloco['SUPERVISOR'].fillna('#N/A').astype(str).str.upper().str.strip()
     df_bloco['Status_Atividade_Upper'] = df_bloco['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
     df_bloco['Recurso_Upper'] = df_bloco['Recurso'].fillna('').astype(str).str.upper().str.strip()
