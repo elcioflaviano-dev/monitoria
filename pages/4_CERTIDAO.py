@@ -35,9 +35,9 @@ def carregar_banco_historico():
 if "historico_certidoes" not in st.session_state:
     st.session_state["historico_certidoes"] = carregar_banco_historico()
 
-# 🌟 Gerenciamento do estado do campo de texto
-if "input_contrato_value" not in st.session_state:
-    st.session_state["input_contrato_value"] = ""
+# 🌟 Inicializa a variável que armazena o texto real do contrato de forma segura
+if "valor_contrato_limpo" not in st.session_state:
+    st.session_state["valor_contrato_limpo"] = ""
 
 # 🔄 HERANÇA INTELIGENTE
 df_master = st.session_state.get('df_rota_ativa', None)
@@ -105,10 +105,10 @@ with st.container(border=True):
     col1, col2, col3 = st.columns([2, 2, 3])
 
     with col1:
-        # 🌟 MODIFICADO: Associado diretamente à chave controlada 'txt_contrato' para limpar de forma instantânea
+        # 🌟 CORREÇÃO DEFINTIVA: Usa value vindo do estado controlado e remove a key conflitante
         contrato_input = st.text_input(
             "Número do Contrato:", 
-            key="txt_contrato",
+            value=st.session_state["valor_contrato_limpo"],
             placeholder="Digite o contrato e pressione Enter..."
         ).strip()
 
@@ -158,8 +158,8 @@ with st.container(border=True):
             st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
             
-            # 🌟 ALTERAÇÃO OPERACIONAL: Força a limpeza visual do widget limpando o estado de sua Key
-            st.session_state["txt_contrato"] = ""
+            # 🌟 SOLUÇÃO DO COMPONENTE: Reseta a variável de valor padrão com segurança
+            st.session_state["valor_contrato_limpo"] = ""
             
             st.success(f"✅ Contrato {contrato_input} atualizado como {status_final}!")
             st.rerun()
