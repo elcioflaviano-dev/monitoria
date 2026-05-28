@@ -52,12 +52,19 @@ if df_master is not None and not df_master.empty:
             
     if col_janela is not None:
         df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
+        
+        # 🌟 CRÍTICO: Filtra as janelas válidas garantindo que elas possuam contratos ativos preenchidos
         df_janelas_validas = df_limpo[
             (df_limpo['Intervalo_Tratado'] != '') & 
             (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
             (~df_limpo['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
-        ]
-        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].unique())
+        ].copy()
+        
+        # Agrupa apenas os horários que realmente possuem registros na tabela agora
+        opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].dropna().unique())
+        
+        # Remove eventuais strings de texto nulo da lista de seleção
+        opcoes_janela = [j for j in opcoes_janela if j.upper() not in ['NAN', 'NONE', 'N/A']]
         
         if opcoes_janela:
             janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
@@ -80,13 +87,16 @@ if df_master is not None and not df_master.empty:
             lambda r: str(r['Recurso']).upper() if str(r['SUPERVISOR']).strip().upper() in ['#N/A', 'NAN', ''] else str(r['SUPERVISOR']).upper(), axis=1
         )
 
-        # 🌟 SEPARAÇÃO POR SUPERVISOR
+        # 🌟 CORREÇÃO MÁSTER SÃO PAULO: Varredura com operador 'in' para evitar quebra por espaços ou acentos
         df_sp_lista, df_abc_lista = [], []
         for idx, linha in df_tela.iterrows():
-            super_original = str(linha.get('SUPERVISOR', '')).upper()
+            super_original = str(linha.get('SUPERVISOR', '')).upper().strip()
+            
+            # Se contiver FRANCISCO ou ALAN no texto mapeado, joga para a direita (SP)
             if "FRANCISCO" in super_original or "ALAN" in super_original:
                 df_sp_lista.append(linha)
             else:
+                # O resto cai na esquerda (ABC)
                 df_abc_lista.append(linha)
                 
         df_abc = pd.DataFrame(df_abc_lista) if df_abc_lista else pd.DataFrame(columns=df_tela.columns)
@@ -102,7 +112,7 @@ if df_master is not None and not df_master.empty:
                 for supervisor in sorted(supervisores_abc):
                     df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
                     
-                    # 🌟 RECONHECIMENTO FLEXÍVEL (Contêm texto): Resolve o erro de zerar os cartões
+                    # Reconhecimento flexível de status (Contêm texto)
                     pendentes = len(df_super[df_super['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO', na=False)])
                     em_rota = len(df_super[df_super['Status_Atividade_Upper'].str.contains('ROTA|DESLOC', na=False)])
                     iniciados = len(df_super[df_super['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO', na=False)])
@@ -129,7 +139,7 @@ if df_master is not None and not df_master.empty:
                 for supervisor in sorted(supervisores_sp):
                     df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
                     
-                    # 🌟 RECONHECIMENTO FLEXÍVEL PARA SP TAMBÉM
+                    # Reconhecimento flexível de status (Contêm texto)
                     pendentes = len(df_super[df_super['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO', na=False)])
                     em_rota = len(df_super[df_super['Status_Atividade_Upper'].str.contains('ROTA|DESLOC', na=False)])
                     iniciados = len(df_super[df_super['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO', na=False)])
