@@ -43,34 +43,33 @@ df_master = st.session_state.get('df_rota_ativa', None)
 
 df_base_online = None
 if df_master is not None and not df_master.empty:
-    # Cria o DataFrame base isolado
-    df_temp = df_master.copy()
+    # 🌟 SOLUÇÃO MÁSTER: Extrai as listas puras e reconstrói um dicionário limpo do zero (Evita qualquer erro de fatiamento do Pandas)
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_master.columns else 'Intervalo de Tempo'
+    col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_master.columns else 'Status da Atividade'
     
-    # Mapeia as colunas dinâmicas para evitar erros de falta de chaves
-    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_temp.columns else 'Intervalo de Tempo'
-    col_status_at = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else 'Status da Atividade'
-    
-    val_status_os1 = df_temp['STATUS_OS1'].fillna('NÃO EXECUTADO') if 'STATUS_OS1' in df_temp.columns else 'NÃO EXECUTADO'
-    val_recurso = df_temp['Recurso'].fillna('Técnico Não Identificado') if 'Recurso' in df_temp.columns else 'Técnico Não Identificado'
-    val_contrato = df_temp['Contrato'].fillna('').astype(str).str.strip() if 'Contrato' in df_temp.columns else ''
-    
-    # 🌟 SOLUÇÃO DEFINITIVA: O .assign cria e injeta as colunas recriando a estrutura na memória de forma isolada
-    df_base_online = df_temp.assign(
-        Contrato = val_contrato,
-        **{
-            'Intervalo de Tempo': df_temp[col_janela].fillna('Padrão / Sem Janela').astype(str).str.strip() if col_janela in df_temp.columns else 'Padrão / Sem Janela',
-            'Status da Atividade': df_temp[col_status_at].fillna('PENDENTE').astype(str).str.upper().str.strip() if col_status_at in df_temp.columns else 'PENDENTE',
-            'Status da O.S 1': val_status_os1,
-            'Recurso': val_recurso
-        }
-    )
+    lista_contrato = df_master['Contrato'].fillna('').astype(str).str.strip().tolist()
+    lista_janela = df_master[col_janela].fillna('Padrão / Sem Janela').astype(str).str.strip().tolist() if col_janela in df_master.columns else ['Padrão / Sem Janela'] * len(df_master)
+    lista_status_at = df_master[col_status_at].fillna('PENDENTE').astype(str).str.upper().str.strip().tolist() if col_status_at in df_master.columns else ['PENDENTE'] * len(df_master)
+    lista_status_os1 = df_master['STATUS_OS1'].fillna('NÃO EXECUTADO').tolist() if 'STATUS_OS1' in df_master.columns else ['NÃO EXECUTADO'] * len(df_master)
+    lista_recurso = df_master['Recurso'].fillna('Técnico Não Identificado').tolist() if 'Recurso' in df_master.columns else ['Técnico Não Identificado'] * len(df_master)
+    lista_supervisor = df_master['SUPERVISOR'].fillna('N/A').tolist() if 'SUPERVISOR' in df_master.columns else ['N/A'] * len(df_master)
+
+    # Recria o objeto DataFrame isolado de qualquer herança de escrita externa
+    df_base_online = pd.DataFrame({
+        'Contrato': lista_contrato,
+        'Intervalo de Tempo': lista_janela,
+        'Status da Atividade': lista_status_at,
+        'Status da O.S 1': lista_status_os1,
+        'Recurso': lista_recurso,
+        'SUPERVISOR': lista_supervisor
+    })
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
 data_rota_texto = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 if df_base_online is not None:
     st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada em tempo real via Upload de hoje</div>', unsafe_allow_html=True)
 else:
-    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando upload dos arquivos na página inicial</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando upload dos arquivos na página inicial</div>', unsafe_allow_html=True)
 
 # --- MONTAGEM DO FILTRO LATERAL ---
 janela_sel = "Padrão / Sem Janela"
