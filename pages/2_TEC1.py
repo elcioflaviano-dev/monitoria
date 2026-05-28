@@ -43,14 +43,18 @@ if df_master is not None and not df_master.empty:
     # Remove as marcações operacionais de almoço (Refeicao)
     if 'Tipo de Atividade' in df.columns:
         df['Tipo_Atividade_Str'] = df['Tipo de Atividade'].fillna('').astype(str)
-        # 🌟 CORRIGIDO: Nome da coluna ajustado de 'Tipo_Activity_Str' para 'Tipo_Atividade_Str'
         cond_contrato_valido = cond_contrato_valido & (~df['Tipo_Atividade_Str'].str.contains('Refeicao', case=False, na=False))
         
     df_limpo = df[cond_contrato_valido].copy()
     
-    # Tratamento e montagem do filtro dinâmico de Janelas Válidas
-    col_janela = 'Janela'
-    if col_janela in df_limpo.columns:
+    # 🌟 RESTAURADO: Varredura flexível para encontrar a coluna de Janela
+    col_janela = None
+    for c in df_limpo.columns:
+        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper() or 'TEMPO' in str(c).upper():
+            col_janela = c
+            break
+            
+    if col_janela is not None:
         df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
         
         # Ignora textos corrompidos ou informativos de sistema da lista
@@ -63,6 +67,7 @@ if df_master is not None and not df_master.empty:
         opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].unique())
         
         if opcoes_janela:
+            # Força a barra lateral a abrir para exibir o filtro dinâmico
             janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
             df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
         else:
@@ -132,7 +137,7 @@ if df_master is not None and not df_master.empty:
         else:
             st.info("Nenhum supervisor ativo em SP nesta janela.")
 
-    # MODO TV AUTOMÁTICO (Mantido igual ao seu original)
+    # MODO TV AUTOMÁTICO
     st.components.v1.html("""
         <script>
         setTimeout(function(){
