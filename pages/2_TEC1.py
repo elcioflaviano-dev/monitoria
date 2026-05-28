@@ -27,17 +27,15 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === HIGIENIZAÇÃO CRÍTICA DO FILTRO E DOS DADOS ===
-    # Força conversão para string para evitar erros do Pandas
-    df['Contrato_Limpo'] = df['Contrato'].fillna('').astype(str).str.strip()
+    # === HIGIENIZAÇÃO CRÍTICA PARIZADA COM A HOME ===
+    # Forçamos a identificação das colunas com os nomes exatos gerados no motor máster
+    df['Contrato_Limpo'] = df['Contrato'].fillna('').astype(str).str.strip() if 'Contrato' in df.columns else ''
     df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
     
-    # FILTRAGEM PESADA: Elimina nulos, #N/A e status SUSPENSO
+    # FILTRAGEM PESADA: Elimina nulos e status SUSPENSO
     cond_contrato_valido = (
-        (df['Contrato_Limpo'] != '') & 
-        (df['Contrato_Limpo'] != 'nan') & 
-        (~df['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
-        (~df['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
+        (df['Status_Atividade_Upper'] != 'SUSPENSO') & 
+        (df['Status_Atividade_Upper'] != 'NAN')
     )
     
     # Remove as marcações operacionais de almoço (Refeicao)
@@ -47,12 +45,14 @@ if df_master is not None and not df_master.empty:
         
     df_limpo = df[cond_contrato_valido].copy()
     
-    # 🌟 RESTAURADO: Varredura flexível para encontrar a coluna de Janela
-    col_janela = None
-    for c in df_limpo.columns:
-        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper() or 'TEMPO' in str(c).upper():
-            col_janela = c
-            break
+    # Tratamento e montagem do filtro dinâmico de Janelas Válidas
+    col_janela = 'Janela' if 'Janela' in df_limpo.columns else None
+    if col_janela is None:
+        # Busca flexível se mudou de nome
+        for c in df_limpo.columns:
+            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
+                col_janela = c
+                break
             
     if col_janela is not None:
         df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
@@ -67,9 +67,9 @@ if df_master is not None and not df_master.empty:
         opcoes_janela = sorted(df_janelas_validas['Intervalo_Tratado'].unique())
         
         if opcoes_janela:
-            # Força a barra lateral a abrir para exibir o filtro dinâmico
+            # Mostra o selectbox na barra lateral
             janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
+            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel].copy()
         else:
             df_tela = df_limpo.copy()
             janela_sel = "N/A"
@@ -77,17 +77,19 @@ if df_master is not None and not df_master.empty:
         df_tela = df_limpo.copy()
         janela_sel = "N/A"
 
-    # 🌟 SEPARAÇÃO PRECISA POR COLUNA REGIONAL (Preenchida pelo Procv da Home)
+    # 🌟 SEPARAÇÃO PRECISA POR COLUNA REGIONAL (ABC, GUARULHOS, SÃO PAULO)
     df_abc = df_tela[df_tela['REGIAO_BASE'] == 'ABC'].copy()
     df_sp = df_tela[df_tela['REGIAO_BASE'].isin(['SÃO PAULO', 'SP', 'GUARULHOS'])].copy()
 
     col_coluna_abc, col_coluna_sp = st.columns(2)
     
     with col_coluna_abc:
-        st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
         
-        if not df_abc.empty:
+        if not df_abc.empty and 'SUPERVISOR' in df_abc.columns:
             supervisores_abc = df_abc['SUPERVISOR'].dropna().unique()
+            exibiu_abc = False
+            
             for supervisor in sorted(supervisores_abc):
                 if str(supervisor).upper() in ['#N/A', 'NAN', '']: continue
                 df_super = df_abc[df_abc['SUPERVISOR'] == supervisor]
@@ -97,6 +99,7 @@ if df_master is not None and not df_master.empty:
                 iniciados = len(df_super[df_super['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper() == 'INICIADO'])
                 total = len(df_super)
                 
+                exibiu_abc = True
                 with st.container(border=True):
                     st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">' + str(supervisor).upper() + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total) + '</span></div>', unsafe_allow_html=True)
                     
@@ -107,14 +110,19 @@ if df_master is not None and not df_master.empty:
                         st.metric(label="🟣 EM ROTA", value=em_rota)
                     with m3:
                         st.metric(label="🟢 INICIADO", value=iniciados)
+            
+            if not exibiu_abc:
+                st.info("Nenhum supervisor ativo no ABC nesta janela.")
         else:
             st.info("Nenhum supervisor ativo no ABC nesta janela.")
 
     with col_coluna_sp:
-        st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="title-abc-sp">SÃO PAULO / GUARULHOS</div>', unsafe_allow_html=True)
         
-        if not df_sp.empty:
+        if not df_sp.empty and 'SUPERVISOR' in df_sp.columns:
             supervisores_sp = df_sp['SUPERVISOR'].dropna().unique()
+            exibiu_sp = False
+            
             for supervisor in sorted(supervisores_sp):
                 if str(supervisor).upper() in ['#N/A', 'NAN', '']: continue
                 df_super = df_sp[df_sp['SUPERVISOR'] == supervisor]
@@ -124,6 +132,7 @@ if df_master is not None and not df_master.empty:
                 iniciados = len(df_super[df_super['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper() == 'INICIADO'])
                 total = len(df_super)
                 
+                exibiu_sp = True
                 with st.container(border=True):
                     st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">' + str(supervisor).upper() + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total) + '</span></div>', unsafe_allow_html=True)
                     
@@ -134,6 +143,9 @@ if df_master is not None and not df_master.empty:
                         st.metric(label="🟣 EM ROTA", value=em_rota)
                     with m3:
                         st.metric(label="🟢 INICIADO", value=iniciados)
+            
+            if not exibiu_sp:
+                st.info("Nenhum supervisor ativo em SP nesta janela.")
         else:
             st.info("Nenhum supervisor ativo em SP nesta janela.")
 
