@@ -43,7 +43,8 @@ if df_master is not None and not df_master.empty:
     # Remove as marcações operacionais de almoço (Refeicao)
     if 'Tipo de Atividade' in df.columns:
         df['Tipo_Atividade_Str'] = df['Tipo de Atividade'].fillna('').astype(str)
-        cond_contrato_valido = cond_contrato_valido & (~df['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False))
+        # 🌟 CORRIGIDO: Nome da coluna ajustado de 'Tipo_Activity_Str' para 'Tipo_Atividade_Str'
+        cond_contrato_valido = cond_contrato_valido & (~df['Tipo_Atividade_Str'].str.contains('Refeicao', case=False, na=False))
         
     df_limpo = df[cond_contrato_valido].copy()
     
@@ -63,7 +64,6 @@ if df_master is not None and not df_master.empty:
         
         if opcoes_janela:
             janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-            # 🌟 CORRIGIDO: Agora o filtro usa estritamente a janela selecionada no menu
             df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel]
         else:
             df_tela = df_limpo.copy()
