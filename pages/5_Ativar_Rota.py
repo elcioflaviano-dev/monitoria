@@ -67,8 +67,8 @@ def buscar_base_rotas_online():
             col_upper = col.upper()
             if ('SUPERVISOR' in col_upper or 'MONITOR' in col_upper) and 'SUPERVISOR' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'SUPERVISOR'
-            elif 'STATUS' in col_upper and 'STATUS_ATIVIDADE' not in colunas_mapeadas.values(): 
-                colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
+            elif ('STATUS DA ATIVIDADE' in col_upper or 'STATUS ATIVIDADE' in col_upper) and 'STATUS_INTERNO' not in colunas_mapeadas.values(): 
+                colunas_mapeadas[col] = 'STATUS_INTERNO'
             elif ('RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper) and 'Recurso' not in colunas_mapeadas.values(): 
                 colunas_mapeadas[col] = 'Recurso'
         
@@ -96,21 +96,28 @@ def destacar_linha_total(row):
 # --- CORPO PRINCIPAL DO FILTRO ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # Higienização de strings
+    # Higienização de strings para evitar erros de leitura
     df_ativar['Supervisor_Upper'] = df_ativar['SUPERVISOR'].fillna('N/A').astype(str).str.upper().str.strip()
     df_ativar['Recurso_Original'] = df_ativar['Recurso'].fillna('N/A').astype(str).str.strip()
-    df_ativar['Status_Atividade_Upper'] = df_ativar['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip()
     
-    # 🌟 FILTRO ULTRA SEGURO: Só mantém na tabela quem estiver EXATAMENTE com status "PENDENTE"
-    df_pendentes = df_ativar[df_ativar['Status_Atividade_Upper'] == "PENDENTE"].copy()
+    if 'STATUS_INTERNO' in df_ativar.columns:
+        df_ativar['Status_Atividade_Upper'] = df_ativar['STATUS_INTERNO'].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df_ativar['Status_Atividade_Upper'] = ''
     
-    # Agrupa apenas para listar os nomes sem duplicados na tela
+    # 🌟 PASSO 1: Criar uma lista real de todos os técnicos que possuem pelo menos 1 "CONCLUIDO" no dia
+    lista_tecnicos_concluidos = df_ativar[df_ativar['Status_Atividade_Upper'] == "CONCLUIDO"]['Recurso_Original'].unique()
+    
+    # 🌟 PASSO 2: Filtrar a base para manter APENAS quem NÃO concluiu nada (está com tudo em branco/pendente)
+    df_pendentes = df_ativar[~df_ativar['Recurso_Original'].isin(lista_tecnicos_concluidos)].copy()
+    
+    # Agrupa apenas para listar os nomes de forma única na tela
     df_lista = df_pendentes.groupby(['SUPERVISOR', 'Recurso_Original']).size().reset_index()
     df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Recurso_Original': 'Técnico com Base Pendente'})
     df_lista = df_lista[['Supervisor', 'Técnico com Base Pendente']]
     
     # Limpa possíveis registros inválidos do banco
-    df_lista = df_lista[df_lista['Técnico com Base Pendente'] != 'N/A']
+    df_lista = df_lista[(df_lista['Técnico com Base Pendente'] != 'N/A') & (df_lista['Técnico com Base Pendente'] != '')]
 
     # Divisão Regional (Padrão Francisco/Alan para SP, restante ABC)
     df_sp = df_lista[df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
