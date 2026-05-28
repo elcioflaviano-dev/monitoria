@@ -27,8 +27,7 @@ st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === 🌟 ALINHAMENTO DE COLUNAS OPERACIONAIS 🌟 ===
-    # Mapeia dinamicamente para garantir que o Pandas ache os nomes corretos
+    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else ('Status da Atividade' if 'Status da Atividade' in df.columns else None)
     
     if col_status:
@@ -36,7 +35,7 @@ if df_master is not None and not df_master.empty:
     else:
         df['Status_Atividade_Upper'] = ''
         
-    # FILTRAGEM INTELIGENTE: Remove apenas status suspensos (não joga fora os #N/A para não sumir com os dados)
+    # FILTRAGEM: Remove apenas status suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
     # Remove as marcações operacionais de almoço (Refeicao)
@@ -70,32 +69,36 @@ if df_master is not None and not df_master.empty:
         df_tela = df_limpo.copy()
         janela_sel = "N/A"
 
-    # Se a tabela de exibição estiver vazia, avisa o usuário sem quebrar
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
     else:
-        # Garantia de preenchimento dos campos nulos para exibição nos cartões
+        # 🧠 SE ACHAR #N/A NO SUPERVISOR, PEGA O NOME DO RECURSO/TECNICO PARA MOSTRAR QUEM É
+        if 'Recurso' not in df_tela.columns:
+            df_tela['Recurso'] = 'TÉCNICO NÃO IDENTIFICADO'
+            
         if 'SUPERVISOR' not in df_tela.columns:
-            df_tela['SUPERVISOR'] = 'SEM SUPERVISOR'
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['Recurso'].get(str)
         else:
-            df_tela['SUPERVISOR'] = df_tela['SUPERVISOR'].fillna('SEM SUPERVISOR').replace({'#N/A': 'PENDENTE CADASTRO', 'nan': 'SEM SUPERVISOR'})
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(
+                lambda r: str(r['Recurso']).upper() if str(r['SUPERVISOR']).strip().upper() in ['#N/A', 'NAN', ''] else str(r['SUPERVISOR']).upper(), axis=1
+            )
             
         if 'REGIAO_BASE' not in df_tela.columns:
             df_tela['REGIAO_BASE'] = 'SP'
 
-        # 🌟 SEPARAÇÃO PRECISA POR COLUNA REGIONAL (ABC vs SÃO PAULO)
-        df_abc = df_tela[df_tela['REGIAO_BASE'] == 'ABC'].copy()
-        df_sp = df_tela[df_tela['REGIAO_BASE'].isin(['SÃO PAULO', 'SP', 'GUARULHOS', 'N/A'])].copy()
+        # 🌟 AJUSTE DAS COLUNAS: GUARULHOS AGORA VAI JUNTO COM O ABC
+        df_abc = df_tela[df_tela['REGIAO_BASE'].isin(['ABC', 'GUARULHOS'])].copy()
+        df_sp = df_tela[df_tela['REGIAO_BASE'].isin(['SÃO PAULO', 'SP', 'N/A'])].copy()
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
         with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
             
-            supervisores_abc = df_abc['SUPERVISOR'].dropna().unique() if not df_abc.empty else []
+            supervisores_abc = df_abc['SUPERVISOR_MOSTRAR'].dropna().unique() if not df_abc.empty else []
             if len(supervisores_abc) > 0:
                 for supervisor in sorted(supervisores_abc):
-                    df_super = df_abc[df_abc['SUPERVISOR'] == supervisor]
+                    df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
                     
                     pendentes = len(df_super[df_super['Status_Atividade_Upper'] == 'PENDENTE'])
                     em_rota = len(df_super[df_super['Status_Atividade_Upper'] == 'EM ROTA'])
@@ -103,7 +106,7 @@ if df_master is not None and not df_master.empty:
                     total = len(df_super)
                     
                     with st.container(border=True):
-                        st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">' + str(supervisor).upper() + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total) + '</span></div>', unsafe_allow_html=True)
+                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total) + '</span></div>', unsafe_allow_html=True)
                         
                         m1, m2, m3 = st.columns(3)
                         with m1:
@@ -113,15 +116,15 @@ if df_master is not None and not df_master.empty:
                         with m3:
                             st.metric(label="🟢 INICIADO", value=iniciados)
             else:
-                st.info("Nenhum supervisor ativo no ABC nesta janela.")
+                st.info("Nenhum supervisor ou técnico ativo no ABC/Guarulhos nesta janela.")
 
         with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp">SÃO PAULO / GUARULHOS</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             
-            supervisores_sp = df_sp['SUPERVISOR'].dropna().unique() if not df_sp.empty else []
+            supervisores_sp = df_sp['SUPERVISOR_MOSTRAR'].dropna().unique() if not df_sp.empty else []
             if len(supervisores_sp) > 0:
                 for supervisor in sorted(supervisores_sp):
-                    df_super = df_sp[df_sp['SUPERVISOR'] == supervisor]
+                    df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
                     
                     pendentes = len(df_super[df_super['Status_Atividade_Upper'] == 'PENDENTE'])
                     em_rota = len(df_super[df_super['Status_Atividade_Upper'] == 'EM ROTA'])
@@ -129,7 +132,7 @@ if df_master is not None and not df_master.empty:
                     total = len(df_super)
                     
                     with st.container(border=True):
-                        st.markdown('<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">' + str(supervisor).upper() + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total) + '</span></div>', unsafe_allow_html=True)
+                        st.markdown('<div style="font-size:18px; font-weight:bold; margin-bottom:10px;">👤 ' + str(supervisor) + ' <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: ' + str(total) + '</span></div>', unsafe_allow_html=True)
                         
                         m1, m2, m3 = st.columns(3)
                         with m1:
@@ -139,7 +142,7 @@ if df_master is not None and not df_master.empty:
                         with m3:
                             st.metric(label="🟢 INICIADO", value=iniciados)
             else:
-                st.info("Nenhum supervisor ativo em SP nesta janela.")
+                st.info("Nenhum supervisor ou técnico ativo em SP nesta janela.")
 
     # MODO TV AUTOMÁTICO
     st.components.v1.html("""
