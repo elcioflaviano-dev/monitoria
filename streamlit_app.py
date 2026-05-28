@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA COM PROCV BLINDADO POR LOGIN ===
+# === MOTOR MÁSTER DE CARGA COM PROCV CORRIGIDO POR LOGIN DO TÉCNICO ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -46,6 +46,7 @@ def carregar_dados_sistema():
                     
                     if not df_individual.empty:
                         df_individual = df_individual.loc[:, ~df_individual.columns.duplicated()]
+                        # Limpa espaços dos cabeçalhos mantendo a grafia original do arquivo
                         df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                         lista_dfs.append(df_individual)
                         
@@ -60,34 +61,35 @@ def carregar_dados_sistema():
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
             
+            # 🌟 PROCURA AS COLUNAS USANDO OS NOMES REAIS DO SEU ARQUIVO
             colunas_mapeadas = {}
             for col in list(df_bruto.columns):
                 col_upper = str(col).upper().strip()
                 
-                # Mapeamento do Login do Técnico no arquivo bruto
-                if 'LOGIN' in col_upper or 'USER' in col_upper or 'RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper:
-                    colunas_mapeadas[col] = 'ID_Tecnico_Bruto'
-                elif 'STATUS' in col_upper and 'OS' not in col_upper:
+                if 'LOGIN DO TÉCNICO' in col_upper or 'LOGIN DO TECNICO' in col_upper:
+                    colunas_mapeadas[col] = 'Login_Match'
+                elif 'STATUS DA ATIVIDADE' in col_upper or 'STATUS_ATIVIDADE' in col_upper:
                     colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
-                elif 'TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper or 'TIPO ATIVIDADE' in col_upper:
-                    colunas_mapeadas[col] = 'Tipo O.S 1'
-                elif 'STATUS DA O.S 1' in col_upper or 'STATUS OS 1' in col_upper or 'BAIXA' in col_upper:
+                elif 'STATUS DA O.S 1' in col_upper or 'STATUS OS 1' in col_upper:
                     colunas_mapeadas[col] = 'STATUS_OS1'
-                elif 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper or 'QTD' in col_upper:
+                elif 'TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper:
+                    colunas_mapeadas[col] = 'Tipo O.S 1'
+                elif 'TOTAL DE TAREFAS' in col_upper:
                     colunas_mapeadas[col] = 'QTD_OS_COL'
-                elif 'CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper:
-                    colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
             
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
-            df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
             
-            # 🌟 HIGIENIZAÇÃO MÁSTER DO LOGIN DA ROTA (Chave do PROCV)
-            if 'ID_Tecnico_Bruto' in df_bruto.columns:
-                df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].fillna('').astype(str).str.strip().str.upper()
-                df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].fillna('').astype(str).str.strip()
+            # Garante que a coluna chave do PROCV exista e esteja limpa
+            if 'Login_Match' in df_bruto.columns:
+                df_bruto['Login_Match_Clean'] = df_bruto['Login_Match'].fillna('').astype(str).str.strip().str.upper()
+                df_bruto['Recurso'] = df_bruto['Login_Match'].fillna('').astype(str).str.strip()
             else:
-                st.sidebar.error("❌ Coluna de identificação do técnico (Login/Recurso) não localizada nos arquivos.")
-                return None
+                # Fallback se o nome vier diferente por encoding
+                for c in df_bruto.columns:
+                    if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
+                        df_bruto['Login_Match_Clean'] = df_bruto[c].fillna('').astype(str).str.strip().str.upper()
+                        df_bruto['Recurso'] = df_bruto[c].fillna('').astype(str).str.strip()
+                        break
 
             # 🧠 BUSCA ABA "SUPERVISORES" NO GOOGLE SHEETS
             url_base = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
@@ -97,29 +99,27 @@ def carregar_dados_sistema():
                 df_aux = pd.read_csv(io.StringIO(res_aux.text))
                 df_aux = df_aux.loc[:, ~df_aux.columns.duplicated()]
                 
-                # Padroniza os cabeçalhos do Sheets para maiúsculo
+                # Padroniza os cabeçalhos do Sheets (LOGIN, NOME, SUPERVISOR, BASE)
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
                 
-                # 🌟 HIGIENIZAÇÃO MÁSTER DO LOGIN DO SHEETS (Garante que comece pelo Login limpo)
-                col_login_sheets = 'LOGIN' if 'LOGIN' in df_aux.columns else df_aux.columns[0]
-                df_aux['LOGIN_MATCH_SHEETS'] = df_aux[col_login_sheets].fillna('').astype(str).str.strip().str.upper()
+                # Limpa e prepara a chave do Sheets para o PROCV
+                df_aux['LOGIN_SHEETS_CLEAN'] = df_aux['LOGIN'].fillna('').astype(str).str.strip().str.upper()
                 
-                # Garante os nomes corretos para o mapeamento pós-PROCV
-                df_aux = df_aux.rename(columns={'SUPERVISOR': 'SUPERVISOR_MAP', 'BASE': 'BASE_MAP', 'NOME': 'NOME_MAP'})
-                df_aux = df_aux[['LOGIN_MATCH_SHEETS', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP']].drop_duplicates()
+                # Seleciona apenas as colunas necessárias para o cruzamento
+                df_aux = df_aux[['LOGIN_SHEETS_CLEAN', 'SUPERVISOR', 'BASE', 'NOME']].drop_duplicates()
                 
-                # 🌟 EXECUTA O PROCV (Merge) EXATAMENTE IGUAL AO EXCEL
-                df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match', right_on='LOGIN_MATCH_SHEETS', how='left')
+                # 🌟 EXECUTA O PROCV PERFEITO IGUAL AO EXCEL
+                df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match_Clean', right_on='LOGIN_SHEETS_CLEAN', how='left')
                 
-                # Aplica os valores encontrados no cruzamento
-                df_final['Recurso'] = df_final['NOME_MAP'].fillna(df_final['Recurso'])
-                df_final['SUPERVISOR'] = df_final['SUPERVISOR_MAP'].fillna('#N/A').astype(str).str.strip().str.upper()
-                df_final['REGIAO_BASE'] = df_final['BASE_MAP'].fillna('N/A').astype(str).str.strip().str.upper()
+                # Aplica as variáveis vindas da planilha de cadastro
+                df_final['Recurso'] = df_final['NOME'].fillna(df_final['Recurso'])
+                df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('#N/A').astype(str).str.strip().str.upper()
+                df_final['REGIAO_BASE'] = df_final['BASE'].fillna('N/A').astype(str).str.strip().str.upper()
                 
-                # Limpa colunas temporárias
-                df_final = df_final.drop(columns=['Login_Match', 'LOGIN_MATCH_SHEETS', 'NOME_MAP', 'SUPERVISOR_MAP', 'BASE_MAP', 'ID_Tecnico_Bruto'], errors='ignore')
+                # Limpa colunas de controle da memória
+                df_final = df_final.drop(columns=['Login_Match_Clean', 'LOGIN_SHEETS_CLEAN', 'NOME', 'BASE'], errors='ignore')
                 
-                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) cruzado(s) com o Sheets!")
+                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) processado(s) com PROCV!")
                 st.session_state['df_rota_ativa'] = df_final
                 return df_final
             else:
