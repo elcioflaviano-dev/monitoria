@@ -77,7 +77,7 @@ if df_master is not None and not df_master.empty:
         'SUPERVISOR': lista_supervisor
     })
 
-# 🌟 AUTOMATIZAÇÃO DAS JANELAS (IGUAL AO TEC1 - FUSO BRASÍLIA) 🌟
+# === AUTOMATIZAÇÃO DAS JANELAS (FUSO BRASÍLIA) ===
 hora_brasilia = (datetime.utcnow() - timedelta(hours=3)).hour
 
 if hora_brasilia < 11:
@@ -96,7 +96,6 @@ if df_base_online is not None:
 else:
     st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando upload dos arquivos na página inicial</div>', unsafe_allow_html=True)
 
-# Filtro lateral invisível ou desnecessário mantido em fallback automático
 janela_sel = "AUTOMÁTICO"
 
 # ==========================================
@@ -180,20 +179,18 @@ if df_base_online is not None:
     df_base_online['Intervalo_Limpo'] = df_base_online['Intervalo de Tempo'].fillna('').astype(str).str.strip()
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
-    # 🌟 FILTRO POR HORÁRIO AUTOMÁTICO COORDENADO
+    # Filtro por horário automático coordenado
     cond_janela = df_base_online['Intervalo_Limpo'].isin(janelas_automaticas)
     
+    # 🌟 FILTRO CIRÚRGICO: Mantém estritamente o que está CONCLUÍDO ou INICIADO em campo
     cond_ativ = (
         df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU", na=False) | 
-        df_base_online['Status_Atividade_Limpo'].str.contains("INIC", na=False) |
-        df_base_online['Status_Atividade_Limpo'].str.contains("PENDENTE", na=False) |
-        df_base_online['Status_Atividade_Limpo'].str.contains("ROTA", na=False)
+        df_base_online['Status_Atividade_Limpo'].str.contains("INIC", na=False)
     )
     
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
     if not df_banco_atual.empty:
-        # 🌟 FILTRO LIMPA-TRILHOS: Remove tudo que já foi carimbado como OK ou NÃO ADERENTE no dia
         contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_validados)]
     else:
@@ -225,15 +222,9 @@ if df_base_online is not None:
                         if "CONCLU" in status_real_campo:
                             bg_color = "#2e7d32"     
                             txt_status = "CONCLUÍDO"
-                        elif "INIC" in status_real_campo:
+                        else:
                             bg_color = "#ff9800"     
                             txt_status = "INICIADO"
-                        elif "ROTA" in status_real_campo:
-                            bg_color = "#9c27b0"
-                            txt_status = "EM ROTA"
-                        else:
-                            bg_color = "#d32f2f"
-                            txt_status = "PENDENTE"
                         
                         st.markdown(f"""
                             <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:6px 10px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
@@ -245,7 +236,7 @@ if df_base_online is not None:
                             </div>
                         """, unsafe_allow_html=True)
     else:
-        st.info("✨ Todas as certidões das janelas acumuladas até o momento foram validadas!")
+        st.info("✨ Todas as certidões produzidas (Iniciadas/Concluídas) até o momento foram validadas!")
 else:
     st.info("ℹ️ Aguardando o upload dos dados operacionais na página inicial.")
 
