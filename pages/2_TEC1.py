@@ -76,7 +76,7 @@ if df_master is not None and not df_master.empty:
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
     else:
-        # 🌟 CLASSIFICAÇÃO E CONTAGEM DOS STATUS VALIDOS DE CONTRATO
+        # 🌟 CONTAGEM INTELIGENTE POR STATUS VALIDOS DE CONTRATO
         df_tela['P_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
         df_tela['R_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
         df_tela['I_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
@@ -84,21 +84,25 @@ if df_master is not None and not df_master.empty:
         # Mantém na tela apenas quem tem status válidos de campo
         df_tela = df_tela[(df_tela['P_COUNT'] > 0) | (df_tela['R_COUNT'] > 0) | (df_tela['I_COUNT'] > 0)].copy()
 
-        # 🌟 RESTAURAÇÃO DO AGRUPAMENTO: Padroniza o nome do Supervisor (Garante a soma consolidada)
-        if 'SUPERVISOR' in df_tela.columns:
-            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'nan': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'})
+        # 🌟 CAPTURA DINÂMICA DO SUPERVISOR BRUTO (Evita o erro de vir vazio)
+        col_super_bruto = None
+        for c in df_tela.columns:
+            if 'SUPERVISOR' in str(c).upper() or 'SUPER' in str(c).upper():
+                col_super_bruto = c
+                break
+                
+        if col_super_bruto:
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_super_bruto].fillna('PENDENTE CADASTRO').astype(str).str.upper().str.strip()
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'PENDENTE CADASTRO', 'NAN': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'})
         else:
             df_tela['SUPERVISOR_MOSTRAR'] = 'PENDENTE CADASTRO'
-            
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
 
-        # Separação precisa por Região/Supervisor
+        # 🌟 DIVISÃO RESTRITA POR NOME DE SUPERVISOR (Igual ao seu backup original)
         df_sp_lista, df_abc_lista = [], []
         for idx, linha in df_tela.iterrows():
-            regiao = str(linha.get('REGIAO_BASE', '')).upper().strip()
-            super_mostrar = str(linha.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
+            super_nome = str(linha.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
-            if 'SÃO PAULO' in regiao or 'SP' in regiao or 'FRANCISCO' in super_mostrar or 'ALAN' in super_mostrar:
+            if "FRANCISCO" in super_nome or "ALAN" in super_nome:
                 df_sp_lista.append(linha)
             else:
                 df_abc_lista.append(linha)
@@ -112,7 +116,6 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             
             if not df_abc.empty:
-                # Agrupa estritamente por Supervisor, somando a quantidade de contratos
                 matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 
                 for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
@@ -140,7 +143,6 @@ if df_master is not None and not df_master.empty:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             
             if not df_sp.empty:
-                # Agrupa estritamente por Supervisor, somando a quantidade de contratos
                 matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 
                 for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
