@@ -21,7 +21,7 @@ except:
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
 st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
 
-# === MOTOR MÁSTER DE CARGA: VARREDURA ULTRA SEGURA DE COLUNAS ===
+# === MOTOR MÁSTER DE CARGA: EVITA AMBIGUIDADE DE COLUNAS ===
 def carregar_dados_sistema():
     st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
     
@@ -45,7 +45,7 @@ def carregar_dados_sistema():
                         df_individual = pd.read_csv(arquivo, on_bad_lines='skip')
                     
                     if not df_individual.empty:
-                        # Força todos os nomes de colunas a serem strings limpas antes de qualquer tratamento
+                        # Força todos os cabeçalhos a virarem texto simples imediatamente
                         df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                         lista_dfs.append(df_individual)
                         
@@ -57,31 +57,34 @@ def carregar_dados_sistema():
                 st.sidebar.error("⚠️ Nenhum arquivo pôde ser lido.")
                 return None
                 
-            # Une todas as planilhas carregadas
+            # Une todas as tabelas brutas
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             
-            # 🌟 NOVO MAPEAMENTO ULTRA SEGURO: Evita o erro de ambiguidade do Pandas
+            # 🌟 SOLUÇÃO DA AMBIGUIDADE: Convertemos os cabeçalhos para uma lista nativa de Strings do Python.
+            # Isso impede que o Pandas tente analisar séries/vetores inteiros na verificação de texto.
+            lista_colunas_reais = [str(c) for c in df_bruto.columns]
             colunas_mapeadas = {}
-            for col in list(df_bruto.columns):
-                col_upper = str(col).upper().strip()
+            
+            for col in lista_colunas_reais:
+                col_upper = col.upper().strip()
                 
                 # Procura a coluna do login/técnico
-                if any(x in col_upper for x in ['LOGIN', 'USER', 'RECURSO', 'TECNICO', 'TÉCNICO']):
+                if 'LOGIN' in col_upper or 'USER' in col_upper or 'RECURSO' in col_upper or 'TECNICO' in col_upper or 'TÉCNICO' in col_upper:
                     colunas_mapeadas[col] = 'ID_Tecnico_Bruto'
                 # Procura a coluna de status da atividade
                 elif 'STATUS' in col_upper and 'OS' not in col_upper:
                     colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
                 # Procura a coluna de tipo de O.S
-                elif any(x in col_upper for x in ['TIPO O.S 1', 'TIPO DE OS', 'TIPO ATIVIDADE']):
+                elif 'TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper or 'TIPO ATIVIDADE' in col_upper:
                     colunas_mapeadas[col] = 'Tipo O.S 1'
                 # Procura a coluna de baixa/status os 1
-                elif any(x in col_upper for x in ['STATUS DA O.S 1', 'STATUS OS 1', 'BAIXA']):
+                elif 'STATUS DA O.S 1' in col_upper or 'STATUS OS 1' in col_upper or 'BAIXA' in col_upper:
                     colunas_mapeadas[col] = 'STATUS_OS1'
                 # Procura a coluna de total de tarefas
-                elif any(x in col_upper for x in ['TOTAL DE TAREFAS', 'TOTAL TAREFAS', 'VOLUME', 'QTD']):
+                elif 'TOTAL DE TAREFAS' in col_upper or 'TOTAL TAREFAS' in col_upper or 'VOLUME' in col_upper or 'QTD' in col_upper:
                     colunas_mapeadas[col] = 'QTD_OS_COL'
                 # Procura a coluna de categoria/capacidade
-                elif any(x in col_upper for x in ['CATEGORIA', 'CAPACIDADE']):
+                elif 'CATEGORIA' in col_upper or 'CAPACIDADE' in col_upper:
                     colunas_mapeadas[col] = 'CATEGORIA_CAPACIDADE'
             
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
@@ -90,7 +93,7 @@ def carregar_dados_sistema():
                 df_bruto['Login_Match'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip().upper() if pd.notna(x) else 'N/A')
                 df_bruto['Recurso'] = df_bruto['ID_Tecnico_Bruto'].apply(lambda x: str(x).strip() if pd.notna(x) else 'N/A')
             else:
-                st.sidebar.error("❌ Coluna de identificação do técnico não localizada. Verifique os cabeçalhos dos arquivos.")
+                st.sidebar.error("❌ Coluna de identificação do técnico (Login/Recurso) não localizada nos arquivos.")
                 return None
 
             # 🧠 BUSCA ABA "SUPERVISORES" NO GOOGLE SHEETS
@@ -100,7 +103,7 @@ def carregar_dados_sistema():
             if res_aux.status_code == 200:
                 df_aux = pd.read_csv(io.StringIO(res_aux.text))
                 
-                # Força os cabeçalhos da aba de supervisores a serem strings limpas
+                # Isola cabeçalhos da aba auxiliar como lista de texto puro
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
                 
                 # Mapeia as colunas usando lambdas seguras
