@@ -24,13 +24,23 @@ df_master = st.session_state.get('df_rota_ativa', None)
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
+    # === PASSO 1: LIMPEZA DE LINHAS VAZIAS DA ROTA ===
+    col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
+    if not col_tecnico_check:
+        for c in df.columns:
+            if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
+                col_tecnico_check = c
+                break
+                
+    if col_tecnico_check:
+        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+    
+    if 'Contrato' in df.columns:
+        df = df[df['Contrato'].fillna('').astype(str).str.strip() != ''].copy()
+
     # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
-    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else ('Status da Atividade' if 'Status da Atividade' in df.columns else None)
-    if col_status:
-        df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df['Status_Atividade_Upper'] = ''
-        
+    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
+    
     # FILTRAGEM: Remove status suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
@@ -39,57 +49,63 @@ if df_master is not None and not df_master.empty:
         df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
         df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
         
+    # === PASSO 2: FILTRAGEM PRÉVIA DE STATUS ATIVOS EM CAMPO ===
+    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
+    df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
+    df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
+    
+    # Cria uma base apenas com os contratos válidos que estão acontecendo no dia
+    df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+
     # Mapeia a coluna de Janela
-    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_limpo.columns else None
+    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_validos.columns else None
     if not col_janela:
-        for c in df_limpo.columns:
+        for c in df_validos.columns:
             if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): col_janela = c; break
 
-    if col_janela is not None:
-        df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
+    if col_janela is not None and not df_validos.empty:
+        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
         
-        # 🌟 PASSO 3: CORREÇÃO DO RELÓGIO (FUSO HORÁRIO DE BRASÍLIA) 🌟
-        # Força o Python a pegar o horário do servidor e tirar 3 horas para bater com o seu relógio aí
+        # 🌟 PASSO 3: MOTOR DE HORÁRIO AUTOMÁTICO (FUSO BRASÍLIA) 🌟
         hora_brasilia = (datetime.utcnow() - timedelta(hours=3)).hour
         
-        # Define quais janelas acumulam na tela com base no relógio real de Brasília
         if hora_brasilia < 11:
             janelas_automaticas = ['08 - 10']
             texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela da Manhã (08 - 10)"
         elif 11 <= hora_brasilia < 15:
-            # Mantém cravado aqui até dar 15:00 aí na sua central!
             janelas_automaticas = ['08 - 10', '11 - 14', '12:00 - 15:00']
             texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela Ativa (11 - 14 / 12 - 15) + Acumulados"
         else:
             janelas_automaticas = ['08 - 10', '11 - 14', '12:00 - 15:00', '15 - 18']
             texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela da Tarde (15 - 18) + Tudo Pendente do Dia"
 
-        # Cria a lista de opções na barra lateral
-        opcoes_janela_todas = sorted(df_limpo['Intervalo_Tratado'].dropna().unique())
-        opcoes_janela_todas = [j for j in opcoes_janela_todas if j.upper() not in ['NAN', 'NONE', 'N/A'] and len(j) <= 15]
+        # 🌟 CRÍTICO: Monta as opções olhando APENAS para os contratos válidos e limpa horários quebrados
+        df_janelas_limpas = df_validos[
+            (df_validos['Intervalo_Tratado'] != '') & 
+            (~df_validos['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+            (df_validos['Intervalo_Tratado'].str.len() <= 7) # Força apenas formatos curtos tipo "11 - 14"
+        ].copy()
         
+        opcoes_janela_todas = sorted(df_janelas_limpas['Intervalo_Tratado'].dropna().unique())
+        opcoes_janela_todas = [j for j in opcoes_janela_todas if j.upper() not in ['NAN', 'NONE', 'N/A']]
+        
+        # Insere a opção "AUTOMÁTICO" no topo da lista limpa
         lista_selectbox = ["AUTOMÁTICO 🔄"] + opcoes_janela_todas
         janela_sel = st.sidebar.selectbox("Filtro de Janela:", lista_selectbox)
         
         if janela_sel == "AUTOMÁTICO 🔄":
-            df_tela = df_limpo[df_limpo['Intervalo_Tratado'].isin(janelas_automaticas)].copy()
+            df_tela = df_validos[df_validos['Intervalo_Tratado'].isin(janelas_automaticas)].copy()
             st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">{texto_status_janela}</div>', unsafe_allow_html=True)
         else:
-            df_tela = df_limpo[df_limpo['Intervalo_Tratado'] == janela_sel].copy()
+            df_tela = df_validos[df_validos['Intervalo_Tratado'] == janela_sel].copy()
             st.markdown(f'<div style="text-align: center; color: #555; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🎯 Filtro Manual Forçado: Janela {janela_sel}</div>', unsafe_allow_html=True)
     else:
-        df_tela = df_limpo.copy()
+        df_tela = df_validos.copy()
 
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
     else:
-        # Cria as colunas de soma dos status operacionais
-        df_tela['P_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
-        df_tela['R_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
-        df_tela['I_COUNT'] = df_tela['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
-        
-        df_tela = df_tela[(df_tela['P_COUNT'] > 0) | (df_tela['R_COUNT'] > 0) | (df_tela['I_COUNT'] > 0)].copy()
-
+        # Padroniza a coluna do Supervisor vinda do PROCV da Home
         if 'SUPERVISOR' in df_tela.columns:
             df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'NAN': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'})
         else:
