@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-# 🌟 CORREÇÃO CRÍTICA DA IMPORTAÇÃO COMPATÍVEL COM st-gsheets-connection
+# 🌟 IMPORTAÇÃO DIRETA DO CONECTOR PARA EVITAR O ERRO DE VERSÃO DO STREAMLIT
 from streamlit_gsheets import GSheetsConnection
 
 # 1. Configuração da página
@@ -18,9 +18,10 @@ st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-
 
 # === CONEXÃO DIRETA COM O GOOGLE SHEETS (NUVEM) ===
 try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
+    # 🌟 CORREÇÃO: Inicialização compatível com todas as versões do Streamlit
+    conn = GSheetsConnection(connection_name="gsheets")
 except Exception as e:
-    st.error("⚠️ Erro de conexão com o Google Sheets. Verifique se configurou o Secrets corretamente.")
+    st.error("⚠️ Erro de inicialização do Google Sheets. Verifique o arquivo Secrets.")
     st.stop()
 
 def carregar_banco_historico_sheets():
