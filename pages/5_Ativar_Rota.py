@@ -19,14 +19,14 @@ df_master = st.session_state.get('df_rota_ativa', None)
 
 df_ativar = None
 if df_master is not None and not df_master.empty:
-    # Cria uma cópia isolada para trabalhar
     df_temp = df_master.copy()
     
-    # Identificação dinâmica das colunas conforme o arquivo enviado
+    # Identificação dinâmica das colunas conforme o cabeçalho do Excel
     col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else ('Tipo de A' if 'Tipo de A' in df_temp.columns else 'TIPO_ATIVIDADE_COL')
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else ('Status da' if 'Status da' in df_temp.columns else 'Status da Atividade')
+    col_login = 'Login' if 'Login' in df_temp.columns else ('Login do' in df_temp.columns or None)
     
-    # Se não achou pelos nomes aproximados, caça por índice ou palavra-chave
+    # Busca aproximada caso os nomes variem
     if col_tipo not in df_temp.columns:
         for c in df_temp.columns:
             if 'TIPO DE A' in str(c).upper() or 'TIPO ATIV' in str(c).upper(): col_tipo = c; break
@@ -35,38 +35,53 @@ if df_master is not None and not df_master.empty:
         for c in df_temp.columns:
             if 'STATUS DA' in str(c).upper() or 'STATUS_AT' in str(c).upper(): col_status = c; break
 
-    # Extrai as colunas brutas em formato de texto limpo
+    if not col_login:
+        for c in df_temp.columns:
+            if 'LOGIN' in str(c).upper(): col_login = c; break
+
+    # Extrai as colunas brutas do arquivo de upload
     lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_temp.columns else ['N/A'] * len(df_temp)
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp['SUPERVISOR']).iloc[:, 0].fillna('').tolist()] if 'SUPERVISOR' in df_temp.columns else [''] * len(df_temp)
     lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()] if col_tipo in df_temp.columns else [''] * len(df_temp)
     lista_status_at = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_status]).iloc[:, 0].fillna('').tolist()] if col_status in df_temp.columns else [''] * len(df_temp)
+    lista_logins_brutos = [str(x).strip() for x in pd.DataFrame(df_temp[col_login]).iloc[:, 0].fillna('').tolist()] if col_login else [''] * len(df_temp)
 
-    # Monta o esqueleto inicial
+    # Monta a base de conferência inicial
     df_ativar = pd.DataFrame({
         'Recurso_Original': lista_recurso,
         'SUPERVISOR_ORIGINAL': lista_supervisor,
         'Tipo_Atividade_Upper': lista_tipo_ativ,
-        'Status_Conclusao_Upper': lista_status_at
+        'Status_Conclusao_Upper': lista_status_at,
+        'Login_Original': lista_logins_brutos
     })
     
-    # 🌟 PASSO MÁSTER (PROCV INTERNO): Mapeia o supervisor real de cada técnico usando as linhas preenchidas
-    df_mapeamento_sup = df_ativar[
+    # 🌟 MÁSTER PROCV PELO NOME DO TÉCNICO ('Recurso_Original')
+    # Varre as linhas onde o Login e o Supervisor estão preenchidos para criar o dicionário de busca
+    df_dados_validos = df_ativar[
         (df_ativar['SUPERVISOR_ORIGINAL'] != '') & 
-        (~df_ativar['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
-    ].groupby('Recurso_Original')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
+        (~df_ativar['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A'])) &
+        (df_ativar['Login_Original'] != '') &
+        (~df_ativar['Login_Original'].isin(['N/A', 'NAN', '#N/A']))
+    ].groupby('Recurso_Original').first().reset_index()
     
-    # Cruza de volta para preencher as linhas vazias do "Na Base"
-    df_ativar = pd.merge(df_ativar, df_mapeamento_sup, on='Recurso_Original', how='left')
+    df_mapeamento = df_dados_validos[['Recurso_Original', 'SUPERVISOR_ORIGINAL', 'Login_Original']].rename(
+        columns={'SUPERVISOR_ORIGINAL': 'SUPERVISOR_VALIDO', 'Login_Original': 'LOGIN_VALIDO'}
+    )
+    
+    # Cruza os dados de volta pelo nome do técnico
+    df_ativar = pd.merge(df_ativar, df_mapeamento, on='Recurso_Original', how='left')
+    
+    # Define os valores finais (usa o procv por nome se a linha original estiver em branco)
     df_ativar['SUPERVISOR'] = df_ativar['SUPERVISOR_VALIDO'].fillna(df_ativar['SUPERVISOR_ORIGINAL']).str.upper().str.strip()
+    df_ativar['Login_Final'] = df_ativar['LOGIN_VALIDO'].fillna(df_ativar['Login_Original']).str.strip()
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
 data_rota_texto = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
 if df_ativar is not None:
-    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Base sincronizada com PROCV interno de Supervisor ativo</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Monitorando status PENDENTE com PROCV de Login e Supervisor por Nome ativo</div>', unsafe_allow_html=True)
 else:
     st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando upload dos arquivos na página inicial</div>', unsafe_allow_html=True)
 
-# Layout de cor para a linha de totalizador
 def destacar_linha_total(row):
     try:
         if "TOTAL" in str(row.iloc[0]).upper():
@@ -75,31 +90,25 @@ def destacar_linha_total(row):
         pass
     return [''] * len(row)
 
-# --- PROCESSAMENTO DOS FILTROS OPERACIONAIS ---
+# --- FILTRAGEM OPERACIONAL DIRETA ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # 1. Filtra apenas as linhas que contêm "BASE" no tipo de atividade
-    df_filtrado = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
+    # 1. Filtra estritamente as linhas que são "NA BASE" ou contêm "BASE"
+    df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
     
-    # 2. Remove supervisores inválidos ou nulos após o cruzamento do PROCV
-    df_filtrado = df_filtrado[
-        (~df_filtrado['SUPERVISOR'].isin(['#N/A', 'N/A', '', 'NAN', 'NAN', None])) & 
-        (df_filtrado['SUPERVISOR'].notna())
-    ].copy()
+    # 2. Dessas linhas de "Na Base", captura APENAS as que estão com status PENDENTE de verdade
+    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND", na=False)].copy()
     
-    # 3. Filtra estritamente o que está com status PENDENTE na largada
-    df_pendentes_na_base = df_filtrado[df_filtrado['Status_Conclusao_Upper'].str.contains("PEND", na=False)].copy()
-    
-    # Agrupa e gera a listagem limpa por Supervisor e Técnico
-    if not df_pendentes_na_base.empty:
-        df_lista = df_pendentes_na_base.groupby(['SUPERVISOR', 'Recurso_Original']).size().reset_index()
-        df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Recurso_Original': 'Técnico Pendente'})
-        df_lista = df_lista[['Supervisor', 'Técnico Pendente']]
+    # Agrupa e gera a tabela para exibição por Supervisor, Login e Técnico
+    if not df_pendentes_reais.empty:
+        df_lista = df_pendentes_reais.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
+        df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Login_Final': 'Login', 'Recurso_Original': 'Técnico Pendente'})
+        df_lista = df_lista[['Supervisor', 'Login', 'Técnico Pendente']]
         
-        # Filtro antiferrugem contra lixo de string
+        # Filtro de segurança contra lixo de string
         df_lista = df_lista[(df_lista['Técnico Pendente'] != 'N/A') & (df_lista['Técnico Pendente'] != '') & (df_lista['Técnico Pendente'].str.upper() != 'NAN')]
     else:
-        df_lista = pd.DataFrame(columns=['Supervisor', 'Técnico Pendente'])
+        df_lista = pd.DataFrame(columns=['Supervisor', 'Login', 'Técnico Pendente'])
 
     # Divisão Regional Padrão (Francisco/Alan = SP, o restante é ABC)
     df_sp = df_lista[df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
@@ -114,7 +123,7 @@ if df_ativar is not None and not df_ativar.empty:
         st.dataframe(df_abc, use_container_width=True, hide_index=True)
         
         tot_tecs_abc = df_abc['Técnico Pendente'].nunique()
-        df_tot_abc = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Técnico Pendente": f"{tot_tecs_abc} Técnicos sem ativação"}])
+        df_tot_abc = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Login": "-", "Técnico Pendente": f"{tot_tecs_abc} Técnicos com Na Base Pendente"}])
         st.dataframe(df_tot_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
     else:
         st.success("✅ 100% da equipe ABC realizou a largada do 'Na Base'!")
@@ -130,7 +139,7 @@ if df_ativar is not None and not df_ativar.empty:
         st.dataframe(df_sp, use_container_width=True, hide_index=True)
         
         tot_tecs_sp = df_sp['Técnico Pendente'].nunique()
-        df_tot_sp = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Técnico Pendente": f"{tot_tecs_sp} Técnicos sem ativação"}])
+        df_tot_sp = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Login": "-", "Técnico Pendente": f"{tot_tecs_sp} Técnicos com Na Base Pendente"}])
         st.dataframe(df_tot_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
     else:
         st.success("✅ 100% da equipe SP realizou a largada do 'Na Base'!")
