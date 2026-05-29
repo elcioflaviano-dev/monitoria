@@ -151,7 +151,7 @@ with st.container(border=True):
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             
             nova_linha = pd.DataFrame([{
-                "Data/Hora": grandma, "Contrato": contrato_input, "Status": status_final,
+                "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
                 "Intervalo de Tempo": "AUTOMÁTICO", "Observação": obs_input if obs_input != "" else "OK"
             }])
@@ -210,7 +210,6 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    # 🌟 REORGANIZAÇÃO VERTICAL: Cada item agora é gerado em uma linha nova (\n)
                     lista_elementos_copia = []
                     for _, row_c in df_cards_sup.iterrows():
                         c_num_c = str(row_c['Contrato_Limpo'])
@@ -218,10 +217,10 @@ if df_base_online is not None:
                         if c_num_c != '':
                             lista_elementos_copia.append(f"{c_num_c} {nome_tec_c}")
                     
-                    # Usa o "\n" para quebrar a linha automaticamente dentro da caixa de cópia
                     texto_copia_em_lote = "\n".join(lista_elementos_copia)
                     
-                    st.code(texto_copia_em_lote, language="text")
+                    # 🌟 ALTURA FIXADA: height=100 trava a caixinha em mais ou menos 3 linhas com barra de rolagem lateral
+                    st.code(texto_copia_em_lote, language="text", height=100)
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
                     
                     for _, row_p in df_cards_sup.iterrows():
