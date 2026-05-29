@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# 1. Configuração da página ampla para a TV
+# 1. Configuração da página ampla para a TV (força o início recolhido)
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
@@ -36,15 +36,25 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# Injeta o CSS unificado com a estilização da barra e do botão de saída
+# Injeta o CSS unificado com ocultação agressiva do menu lateral
 st.markdown("""
     <style>
-        /* Dá 80px de espaço no topo para o título */
+        /* Dá espaço no topo para o título */
         .block-container { padding-top: 80px !important; padding-bottom: 5px !important; }
         .stDeployButton { display:none; }
         
-        /* Oculta completamente o botão de colapso padrão do streamlit para não confundir */
-        button[data-testid="stSidebarCollapseButton"] { display: none !important; }
+        /* ❌ REMOVE COMPLETAMENTE O MENU LATERAL E O BOTÃO NATIVO NESTA PÁGINA */
+        [data-testid="stSidebar"], button[data-testid="stSidebarCollapseButton"] {
+            display: none !important;
+            width: 0px !important;
+        }
+        
+        /* Ajusta o conteúdo principal para ocupar 100% da largura da tela da TV */
+        [data-testid="stMainBlockContainer"] {
+            max-width: 100% !important;
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+        }
         
         /* Barra preta fixada no topo absoluto da tela */
         .barra-status-tv {
