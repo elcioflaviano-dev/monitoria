@@ -8,22 +8,32 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-TEMPO_ROTACAO_SEGUNDOS = 15  # ⏱️ Alterado para 15 segundos conforme solicitado
+TEMPO_ROTACAO_SEGUNDOS = 15  # Gira a cada 15 segundos
 
-# --- CONTROLE INTERNO DE ROTAÇÃO NATIVA ---
+# --- MOTOR DE ROTAÇÃO EM PYTHON PURO (BLINDADO CONTRA TRAVAMENTOS) ---
 PAINEIS = ["LARGADA_MATINAL", "TEC1_PENDENTES", "PRIMEIRO_ATENDIMENTO"]
 
 if "indice_painel" not in st.session_state:
     st.session_state["indice_painel"] = 0
 
-# Verifica se veio o comando do JavaScript para avançar a tela
-query_params = st.query_params
-if "proximo_painel" in query_params:
+if "timestamp_ultimo_giro" not in st.session_state:
+    st.session_state["timestamp_ultimo_giro"] = time.time()
+
+# Calcula quanto tempo se passou desde a última troca
+tempo_decorrido = time.time() - st.session_state["timestamp_ultimo_giro"]
+
+# Se o tempo estourou os 15 segundos, avança o painel e reseta o cronômetro
+if tempo_decorrido >= TEMPO_ROTACAO_SEGUNDOS:
     st.session_state["indice_painel"] = (st.session_state["indice_painel"] + 1) % len(PAINEIS)
-    st.query_params.clear()
+    st.session_state["timestamp_ultimo_giro"] = time.time()
     st.rerun()
 
 painel_atual = PAINEIS[st.session_state["indice_painel"]]
+
+# Força o Streamlit a acordar e rodar o código a cada 1 segundo para checar o tempo
+st.text_input("timer_heartbeat", value=str(time.time()), label_visibility="collapsed")
+time.sleep(1)
+st.rerun()
 
 # 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
 df_master = None
@@ -33,7 +43,7 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# Injeta o CSS base para Modo TV e o Motor do Cronômetro Vivo
+# Injeta o CSS base para Modo TV
 st.markdown("""
     <style>
         .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
@@ -70,33 +80,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Renderiza a barra com o container do cronômetro que o JavaScript vai controlar
+# Renderiza a barra superior estável
+segundos_restantes = max(0, int(TEMPO_ROTACAO_SEGUNDOS - tempo_decorrido))
 st.markdown(f'''
     <div class="barra-status-tv">
         <span>📺 MODO TV ATIVO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
-        <span id="cronometro_vivido">⏱️ Próxima tela em: {TEMPO_ROTACAO_SEGUNDOS}s</span>
+        <span>⏱️ Próxima tela em: {segundos_restantes}s</span>
     </div>
 ''', unsafe_allow_html=True)
-
-# 🚀 MOTOR JAVASCRIPT EM SEGUNDO PLANO
-st.components.v1.html(f"""
-    <script>
-    let tempo = {TEMPO_ROTACAO_SEGUNDOS};
-    const elemento = window.parent.document.getElementById("cronometro_vivido");
-    
-    const contador = setInterval(function() {{
-        tempo--;
-        if (elemento) {{
-            elemento.innerHTML = "⏱️ Próxima tela em: " + tempo + "s";
-        }}
-        
-        if (tempo <= 0) {{
-            clearInterval(contador);
-            window.parent.location.search = "?proximo_painel=true";
-        }}
-    }}, 1000);
-    </script>
-""", height=0)
 
 # Funções auxiliares de tempo
 def tratar_horario(val):
