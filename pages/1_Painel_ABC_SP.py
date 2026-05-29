@@ -13,32 +13,33 @@ try:
 except:
     pass
 
-# Customização CSS de Alta Performance para os Cards de 1º Contrato no Topo
+# Customização CSS para Grid Dinâmico de Cards por Base
 st.markdown("""
     <style>
     .block-container { padding-top: 1.5rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 16px !important; }
     
-    /* Grid dos Cards de KPI do 1º Contrato */
-    .kpi-container {
+    /* Grid de Rolagem ou quebra automática para as Bases */
+    .kpi-container-bases {
         display: flex;
+        flex-wrap: wrap;
         justify-content: center;
-        gap: 25px;
+        gap: 15px;
         margin-bottom: 20px;
     }
-    .kpi-card-atend {
+    .kpi-card-base {
         background-color: #ffffff;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        padding: 10px 25px;
+        padding: 10px 20px;
         text-align: center;
-        min-width: 280px;
-        border-top: 5px solid #006677;
+        flex: 1;
+        min-width: 220px;
+        max-width: 280px;
+        border-top: 5px solid #008080;
     }
-    .kpi-card-atend.abc { border-top-color: #008080; }
-    .kpi-card-atend.sp { border-top-color: #b30000; }
-    .kpi-title-atend { font-size: 13px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
-    .kpi-value-atend { font-size: 26px; color: #111; font-weight: 900; }
+    .kpi-title-base { font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+    .kpi-value-base { font-size: 24px; color: #111; font-weight: 900; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -122,12 +123,11 @@ if df_dash is not None and not df_dash.empty:
             df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # ⚙️ MOTOR DE CÁLCULO: 1º ATENDIMENTO OPERACIONAL (INTEGRADO NO TOPO)
+    # ⚙️ MOTOR DE CÁLCULO: 1º ATENDIMENTO SEPARADO POR BASE OPERACIONAL
     # =========================================================================
-    media_abc, media_sp = "--:--", "--:--"
     df_calc_atend = df_dash.copy()
     
-    # Identificação de segurança da coluna Início pura
+    # Identificação da coluna Início pura
     col_inicio_estrito = 'Início'
     for c in df_calc_atend.columns:
         c_clean = str(c).upper().strip().split('.')[0]
@@ -136,63 +136,71 @@ if df_dash is not None and not df_dash.empty:
             break
 
     col_recurso = 'Recurso' if 'Recurso' in df_calc_atend.columns else df_calc_atend.columns[0]
-    col_supervisor_atend = 'SUPERVISOR' if 'SUPERVISOR' in df_calc_atend.columns else None
-    if not col_supervisor_atend:
-        for c in df_calc_atend.columns:
-            if 'SUPERV' in str(c).upper(): col_supervisor_atend = c; break
+    col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_calc_atend.columns else ('Cidade' if 'Cidade' in df_calc_atend.columns else df_calc_atend.columns[0])
 
     series_recurso = df_calc_atend[col_recurso] if col_recurso in df_calc_atend.columns else df_calc_atend.iloc[:, 0]
     series_status = df_calc_atend[col_status] if col_status in df_calc_atend.columns else df_calc_atend.iloc[:, 3]
     series_inicio = df_calc_atend[col_inicio_estrito] if col_inicio_estrito in df_calc_atend.columns else df_calc_atend.iloc[:, 10]
-    series_supervisor = df_calc_atend[col_supervisor_atend] if col_supervisor_atend and col_supervisor_atend in df_calc_atend.columns else pd.Series([''] * len(df_calc_atend))
+    series_base = df_calc_atend[col_base_operacional] if col_base_operacional in df_calc_atend.columns else pd.Series(['GERAL'] * len(df_calc_atend))
+    
+    # Amarração do Supervisor caso use o filtro lateral
+    col_supervisor_atend = 'SUPERVISOR' if 'SUPERVISOR' in df_calc_atend.columns else None
+    series_supervisor = df_calc_atend[col_supervisor_atend] if col_supervisor_atend else pd.Series([''] * len(df_calc_atend))
 
     df_base_atend = pd.DataFrame({
         'Técnico': [str(x).strip() for x in series_recurso.fillna('N/A').tolist()],
         'Status_OS': [str(x).lower().strip() for x in series_status.fillna('').tolist()],
         'Hora_Inicio': [tratar_horario(x) for x in series_inicio.tolist()],
-        'Supervisor_Bruto': [str(x).upper().strip() for x in series_supervisor.fillna('').tolist()]
+        'Base': [str(x).upper().strip() for x in series_base.fillna('NÃO DEFINIDA').tolist()],
+        'Supervisor': [str(x).upper().strip() for x in series_supervisor.fillna('').tolist()]
     })
-    
-    # PROCV de amarração do Supervisor
-    df_sup_map = df_base_atend[(df_base_atend['Supervisor_Bruto'] != '') & (~df_base_atend['Supervisor_Bruto'].isin(['N/A', 'NAN', '#N/A']))].groupby('Técnico')['Supervisor_Bruto'].first().reset_index(name='Sup_Valido')
-    df_base_atend = pd.merge(df_base_atend, df_sup_map, on='Técnico', how='left')
-    df_base_atend['Supervisor'] = df_base_atend['Sup_Valido'].fillna(df_base_atend['Supervisor_Bruto'])
 
-    # Aplica o filtro de Supervisor da barra lateral se o usuário escolher um específico
+    # Ajusta falhas de string nula na base
+    df_base_atend['Base'] = df_base_atend['Base'].replace({'NAN': 'NÃO DEFINIDA', '': 'NÃO DEFINIDA', '#N/A': 'NÃO DEFINIDA'})
+
+    # Respeita o filtro de supervisor da sidebar (se ativo)
     if 'SUPERVISOR' in df_dash_filtrado.columns and supervisor_sel != "TODOS":
         df_base_atend = df_base_atend[df_base_atend['Supervisor'] == supervisor_sel]
 
-    # Filtra apenas status operacionais autorizados (concluído, iniciado, suspenso)
+    # Filtra apenas status válidos com horários reais
     df_filtrado_atend = df_base_atend[
         (df_base_atend['Status_OS'].str.contains('concl|inic|susp', na=False)) &
         (df_base_atend['Hora_Inicio'].notna())
     ].copy()
     
+    # Montagem HTML dinâmica dos cards por base
+    html_cards = '<div class="kpi-container-bases">'
+    
     if not df_filtrado_atend.empty:
+        # Pega a primeira OS (menor horário) de cada técnico do dia
         df_primeiros_horarios = df_filtrado_atend.sort_values('Hora_Inicio').groupby('Técnico').first().reset_index()
-        cond_sp_atend = df_primeiros_horarios['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)
         
-        horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio'].tolist()
-        horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio'].tolist()
+        # Agrupa e calcula as médias rodando cada base dinamicamente
+        bases_encontradas = sorted(df_primeiros_horarios['Base'].unique())
         
-        media_abc = calcular_media_horarios(horas_abc)
-        media_sp = calcular_media_horarios(horas_sp)
+        for base_nome in bases_encontradas:
+            horas_da_base = df_primeiros_horarios[df_primeiros_horarios['Base'] == base_nome]['Hora_Inicio'].tolist()
+            media_da_base = calcular_media_horarios(horas_da_base)
+            
+            html_cards += f'''
+                <div class="kpi-card-base">
+                    <div class="kpi-title-base">⏱️ Média 1º Contrato - {base_nome}</div>
+                    <div class="kpi-value-base">{media_da_base}</div>
+                </div>
+            '''
+    else:
+        html_cards += '''
+            <div class="kpi-card-base">
+                <div class="kpi-title-base">⏱️ Média 1º Contrato</div>
+                <div class="kpi-value-base">--:--</div>
+            </div>
+        '''
+    html_cards += '</div>'
 
     # =========================================================================
-    # 🌟 RENDERIZAÇÃO 1: CARDS DE MÉDIAS DO 1º CONTRATO (TOPO DO DASHBOARD)
+    # 🌟 RENDERIZAÇÃO 1: EXIBE OS CARDS DAS BASES DINAMICAMENTE NO TOPO
     # =========================================================================
-    st.markdown(f'''
-        <div class="kpi-container">
-            <div class="kpi-card-atend abc">
-                <div class="kpi-title-atend">⏱️ Média 1º Contrato - ABC</div>
-                <div class="kpi-value-atend">{media_abc}</div>
-            </div>
-            <div class="kpi-card-atend sp">
-                <div class="kpi-title-atend">⏱️ Média 1º Contrato - SÃO PAULO</div>
-                <div class="kpi-value-atend">{media_sp}</div>
-            </div>
-        </div>
-    ''', unsafe_allow_html=True)
+    st.markdown(html_cards, unsafe_allow_html=True)
 
     st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#eee;'>", unsafe_allow_html=True)
 
