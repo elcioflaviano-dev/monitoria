@@ -104,6 +104,7 @@ if df_dash is not None and not df_dash.empty:
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_dash.columns else 'Status da Atividade'
     df_dash['Status_Atividade_Upper'] = df_dash[col_status].fillna('').astype(str).str.upper().str.strip()
     
+    # 1. Filtros básicos (contratos válidos e não suspensos)
     cond_contrato_valido = (
         (df_dash['Contrato_Limpo'] != '') & 
         (df_dash['Contrato_Limpo'] != 'nan') & 
@@ -111,9 +112,16 @@ if df_dash is not None and not df_dash.empty:
         (~df_dash['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
     )
     
+    # 2. Filtro dinâmico na coluna 'Tipo de Atividade' (Elimina Refeição e Retorno de Credenciada)
     col_tipo_ativ = 'Tipo de Atividade' if 'Tipo de Atividade' in df_dash.columns else 'TIPO DE ATIVIDADE'
     if col_tipo_ativ in df_dash.columns:
-        cond_contrato_valido = cond_contrato_valido & (~df_dash[col_tipo_ativ].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
+        df_dash['Tipo_Atividade_Upper'] = df_dash[col_tipo_ativ].fillna('').astype(str).str.upper().str.strip()
+        
+        cond_contrato_valido = (
+            cond_contrato_valido & 
+            (~df_dash['Tipo_Atividade_Upper'].str.contains('REFEICAO|REFEIÇÃO', case=False, na=False)) &
+            (~df_dash['Tipo_Atividade_Upper'].str.contains('RETORNO DE CREDENCIADA', case=False, na=False))
+        )
         
     df_dash_filtrado = df_dash[cond_contrato_valido].copy()
     df_dash_filtrado['Contrato_Limpo'] = df_dash_filtrado['Contrato_Limpo'].apply(lambda x: str(x).split('.')[0].strip())
@@ -215,7 +223,7 @@ if df_dash is not None and not df_dash.empty:
 
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: ORDENADO COM TÉCNICOS NO MEIO (CARDS INVERTIDOS)
+    # 📊 SEÇÃO INDICADORES MACRO: 5 CARDS SEPARADOS POR BASE OPERACIONAL
     # =========================================================================
     bases_disponiveis = sorted(df_dash_filtrado[col_base_operacional].unique())
     
@@ -225,7 +233,7 @@ if df_dash is not None and not df_dash.empty:
         # Barra azul de cabeçalho da base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
-        # Cálculos específicos da Base Atual
+        # Cálculos específicos da Base Atual (Sem o Retorno de Credenciada)
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique() if col_recurso in df_base_atual.columns else 0
         base_contratos = df_base_atual['Contrato_Limpo'].nunique()
         base_total_os = df_base_atual['Total_OS_Num'].sum()
@@ -234,7 +242,7 @@ if df_dash is not None and not df_dash.empty:
         media_contratos_por_tec = base_contratos / divisor_tecnicos
         media_os_por_tec = base_total_os / divisor_tecnicos
         
-        # Renderização organizada: Técnicos movido para a Coluna 3 (Meio)
+        # Renderização com Técnicos centralizado (Coluna 3)
         m1, m2, m3, m4, m5 = st.columns(5)
         
         with m1:
@@ -290,9 +298,9 @@ if df_dash is not None and not df_dash.empty:
         with st.container(border=True):
             st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento")
             df_janelas_validas = df_dash_filtrado[
-                (df_dash_filtrado['Intervalo_Tratado'] != '') & 
-                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+                (df_janelas_validas['Intervalo_Tratado'] != '') & 
+                (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+                (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
             ]
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
