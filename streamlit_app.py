@@ -12,8 +12,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Inicializa a variável global da rota no estado da sessão se ela não existir
+if 'df_rota_ativa' not in st.session_state:
+    st.session_state['df_rota_ativa'] = None
+
 # 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
-if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+if st.session_state['df_rota_ativa'] is not None:
     if "last_refresh" not in st.session_state:
         st.session_state["last_refresh"] = time.time()
     
@@ -45,6 +49,7 @@ def carregar_dados_sistema():
         key="uploader_global"
     )
     
+    # 🌟 TRAVA DE SEGURANÇA: Só reconstrói a base se você arrastar novos arquivos no botão
     if arquivos_postados:
         lista_dfs = []
         
@@ -68,7 +73,7 @@ def carregar_dados_sistema():
             
             if not lista_dfs:
                 st.sidebar.error("⚠️ Nenhum arquivo pôde ser lido.")
-                return None
+                return st.session_state.get('df_rota_ativa', None)
                 
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
@@ -125,10 +130,10 @@ def carregar_dados_sistema():
                 return df_final
             else:
                 st.sidebar.error("❌ Erro ao conectar com a aba de supervisores do Google Sheets.")
-                return None
+                return st.session_state.get('df_rota_ativa', None)
         except Exception as e:
             st.sidebar.error(f"❌ Erro geral no motor de carga: {e}")
-            return None
+            return st.session_state.get('df_rota_ativa', None)
             
     return st.session_state.get('df_rota_ativa', None)
 
