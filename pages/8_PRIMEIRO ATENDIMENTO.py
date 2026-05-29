@@ -12,21 +12,39 @@ try:
 except:
     pass
 
-# Customização CSS para aumentar fontes das médias e ajustar layout
+# Customização CSS de Alta Performance Visual
 st.markdown("""
     <style>
     .block-container { padding-top: 1.5rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 16px !important; }
     
-    /* Estilização personalizada para as tabelas ficarem mais compactas */
-    .stDataFrame div {
-        font-size: 13px !important;
+    /* Customização dos Cards de KPI do Topo */
+    .kpi-container {
+        display: flex;
+        justify-content: center;
+        gap: 25px;
+        margin-bottom: 25px;
     }
+    .kpi-card {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 15px 30px;
+        text-align: center;
+        min-width: 260px;
+        border-top: 5px solid #006677;
+    }
+    .kpi-card.abc { border-top-color: #008080; }
+    .kpi-card.sp { border-top-color: #b30000; }
+    .kpi-title { font-size: 14px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+    .kpi-value { font-size: 28px; color: #111; font-weight: 900; }
+    
+    .stDataFrame div { font-size: 13px !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# Título principal atualizado
-st.markdown('<h1 style="font-size: 32px; font-weight: 900; color: #006677; text-align: center; margin-top: 5px; margin-bottom: 25px;">⏱️ 1º ATENDIMENTO</h1>', unsafe_allow_html=True)
+# Título principal enxuto
+st.markdown('<h1 style="font-size: 30px; font-weight: 900; color: #006677; text-align: center; margin-top: 5px; margin-bottom: 20px;">⏱️ 1º ATENDIMENTO OPERACIONAL</h1>', unsafe_allow_html=True)
 
 # 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
 df_master = st.session_state.get('df_rota_ativa', None)
@@ -96,7 +114,7 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # Filtra apenas registros de campo produtivos com horário válido
+    # Processamento e extração do menor horário de campo real de cada técnico
     df_produtivo = df_base[
         (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO|DESLOCAMENTO FIM", na=False)) &
         (df_base['Hora_Inicio'].notna())
@@ -108,23 +126,37 @@ if df_base is not None and not df_base.empty:
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
     df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
     
-    # Separação das bases
+    # Divisão das carteiras regionais
     df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # ==========================================
-    # 🔴 BLOCÃO REGIÃO ABC
-    # ==========================================
+    # Cálculo prévio das médias para os blocos de KPI
     horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
     media_abc = calcular_media_horarios(horas_abc)
     
-    # Barra de Título Regional com FONTE DA MÉDIA AUMENTADA (font-size: 20px)
+    horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
+    media_sp = calcular_media_horarios(horas_sp)
+
+    # =========================================================================
+    # 🌟 SEÇÃO SUPERIOR: CARDS DE MÉDIAS CONSOLIDADA (TOPO DA TELA)
+    # =========================================================================
     st.markdown(f'''
-        <div style="background-color:#008080; padding:10px 18px; border-radius:6px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="color:white; font-weight:bold; font-size:22px; margin:0;">📍 BASE ABC</span>
-            <span style="background-color:rgba(255,255,255,0.25); color:white; padding:6px 14px; border-radius:4px; font-weight:900; font-size:20px; letter-spacing: 0.5px;">⏱️ MÉDIA REAL: {media_abc}</span>
+        <div class="kpi-container">
+            <div class="kpi-card abc">
+                <div class="kpi-title">⏱️ Média 1º Acionamento - ABC</div>
+                <div class="kpi-value">{media_abc}</div>
+            </div>
+            <div class="kpi-card sp">
+                <div class="kpi-title">⏱️ Média 1º Acionamento - SÃO PAULO</div>
+                <div class="kpi-value">{media_sp}</div>
+            </div>
         </div>
     ''', unsafe_allow_html=True)
+
+    # ==========================================
+    # 🔴 CORPO INFERIOR: BASE ABC
+    # ==========================================
+    st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
     
     if not df_abc.empty:
         supervisores_abc = sorted(df_abc['Supervisor'].unique().tolist())
@@ -137,10 +169,9 @@ if df_base is not None and not df_base.empty:
                 horas_especificas = df_sup_abc['Hora_Inicio'].tolist()
                 media_supervisor = calcular_media_horarios(horas_especificas)
                 
-                # Card do Supervisor com FONTE DA MÉDIA INTERNA MAIOR (font-size: 14px)
                 st.markdown(f'''
                     <div style="background-color:#f1f7f6; border-left:4px solid #008080; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        <span style="font-weight:bold; color:#004d40; font-size:14px; text-transform: uppercase;">👤 {sup}</span>
+                        <span style="font-weight:bold; color:#004d40; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
                         <span style="background-color:#008080; color:white; padding:3px 8px; border-radius:3px; font-weight:900; font-size:14px;">⏱️ {media_supervisor}</span>
                     </div>
                 ''', unsafe_allow_html=True)
@@ -152,18 +183,9 @@ if df_base is not None and not df_base.empty:
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # ==========================================
-    # 🔵 BLOCÃO REGIÃO SÃO PAULO (SP)
+    # 🔵 CORPO INFERIOR: BASE SÃO PAULO (SP)
     # ==========================================
-    horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
-    media_sp = calcular_media_horarios(horas_sp)
-    
-    # Barra de Título Regional com FONTE DA MÉDIA AUMENTADA (font-size: 20px)
-    st.markdown(f'''
-        <div style="background-color:#b30000; padding:10px 18px; border-radius:6px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
-            <span style="color:white; font-weight:bold; font-size:22px; margin:0;">📍 BASE SÃO PAULO (SP)</span>
-            <span style="background-color:rgba(255,255,255,0.25); color:white; padding:6px 14px; border-radius:4px; font-weight:900; font-size:20px; letter-spacing: 0.5px;">⏱️ MÉDIA REAL: {media_sp}</span>
-        </div>
-    ''', unsafe_allow_html=True)
+    st.markdown('<div style="background-color:#b30000; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
     if not df_sp.empty:
         supervisores_sp = sorted(df_sp['Supervisor'].unique().tolist())
@@ -176,10 +198,9 @@ if df_base is not None and not df_base.empty:
                 horas_especificas = df_sup_sp['Hora_Inicio'].tolist()
                 media_supervisor = calcular_media_horarios(horas_especificas)
                 
-                # Card do Supervisor com FONTE DA MÉDIA INTERNA MAIOR (font-size: 14px)
                 st.markdown(f'''
                     <div style="background-color:#fff2f2; border-left:4px solid #b30000; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        <span style="font-weight:bold; color:#660000; font-size:14px; text-transform: uppercase;">👤 {sup}</span>
+                        <span style="font-weight:bold; color:#660000; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
                         <span style="background-color:#b30000; color:white; padding:3px 8px; border-radius:3px; font-weight:900; font-size:14px;">⏱️ {media_supervisor}</span>
                     </div>
                 ''', unsafe_allow_html=True)
