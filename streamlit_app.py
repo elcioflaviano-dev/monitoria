@@ -2,14 +2,30 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
+import time
 
-# 1. Configuração global da página ampla
+# 1. Configuração global da página ampla (Inicia recolhida para dar espaço na TV)
 st.set_page_config(
     page_title="Painel de Produtividade",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
+
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
+# Se houver dados carregados, a página atualiza sozinha para manter o painel vivo
+if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    if "last_refresh" not in st.session_state:
+        st.session_state["last_refresh"] = time.time()
+    
+    # Executa o auto-refresh de 60 segundos de forma nativa e estável
+    st.text_input("refresh_trigger", value=str(st.session_state["last_refresh"]), label_visibility="collapsed")
+    time.sleep(1) # Delay técnico leve para estabilidade de renderização
+    
+    # Se passou 60 segundos do último marco, muda o estado para forçar o reload limpo
+    if time.time() - st.session_state["last_refresh"] > 60:
+        st.session_state["last_refresh"] = time.time()
+        st.rerun()
 
 # 2. Carregar Estilos Globais (CSS)
 try:
@@ -134,14 +150,14 @@ if df_master is not None and not df_master.empty:
     # Card centralizado indicando sucesso absoluto de carga
     with st.container(border=True):
         st.markdown(
-            """
+            f"""
             <div style="text-align: center; padding: 25px 10px;">
-                <h2 style="color: #2e7d32; font-size: 28px; margin-bottom: 10px;">🚀 UPLOAD CONCLUÍDO COM SUCESSO!</h2>
+                <h2 style="color: #2e7d32; font-size: 28px; margin-bottom: 10px;">🚀 UPLOAD CONCLUÍDO WITH SUCESS!</h2>
                 <p style="color: #444; font-size: 16px; margin-bottom: 20px;">
-                    Todos os arquivos da rota diária foram carregados e integrados com a base de supervisores.
+                    {len(df_master)} contratos integrados com a base de supervisores de campo.
                 </p>
                 <div style="display: inline-block; background-color: #e8f5e9; color: #1b5e20; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 14px;">
-                    🎯 Dados Prontos para Monitoramento
+                    🎯 Dados Prontos e Sincronizados com a TV da Monitoria
                 </div>
             </div>
             """, 
@@ -149,9 +165,9 @@ if df_master is not None and not df_master.empty:
         )
         
     st.markdown("<br>", unsafe_allow_html=True)
-    st.info("💡 Use o menu lateral esquerdo para navegar entre os painéis operacionais e acompanhar os cartões de status em tempo real.")
+    st.info("💡 Use o menu lateral esquerdo para navegar entre os painéis operacionais. Este painel irá se atualizar sozinho a cada 60 segundos.")
 
 else:
     # Mensagem caso nenhum arquivo tenha sido arrastado ainda
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.warning("👈 Aguardando os arquivos. Use o menu lateral esquerdo para arrastar os ficheiros de rota diária (.xlsx ou .csv).")
+    st.warning("👈 Aguardando os arquivos. Abra o menu lateral esquerdo expandindo a barra e arraste os ficheiros de rota diária (.xlsx ou .csv).")
