@@ -21,8 +21,7 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
     if "last_refresh_pendentes" not in st.session_state:
         st.session_state["last_refresh_pendentes"] = time.time()
     
-    st.text_input("refresh_trigger_pend", value=str(st.session_state["last_refresh_pendentes"]), label_visibility="collapsed")
-    
+    # 🌟 CORREÇÃO: Removido st.text_input antigo para eliminar o vazamento de números soltos no topo
     if time.time() - st.session_state["last_refresh_pendentes"] > 30:
         st.session_state["last_refresh_pendentes"] = time.time()
         st.rerun()
@@ -60,7 +59,7 @@ st.markdown("""
         
         /* Linhas dos Contratos e Técnicos OTIMIZADAS e MAIORES */
         .item-linha {
-            font-size: 16px; /* Fonte aumentada para Modo TV */
+            font-size: 16px;
             padding: 5px 12px;
             border-bottom: 1px solid #eee;
             color: #222;
@@ -99,7 +98,7 @@ if df_master is not None and not df_master.empty:
     if col_tecnico_check:
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
-    # 🌟 Remove de vez o ".0" limpando strings de contrato vazias
+    # Remove o ".0" limpando strings de contrato vazias
     if 'Contrato' in df.columns:
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
         df = df[df['Contrato'] != ''].copy()
@@ -124,7 +123,7 @@ if df_master is not None and not df_master.empty:
     if col_janela is not None and not df_validos.empty:
         df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
         
-        # 🌟 MOTOR AUTOMÁTICO INTELIGENTE POR HORÁRIO OPERACIONAL (FUSO SÃO PAULO)
+        # MOTOR AUTOMÁTICO POR HORÁRIO OPERACIONAL (FUSO SÃO PAULO)
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         
         def extrair_hora_limite(janela_str):
@@ -138,15 +137,15 @@ if df_master is not None and not df_master.empty:
 
         df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        # Filtra apenas janelas que já começaram ou venceram em relação ao horário atual
-        df_tela = df_validos[df_validos['Hora_Limite_Janela'] <= (hora_atual + 1)].copy()
+        # 🌟 CORREÇÃO DA JANELA OPERACIONAL (Igualamos a margem de +2 horas do TEC1)
+        df_tela = df_validos[df_validos['Hora_Limite_Janela'] <= (hora_atual + 2)].copy()
         
-        # Fallback de segurança: Se a fila limpar total, puxa o acumulado geral do dia
+        # Fallback de segurança
         if df_tela.empty:
             df_tela = df_validos.copy()
             st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⏰ [Hora Local: {hora_atual:02d}h] - Mostrando Todos os Pendentes Acumulados</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa: Ocultando agendamentos futuros automaticamente [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
     else:
         df_tela = df_validos.copy()
 
