@@ -54,7 +54,6 @@ def tratar_horario(val):
     if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN', '00:00']:
         return None
     try:
-        # Pega apenas a parte do horário caso venha com data junto
         texto = str(val).strip().split()[-1]
         return datetime.strptime(texto, '%H:%M:%S').time()
     except:
@@ -83,40 +82,24 @@ df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # 🌟 LOCALIZAÇÃO DA COLUNA "INÍCIO" EXATA
-    col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
-    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else None
-    col_status_os = None
-    col_tipo = None
-    col_contrato = None
-    col_inicio_estrito = None
+    # 🌟 EXTRAÇÃO REAL POR ÍNDICE OPERACIONAL DIRETAMENTE DA PLANILHA
+    # Coleta os dados de forma pura baseada nas posições exatas da tabela que você enviou
+    lista_recurso = [str(x).strip() for x in df_temp.iloc[:, 0].fillna('N/A').tolist()] # Coluna 1 (Recurso)
+    lista_status_os = [str(x).lower().strip() for x in df_temp.iloc[:, 3].fillna('').tolist()] # Coluna 4 (Status)
+    lista_horarios = [tratar_horario(x) for x in df_temp.iloc[:, 10].tolist()] # Coluna 11 (Início exato da janela)
     
-    # Varre as colunas mapeando os nomes
+    # Caça a coluna Contrato e Supervisor dinamicamente para manter o PROCV ativo
+    col_supervisor = 'SUPERVISOR'
     for c in df_temp.columns:
-        c_up = str(c).upper().strip()
-        if 'SUPERV' in c_up: col_supervisor = c
-        elif 'STATUS' in c_up and 'ATIV' not in c_up: col_status_os = c
-        elif 'TIPO' in c_up and 'ATIV' in c_up: col_tipo = c
-        elif 'CONTRATO' in c_up or 'NÚMERO' in c_up or 'NUMERO' in c_up: col_contrato = c
-        elif c_up == 'INÍCIO' or c_up == 'INICIO': col_inicio_estrito = c
+        if 'SUPERV' in str(c).upper(): col_supervisor = c; break
+        
+    col_contrato = 'Contrato'
+    for c in df_temp.columns:
+        if 'CONTRATO' in str(c).upper() or 'NÚMERO' in str(c).upper() or 'NUMERO' in str(c).upper(): col_contrato = c; break
 
-    # Fallbacks de segurança por posição caso o Excel mude algo
-    if not col_inicio_estrito: 
-        col_inicio_estrito = 'Início' if 'Início' in df_temp.columns else df_temp.columns[10]
-    if not col_status_os: col_status_os = 'Status' if 'Status' in df_temp.columns else df_temp.columns[3]
-    if not col_tipo: col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[21]
-    if not col_contrato: col_contrato = 'Contrato' if 'Contrato' in df_temp.columns else df_temp.columns[23]
-    if not col_supervisor: col_supervisor = 'SUPERVISOR'
-
-    # Mapeamento limpo dos dados
-    lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp[col_recurso]).iloc[:, 0].fillna('N/A').tolist()]
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_supervisor]).iloc[:, 0].fillna('').tolist()] if col_supervisor in df_temp.columns else [''] * len(df_temp)
-    lista_status_os = [str(x).lower().strip() for x in pd.DataFrame(df_temp[col_status_os]).iloc[:, 0].fillna('').tolist()]
-    lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()]
-    
-    # Captura rigorosamente apenas a coluna Início selecionada
-    lista_horarios = [tratar_horario(x) for x in df_temp[col_inicio_estrito].tolist()]
-    lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()]
+    lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()] if col_contrato in df_temp.columns else ['1'] * len(df_temp)
+    lista_tipo_ativ = [str(x).upper().strip() for x in df_temp.iloc[:, 21].fillna('').tolist()] if len(df_temp.columns) > 21 else [''] * len(df_temp)
 
     df_base = pd.DataFrame({
         'Recurso': lista_recurso,
@@ -127,7 +110,7 @@ if df_master is not None and not df_master.empty:
         'Contrato_ID': lista_contratos
     })
     
-    # Ajuste de Supervisor por histórico da linha
+    # PROCV de amarração de supervisor por técnico
     df_sup_mapeado = df_base[
         (df_base['SUPERVISOR_ORIGINAL'] != '') & (~df_base['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
     ].groupby('Recurso')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
@@ -137,18 +120,14 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # 🌟 FILTRAGEM RIGOROSA DE ACORDO COM O SEU EXCEL
-    # Status: concluído, iniciado, suspenso
-    # Ignora linhas administrativas de Base/Almoço
+    # 🌟 FILTRAGEM DE ACORDO COM O SEU PRINT DO EXCEL
     df_filtrado_excel = df_base[
         (df_base['Status_OS'].str.contains('concl|inic|susp', na=False)) &
-        (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO|DESLOCAMENTO FIM", na=False)) &
-        (df_base['Contrato_ID'] != '') & 
-        (~df_base['Contrato_ID'].isin(['N/A', 'NAN', 'NaN', '0'])) &
+        (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO", na=False)) &
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    # Pega o menor horário da coluna Início para cada técnico
+    # Pega o menor horário registrado por técnico
     df_primeiro = df_filtrado_excel.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
     df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
@@ -204,6 +183,8 @@ if df_base is not None and not df_base.empty:
                 ''', unsafe_allow_html=True)
                 
                 st.dataframe(df_sup_abc[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum atendimento produtivo registrado na região ABC.")
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
@@ -229,5 +210,7 @@ if df_base is not None and not df_base.empty:
                 ''', unsafe_allow_html=True)
                 
                 st.dataframe(df_sup_sp[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum atendimento produtivo registrado na região de SP.")
 else:
     st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro.")
