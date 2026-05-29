@@ -23,7 +23,7 @@ df_master = st.session_state.get('df_rota_ativa', None)
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === PASSO 1: LIMPEZA DE LINHAS VAZIAS DA ROTA ===
+    # === PASSO 1: LIMPEZA DE LINHAS VAZIAS E REMOÇÃO DO .0 DO CONTRATO ===
     col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
     if not col_tecnico_check:
         for c in df.columns:
@@ -34,8 +34,11 @@ if df_master is not None and not df_master.empty:
     if col_tecnico_check:
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
+    # Localiza e limpa a coluna de Contrato tirando o ".0" de float
     if 'Contrato' in df.columns:
-        df = df[df['Contrato'].fillna('').astype(str).str.strip() != ''].copy()
+        # Remove nulos, converte para string, tira o .0 se houver e limpa espaços
+        df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+        df = df[df['Contrato'] != ''].copy()
 
     # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
     df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
@@ -144,7 +147,7 @@ if df_master is not None and not df_master.empty:
             else:
                 st.info("Nenhum contrato ativo para SP nesta janela.")
 
-    # MODO TV AUTOMÁTICO (Mantém o carrossel de páginas rodando a cada 30s se ativo)
+    # MODO TV AUTOMÁTICO
     st.components.v1.html("""
         <script>
         setTimeout(function(){ window.parent.location.hash = "#3-tec1-pendentes"; }, 30000);
