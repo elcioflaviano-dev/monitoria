@@ -8,33 +8,24 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+TEMPO_ROTACAO_SEGUNDOS = 30
 
 # --- CONTROLE INTERNO DE ROTAÇÃO NATIVA ---
-# Define a lista de painéis que vão rodar na TV
 PAINEIS = ["LARGADA_MATINAL", "TEC1_PENDENTES", "PRIMEIRO_ATENDIMENTO"]
 
 if "indice_painel" not in st.session_state:
     st.session_state["indice_painel"] = 0
 
-if "ultimo_giro" not in st.session_state:
-    st.session_state["ultimo_giro"] = time.time()
-
-# Motor do tempo: Altera o painel a cada 30 segundos
-TEMPO_ROTACAO_SEGUNDOS = 30
-tempo_passado = time.time() - st.session_state["ultimo_giro"]
-
-# Injeta uma entrada oculta apenas para forçar o Streamlit a escutar o timer de refresh
-st.text_input("timer_trigger", value=str(st.session_state["ultimo_giro"]), label_visibility="collapsed")
-
-if tempo_passado >= TEMPO_ROTACAO_SEGUNDOS:
+# Verifica se veio o comando do JavaScript para avançar a tela
+query_params = st.query_params
+if "proximo_painel" in query_params:
     st.session_state["indice_painel"] = (st.session_state["indice_painel"] + 1) % len(PAINEIS)
-    st.session_state["ultimo_giro"] = time.time()
+    st.query_params.clear()
     st.rerun()
 
-# Define qual painel está ativo nesta rodada
 painel_atual = PAINEIS[st.session_state["indice_painel"]]
 
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
 df_master = None
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
@@ -42,7 +33,7 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# Injeta o CSS base para Modo TV
+# Injeta o CSS base para Modo TV e o Motor do Cronômetro Vivo
 st.markdown("""
     <style>
         .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
@@ -50,15 +41,15 @@ st.markdown("""
         .barra-status-tv {
             background-color: #111;
             color: #fff;
-            padding: 5px 15px;
+            padding: 8px 15px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: bold;
             display: flex;
             justify-content: space-between;
             margin-bottom: 15px;
+            font-family: sans-serif;
         }
-        /* Estilos do Bloco de Pendentes */
         .title-abc-sp { font-size: 24px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
         .super-bar {
             background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px;
@@ -70,7 +61,6 @@ st.markdown("""
         .item-contrato { font-weight: 900; color: #cc6600; font-size: 17px; }
         .divisor-item { color: #bbb; margin: 0 8px; }
         
-        /* Estilos do Primeiro Atendimento */
         .kpi-container { display: flex; justify-content: center; gap: 25px; margin-bottom: 20px; }
         .kpi-card { background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 10px 25px; text-align: center; min-width: 240px; border-top: 5px solid #006677; }
         .kpi-card.abc { border-top-color: #008080; }
@@ -80,16 +70,36 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Barra superior de monitoramento da TV
-tempo_restante = int(TEMPO_ROTACAO_SEGUNDOS - tempo_passado)
+# Renderiza a barra com o container do cronômetro que o JavaScript vai controlar
 st.markdown(f'''
     <div class="barra-status-tv">
         <span>📺 MODO TV ATIVO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
-        <span>⏱️ Próxima tela em: {tempo_restante}s</span>
+        <span id="cronometro_vivido">⏱️ Próxima tela em: {TEMPO_ROTACAO_SEGUNDOS}s</span>
     </div>
 ''', unsafe_allow_html=True)
 
-# Funções auxiliares para tratamento de dados do 1º Atendimento
+# 🚀 MOTOR JAVASCRIPT EM SEGUNDO PLANO (Faz o relógio diminuir na tela e troca de página)
+st.components.v1.html(f"""
+    <script>
+    let tempo = {TEMPO_ROTACAO_SEGUNDOS};
+    const elemento = window.parent.document.getElementById("cronometro_vivido");
+    
+    const contador = setInterval(function() {{
+        tempo--;
+        if (elemento) {{
+            elemento.innerHTML = "⏱️ Próxima tela em: " + tempo + "s";
+        }}
+        
+        if (tempo <= 0) {{
+            clearInterval(contador);
+            // Avisa o Streamlit para avançar o índice do painel
+            window.parent.location.search = "?proximo_painel=true";
+        }}
+    }}, 1000);
+    </script>
+""", height=0)
+
+# Funções auxiliares de tempo
 def tratar_horario(val):
     if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN', '00:00']: return None
     try:
