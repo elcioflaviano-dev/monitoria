@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# 1. Configuração da página (Inicia recolhida para dar espaço na TV)
+# 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 # 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
@@ -51,8 +51,18 @@ if "historico_certidoes" not in st.session_state:
 if "limpar_input_proxima" not in st.session_state:
     st.session_state["limpar_input_proxima"] = False
 
-# 🔄 HERANÇA INTELIGENTE CONECTADA DIRETAMENTE À HOME
+# =====================================================================
+# 🔄 INTERCEPTOR DE MEMÓRIA GLOBAL (BLINDAGEM CONTRA RERUN)
+# =====================================================================
+# Se por algum motivo o Streamlit tentar limpar a rota no rerun, puxamos do cache persistente
+if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    if 'backup_rota_local' not in st.session_state:
+        st.session_state['backup_rota_local'] = st.session_state['df_rota_ativa']
+elif 'backup_rota_local' in st.session_state and st.session_state['backup_rota_local'] is not None:
+    st.session_state['df_rota_ativa'] = st.session_state['backup_rota_local']
+
 df_master = st.session_state.get('df_rota_ativa', None)
+# =====================================================================
 
 df_base_online = None
 if df_master is not None and not df_master.empty:
@@ -122,7 +132,8 @@ with st.container(border=True):
         contrato_input = st.text_input(
             "Número do Contrato:", 
             value=valor_padrao_input,
-            placeholder="Digite o contrato e pressione Enter..."
+            placeholder="Digite o contrato e pressione Enter...",
+            key="input_contrato_unico"
         ).strip()
         
         st.session_state["limpar_input_proxima"] = False
@@ -178,7 +189,7 @@ with st.container(border=True):
             st.session_state["contrato_antigo_digitado"] = ""
             
             st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
-            time.sleep(0.5) # Leve pausa para visualização da mensagem de sucesso
+            time.sleep(0.4)
             st.rerun()
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
@@ -206,7 +217,6 @@ if df_base_online is not None:
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
     if not df_banco_atual.empty:
-        # Corrige validação garantindo que ambos os lados tratem contrato como string pura
         df_banco_atual['Contrato_Str'] = df_banco_atual['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
         contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato_Str"].tolist()
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_validados)]
