@@ -1,9 +1,31 @@
 import streamlit as st
 import pandas as pd
+import os
+import time
 from datetime import datetime, timedelta
 
 # 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
+if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
+    try:
+        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except:
+        pass
+
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
+if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    if "last_refresh_dash" not in st.session_state:
+        st.session_state["last_refresh_dash"] = time.time()
+    
+    st.text_input("refresh_trigger_dash", value=str(st.session_state["last_refresh_dash"]), label_visibility="collapsed")
+    
+    if time.time() - st.session_state["last_refresh_dash"] > 60:
+        st.session_state["last_refresh_dash"] = time.time()
+        st.rerun()
 
 # 2. Carregar Estilos Globais
 try:
@@ -61,7 +83,6 @@ st.markdown("""
 
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📊 PAINEL ABC SP - DASHBOARDS</h1>', unsafe_allow_html=True)
 
-# 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
 df_dash = st.session_state.get('df_rota_ativa', None)
 
 # --- FUNÇÕES AUXILIARES PARA O CÁLCULO DE MÉDIAS DO 1º CONTRATO ---
