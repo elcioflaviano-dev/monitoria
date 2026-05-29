@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import altair as alt  
 from datetime import datetime, timedelta
 
 # 1. Configuração da página
@@ -53,7 +52,7 @@ st.markdown("""
         text-transform: uppercase;
     }
     
-    /* Ajuste milimétrico para os 6 cards não quebrarem linha */
+    /* Ajuste de espaçamento para os 6 cards laterais */
     div[data-testid="stKPIBlock"] {
         padding: 6px 10px !important;
     }
@@ -98,14 +97,12 @@ if df_dash is not None and not df_dash.empty:
     
     # Identificação das colunas estruturais na planilha bruta
     col_recurso = 'Recurso' if 'Recurso' in df_dash.columns else df_dash.columns[0]
-    
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_dash.columns else 'Status da Atividade'
     status_upper_bruto = df_dash[col_status].fillna('').astype(str).str.upper().str.strip()
-    
     contrato_limpo_bruto = df_dash['Contrato'].fillna('').astype(str).str.strip()
 
     # =========================================================================
-    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS DO TOPO ISOLADOS)
+    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS FIXOS DO TOPO)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     
@@ -127,7 +124,6 @@ if df_dash is not None and not df_dash.empty:
     
     if not df_atend_isolado.empty:
         df_primeiros_horarios = df_atend_isolado.sort_values('Hora_Inicio_Time').groupby(col_recurso).first().reset_index()
-        
         col_supervisor_check = 'SUPERVISOR' if 'SUPERVISOR' in df_primeiros_horarios.columns else df_primeiros_horarios.columns[0]
         cond_sp_atend = df_primeiros_horarios[col_supervisor_check].fillna('').astype(str).str.upper().str.contains("FRANCISCO|ALAN", na=False)
         
@@ -137,7 +133,7 @@ if df_dash is not None and not df_dash.empty:
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
 
-    # Renderização do Topo Fixo Correto
+    # Renderização HTML dos Cards do Topo
     st.markdown(f'''
         <div class="kpi-container-atend">
             <div class="kpi-card-atend abc">
@@ -153,19 +149,18 @@ if df_dash is not None and not df_dash.empty:
 
     st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
 
-
-    # === HIGIENIZAÇÃO COMPLETA PARA OS CARDS MACRO ===
+    # === HIGIENIZAÇÃO COMPLETA PARA OS CARDS MACRO POR BASE ===
     df_working = df_dash.copy()
     df_working['Contrato_Limpo'] = contrato_limpo_bruto
     df_working['Status_Atividade_Upper'] = status_upper_bruto
     
-    # Consolida todas as colunas que começam com "Tipo de Atividade" para capturar os Retornos
+    # Consolida as colunas duplicadas de atividade para capturar os Retornos
     df_working['Mestre_Tipo_Atividade_Upper'] = ""
     for c in df_working.columns:
         if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper():
             df_working['Mestre_Tipo_Atividade_Upper'] += " " + df_working[c].fillna('').astype(str).str.upper().str.strip()
             
-    # Filtro base saudável (remove suspensos e refeição da visualização)
+    # Filtro base saudável
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
@@ -175,7 +170,7 @@ if df_dash is not None and not df_dash.empty:
     )
     df_working = df_working[cond_saudavel].copy()
 
-    # Normalização da Base Operacional
+    # Identificação da coluna de Regional / Base
     col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_working.columns else ('Cidade' if 'Cidade' in df_working.columns else 'GERAL')
     if col_base_operacional not in df_working.columns:
         df_working['REGIAO_BASE'] = 'BASE GERAL'
@@ -184,13 +179,9 @@ if df_dash is not None and not df_dash.empty:
         df_working[col_base_operacional] = df_working[col_base_operacional].fillna('NÃO DEFINIDA').astype(str).str.upper().str.strip()
         df_working[col_base_operacional] = df_working[col_base_operacional].replace({'NAN': 'NÃO DEFINIDA', '': 'NÃO DEFINIDA', '#N/A': 'NÃO DEFINIDA'})
 
-    df_working['Cidade_Tratada'] = df_working['Cidade'].fillna('NÃO INFORMADA').astype(str).str.upper().str.strip() if 'Cidade' in df_working.columns else 'NÃO INFORMADA'
-    
+    # Campo numérico de OS
     col_tarefas = 'QTD_OS_COL' if 'QTD_OS_COL' in df_working.columns else 'Total de tarefas'
     df_working['Total_OS_Num'] = pd.to_numeric(df_working[col_tarefas], errors='coerce').fillna(0).astype(int) if col_tarefas in df_working.columns else 1
-    
-    col_intervalo = 'Janela de Serviço' if 'Janela de Serviço' in df_working.columns else 'Intervalo de Tempo'
-    df_working['Intervalo_Tratado'] = df_working[col_intervalo].fillna('').astype(str).str.strip() if col_intervalo in df_working.columns else ''
 
     # Filtro Lateral de Supervisor
     if 'SUPERVISOR' in df_working.columns:
@@ -200,26 +191,25 @@ if df_dash is not None and not df_dash.empty:
             df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS NA MESMA LINHA (st.columns(6))
+    # 📊 LAÇO DE COMPILAÇÃO DAS BASES: APENAS OS 6 CARDS EM UMA LINHA
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
         df_base_atual = df_working[df_working[col_base_operacional] == base]
         
-        # 1. Totais Consolidados Brutos
+        # Totais Brutos
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique()
         base_contratos_bruto = df_base_atual['Contrato_Limpo'].nunique()
         base_total_os_bruto = df_base_atual['Total_OS_Num'].sum()
         
-        # 2. Captura os Retornos varrendo o campo Mestre consolidado das colunas duplicadas
+        # Filtro de Retornos
         cond_retorno_linha = df_base_atual['Mestre_Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)
         df_retornos_base = df_base_atual[cond_retorno_linha]
-        
         base_total_retornos = df_retornos_base['Contrato_Limpo'].nunique()
         base_total_os_retorno = df_retornos_base['Total_OS_Num'].sum()
         
-        # 3. Engenharia Subtrativa Líquida
+        # Engenharia Líquida Subtrativa
         base_contratos_liquido = base_contratos_bruto - base_total_retornos
         base_total_os_liquido = base_total_os_bruto - base_total_os_retorno
         
@@ -227,10 +217,10 @@ if df_dash is not None and not df_dash.empty:
         media_contratos_por_tec = base_contratos_liquido / divisor_tecnicos
         media_os_por_tec = base_total_os_liquido / divisor_tecnicos
         
-        # Barra de Cabeçalho da Base
+        # Título da Base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
-        # 🌟 EXPLOSÃO: 6 Colunas Alinhadas Perfeitamente lado a lado
+        # Renderização dos 6 Cards organizados na mesma linha
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         
         with c1:
@@ -258,77 +248,5 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">⚡ Média OS/Téc</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
 
-    st.markdown("<br><hr><br>", unsafe_allow_html=True)
-
-    # ==========================================
-    # BLOCO 2: GRÁFICOS ANALÍTICOS GERAIS
-    # ==========================================
-    df_dash_grafico = df_working[~df_working['Mestre_Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)].copy()
-    
-    g1, g2 = st.columns(2)
-
-    with g1:
-        with st.container(border=True):
-            st.markdown("#### 🌆 Volume Total de O.S. por Cidade")
-            df_cidades_os = df_dash_grafico.groupby('Cidade_Tratada')['Total_OS_Num'].sum().reset_index()
-            df_cidades_os.columns = ['Cidade', 'Total OS']
-            df_cidades_os = df_cidades_os.sort_values(by='Total OS', ascending=False)
-            
-            if not df_cidades_os.empty:
-                barras_cidade = alt.Chart(df_cidades_os).mark_bar(color='#008080').encode(
-                    x=alt.X('Cidade:N', sort='-y', title='Cidade'),
-                    y=alt.Y('Total OS:Q', title='Volume de O.S.')
-                )
-                textos_cidade = barras_cidade.mark_text(
-                    align='center', baseline='bottom', dy=-4, fontWeight='bold'
-                ).encode(text='Total OS:Q')
-                
-                st.altair_chart(barras_cidade + textos_cidade, use_container_width=True)
-            else:
-                st.caption("Nenhum dado de O.S. por cidade disponível.")
-
-    with g2:
-        with st.container(border=True):
-            st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento")
-            df_janelas_validas = df_dash_grafico[
-                (df_dash_grafico['Intervalo_Tratado'] != '') & 
-                (~df_dash_grafico['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-                (~df_dash_grafico['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
-            ]
-            if not df_janelas_validas.empty:
-                df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
-                df_janelas_grafico.columns = ['Janela Horário', 'Média de OS']
-                df_janelas_grafico['Média de OS'] = df_janelas_grafico['Média de OS'].round(2)
-                df_janelas_grafico = df_janelas_grafico.sort_values(by='Média de OS', ascending=False)
-                
-                barras_janela = alt.Chart(df_janelas_grafico).mark_bar(color='#ff9800').encode(
-                    x=alt.X('Janela Horário:N', sort='-y', title='Janela de Horário'),
-                    y=alt.Y('Média de OS:Q', title='Média de O.S.')
-                )
-                textos_janela = barras_janela.mark_text(
-                    align='center', baseline='bottom', dy=-4, fontWeight='bold'
-                ).encode(text='Média de OS:Q')
-                
-                st.altair_chart(barras_janela + textos_janela, use_container_width=True)
-            else:
-                st.info("Nenhuma janela com contrato ativo identificada para cálculo.")
-
-    # ==========================================
-    # BLOCO 3: DETALHAMENTO DA TABELA ANALÍTICA
-    # ==========================================
-    with st.container(border=True):
-        st.markdown("#### 🔍 Visão Analítica Consolidada")
-        if 'SUPERVISOR' in df_working.columns:
-            df_analitico = df_dash_grafico.groupby(['SUPERVISOR', 'Cidade_Tratada']).agg(
-                Contratos_Unicos=('Contrato_Limpo', 'nunique'),
-                Total_Tarefas_OS=('Total_OS_Num', 'sum'),
-                Media_OS_Contrato=('Total_OS_Num', 'mean')
-            ).reset_index()
-            
-            df_analitico.columns = ['Supervisor', 'Cidade', 'Contratos Únicos', 'Soma Total OS', 'Média OS/Contrato']
-            st.dataframe(df_analitico.sort_values(by='Contratos Únicos', ascending=False), use_container_width=True, hide_index=True)
-        else:
-            st.dataframe(df_working[['Contrato_Limpo', 'Cidade_Tratada', 'Total_OS_Num']], use_container_width=True, hide_index=True)
-
 else:
-    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro para gerar os gráficos.")
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro para gerar o painel.")
