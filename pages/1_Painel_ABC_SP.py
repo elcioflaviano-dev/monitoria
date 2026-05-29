@@ -215,7 +215,7 @@ if df_dash is not None and not df_dash.empty:
 
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: 5 CARDS SEPARADOS POR BASE OPERACIONAL
+    # 📊 SEÇÃO INDICADORES MACRO: ORDENADO COM TÉCNICOS NO MEIO (CARDS INVERTIDOS)
     # =========================================================================
     bases_disponiveis = sorted(df_dash_filtrado[col_base_operacional].unique())
     
@@ -234,21 +234,21 @@ if df_dash is not None and not df_dash.empty:
         media_contratos_por_tec = base_contratos / divisor_tecnicos
         media_os_por_tec = base_total_os / divisor_tecnicos
         
-        # Renderização dos 5 blocos operacionais lado a lado (st.columns(5))
+        # Renderização organizada: Técnicos movido para a Coluna 3 (Meio)
         m1, m2, m3, m4, m5 = st.columns(5)
         
         with m1:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos com Rota</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:28px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
-        with m2:
-            with st.container(border=True):
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">📋 Total Contratos</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:28px; font-weight:900; color:#008080;">{base_contratos}</div>', unsafe_allow_html=True)
-        with m3:
+        with m2:
             with st.container(border=True):
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🛠️ Volume Total OS</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:28px; font-weight:900; color:#333;">{base_total_os}</div>', unsafe_allow_html=True)
+        with m3:
+            with st.container(border=True):
+                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos com Rota</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:28px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
         with m4:
             with st.container(border=True):
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">👤 Média Contratos / Téc</div>', unsafe_allow_html=True)
@@ -290,9 +290,9 @@ if df_dash is not None and not df_dash.empty:
         with st.container(border=True):
             st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento")
             df_janelas_validas = df_dash_filtrado[
-                (df_janelas_validas['Intervalo_Tratado'] != '') & 
-                (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-                (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+                (df_dash_filtrado['Intervalo_Tratado'] != '') & 
+                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
             ]
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
