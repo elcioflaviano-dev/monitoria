@@ -138,16 +138,16 @@ if df_base is not None and not df_base.empty:
     media_sp = calcular_media_horarios(horas_sp)
 
     # =========================================================================
-    # 🌟 SEÇÃO SUPERIOR: CARDS DE MÉDIAS CONSOLIDADA (TOPO DA TELA)
+    # 🌟 SEÇÃO SUPERIOR: CARDS DE MÉDIAS ATUALIZADOS PARA "CONTRATO"
     # =========================================================================
     st.markdown(f'''
         <div class="kpi-container">
             <div class="kpi-card abc">
-                <div class="kpi-title">⏱️ Média 1º Acionamento - ABC</div>
+                <div class="kpi-title">⏱️ Média 1º Contrato - ABC</div>
                 <div class="kpi-value">{media_abc}</div>
             </div>
             <div class="kpi-card sp">
-                <div class="kpi-title">⏱️ Média 1º Acionamento - SÃO PAULO</div>
+                <div class="kpi-title">⏱️ Média 1º Contrato - SÃO PAULO</div>
                 <div class="kpi-value">{media_sp}</div>
             </div>
         </div>
