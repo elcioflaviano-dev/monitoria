@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt  
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -13,10 +13,68 @@ try:
 except:
     pass
 
+# Customização CSS de Alta Performance para os Cards de 1º Contrato no Topo
+st.markdown("""
+    <style>
+    .block-container { padding-top: 1.5rem !important; }
+    div[data-testid="stHorizontalBlock"] { gap: 16px !important; }
+    
+    /* Grid dos Cards de KPI do 1º Contrato */
+    .kpi-container {
+        display: flex;
+        justify-content: center;
+        gap: 25px;
+        margin-bottom: 20px;
+    }
+    .kpi-card-atend {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 10px 25px;
+        text-align: center;
+        min-width: 280px;
+        border-top: 5px solid #006677;
+    }
+    .kpi-card-atend.abc { border-top-color: #008080; }
+    .kpi-card-atend.sp { border-top-color: #b30000; }
+    .kpi-title-atend { font-size: 13px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+    .kpi-value-atend { font-size: 26px; color: #111; font-weight: 900; }
+    </style>
+""", unsafe_allow_html=True)
+
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📊 PAINEL ABC SP - DASHBOARDS</h1>', unsafe_allow_html=True)
 
-# 🌟 ALTERADO: Agora o sistema herda os dados atualizados que você carregou via Upload na Home
+# 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
 df_dash = st.session_state.get('df_rota_ativa', None)
+
+# --- FUNÇÕES AUXILIARES PARA O CÁLCULO DE MÉDIAS DO 1º CONTRATO ---
+def tratar_horario(val):
+    if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN', '00:00']:
+        return None
+    try:
+        texto = str(val).strip().split()[-1]
+        return datetime.strptime(texto, '%H:%M:%S').time()
+    except:
+        try:
+            texto = str(val).strip().split()[-1]
+            return datetime.strptime(texto, '%H:%M').time()
+        except:
+            return None
+
+def calcular_media_horarios(lista_horas):
+    if not lista_horas:
+        return "--:--"
+    total_segundos = 0
+    qtd = 0
+    for h in lista_horas:
+        if h is not None:
+            total_segundos += h.hour * 3600 + h.minute * 60 + h.second
+            qtd += 1
+    if qtd == 0:
+        return "--:--"
+    media_segundos = total_segundos / qtd
+    media_time = str(timedelta(seconds=int(media_segundos)))
+    return ":".join(media_time.split(":")[:2])
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO ---
 if df_dash is not None:
@@ -30,7 +88,6 @@ if df_dash is not None and not df_dash.empty:
     # === HIGIENIZAÇÃO DOS DADOS ===
     df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
     
-    # Ajuste para identificar a coluna de status tratada ou original
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_dash.columns else 'Status da Atividade'
     df_dash['Status_Atividade_Upper'] = df_dash[col_status].fillna('').astype(str).str.upper().str.strip()
     
@@ -41,7 +98,6 @@ if df_dash is not None and not df_dash.empty:
         (~df_dash['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
     )
     
-    # Identifica coluna Tipo de Atividade dinamicamente
     col_tipo_ativ = 'Tipo de Atividade' if 'Tipo de Atividade' in df_dash.columns else 'TIPO DE ATIVIDADE'
     if col_tipo_ativ in df_dash.columns:
         cond_contrato_valido = cond_contrato_valido & (~df_dash[col_tipo_ativ].fillna('').astype(str).str.contains('Refeicao', case=False, na=False))
@@ -65,8 +121,83 @@ if df_dash is not None and not df_dash.empty:
         if supervisor_sel != "TODOS":
             df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
 
+    # =========================================================================
+    # ⚙️ MOTOR DE CÁLCULO: 1º ATENDIMENTO OPERACIONAL (INTEGRADO NO TOPO)
+    # =========================================================================
+    media_abc, media_sp = "--:--", "--:--"
+    df_calc_atend = df_dash.copy()
+    
+    # Identificação de segurança da coluna Início pura
+    col_inicio_estrito = 'Início'
+    for c in df_calc_atend.columns:
+        c_clean = str(c).upper().strip().split('.')[0]
+        if c_clean in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
+            col_inicio_estrito = c
+            break
+
+    col_recurso = 'Recurso' if 'Recurso' in df_calc_atend.columns else df_calc_atend.columns[0]
+    col_supervisor_atend = 'SUPERVISOR' if 'SUPERVISOR' in df_calc_atend.columns else None
+    if not col_supervisor_atend:
+        for c in df_calc_atend.columns:
+            if 'SUPERV' in str(c).upper(): col_supervisor_atend = c; break
+
+    series_recurso = df_calc_atend[col_recurso] if col_recurso in df_calc_atend.columns else df_calc_atend.iloc[:, 0]
+    series_status = df_calc_atend[col_status] if col_status in df_calc_atend.columns else df_calc_atend.iloc[:, 3]
+    series_inicio = df_calc_atend[col_inicio_estrito] if col_inicio_estrito in df_calc_atend.columns else df_calc_atend.iloc[:, 10]
+    series_supervisor = df_calc_atend[col_supervisor_atend] if col_supervisor_atend and col_supervisor_atend in df_calc_atend.columns else pd.Series([''] * len(df_calc_atend))
+
+    df_base_atend = pd.DataFrame({
+        'Técnico': [str(x).strip() for x in series_recurso.fillna('N/A').tolist()],
+        'Status_OS': [str(x).lower().strip() for x in series_status.fillna('').tolist()],
+        'Hora_Inicio': [tratar_horario(x) for x in series_inicio.tolist()],
+        'Supervisor_Bruto': [str(x).upper().strip() for x in series_supervisor.fillna('').tolist()]
+    })
+    
+    # PROCV de amarração do Supervisor
+    df_sup_map = df_base_atend[(df_base_atend['Supervisor_Bruto'] != '') & (~df_base_atend['Supervisor_Bruto'].isin(['N/A', 'NAN', '#N/A']))].groupby('Técnico')['Supervisor_Bruto'].first().reset_index(name='Sup_Valido')
+    df_base_atend = pd.merge(df_base_atend, df_sup_map, on='Técnico', how='left')
+    df_base_atend['Supervisor'] = df_base_atend['Sup_Valido'].fillna(df_base_atend['Supervisor_Bruto'])
+
+    # Aplica o filtro de Supervisor da barra lateral se o usuário escolher um específico
+    if 'SUPERVISOR' in df_dash_filtrado.columns and supervisor_sel != "TODOS":
+        df_base_atend = df_base_atend[df_base_atend['Supervisor'] == supervisor_sel]
+
+    # Filtra apenas status operacionais autorizados (concluído, iniciado, suspenso)
+    df_filtrado_atend = df_base_atend[
+        (df_base_atend['Status_OS'].str.contains('concl|inic|susp', na=False)) &
+        (df_base_atend['Hora_Inicio'].notna())
+    ].copy()
+    
+    if not df_filtrado_atend.empty:
+        df_primeiros_horarios = df_filtrado_atend.sort_values('Hora_Inicio').groupby('Técnico').first().reset_index()
+        cond_sp_atend = df_primeiros_horarios['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)
+        
+        horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio'].tolist()
+        horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio'].tolist()
+        
+        media_abc = calcular_media_horarios(horas_abc)
+        media_sp = calcular_media_horarios(horas_sp)
+
+    # =========================================================================
+    # 🌟 RENDERIZAÇÃO 1: CARDS DE MÉDIAS DO 1º CONTRATO (TOPO DO DASHBOARD)
+    # =========================================================================
+    st.markdown(f'''
+        <div class="kpi-container">
+            <div class="kpi-card-atend abc">
+                <div class="kpi-title-atend">⏱️ Média 1º Contrato - ABC</div>
+                <div class="kpi-value-atend">{media_abc}</div>
+            </div>
+            <div class="kpi-card-atend sp">
+                <div class="kpi-title-atend">⏱️ Média 1º Contrato - SÃO PAULO</div>
+                <div class="kpi-value-atend">{media_sp}</div>
+            </div>
+        </div>
+    ''', unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin-top:0px; margin-bottom:20px; border-color:#eee;'>", unsafe_allow_html=True)
+
     # ==========================================
-    # BLOCO 1: KPIs
+    # BLOCO 1: KPIs NATIVOS DO DASHBOARD
     # ==========================================
     total_contratos = df_dash_filtrado['Contrato_Limpo'].nunique()
     total_geral_os = df_dash_filtrado['Total_OS_Num'].sum()
