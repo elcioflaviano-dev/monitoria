@@ -98,7 +98,7 @@ else:
 
 if df_dash is not None and not df_dash.empty:
     
-    # === 🌟 PASSO 0: PURIFICAÇÃO RADICAL CONTRA RETORNO E RUIDOS ===
+    # === HIGIENIZAÇÃO GERAL DA BASE (Filtra apenas ruídos mortos do sistema) ===
     df_working = df_dash.copy()
     df_working['Contrato_Limpo'] = df_working['Contrato'].fillna('').astype(str).str.strip()
     
@@ -111,18 +111,17 @@ if df_dash is not None and not df_dash.empty:
     else:
         df_working['Tipo_Atividade_Upper'] = ''
 
-    # Filtro mestre absoluto: se a linha for SUSPENSO, BASE, REFEIÇÃO ou RETORNO, ela é deletada aqui
-    cond_total_pureza = (
+    # Limpeza básica padrão (Mantém tudo ativo, inclusive Retorno)
+    cond_basica = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
         (~df_working['Contrato_Limpo'].str.contains('#N/A', na=False)) &
         (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
-        (~df_working['Tipo_Atividade_Upper'].str.contains('REFEI|RETORNO|BASE', na=False))
+        (~df_working['Tipo_Atividade_Upper'].str.contains('REFEI|BASE', na=False))
     )
-    # A partir daqui, o dataframe só possui produção pura
-    df_working = df_working[cond_total_pureza].copy()
+    df_working = df_working[cond_basica].copy()
 
-    # Identificação das demais colunas tratadas
+    # Identificação das demais colunas
     col_recurso = 'Recurso' if 'Recurso' in df_working.columns else df_working.columns[0]
     
     col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_working.columns else ('Cidade' if 'Cidade' in df_working.columns else 'GERAL')
@@ -193,48 +192,65 @@ if df_dash is not None and not df_dash.empty:
     st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: 5 CARDS SEPARADOS POR BASE OPERACIONAL
+    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS POR BASE COM ENGENHARIA SUBTRATIVA
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
         df_base_atual = df_working[df_working[col_base_operacional] == base]
         
-        # Como o dataframe já foi purificado no passo 0, os números aqui são 100% reais de produção liquida!
+        # 1. Indicadores Brutos Consolidados
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique()
-        base_contratos = df_base_atual['Contrato_Limpo'].nunique()
-        base_total_os = df_base_atual['Total_OS_Num'].sum()
+        base_contratos_bruto = df_base_atual['Contrato_Limpo'].nunique()
+        base_total_os_bruto = df_base_atual['Total_OS_Num'].sum()
+        
+        # 2. Isolamento específico das linhas de Retorno
+        cond_retorno = df_base_atual['Tipo_Activity_Str'].str.contains('Retorno', case=False, na=False) if 'Tipo_Activity_Str' in df_base_atual.columns else df_base_atual['Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)
+        df_retornos_base = df_base_atual[cond_retorno]
+        
+        base_total_retornos = df_retornos_base['Contrato_Limpo'].nunique()
+        base_total_os_retorno = df_retornos_base['Total_OS_Num'].sum()
+        
+        # 3. Engenharia Subtrativa de Produtividade Líquida
+        base_contratos_liquido = base_contratos_bruto - base_total_retornos
+        base_total_os_liquido = base_total_os_bruto - base_total_os_retorno
         
         divisor_tecnicos = base_qtd_tecnicos if base_qtd_tecnicos > 0 else 1
-        media_contratos_por_tec = base_contratos / divisor_tecnicos
-        media_os_por_tec = base_total_os / divisor_tecnicos
+        media_contratos_por_tec = base_contratos_liquido / divisor_tecnicos
+        media_os_por_tec = base_total_os_liquido / divisor_tecnicos
         
-        # Barra azul de cabeçalho da base
+        # Barra de Título da Base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
-        # Renderização com Técnicos centralizado (Coluna 3)
-        m1, m2, m3, m4, m5 = st.columns(5)
-        
-        with m1:
+        # FILA 1: Totais Gerais Brutos e a Força de Campo no centro
+        r1_c1, r1_c2, r1_c3 = st.columns(3)
+        with r1_c1:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">📋 Total Contratos</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:28px; font-weight:900; color:#008080;">{base_contratos}</div>', unsafe_allow_html=True)
-        with m2:
+                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">📋 Total Geral Contratos</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#008080;">{base_contratos_bruto}</div>', unsafe_allow_html=True)
+        with r1_c2:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🛠️ Volume Total OS</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:28px; font-weight:900; color:#333;">{base_total_os}</div>', unsafe_allow_html=True)
-        with m3:
+                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🛠️ Volume Geral OS</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#333;">{base_total_os_bruto}</div>', unsafe_allow_html=True)
+        with r1_c3:
             with st.container(border=True):
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos com Rota</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:28px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
-        with m4:
+                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
+                
+        # FILA 2: O novo card de Retorno e as Médias Líquidas Corretas
+        r2_c1, r2_c2, r2_c3 = st.columns(3)
+        with r2_c1:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">👤 Média Contratos / Téc</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:28px; font-weight:900; color:#008080;">{media_contratos_por_tec:.2f}</div>', unsafe_allow_html=True)
-        with m5:
+                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">⚠️ Total de Retornos</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#b30000;">{base_total_retornos}</div>', unsafe_allow_html=True)
+        with r2_c2:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">⚡ Média OS / Téc</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:28px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">👤 Média Contratos / Téc (Líquida)</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#008080;">{media_contratos_por_tec:.2f}</div>', unsafe_allow_html=True)
+        with r2_c3:
+            with st.container(border=True):
+                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">⚡ Média OS / Téc (Líquida)</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
