@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime, timedelta
 
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -68,24 +69,28 @@ if df_master is not None and not df_master.empty:
     if col_janela is not None and not df_validos.empty:
         df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
         
-        # 🌟 FILTRAGEM DE JANELAS REAIS DO ARQUIVO
-        df_janelas_limpas = df_validos[
-            (df_validos['Intervalo_Tratado'] != '') & 
-            (~df_validos['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-            (df_validos['Intervalo_Tratado'].str.len() <= 7) # Mantém apenas formatos curtos tipo "11 - 14"
-        ].copy()
+        # 🌟 MOTOR AUTOMÁTICO INTELIGENTE POR HORÁRIO OPERACIONAL (FUSO SÃO PAULO)
+        hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         
-        opcoes_janela_todas = sorted(df_janelas_limpas['Intervalo_Tratado'].dropna().unique())
-        opcoes_janela_todas = [j for j in opcoes_janela_todas if j.upper() not in ['NAN', 'NONE', 'N/A']]
+        def extrair_hora_limite(janela_str):
+            try:
+                partes = janela_str.replace(':', '').split('-')
+                if len(partes) == 2:
+                    return int(partes[1].strip()[:2])
+                return 24
+            except:
+                return 24
+
+        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        # Se houver opções, cria o selectbox manual direto com a primeira janela selecionada por padrão
-        if opcoes_janela_todas:
-            janela_sel = st.sidebar.selectbox("Filtro Manual de Janela:", opcoes_janela_todas)
-            df_tela = df_validos[df_validos['Intervalo_Tratado'] == janela_sel].copy()
-            st.markdown(f'<div style="text-align: center; color: #555; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🎯 Filtro Manual Selecionado: Janela {janela_sel}</div>', unsafe_allow_html=True)
-        else:
+        # Filtra apenas o que já está na hora ou vencido (Passado e Presente)
+        df_tela = df_validos[df_validos['Hora_Limite_Janela'] <= (hora_atual + 1)].copy()
+        
+        if df_tela.empty:
             df_tela = df_validos.copy()
-            st.markdown('<div style="text-align: center; color: #555; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⚠️ Nenhuma janela padronizada encontrada. Mostrando total geral.</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⏰ [Hora Local: {hora_atual:02d}h] - Mostrando Visão Geral do Dia</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa: Ocultando contratos futuros automaticamente [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
     else:
         df_tela = df_validos.copy()
 
@@ -130,7 +135,7 @@ if df_master is not None and not df_master.empty:
                 st.info("Nenhum contrato ativo para o ABC nesta janela.")
 
         with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #b30000; text-align: center;">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             if not df_sp.empty:
                 matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
