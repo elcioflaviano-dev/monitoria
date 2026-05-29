@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
 
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -66,39 +65,24 @@ if df_master is not None and not df_master.empty:
     if col_janela is not None and not df_validos.empty:
         df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
         
-        # 🌟 PASSO 3: MOTOR DE HORÁRIO AUTOMÁTICO (FUSO BRASÍLIA) 🌟
-        hora_brasilia = (datetime.utcnow() - timedelta(hours=3)).hour
-        
-        if hora_brasilia < 11:
-            janelas_automaticas = ['08 - 10']
-            texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela da Manhã (08 - 10)"
-        elif 11 <= hora_brasilia < 15:
-            janelas_automaticas = ['08 - 10', '11 - 14', '12:00 - 15:00']
-            texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela Ativa (11 - 14 / 12 - 15) + Acumulados"
-        else:
-            janelas_automaticas = ['08 - 10', '11 - 14', '12:00 - 15:00', '15 - 18']
-            texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Janela da Tarde (15 - 18) + Tudo Pendente do Dia"
-
-        # 🌟 CRÍTICO: Monta as opções olhando APENAS para os contratos válidos e limpa horários quebrados
+        # 🌟 FILTRAGEM DE JANELAS REAIS DO ARQUIVO
         df_janelas_limpas = df_validos[
             (df_validos['Intervalo_Tratado'] != '') & 
             (~df_validos['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-            (df_validos['Intervalo_Tratado'].str.len() <= 7) # Força apenas formatos curtos tipo "11 - 14"
+            (df_validos['Intervalo_Tratado'].str.len() <= 7) # Mantém apenas formatos curtos tipo "11 - 14"
         ].copy()
         
         opcoes_janela_todas = sorted(df_janelas_limpas['Intervalo_Tratado'].dropna().unique())
         opcoes_janela_todas = [j for j in opcoes_janela_todas if j.upper() not in ['NAN', 'NONE', 'N/A']]
         
-        # Insere a opção "AUTOMÁTICO" no topo da lista limpa
-        lista_selectbox = ["AUTOMÁTICO 🔄"] + opcoes_janela_todas
-        janela_sel = st.sidebar.selectbox("Filtro de Janela:", lista_selectbox)
-        
-        if janela_sel == "AUTOMÁTICO 🔄":
-            df_tela = df_validos[df_validos['Intervalo_Tratado'].isin(janelas_automaticas)].copy()
-            st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">{texto_status_janela}</div>', unsafe_allow_html=True)
-        else:
+        # Se houver opções, cria o selectbox manual direto com a primeira janela selecionada por padrão
+        if opcoes_janela_todas:
+            janela_sel = st.sidebar.selectbox("Filtro Manual de Janela:", opcoes_janela_todas)
             df_tela = df_validos[df_validos['Intervalo_Tratado'] == janela_sel].copy()
-            st.markdown(f'<div style="text-align: center; color: #555; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🎯 Filtro Manual Forçado: Janela {janela_sel}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align: center; color: #555; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🎯 Filtro Manual Selecionado: Janela {janela_sel}</div>', unsafe_allow_html=True)
+        else:
+            df_tela = df_validos.copy()
+            st.markdown('<div style="text-align: center; color: #555; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⚠️ Nenhuma janela padronizada encontrada. Mostrando total geral.</div>', unsafe_allow_html=True)
     else:
         df_tela = df_validos.copy()
 
@@ -160,7 +144,7 @@ if df_master is not None and not df_master.empty:
             else:
                 st.info("Nenhum contrato ativo para SP nesta janela.")
 
-    # MODO TV AUTOMÁTICO
+    # MODO TV AUTOMÁTICO (Mantém o carrossel de páginas rodando a cada 30s se ativo)
     st.components.v1.html("""
         <script>
         setTimeout(function(){ window.parent.location.hash = "#3-tec1-pendentes"; }, 30000);
