@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from streamlit_gsheets_connection import GSheetsConnection
+# 🌟 CORREÇÃO CRÍTICA DA IMPORTAÇÃO COMPATÍVEL COM st-gsheets-connection
+from streamlit_gsheets import GSheetsConnection
 
 # 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -203,7 +204,6 @@ if df_base_online is not None:
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
     if not df_banco_atual.empty:
-        # Garante a filtragem correta tratando os números como string pura
         df_banco_atual['Contrato_Str'] = df_banco_atual['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
         contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato_Str"].tolist()
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_validados)]
