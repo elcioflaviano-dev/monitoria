@@ -82,29 +82,39 @@ df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
+    # Mapeamento dinâmico de colunas do arquivo
     col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else ('Tipo de A' if 'Tipo de A' in df_temp.columns else 'TIPO_ATIVIDADE_COL')
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else ('Status da' if 'Status da' in df_temp.columns else 'Status da Atividade')
     col_inicio = 'Início' if 'Início' in df_temp.columns else ('Hora Início' if 'Hora Início' in df_temp.columns else None)
+    col_contrato = 'Contrato' if 'Contrato' in df_temp.columns else ('Número d' if 'Número d' in df_temp.columns else None)
     
+    # Caça inteligente por palavras-chave se as colunas vierem cortadas
     if not col_inicio:
         for c in df_temp.columns:
             if 'INIC' in str(c).upper() or 'HORA' in str(c).upper(): col_inicio = c; break
     if col_tipo not in df_temp.columns:
         for c in df_temp.columns:
             if 'TIPO DE A' in str(c).upper() or 'TIPO ATIV' in str(c).upper(): col_tipo = c; break
+    if not col_contrato:
+        for c in df_temp.columns:
+            if 'CONTRATO' in str(c).upper() or 'NÚMERO' in str(c).upper() or 'NUMERO' in str(c).upper(): col_contrato = c; break
 
+    # Extração higienizada das colunas
     lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_temp.columns else ['N/A'] * len(df_temp)
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp['SUPERVISOR']).iloc[:, 0].fillna('').tolist()] if 'SUPERVISOR' in df_temp.columns else [''] * len(df_temp)
     lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()] if col_tipo in df_temp.columns else [''] * len(df_temp)
     lista_horarios = [tratar_horario(x) for x in df_temp[col_inicio].tolist()] if col_inicio else [None] * len(df_temp)
+    lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()] if col_contrato else [''] * len(df_temp)
 
     df_base = pd.DataFrame({
         'Recurso': lista_recurso,
         'SUPERVISOR_ORIGINAL': lista_supervisor,
         'Tipo_Atividade': lista_tipo_ativ,
-        'Hora_Inicio': lista_horarios
+        'Hora_Inicio': lista_horarios,
+        'Contrato_ID': lista_contratos
     })
     
+    # PROCV de segurança do Supervisor baseado nas linhas preenchidas do dia
     df_sup_mapeado = df_base[
         (df_base['SUPERVISOR_ORIGINAL'] != '') & (~df_base['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
     ].groupby('Recurso')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
@@ -114,13 +124,18 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # Processamento e extração do menor horário de campo real de cada técnico
-    df_produtivo = df_base[
+    # 🌟 NOVA LOGICA DE FILTRAGEM BRUTA:
+    # 1. Ignora atividades que são de base interna ou de pausa do técnico
+    # 2. Garante que a linha possui um número de contrato preenchido e válido
+    df_contratos_validos = df_base[
         (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO|DESLOCAMENTO FIM", na=False)) &
+        (df_base['Contrato_ID'] != '') & 
+        (~df_base['Contrato_ID'].isin(['N/A', 'NAN', 'NaN', '0'])) &
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    df_primeiro = df_produtivo.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
+    # Captura o menor horário de início real de contrato para cada técnico (pega suspensos/concluídos/iniciados igualmente)
+    df_primeiro = df_contratos_validos.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
     df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
@@ -130,7 +145,7 @@ if df_base is not None and not df_base.empty:
     df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # Cálculo prévio das médias para os blocos de KPI
+    # Cálculo prévio das médias regionais para os blocos de KPI
     horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
     media_abc = calcular_media_horarios(horas_abc)
     
@@ -138,12 +153,12 @@ if df_base is not None and not df_base.empty:
     media_sp = calcular_media_horarios(horas_sp)
 
     # =========================================================================
-    # 🌟 SEÇÃO SUPERIOR: CARDS DE MÉDIAS ATUALIZADOS PARA "CONTRATO"
+    # 🌟 SEÇÃO SUPERIOR: CARDS DE MÉDIAS CONSOLIDADA
     # =========================================================================
     st.markdown(f'''
         <div class="kpi-container">
             <div class="kpi-card abc">
-                <div class="kpi-title">⏱️ Média 1º Contrato - ABC</div>
+                <div class="kpi-title">⏱ shrink-to-fit Média 1º Contrato - ABC</div>
                 <div class="kpi-value">{media_abc}</div>
             </div>
             <div class="kpi-card sp">
