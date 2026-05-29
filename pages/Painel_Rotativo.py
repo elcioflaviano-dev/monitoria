@@ -10,7 +10,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 TEMPO_ROTACAO_SEGUNDOS = 15  # Gira a cada 15 segundos
 
-# --- MOTOR DE ROTAÇÃO EM PYTHON PURO (BLINDADO CONTRA TRAVAMENTOS) ---
+# --- MOTOR DE ROTAÇÃO OPERACIONAL ---
 PAINEIS = ["LARGADA_MATINAL", "TEC1_PENDENTES", "PRIMEIRO_ATENDIMENTO"]
 
 if "indice_painel" not in st.session_state:
@@ -19,10 +19,10 @@ if "indice_painel" not in st.session_state:
 if "timestamp_ultimo_giro" not in st.session_state:
     st.session_state["timestamp_ultimo_giro"] = time.time()
 
-# Calcula quanto tempo se passou desde a última troca
+# Calcula o tempo decorrido
 tempo_decorrido = time.time() - st.session_state["timestamp_ultimo_giro"]
 
-# Se o tempo estourou os 15 segundos, avança o painel e reseta o cronômetro
+# Se estourar os 15 segundos, avança o painel
 if tempo_decorrido >= TEMPO_ROTACAO_SEGUNDOS:
     st.session_state["indice_painel"] = (st.session_state["indice_painel"] + 1) % len(PAINEIS)
     st.session_state["timestamp_ultimo_giro"] = time.time()
@@ -30,12 +30,7 @@ if tempo_decorrido >= TEMPO_ROTACAO_SEGUNDOS:
 
 painel_atual = PAINEIS[st.session_state["indice_painel"]]
 
-# Força o Streamlit a acordar e rodar o código a cada 1 segundo para checar o tempo
-st.text_input("timer_heartbeat", value=str(time.time()), label_visibility="collapsed")
-time.sleep(1)
-st.rerun()
-
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS)
 df_master = None
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
@@ -80,14 +75,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Renderiza a barra superior estável
-segundos_restantes = max(0, int(TEMPO_ROTACAO_SEGUNDOS - tempo_decorrido))
-st.markdown(f'''
-    <div class="barra-status-tv">
-        <span>📺 MODO TV ATIVO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
-        <span>⏱️ Próxima tela em: {segundos_restantes}s</span>
-    </div>
-''', unsafe_allow_html=True)
+# 🚀 FRAGMENTO SILENCIOSO DO RELÓGIO (Atualiza o timer no topo sem travar as tabelas abaixo)
+@st.fragment(run_every=1.0)
+def renderizar_barra_status():
+    decorrido = time.time() - st.session_state["timestamp_ultimo_giro"]
+    segundos_restantes = max(0, int(TEMPO_ROTACAO_SEGUNDOS - decorrido))
+    
+    st.markdown(f'''
+        <div class="barra-status-tv">
+            <span>📺 MODO TV ATIVO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
+            <span>⏱️ Próxima tela em: {segundos_restantes}s</span>
+        </div>
+    ''', unsafe_allow_html=True)
+    
+    if segundos_restantes <= 0:
+        st.rerun()
+
+renderizar_barra_status()
 
 # Funções auxiliares de tempo
 def tratar_horario(val):
