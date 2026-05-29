@@ -36,12 +36,22 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# Injeta o CSS unificado com o ajuste de margem (padding-top aumentado para tirar o corte)
+# Injeta o CSS unificado com correção do botão do menu lateral
 st.markdown("""
     <style>
-        /* Dá 70px de espaço no topo para o título não bater na barra preta */
-        .block-container { padding-top: 70px !important; padding-bottom: 5px !important; }
+        /* Dá 80px de espaço no topo para o título e rebaixa o botão do menu lateral */
+        .block-container { padding-top: 80px !important; padding-bottom: 5px !important; }
         .stDeployButton { display:none; }
+        
+        /* 🛠️ CORREÇÃO: Força o botão original do menu do Streamlit a descer e aparecer abaixo da barra preta */
+        button[data-testid="stSidebarCollapseButton"] {
+            top: 45px !important;
+            left: 10px !important;
+            z-index: 9999999 !important;
+            background-color: #f0f2f6 !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            border-radius: 4px !important;
+        }
         
         /* Barra preta fixada no topo absoluto da tela */
         .barra-status-tv {
@@ -49,7 +59,7 @@ st.markdown("""
             top: 0;
             left: 0;
             right: 0;
-            z-index: 999999;
+            z-index: 999995; /* Levemente abaixo do botão para não cobri-lo */
             background-color: #111; color: #fff; padding: 10px 20px;
             font-size: 13px; font-weight: bold; display: flex; justify-content: space-between;
             font-family: sans-serif;
