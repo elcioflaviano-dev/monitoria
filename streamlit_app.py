@@ -1,44 +1,60 @@
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
 
-st.title("🚀 Painel de Controle - Upload de Rotas")
+st.set_page_config(layout="wide")
 
-# 1. Botão de Upload na Página Inicial
-arquivo_upload = st.file_uploader("Arraste ou selecione o arquivo Excel da Rota do Dia (.xlsx)", type=["xlsx"])
+st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">🚀 PAINEL DE CONTROLE - UPLOAD DE ROTAS</h1>', unsafe_allow_html=True)
+st.markdown('<div style="text-align: center; color: #666; font-size: 16px; margin-bottom: 30px;">Suba um ou mais arquivos de rota para alimentar todo o sistema simultaneamente.</div>', unsafe_allow_html=True)
 
-if arquivo_upload is not None:
-    try:
-        # Lê o arquivo que você acabou de subir
-        df_carregado = pd.read_excel(arquivo_upload)
-        
-        # Garante que todas as colunas sejam lidas como texto para evitar erros de formatação
-        df_carregado = df_carregado.astype(str)
-        
-        st.success("📊 Arquivo processado com sucesso pelo sistema!")
-        
-        # 2. O SISTEMA GUARDA AUTOMATICAMENTE NA NUVEM
-        with st.spinner("💾 O sistema está salvando a rota no Google Sheets de forma persistente..."):
-            conexao_sheets = GSheetsConnection(connection_name="gsheets")
-            conexao_sheets.update(worksheet="Rota_Ativa", data=df_carregado)
-            
-        st.balloons()
-        st.success("✅ Rota salva e sincronizada! Agora está guardada na nuvem e disponível para todas as páginas.")
-        
-        # Guarda também na sessão atual para uso imediato
-        st.session_state['df_rota_ativa'] = df_carregado
-        
-    except Exception as e:
-        st.error(f"❌ Erro ao processar ou salvar o arquivo: {e}")
+# 1. Ativa a opção de múltiplos arquivos (accept_multiple_files=True)
+arquivos_upload = st.file_uploader(
+    "Arraste ou selecione os arquivos Excel das Rotas (.xlsx)", 
+    type=["xlsx"], 
+    accept_multiple_files=True
+)
 
-# 3. Garante que se você mudar de página, o sistema busca o que ele mesmo guardou
-else:
-    if 'df_rota_ativa' not in st.session_state:
+# Inicializa a base na sessão se não existir
+if 'df_rota_ativa' not in st.session_state:
+    st.session_state['df_rota_ativa'] = None
+
+if arquivos_upload:
+    lista_dfs = []
+    
+    for arquivo in arquivos_upload:
         try:
-            conexao_sheets = GSheetsConnection(connection_name="gsheets")
-            df_salvo = conexao_sheets.read(worksheet="Rota_Ativa", ttl="0d", dtype=str)
-            if df_salvo is not None and not df_salvo.empty:
-                st.session_state['df_rota_ativa'] = df_salvo
-                st.info("🔄 Rota ativa carregada automaticamente da memória da nuvem!")
-        except:
-            pass
+            # openpyxl garante a leitura correta do formato zip/xlsx do Excel
+            df_individual = pd.read_excel(arquivo, engine="openpyxl")
+            if not df_individual.empty:
+                lista_dfs.append(df_individual)
+        except Exception as e:
+            st.error(f"❌ Erro ao ler o arquivo {arquivo.name}: {e}")
+            
+    if lista_dfs:
+        try:
+            # Junta todos os arquivos de rota subidos em um único DataFrame
+            df_consolidado = pd.concat(lista_dfs, ignore_index=True)
+            
+            # Remove linhas totalmente vazias ou sem contrato
+            if 'Contrato' in df_consolidado.columns:
+                df_consolidado = df_consolidado.dropna(subset=['Contrato'])
+                # Remove contratos duplicados na base consolidada do dia
+                df_consolidado = df_consolidado.drop_duplicates(subset=['Contrato'], keep='first')
+            
+            # Converte tudo para string para evitar quebras de formato nas outras páginas
+            df_consolidado = df_consolidado.astype(str)
+            
+            # SALVAMENTO PERSISTENTE NA SESSÃO DO SISTEMA
+            st.session_state['df_rota_ativa'] = df_consolidado
+            
+            st.success(f"✅ Sucesso! {len(lista_dfs)} arquivo(s) unificado(s). Total de {len(df_consolidado)} contratos únicos carregados na memória do sistema.")
+            
+        except Exception as e:
+            st.error(f"❌ Erro na consolidação das rotas: {e}")
+
+# Exibe o status da base atual para o usuário ter certeza que o sistema guardou
+if st.session_state['df_rota_ativa'] is not None:
+    st.info(f"🔄 Base de Dados Ativa: Sistema alimentado com {len(st.session_state['df_rota_ativa'])} linhas. Pode navegar livremente pelas outras páginas.")
+    with st.expander("🔍 Visualizar Amostra dos Dados Carregados"):
+        st.dataframe(st.session_state['df_rota_ativa'].head(10), use_container_width=True)
+else:
+    st.warning("⚠️ Nenhuma rota carregada no momento. Por favor, faça o upload dos arquivos acima.")
