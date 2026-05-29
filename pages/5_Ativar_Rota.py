@@ -1,9 +1,31 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+import os
+import time
+from datetime import datetime, timedelta
 
 # 1. Configuração da página ampla
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
+if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
+    try:
+        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except:
+        pass
+
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (30 Segundos para monitoramento de largada)
+if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    if "last_refresh_ativar" not in st.session_state:
+        st.session_state["last_refresh_ativar"] = time.time()
+    
+    st.text_input("refresh_trigger_ativ", value=str(st.session_state["last_refresh_ativar"]), label_visibility="collapsed")
+    
+    if time.time() - st.session_state["last_refresh_ativar"] > 30:
+        st.session_state["last_refresh_ativar"] = time.time()
+        st.rerun()
 
 # 2. Carregar Estilos Globais
 try:
@@ -14,7 +36,7 @@ except:
 
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">🚀 ATIVAR ROTA - LARGADA MATINAL</h1>', unsafe_allow_html=True)
 
-# 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
+# 🔄 HERANÇA INTELIGENTE DIRETA DA MEMÓRIA DO SISTEMA
 df_master = st.session_state.get('df_rota_ativa', None)
 
 df_ativar = None
@@ -56,7 +78,6 @@ if df_master is not None and not df_master.empty:
     })
     
     # 🌟 MÁSTER PROCV PELO NOME DO TÉCNICO ('Recurso_Original')
-    # Varre as linhas onde o Login e o Supervisor estão preenchidos para criar o dicionário de busca
     df_dados_validos = df_ativar[
         (df_ativar['SUPERVISOR_ORIGINAL'] != '') & 
         (~df_ativar['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A'])) &
@@ -76,7 +97,6 @@ if df_master is not None and not df_master.empty:
     df_ativar['Login_Final'] = df_ativar['LOGIN_VALIDO'].fillna(df_ativar['Login_Original']).str.strip()
 
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
-data_rota_texto = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
 if df_ativar is not None:
     st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Monitorando status PENDENTE com PROCV de Login e Supervisor por Nome ativo</div>', unsafe_allow_html=True)
 else:
@@ -110,7 +130,7 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         df_lista = pd.DataFrame(columns=['Supervisor', 'Login', 'Técnico Pendente'])
 
-    # Divisão Regional Padrão (Francisco/Alan = SP, o restante é ABC)
+    # Divisão Regional Padr (Francisco/Alan = SP, o restante é ABC)
     df_sp = df_lista[df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_lista[~df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
 
