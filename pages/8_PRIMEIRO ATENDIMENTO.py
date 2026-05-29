@@ -1,9 +1,31 @@
 import streamlit as st
 import pandas as pd
+import os
+import time
 from datetime import datetime, timedelta
 
 # 1. Configuração da página ampla e título da aba
 st.set_page_config(layout="wide", page_title="1º ATENDIMENTO", initial_sidebar_state="collapsed")
+
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
+if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
+    try:
+        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except:
+        pass
+
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
+if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    if "last_refresh_atend" not in st.session_state:
+        st.session_state["last_refresh_atend"] = time.time()
+    
+    st.text_input("refresh_trigger_atend", value=str(st.session_state["last_refresh_atend"]), label_visibility="collapsed")
+    
+    if time.time() - st.session_state["last_refresh_atend"] > 60:
+        st.session_state["last_refresh_atend"] = time.time()
+        st.rerun()
 
 # 2. Carregar Estilos Globais
 try:
@@ -87,15 +109,15 @@ if df_master is not None and not df_master.empty:
     
     # Varre as colunas buscando limpar acentos ou pontos duplicados que o Pandas cria (.1, .2)
     for c in df_temp.columns:
-        c_clean = str(c).upper().strip().split('.')[0]
-        if c_clean in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
+        get_upper = str(c).upper().strip().split('.')[0]
+        if get_upper in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
             col_inicio_estrito = c
-        elif c_clean == 'STATUS':
+        elif get_upper == 'STATUS':
             col_status_os = c
-        elif 'SUPERV' in c_clean:
+        elif 'SUPERV' in get_upper:
             col_supervisor = c
 
-    # 🌟 EXTRAÇÃO SEGURA BLINDADA CONTRA ATTRIBUTEERROR (Usa fallback por índice se o nome falhar)
+    # 🌟 EXTRAÇÃO SEGURA BLINDADA CONTRA ATTRIBUTEERROR
     series_recurso = df_temp[col_recurso] if col_recurso in df_temp.columns else df_temp.iloc[:, 0]
     series_status = df_temp[col_status_os] if col_status_os in df_temp.columns else df_temp.iloc[:, 3]
     series_inicio = df_temp[col_inicio_estrito] if col_inicio_estrito in df_temp.columns else df_temp.iloc[:, 10]
@@ -145,6 +167,7 @@ if df_base is not None and not df_base.empty:
     horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
     media_abc = calcular_media_horarios(horas_abc)
     
+    # Correção: Garante o alinhamento de São Paulo para usar as variáveis locais filtradas
     horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
     media_sp = calcular_media_horarios(horas_sp)
 
@@ -171,7 +194,7 @@ if df_base is not None and not df_base.empty:
     
     if not df_abc.empty:
         supervisores_abc = sorted(df_abc['Supervisor'].unique().tolist())
-        cols_abc = st.columns(len(supervisores_abc))
+        cols_abc = st.columns(len(supervisores_abc) if len(supervisores_abc) > 0 else 1)
         
         for i, sup in enumerate(supervisores_abc):
             with cols_abc[i]:
@@ -198,7 +221,7 @@ if df_base is not None and not df_base.empty:
     
     if not df_sp.empty:
         supervisores_sp = sorted(df_sp['Supervisor'].unique().tolist())
-        cols_sp = st.columns(len(supervisores_sp))
+        cols_sp = st.columns(len(supervisores_sp) if len(supervisores_sp) > 0 else 1)
         
         for i, sup in enumerate(supervisores_sp):
             with cols_sp[i]:
