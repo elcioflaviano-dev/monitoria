@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import os
 from datetime import datetime, timedelta
+from streamlit_gsheets_connection import GSheetsConnection
 
 # 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -13,27 +13,32 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📜 SISTEMA DE CERTIDÃO</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📜 CERTIDÃO DE ATENDIMENTO</h1>', unsafe_allow_html=True)
 
-# === BANCO DE DADOS LOCAL (ARQUIVO PERMANENTE DE REGISTROS) ===
-ARQUIVO_BANCO = "banco_certidoes.csv"
+# === CONEXÃO DIRETA COM O GOOGLE SHEETS (NUVEM) ===
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error("⚠️ Erro de conexão com o Google Sheets. Verifique se configurou o Secrets corretamente.")
+    st.stop()
 
-def carregar_banco_historico():
+def carregar_banco_historico_sheets():
     colunas_padrao = ["Data/Hora", "Contrato", "Status", "Supervisor", "Recurso", "Intervalo de Tempo", "Observação"]
-    if os.path.exists(ARQUIVO_BANCO):
-        try:
-            df_hist = pd.read_csv(ARQUIVO_BANCO, dtype=str)
+    try:
+        # Lê os dados em tempo real da aba 'Certidoes'
+        df_hist = conn.read(worksheet="Certidoes", ttl="0d", dtype=str)
+        if df_hist is not None and not df_hist.empty:
             df_hist = df_hist[[c for c in df_hist.columns if c in colunas_padrao]]
             for col in colunas_padrao:
                 if col not in df_hist.columns:
                     df_hist[col] = "N/A"
             return df_hist
-        except:
-            return pd.DataFrame(columns=colunas_padrao)
+    except:
+        pass
     return pd.DataFrame(columns=colunas_padrao)
 
-if "historico_certidoes" not in st.session_state:
-    st.session_state["historico_certidoes"] = carregar_banco_historico()
+# Carrega sempre a versão mais recente da nuvem para o estado da sessão
+st.session_state["historico_certidoes"] = carregar_banco_historico_sheets()
 
 # 🌟 Estado para controle de limpeza do input
 if "limpar_input_proxima" not in st.session_state:
@@ -105,7 +110,6 @@ with st.container(border=True):
     col1, col2, col3 = st.columns([2, 2, 3])
 
     with col1:
-        # Se a flag de limpeza estiver ativa, injeta string vazia na tela de forma forçada
         valor_padrao_input = "" if st.session_state["limpar_input_proxima"] else st.session_state.get("contrato_antigo_digitado", "")
         
         contrato_input = st.text_input(
@@ -114,7 +118,6 @@ with st.container(border=True):
             placeholder="Digite o contrato e pressione Enter..."
         ).strip()
         
-        # Reseta o gatilho da flag
         st.session_state["limpar_input_proxima"] = False
         st.session_state["contrato_antigo_digitado"] = contrato_input
 
@@ -148,30 +151,32 @@ with st.container(border=True):
     with col3:
         obs_input = st.text_input("Observações / Motivo:", placeholder="Insira notas adicionais aqui...").strip()
 
-    # 🌟 CRÍTICO: Removido on_click do botão. O processamento agora é feito em ordem sequencial perfeita
     if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True):
         if contrato_input != "":
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             
-            # Garante que vai salvar os dados encontrados antes de limpar qualquer coisa!
             nova_linha = pd.DataFrame([{
                 "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
                 "Intervalo de Tempo": "AUTOMÁTICO", "Observação": obs_input if obs_input != "" else "OK"
             }])
             
+            # Combina o novo registro com o histórico vindo direto do Google Sheets
             df_total = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True)
             df_total = df_total.drop_duplicates(subset=["Contrato"], keep="first")
             
-            st.session_state["historico_certidoes"] = df_total
-            st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
-            
-            # 🌟 LIMPEZA POSTERIOR: Ativa as flags de reset pós-gravação
-            st.session_state["limpar_input_proxima"] = True
-            st.session_state["contrato_antigo_digitado"] = ""
-            
-            st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
-            st.rerun()
+            try:
+                # GRAVAÇÃO NA PLANILHA DA NUVEM (Aba Certidoes)
+                conn.update(worksheet="Certidoes", data=df_total)
+                st.session_state["historico_certidoes"] = df_total
+                
+                st.session_state["limpar_input_proxima"] = True
+                st.session_state["contrato_antigo_digitado"] = ""
+                
+                st.success(f"✅ Contrato {contrato_input} gravado com sucesso na nuvem!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Erro ao salvar dados na planilha do Google: {e}")
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
 
@@ -198,7 +203,9 @@ if df_base_online is not None:
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
     if not df_banco_atual.empty:
-        contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
+        # Garante a filtragem correta tratando os números como string pura
+        df_banco_atual['Contrato_Str'] = df_banco_atual['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
+        contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato_Str"].tolist()
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_validados)]
     else:
         df_exibir_pendentes = df_base_filtrada
@@ -215,10 +222,16 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    lista_contratos_reais = [str(c) for c in df_cards_sup['Contrato_Limpo'].unique() if str(c) != '']
-                    texto_copia_em_lote = ", ".join(lista_contratos_reais)
+                    lista_elementos_copia = []
+                    for _, row_c in df_cards_sup.iterrows():
+                        c_num_c = str(row_c['Contrato_Limpo'])
+                        nome_tec_c = str(row_c['Recurso']).strip().split()[0].upper()
+                        if c_num_c != '':
+                            lista_elementos_copia.append(f"{c_num_c} {nome_tec_c}")
                     
-                    st.code(texto_copia_em_lote, language="text")
+                    texto_copia_em_lote = "\n".join(lista_elementos_copia)
+                    
+                    st.code(texto_copia_em_lote, language="text", height=100)
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
                     
                     for _, row_p in df_cards_sup.iterrows():
@@ -250,13 +263,13 @@ else:
 st.markdown("---")
 
 # ==========================================
-# BLOCO 3: HISTÓRICO
+# BLOCO 3: HISTÓRICO VIA GOOGLE SHEETS
 # ==========================================
-with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos Verificados)"):
+with st.expander("📊 Histórico Base de Auditoria Nuvem (Planilha Google Sheets)"):
     if not df_banco_atual.empty:
         st.dataframe(df_banco_atual, use_container_width=True, hide_index=True)
         
         csv_download = df_banco_atual.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Baixar Planilha de Auditoria (CSV)", data=csv_download, file_name="auditoria_certidoes.csv", mime="text/csv")
     else:
-        st.info("Nenhum registro gravado no banco de dados local.")
+        st.info("Nenhum registro gravado na planilha em nuvem ainda.")
