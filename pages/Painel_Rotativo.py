@@ -8,35 +8,30 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-TEMPO_ROTACAO_SEGUNDOS = 15  # Gira a cada 15 segundos
+TEMPO_ROTACAO_SEGUNDOS = 15  # Tempo exato para girar a tela
 
-# --- MOTOR DE ROTAÇÃO OPERACIONAL FILTRADO ---
-# Mostra apenas as duas páginas que você selecionou
+# --- REFRESH NATIVO VIA HTML METATAG (BLINDADO CONTRA LOOP INFINITO) ---
+# Força o navegador a dar um F5 limpo na página a cada 15 segundos
+st.markdown(f'<meta http-equiv="refresh" content="{TEMPO_ROTACAO_SEGUNDOS}">', unsafe_allow_html=True)
+
+# --- MOTOR DE ROTAÇÃO OPERACIONAL ---
 PAINEIS = ["TEC1_OPERACIONAL", "TEC1_PENDENTES"]
 
 if "indice_painel" not in st.session_state:
     st.session_state["indice_painel"] = 0
+    st.session_state["ultimo_giro_time"] = time.time()
 
-if "timestamp_ultimo_giro" not in st.session_state:
-    st.session_state["timestamp_ultimo_giro"] = time.time()
-
-# Calcula o tempo decorrido
-tempo_decorrido = time.time() - st.session_state["timestamp_ultimo_giro"]
-
-# Se estourar os 15 segundos, avança o painel
-if tempo_decorrido >= TEMPO_ROTACAO_SEGUNDOS:
-    st.session_state["indice_painel"] = (st.session_state["indice_painel"] + 1) % len(PAINEIS)
-    st.session_state["timestamp_ultimo_giro"] = time.time()
-    st.rerun()
+# Calcula se já é hora de mudar o painel baseado no F5 da página
+agora = time.time()
+if "ultimo_giro_time" in st.session_state:
+    # Se passou perto do tempo de rotação, avança o índice para o próximo F5
+    if agora - st.session_state["ultimo_giro_time"] >= (TEMPO_ROTACAO_SEGUNDOS - 1):
+        st.session_state["indice_painel"] = (st.session_state["indice_painel"] + 1) % len(PAINEIS)
+        st.session_state["ultimo_giro_time"] = agora
 
 painel_atual = PAINEIS[st.session_state["indice_painel"]]
 
-# Força o Streamlit a acordar de forma limpa sem quebrar os dados
-st.text_input("timer_heartbeat", value=str(time.time()), label_visibility="collapsed")
-time.sleep(1)
-st.rerun()
-
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS)
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
 df_master = None
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
@@ -70,35 +65,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 🚀 FRAGMENTO SILENCIOSO DO RELÓGIO
-@st.fragment(run_every=1.0)
-def renderizar_barra_status():
-    decorrido = time.time() - st.session_state["timestamp_ultimo_giro"]
-    segundos_restantes = max(0, int(TEMPO_ROTACAO_SEGUNDOS - decorrido))
-    
-    st.markdown(f'''
-        <div class="barra-status-tv">
-            <span>📺 MODO TV FILTRADO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
-            <span>⏱️ Próxima tela em: {segundos_restantes}s</span>
-        </div>
-    ''', unsafe_allow_html=True)
-    
-    if segundos_restantes <= 0:
-        st.rerun()
-
-renderizar_barra_status()
+# Barra estática superior (indica que a página vai atualizar em lote)
+st.markdown(f'''
+    <div class="barra-status-tv">
+        <span>📺 MODO TV FILTRADO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
+        <span>🔄 Atualização e troca automática a cada {TEMPO_ROTACAO_SEGUNDOS}s</span>
+    </div>
+''', unsafe_allow_html=True)
 
 
 # =============================================================================
-# DATA PROCESSING COMMON LOGIC (Limpeza de dados para os dois painéis)
+# OPERATIONAL LOGIC (Processamento de dados unificado)
 # =============================================================================
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
-    if not col_tecnico_check:
-        for c in df.columns:
-            if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper(): col_tecnico_check = c; break
+    col_tecnico_check = None
+    for c in df.columns:
+        if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper(): 
+            col_tecnico_check = c
+            break
+            
     if col_tecnico_check:
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
@@ -117,10 +104,11 @@ if df_master is not None and not df_master.empty:
     df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
     df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
 
-    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_limpo.columns else None
-    if not col_janela:
-        for c in df_limpo.columns:
-            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): col_janela = c; break
+    col_janela = None
+    for c in df_limpo.columns:
+        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
+            col_janela = c
+            break
 
     if col_janela is not None and not df_limpo.empty:
         df_limpo['Intervalo_Tratado'] = df_limpo[col_janela].fillna('').astype(str).str.strip()
@@ -136,7 +124,6 @@ if df_master is not None and not df_master.empty:
     else:
         df_janela_ativa = df_limpo.copy()
 
-    # Padroniza Supervisor e Divisão Regional
     if 'SUPERVISOR' in df_janela_ativa.columns:
         df_janela_ativa['SUPERVISOR_MOSTRAR'] = df_janela_ativa['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'NAN': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'}).astype(str).str.upper().str.strip()
     else:
@@ -146,9 +133,8 @@ if df_master is not None and not df_master.empty:
     df_sp = df_janela_ativa[cond_sp].copy()
     df_abc = df_janela_ativa[~cond_sp].copy()
 
-
     # =========================================================================
-    # 📺 RENDERIZAÇÃO DO VISUAL 1: TEC1 OPERACIONAL (CARDS DE MATRIZ)
+    # VISUAL 1: TEC1 OPERACIONAL
     # =========================================================================
     if painel_atual == "TEC1_OPERACIONAL":
         st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #006677; text-align: center; margin-bottom: 15px;">📊 TEC1 OPERACIONAL</h1>', unsafe_allow_html=True)
@@ -186,9 +172,8 @@ if df_master is not None and not df_master.empty:
                         with m3: st.metric(label="🟢 INICIADO", value=i)
             else: st.info("Nenhum contrato ativo para SP nesta janela.")
 
-
     # =========================================================================
-    # 📺 RENDERIZAÇÃO DO VISUAL 2: TEC1 PENDENTES (LISTAGEM EM LINHAS)
+    # VISUAL 2: TEC1 PENDENTES
     # =========================================================================
     elif painel_atual == "TEC1_PENDENTES":
         st.markdown('<h1 style="font-size: 32px; font-weight: 900; color: #cc6600; text-align: center; margin-bottom: 15px;">⏳ TEC1 CONTRATOS PENDENTES</h1>', unsafe_allow_html=True)
