@@ -54,6 +54,7 @@ def tratar_horario(val):
     if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN', '00:00']:
         return None
     try:
+        # Pega apenas a parte do horário caso venha com data junto
         texto = str(val).strip().split()[-1]
         return datetime.strptime(texto, '%H:%M:%S').time()
     except:
@@ -82,36 +83,39 @@ df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # 🌟 MAPEAMENTO SEGURO POR PALAVRA-CHAVE CONTRA COLUNAS CORTADAS
+    # 🌟 LOCALIZAÇÃO DA COLUNA "INÍCIO" EXATA
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else None
     col_status_os = None
     col_tipo = None
     col_contrato = None
-    col_real_clique = None
+    col_inicio_estrito = None
     
-    # Varre as colunas buscando termos parciais para não errar por causa de cortes do Excel
+    # Varre as colunas mapeando os nomes
     for c in df_temp.columns:
-        c_up = str(c).upper()
+        c_up = str(c).upper().strip()
         if 'SUPERV' in c_up: col_supervisor = c
         elif 'STATUS' in c_up and 'ATIV' not in c_up: col_status_os = c
         elif 'TIPO' in c_up and 'ATIV' in c_up: col_tipo = c
         elif 'CONTRATO' in c_up or 'NÚMERO' in c_up or 'NUMERO' in c_up: col_contrato = c
-        elif 'INÍCIO -' in c_up or 'INICIO -' in c_up or 'INÍCIO DO' in c_up or 'INICIO DO' in c_up: col_real_clique = c
+        elif c_up == 'INÍCIO' or c_up == 'INICIO': col_inicio_estrito = c
 
-    # Fallbacks de emergência baseados estritamente na estrutura visual do seu arquivo
+    # Fallbacks de segurança por posição caso o Excel mude algo
+    if not col_inicio_estrito: 
+        col_inicio_estrito = 'Início' if 'Início' in df_temp.columns else df_temp.columns[10]
     if not col_status_os: col_status_os = 'Status' if 'Status' in df_temp.columns else df_temp.columns[3]
     if not col_tipo: col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[21]
     if not col_contrato: col_contrato = 'Contrato' if 'Contrato' in df_temp.columns else df_temp.columns[23]
-    if not col_real_clique: col_real_clique = df_temp.columns[12] # Coluna exata do horário real "Início - Fi"
     if not col_supervisor: col_supervisor = 'SUPERVISOR'
 
-    # Extração pura em listas com tratamento anti-ruído
+    # Mapeamento limpo dos dados
     lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp[col_recurso]).iloc[:, 0].fillna('N/A').tolist()]
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_supervisor]).iloc[:, 0].fillna('').tolist()] if col_supervisor in df_temp.columns else [''] * len(df_temp)
     lista_status_os = [str(x).lower().strip() for x in pd.DataFrame(df_temp[col_status_os]).iloc[:, 0].fillna('').tolist()]
     lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()]
-    lista_horarios = [tratar_horario(x) for x in df_temp[col_real_clique].tolist()]
+    
+    # Captura rigorosamente apenas a coluna Início selecionada
+    lista_horarios = [tratar_horario(x) for x in df_temp[col_inicio_estrito].tolist()]
     lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()]
 
     df_base = pd.DataFrame({
@@ -123,7 +127,7 @@ if df_master is not None and not df_master.empty:
         'Contrato_ID': lista_contratos
     })
     
-    # PROCV de Supervisor interno inteligente
+    # Ajuste de Supervisor por histórico da linha
     df_sup_mapeado = df_base[
         (df_base['SUPERVISOR_ORIGINAL'] != '') & (~df_base['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
     ].groupby('Recurso')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
@@ -133,7 +137,9 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # 🌟 FILTRAGEM AMPLIADA: Aceita variações com e sem acento de forma flexível
+    # 🌟 FILTRAGEM RIGOROSA DE ACORDO COM O SEU EXCEL
+    # Status: concluído, iniciado, suspenso
+    # Ignora linhas administrativas de Base/Almoço
     df_filtrado_excel = df_base[
         (df_base['Status_OS'].str.contains('concl|inic|susp', na=False)) &
         (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO|DESLOCAMENTO FIM", na=False)) &
@@ -142,18 +148,18 @@ if df_base is not None and not df_base.empty:
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    # Agrupa pegando o primeiro atendimento real de cada técnico
+    # Pega o menor horário da coluna Início para cada técnico
     df_primeiro = df_filtrado_excel.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
     df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
     df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
     
-    # Divisão das carteiras regionais
+    # Separação por regionais
     df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # Cálculo das médias das bases
+    # Cálculo de médias regionais
     horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
     media_abc = calcular_media_horarios(horas_abc)
     
@@ -161,7 +167,7 @@ if df_base is not None and not df_base.empty:
     media_sp = calcular_media_horarios(horas_sp)
 
     # =========================================================================
-    # 🌟 SEÇÃO SUPERIOR: CARDS DE MÉDIAS CONSOLIDADA
+    # 🌟 CARDS DE MÉDIAS
     # =========================================================================
     st.markdown(f'''
         <div class="kpi-container">
@@ -177,7 +183,7 @@ if df_base is not None and not df_base.empty:
     ''', unsafe_allow_html=True)
 
     # ==========================================
-    # 🔴 CORPO INFERIOR: BASE ABC
+    # 🔴 REGIONAL ABC
     # ==========================================
     st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
     
@@ -188,25 +194,21 @@ if df_base is not None and not df_base.empty:
         for i, sup in enumerate(supervisores_abc):
             with cols_abc[i]:
                 df_sup_abc = df_abc[df_abc['Supervisor'] == sup][['Técnico', 'Horário', 'Hora_Inicio']].sort_values('Horário')
-                
-                horas_especificas = df_sup_abc['Hora_Inicio'].tolist()
-                media_supervisor = calcular_media_horarios(horas_especificas)
+                media_supervisor = calcular_media_horarios(df_sup_abc['Hora_Inicio'].tolist())
                 
                 st.markdown(f'''
-                    <div style="background-color:#f1f7f6; border-left:4px solid #008080; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="background-color:#f1f7f6; border-left:4px solid #008080; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-weight:bold; color:#004d40; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
                         <span style="background-color:#008080; color:white; padding:3px 8px; border-radius:3px; font-weight:900; font-size:14px;">⏱️ {media_supervisor}</span>
                     </div>
                 ''', unsafe_allow_html=True)
                 
                 st.dataframe(df_sup_abc[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum atendimento produtivo registrado na região ABC.")
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # ==========================================
-    # 🔵 CORPO INFERIOR: BASE SÃO PAULO (SP)
+    # 🔵 REGIONAL SÃO PAULO (SP)
     # ==========================================
     st.markdown('<div style="background-color:#b30000; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
@@ -217,19 +219,15 @@ if df_base is not None and not df_base.empty:
         for i, sup in enumerate(supervisores_sp):
             with cols_sp[i]:
                 df_sup_sp = df_sp[df_sp['Supervisor'] == sup][['Técnico', 'Horário', 'Hora_Inicio']].sort_values('Horário')
-                
-                horas_especificas = df_sup_sp['Hora_Inicio'].tolist()
-                media_supervisor = calcular_media_horarios(horas_especificas)
+                media_supervisor = calcular_media_horarios(df_sup_sp['Hora_Inicio'].tolist())
                 
                 st.markdown(f'''
-                    <div style="background-color:#fff2f2; border-left:4px solid #b30000; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="background-color:#fff2f2; border-left:4px solid #b30000; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-weight:bold; color:#660000; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
                         <span style="background-color:#b30000; color:white; padding:3px 8px; border-radius:3px; font-weight:900; font-size:14px;">⏱️ {media_supervisor}</span>
                     </div>
                 ''', unsafe_allow_html=True)
                 
                 st.dataframe(df_sup_sp[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum atendimento produtivo registrado na região de SP.")
 else:
     st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro.")
