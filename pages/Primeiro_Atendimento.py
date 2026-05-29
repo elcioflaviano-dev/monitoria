@@ -12,17 +12,25 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">⏱️ HORÁRIO DO 1º ATENDIMENTO</h1>', unsafe_allow_html=True)
+# Customização CSS para estreitar as tabelas e melhorar os cards
+st.markdown("""
+    <style>
+    [data-testid="stMetricValue"] { font-size: 24px !important; font-weight: bold; }
+    .block-container { padding-top: 2rem !important; }
+    div[data-testid="stHorizontalBlock"] { gap: 15px !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown('<h1 style="font-size: 30px; font-weight: 900; color: #006677; text-align: center; margin-top: 10px; margin-bottom: 20px;">⏱️ HORÁRIO DO 1º ATENDIMENTO</h1>', unsafe_allow_html=True)
 
 # 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
 df_master = st.session_state.get('df_rota_ativa', None)
 
-# Função auxiliar para converter horários em texto/datetime para cálculo de média
+# Função auxiliar para converter horários
 def tratar_horario(val):
     if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN']:
         return None
     try:
-        # Tenta extrair apenas a hora (HH:MM:SS ou HH:MM) caso venha com data junto
         texto = str(val).strip().split()[-1]
         return datetime.strptime(texto, '%H:%M:%S').time()
     except:
@@ -47,25 +55,21 @@ def calcular_media_horarios(lista_horas):
     media_time = str(timedelta(seconds=int(media_segundos)))
     return ":".join(media_time.split(":")[:2]) # Retorna HH:MM
 
-df_ativar = None
+df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Identificação dinâmica das colunas
     col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else ('Tipo de A' if 'Tipo de A' in df_temp.columns else 'TIPO_ATIVIDADE_COL')
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else ('Status da' if 'Status da' in df_temp.columns else 'Status da Atividade')
-    col_inicio = 'Início' if 'Início' in df_temp.columns else ( 'Hora Início' if 'Hora Início' in df_temp.columns else None)
+    col_inicio = 'Início' if 'Início' in df_temp.columns else ('Hora Início' if 'Hora Início' in df_temp.columns else None)
     
-    # Busca aproximada para coluna de horário de início caso mude o nome
     if not col_inicio:
         for c in df_temp.columns:
-            if 'INIC' in str(c).upper() or 'HORA' in str(c).upper() or 'AGEND' in str(c).upper(): col_inicio = c; break
-
+            if 'INIC' in str(c).upper() or 'HORA' in str(c).upper(): col_inicio = c; break
     if col_tipo not in df_temp.columns:
         for c in df_temp.columns:
             if 'TIPO DE A' in str(c).upper() or 'TIPO ATIV' in str(c).upper(): col_tipo = c; break
 
-    # Extração de segurança
     lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_temp.columns else ['N/A'] * len(df_temp)
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp['SUPERVISOR']).iloc[:, 0].fillna('').tolist()] if 'SUPERVISOR' in df_temp.columns else [''] * len(df_temp)
     lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()] if col_tipo in df_temp.columns else [''] * len(df_temp)
@@ -78,7 +82,6 @@ if df_master is not None and not df_master.empty:
         'Hora_Inicio': lista_horarios
     })
     
-    # PROCV do Supervisor pelo Nome do técnico para garantir linhas limpas
     df_sup_mapeado = df_base[
         (df_base['SUPERVISOR_ORIGINAL'] != '') & (~df_base['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
     ].groupby('Recurso')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
@@ -86,73 +89,90 @@ if df_master is not None and not df_master.empty:
     df_base = pd.merge(df_base, df_sup_mapeado, on='Recurso', how='left')
     df_base['Supervisor'] = df_base['SUPERVISOR_VALIDO'].fillna(df_base['SUPERVISOR_ORIGINAL']).str.upper().str.strip()
 
-# --- HEADER DE RETORNO ---
-if df_base is not None:
-    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">📊 Analisando o primeiro acionamento de campo produtivo do dia</div>', unsafe_allow_html=True)
-else:
-    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro.")
-
-# --- PROCESSAMENTO OPERACIONAL ---
 if df_base is not None and not df_base.empty:
     
-    # 1. Filtra apenas O.S. produtivas de verdade (descarta Base, Refeição, Deslocamento Fim, etc.)
+    # Filtra apenas registros de campo produtivos com horário válido
     df_produtivo = df_base[
         (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO|DESLOCAMENTO FIM", na=False)) &
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    # 2. Captura o primeiro atendimento de cada técnico (menor horário registrado)
     df_primeiro = df_produtivo.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
+    df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
-    # Formata a hora para exibição amigável na tabela (HH:MM)
-    df_primeiro['1º Atendimento'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
-    
-    # Seleção e renomeação final das colunas da tabela
-    df_exibicao = df_primeiro[['Supervisor', 'Recurso', '1º Atendimento']].rename(columns={'Recurso': 'Técnico'})
-    
-    # Limpa possíveis registros fantasmas
+    df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
     df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
     
-    # Divisão Regional (Francisco/Alan = SP, o restante é ABC)
+    # Separação das bases
     df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # Estilização da linha de sumário de médias
-    def destacar_linha_media(row):
-        return ['background-color: #dfede9; font-weight: bold; color: #004d40; border-top: 2px solid #008080;'] * len(row)
-
     # ==========================================
-    # 🔴 REGIÃO ABC
+    # 🔴 BLOCÃO REGIÃO ABC
     # ==========================================
-    st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 1º ATENDIMENTO DO DIA - REGIÃO ABC</h2></div>', unsafe_allow_html=True)
+    horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
+    media_abc = calcular_media_horarios(horas_abc)
+    
+    # Layout da Barra de Título com Média embutida na mesma linha
+    st.markdown(f'''
+        <div style="background-color:#008080; padding:8px 15px; border-radius:6px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="color:white; font-weight:bold; font-size:20px; margin:0;">📍 BASE ABC</span>
+            <span style="background-color:rgba(255,255,255,0.2); color:white; padding:4px 10px; border-radius:4px; font-weight:900; font-size:16px;">⏱️ MÉDIA DA BASE: {media_abc}</span>
+        </div>
+    ''', unsafe_allow_html=True)
     
     if not df_abc.empty:
-        st.dataframe(df_abc.sort_values(['Supervisor', '1º Atendimento']), use_container_width=True, hide_index=True)
+        supervisores_abc = sorted(df_abc['Supervisor'].unique().tolist())
+        cols_abc = st.columns(len(supervisores_abc)) # Cria colunas lado a lado dinamicamente
         
-        # Extrai a lista de objetos datetime.time para tirar a média real
-        lista_horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
-        media_abc = calcular_media_horarios(lista_horas_abc)
-        
-        df_tot_abc = pd.DataFrame([{"Supervisor": "MÉDIA DA BASE ABC", "Técnico": "-", "1º Atendimento": f"⏱️ {media_abc}"}])
-        st.dataframe(df_tot_abc.style.apply(destacar_linha_media, axis=1), use_container_width=True, hide_index=True)
+        for i, sup in enumerate(supervisores_abc):
+            with cols_abc[i]:
+                # Cabeçalho do Card do Supervisor
+                st.markdown(f'''
+                    <div style="background-color:#f1f7f6; border-left:4px solid #008080; padding:6px 10px; font-weight:bold; color:#004d40; font-size:14px; margin-bottom:8px; text-transform: uppercase;">
+                        👤 SUP. {sup}
+                    </div>
+                ''', unsafe_allow_html=True)
+                
+                # Dados estreitados (Apenas Técnico e Horário)
+                df_sup_abc = df_abc[df_abc['Supervisor'] == sup][['Técnico', 'Horário']].sort_values('Horário')
+                st.dataframe(df_sup_abc, use_container_width=True, hide_index=True)
     else:
-        st.info("Nenhum atendimento produtivo iniciado na região ABC até o momento.")
+        st.info("Nenhum atendimento produtivo na região ABC.")
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # ==========================================
-    # 🔵 REGIÃO SÃO PAULO (SP)
+    # 🔵 BLOCÃO REGIÃO SÃO PAULO (SP)
     # ==========================================
-    st.markdown('<div style="background-color:#b30000; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 1º ATENDIMENTO DO DIA - REGIÃO SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
+    horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
+    media_sp = calcular_media_horarios(horas_sp)
+    
+    # Layout da Barra de Título com Média embutida na mesma linha
+    st.markdown(f'''
+        <div style="background-color:#b30000; padding:8px 15px; border-radius:6px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="color:white; font-weight:bold; font-size:20px; margin:0;">📍 BASE SÃO PAULO (SP)</span>
+            <span style="background-color:rgba(255,255,255,0.2); color:white; padding:4px 10px; border-radius:4px; font-weight:900; font-size:16px;">⏱️ MÉDIA DA BASE: {media_sp}</span>
+        </div>
+    ''', unsafe_allow_html=True)
     
     if not df_sp.empty:
-        st.dataframe(df_sp.sort_values(['Supervisor', '1º Atendimento']), use_container_width=True, hide_index=True)
+        supervisores_sp = sorted(df_sp['Supervisor'].unique().tolist())
+        cols_sp = st.columns(len(supervisores_sp)) # Cria colunas lado a lado dinamicamente
         
-        # Extrai a lista de objetos datetime.time para tirar a média real
-        lista_horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
-        media_sp = calcular_media_horarios(lista_horas_sp)
-        
-        df_tot_sp = pd.DataFrame([{"Supervisor": "MÉDIA DA BASE SÃO PAULO", "Técnico": "-", "1º Atendimento": f"⏱️ {media_sp}"}])
-        st.dataframe(df_tot_sp.style.apply(destacar_linha_media, axis=1), use_container_width=True, hide_index=True)
+        for i, sup in enumerate(supervisores_sp):
+            with cols_sp[i]:
+                # Cabeçalho do Card do Supervisor
+                st.markdown(f'''
+                    <div style="background-color:#fff2f2; border-left:4px solid #b30000; padding:6px 10px; font-weight:bold; color:#660000; font-size:14px; margin-bottom:8px; text-transform: uppercase;">
+                        👤 SUP. {sup}
+                    </div>
+                ''', unsafe_allow_html=True)
+                
+                # Dados estreitados (Apenas Técnico e Horário)
+                df_sup_sp = df_sp[df_sp['Supervisor'] == sup][['Técnico', 'Horário']].sort_values('Horário')
+                st.dataframe(df_sup_sp, use_container_width=True, hide_index=True)
     else:
-        st.info("Nenhum atendimento produtivo iniciado na região de SP até o momento.")
+        st.info("Nenhum atendimento produtivo na região de SP.")
+else:
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro.")
