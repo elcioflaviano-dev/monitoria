@@ -10,8 +10,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 TEMPO_ROTACAO_SEGUNDOS = 15  # Tempo exato para girar a tela
 
-# --- REFRESH NATIVO VIA HTML METATAG (BLINDADO CONTRA LOOP INFINITO) ---
-# Força o navegador a dar um F5 limpo na página a cada 15 segundos
+# --- REFRESH NATIVO VIA HTML METATAG ---
 st.markdown(f'<meta http-equiv="refresh" content="{TEMPO_ROTACAO_SEGUNDOS}">', unsafe_allow_html=True)
 
 # --- MOTOR DE ROTAÇÃO OPERACIONAL ---
@@ -21,10 +20,8 @@ if "indice_painel" not in st.session_state:
     st.session_state["indice_painel"] = 0
     st.session_state["ultimo_giro_time"] = time.time()
 
-# Calcula se já é hora de mudar o painel baseado no F5 da página
 agora = time.time()
 if "ultimo_giro_time" in st.session_state:
-    # Se passou perto do tempo de rotação, avança o índice para o próximo F5
     if agora - st.session_state["ultimo_giro_time"] >= (TEMPO_ROTACAO_SEGUNDOS - 1):
         st.session_state["indice_painel"] = (st.session_state["indice_painel"] + 1) % len(PAINEIS)
         st.session_state["ultimo_giro_time"] = agora
@@ -39,16 +36,26 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# Injeta o CSS unificado para Modo TV
+# Injeta o CSS unificado com o ajuste de margem (padding-top aumentado para tirar o corte)
 st.markdown("""
     <style>
-        .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
+        /* Dá 70px de espaço no topo para o título não bater na barra preta */
+        .block-container { padding-top: 70px !important; padding-bottom: 5px !important; }
         .stDeployButton { display:none; }
+        
+        /* Barra preta fixada no topo absoluto da tela */
         .barra-status-tv {
-            background-color: #111; color: #fff; padding: 8px 15px; border-radius: 4px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 999999;
+            background-color: #111; color: #fff; padding: 10px 20px;
             font-size: 13px; font-weight: bold; display: flex; justify-content: space-between;
-            margin-bottom: 15px; font-family: sans-serif;
+            font-family: sans-serif;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
+        
         .title-abc-sp { font-size: 24px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
         .super-bar {
             background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px;
@@ -65,7 +72,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Barra estática superior (indica que a página vai atualizar em lote)
+# Barra fixa superior
 st.markdown(f'''
     <div class="barra-status-tv">
         <span>📺 MODO TV FILTRADO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
