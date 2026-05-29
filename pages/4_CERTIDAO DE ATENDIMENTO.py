@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-# 🌟 IMPORTAÇÃO DIRETA DO CONECTOR PARA EVITAR O ERRO DE VERSÃO DO STREAMLIT
 from streamlit_gsheets import GSheetsConnection
 
 # 1. Configuração da página
@@ -16,27 +15,23 @@ except:
 
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📜 CERTIDÃO DE ATENDIMENTO</h1>', unsafe_allow_html=True)
 
-# === CONEXÃO DIRETA COM O GOOGLE SHEETS (NUVEM) ===
-try:
-    # 🌟 CORREÇÃO: Inicialização compatível com todas as versões do Streamlit
-    conn = GSheetsConnection(connection_name="gsheets")
-except Exception as e:
-    st.error("⚠️ Erro de inicialização do Google Sheets. Verifique o arquivo Secrets.")
-    st.stop()
-
+# === FUNÇÃO SEGURA PARA CONECTAR E LER O GOOGLE SHEETS ===
 def carregar_banco_historico_sheets():
     colunas_padrao = ["Data/Hora", "Contrato", "Status", "Supervisor", "Recurso", "Intervalo de Tempo", "Observação"]
     try:
-        # Lê os dados em tempo real da aba 'Certidoes'
-        df_hist = conn.read(worksheet="Certidoes", ttl="0d", dtype=str)
+        # Inicializa a conexão diretamente dentro da função de leitura
+        conexao_sheets = GSheetsConnection(connection_name="gsheets")
+        df_hist = conexao_sheets.read(worksheet="Certidoes", ttl="0d", dtype=str)
+        
         if df_hist is not None and not df_hist.empty:
             df_hist = df_hist[[c for c in df_hist.columns if c in colunas_padrao]]
             for col in colunas_padrao:
                 if col not in df_hist.columns:
                     df_hist[col] = "N/A"
             return df_hist
-    except:
-        pass
+    except Exception as e:
+        # Se der erro (ex: aba não criada ou erro de secrets), mostra o aviso na tela
+        st.warning(f"⚠️ Nota: Não foi possível ler a aba 'Certidoes' no Google Sheets ({e}). Usando base vazia provisória.")
     return pd.DataFrame(columns=colunas_padrao)
 
 # Carrega sempre a versão mais recente da nuvem para o estado da sessão
@@ -168,8 +163,9 @@ with st.container(border=True):
             df_total = df_total.drop_duplicates(subset=["Contrato"], keep="first")
             
             try:
-                # GRAVAÇÃO NA PLANILHA DA NUVEM (Aba Certidoes)
-                conn.update(worksheet="Certidoes", data=df_total)
+                # Conecta e atualiza diretamente na ação do botão
+                conexao_update = GSheetsConnection(connection_name="gsheets")
+                conexao_update.update(worksheet="Certidoes", data=df_total)
                 st.session_state["historico_certidoes"] = df_total
                 
                 st.session_state["limpar_input_proxima"] = True
