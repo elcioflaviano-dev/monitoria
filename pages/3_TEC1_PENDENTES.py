@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -102,14 +102,30 @@ if df_master is not None and not df_master.empty:
             
     if col_janela is not None and not df_validos.empty:
         df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
-        df_janelas_filtradas = df_validos[(df_validos['Intervalo_Tratado'] != '') & (df_validos['Intervalo_Tratado'].str.len() <= 7)].copy()
-        opcoes_janela = sorted(df_janelas_filtradas['Intervalo_Tratado'].dropna().unique())
         
-        if opcoes_janela:
-            janela_sel = st.sidebar.selectbox("Janela de Serviço:", opcoes_janela)
-            df_tela = df_validos[df_validos['Intervalo_Tratado'] == janela_sel].copy()
-        else:
+        # 🌟 MOTOR AUTOMÁTICO INTELIGENTE POR HORÁRIO OPERACIONAL (FUSO SÃO PAULO)
+        hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+        
+        def extrair_hora_limite(janela_str):
+            try:
+                partes = janela_str.replace(':', '').split('-')
+                if len(partes) == 2:
+                    return int(partes[1].strip()[:2])
+                return 24
+            except:
+                return 24
+
+        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
+        
+        # Filtra apenas janelas que já começaram ou venceram em relação ao horário atual
+        df_tela = df_validos[df_validos['Hora_Limite_Janela'] <= (hora_atual + 1)].copy()
+        
+        # Fallback de segurança: Se a fila limpar total, puxa o acumulado geral do dia
+        if df_tela.empty:
             df_tela = df_validos.copy()
+            st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⏰ [Hora Local: {hora_atual:02d}h] - Mostrando Todos os Pendentes Acumulados</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa: Ocultando agendamentos futuros automaticamente [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
     else:
         df_tela = df_validos.copy()
 
