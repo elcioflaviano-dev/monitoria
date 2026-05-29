@@ -13,21 +13,43 @@ try:
 except:
     pass
 
-# Customização CSS para deixar os títulos de bases bem destacados
+# Customização CSS para os Cards do 1º Atendimento (Topo) e Seções de Bases
 st.markdown("""
     <style>
     .block-container { padding-top: 1.5rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 16px !important; }
     
+    /* Grid dos Cards de KPI do 1º Contrato (Topo) */
+    .kpi-container-atend {
+        display: flex;
+        justify-content: center;
+        gap: 25px;
+        margin-bottom: 15px;
+    }
+    .kpi-card-atend {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 10px 25px;
+        text-align: center;
+        min-width: 280px;
+        border-top: 5px solid #006677;
+    }
+    .kpi-card-atend.abc { border-top-color: #008080; }
+    .kpi-card-atend.sp { border-top-color: #b30000; }
+    .kpi-title-atend { font-size: 13px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+    .kpi-value-atend { font-size: 26px; color: #111; font-weight: 900; }
+    
+    /* Faixa de Título das Bases Operacionais */
     .section-base-title {
         background-color: #005088;
         color: white;
         padding: 8px 15px;
         border-radius: 4px;
-        font-size: 18px;
+        font-size: 16px;
         font-weight: bold;
-        margin-top: 25px;
-        margin-bottom: 15px;
+        margin-top: 20px;
+        margin-bottom: 12px;
         text-transform: uppercase;
     }
     </style>
@@ -38,10 +60,39 @@ st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-
 # 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
 df_dash = st.session_state.get('df_rota_ativa', None)
 
+# --- FUNÇÕES AUXILIARES PARA O CÁLCULO DE MÉDIAS DO 1º CONTRATO ---
+def tratar_horario(val):
+    if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN', '00:00']:
+        return None
+    try:
+        texto = str(val).strip().split()[-1]
+        return datetime.strptime(texto, '%H:%M:%S').time()
+    except:
+        try:
+            texto = str(val).strip().split()[-1]
+            return datetime.strptime(texto, '%H:%M').time()
+        except:
+            return None
+
+def calcular_media_horarios(lista_horas):
+    if not lista_horas:
+        return "--:--"
+    total_segundos = 0
+    qtd = 0
+    for h in lista_horas:
+        if h is not None:
+            total_segundos += h.hour * 3600 + h.minute * 60 + h.second
+            qtd += 1
+    if qtd == 0:
+        return "--:--"
+    media_segundos = total_segundos / qtd
+    media_time = str(timedelta(seconds=int(media_segundos)))
+    return ":".join(media_time.split(":")[:2])
+
 # --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO ---
 if df_dash is not None:
     data_rota_texto = datetime.now().strftime('%d/%m/%Y às %H:%M:%S')
-    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 25px;">🔄 Dados updated via Upload em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 25px;">🔄 Dados atualizados via Upload em: <span style="color: #008080;">{data_rota_texto}</span></div>', unsafe_allow_html=True)
 else:
     st.markdown('<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 25px;">🔄 Aguardando sincronização de dados</div>', unsafe_allow_html=True)
 
@@ -75,10 +126,10 @@ if df_dash is not None and not df_dash.empty:
     col_intervalo = 'Janela de Serviço' if 'Janela de Serviço' in df_dash_filtrado.columns else 'Intervalo de Tempo'
     df_dash_filtrado['Intervalo_Tratado'] = df_dash_filtrado[col_intervalo].fillna('').astype(str).str.strip() if col_intervalo in df_dash_filtrado.columns else ''
 
-    # Identificação da coluna de recurso/técnico e base
     col_recurso = 'Recurso' if 'Recurso' in df_dash_filtrado.columns else df_dash_filtrado.columns[0]
-    col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_dash_filtrado.columns else ('Cidade' if 'Cidade' in df_dash_filtrado.columns else 'GERAL')
     
+    # Tratamento da Base Operacional
+    col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_dash_filtrado.columns else ('Cidade' if 'Cidade' in df_dash_filtrado.columns else 'GERAL')
     if col_base_operacional not in df_dash_filtrado.columns:
         df_dash_filtrado['REGIAO_BASE'] = 'BASE GERAL'
         col_base_operacional = 'REGIAO_BASE'
@@ -95,28 +146,95 @@ if df_dash is not None and not df_dash.empty:
             df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # 🌟 BLOCO 1 SEPARADO POR BASES OPERACIONAIS (CONFORME SOLICITADO)
+    # ⏱️ RETORNO DO MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS DO TOPO)
+    # =========================================================================
+    media_abc, media_sp = "--:--", "--:--"
+    df_calc_atend = df_dash.copy()
+    
+    col_inicio_estrito = 'Início'
+    for c in df_calc_atend.columns:
+        c_clean = str(c).upper().strip().split('.')[0]
+        if c_clean in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
+            col_inicio_estrito = c
+            break
+
+    col_supervisor_atend = 'SUPERVISOR' if 'SUPERVISOR' in df_calc_atend.columns else None
+    if not col_supervisor_atend:
+        for c in df_calc_atend.columns:
+            if 'SUPERV' in str(c).upper(): col_supervisor_atend = c; break
+
+    series_recurso = df_calc_atend[col_recurso] if col_recurso in df_calc_atend.columns else df_calc_atend.iloc[:, 0]
+    series_status = df_calc_atend[col_status] if col_status in df_calc_atend.columns else df_calc_atend.iloc[:, 3]
+    series_inicio = df_calc_atend[col_inicio_estrito] if col_inicio_estrito in df_calc_atend.columns else df_calc_atend.iloc[:, 10]
+    series_supervisor = df_calc_atend[col_supervisor_atend] if col_supervisor_atend and col_supervisor_atend in df_calc_atend.columns else pd.Series([''] * len(df_calc_atend))
+
+    df_base_atend = pd.DataFrame({
+        'Técnico': [str(x).strip() for x in series_recurso.fillna('N/A').tolist()],
+        'Status_OS': [str(x).lower().strip() for x in series_status.fillna('').tolist()],
+        'Hora_Inicio': [tratar_horario(x) for x in series_inicio.tolist()],
+        'Supervisor_Bruto': [str(x).upper().strip() for x in series_supervisor.fillna('').tolist()]
+    })
+    
+    df_sup_map = df_base_atend[(df_base_atend['Supervisor_Bruto'] != '') & (~df_base_atend['Supervisor_Bruto'].isin(['N/A', 'NAN', '#N/A']))].groupby('Técnico')['Supervisor_Bruto'].first().reset_index(name='Sup_Valido')
+    df_base_atend = pd.merge(df_base_atend, df_sup_map, on='Técnico', how='left')
+    df_base_atend['Supervisor'] = df_base_atend['Sup_Valido'].fillna(df_base_atend['Supervisor_Bruto'])
+
+    if 'SUPERVISOR' in df_dash_filtrado.columns and supervisor_sel != "TODOS":
+        df_base_atend = df_base_atend[df_base_atend['Supervisor'] == supervisor_sel]
+
+    df_filtrado_atend = df_base_atend[
+        (df_base_atend['Status_OS'].str.contains('concl|inic|susp', na=False)) &
+        (df_base_atend['Hora_Inicio'].notna())
+    ].copy()
+    
+    if not df_filtrado_atend.empty:
+        df_primeiros_horarios = df_filtrado_atend.sort_values('Hora_Inicio').groupby('Técnico').first().reset_index()
+        cond_sp_atend = df_primeiros_horarios['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)
+        
+        horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio'].tolist()
+        horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio'].tolist()
+        
+        media_abc = calcular_media_horarios(horas_abc)
+        media_sp = calcular_media_horarios(horas_sp)
+
+    # 🌟 RENDERIZAÇÃO TOPO: EXIBE NOVAMENTE AS MÉDIAS DO 1º CONTRATO
+    st.markdown(f'''
+        <div class="kpi-container-atend">
+            <div class="kpi-card-atend abc">
+                <div class="kpi-title-atend">⏱️ Média 1º Contrato - ABC</div>
+                <div class="kpi-value-atend">{media_abc}</div>
+            </div>
+            <div class="kpi-card-atend sp">
+                <div class="kpi-title-atend">⏱️ Média 1º Contrato - SÃO PAULO</div>
+                <div class="kpi-value-atend">{media_sp}</div>
+            </div>
+        </div>
+    ''', unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
+
+
+    # =========================================================================
+    # 📊 SEÇÃO INDICADORES MACRO: SEPARADOS DINAMICAMENTE POR BASE OPERACIONAL
     # =========================================================================
     bases_disponiveis = sorted(df_dash_filtrado[col_base_operacional].unique())
     
     for base in bases_disponiveis:
-        # Isola os dados exclusivos da base atual
         df_base_atual = df_dash_filtrado[df_dash_filtrado[col_base_operacional] == base]
         
-        # Cria a barra divisória com o nome da base
+        # Barra azul de cabeçalho da base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
-        # Cálculos específicos da Base
+        # Cálculos específicos da Base Atual
         base_contratos = df_base_atual['Contrato_Limpo'].nunique()
         base_total_os = df_base_atual['Total_OS_Num'].sum()
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique() if col_recurso in df_base_atual.columns else 1
         if base_qtd_tecnicos == 0: base_qtd_tecnicos = 1
         
-        # Novas médias baseadas no número de técnicos ativos daquela base
         media_contratos_por_tec = base_contratos / base_qtd_tecnicos
         media_os_por_tec = base_total_os / base_qtd_tecnicos
         
-        # Renderiza os 4 cards da Base Lado a Lado
+        # Renderização dos 4 blocos operacionais da base em colunas
         m1, m2, m3, m4 = st.columns(4)
         with m1:
             with st.container(border=True):
@@ -136,6 +254,7 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:28px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
+
 
     # ==========================================
     # BLOCO 2: GRÁFICOS ANALÍTICOS GERAIS
