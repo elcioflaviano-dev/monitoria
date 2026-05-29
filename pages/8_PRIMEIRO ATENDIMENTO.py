@@ -49,7 +49,7 @@ st.markdown('<h1 style="font-size: 30px; font-weight: 900; color: #006677; text-
 # 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
 df_master = st.session_state.get('df_rota_ativa', None)
 
-# Função auxiliar para converter horários
+# Função auxiliar para converter horários de forma flexível
 def tratar_horario(val):
     if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN']:
         return None
@@ -82,26 +82,39 @@ df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Mapeamento absoluto das colunas para evitar cortes de nomes do Excel
+    # Mapeamento absoluto das colunas com base na imagem enviada
+    col_status_os = 'Status' if 'Status' in df_temp.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else None)
     col_inicio = 'Início' if 'Início' in df_temp.columns else ('Hora Início' if 'Hora Início' in df_temp.columns else None)
+    col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else ('Tipo de A' if 'Tipo de A' in df_temp.columns else None)
     col_contrato = 'Contrato' if 'Contrato' in df_temp.columns else ('Número d' if 'Número d' in df_temp.columns else None)
     
+    # Caça inteligente reserva por palavras-chave se as colunas vierem cortadas
+    if not col_status_os:
+        for c in df_temp.columns:
+            if 'STATUS' in str(c).upper() and 'OS' not in str(c).upper(): col_status_os = c; break
     if not col_inicio:
         for c in df_temp.columns:
             if 'INIC' in str(c).upper() or 'HORA' in str(c).upper(): col_inicio = c; break
+    if not col_tipo:
+        for c in df_temp.columns:
+            if 'TIPO' in str(c).upper(): col_tipo = c; break
     if not col_contrato:
         for c in df_temp.columns:
-            if 'CONTRATO' in str(c).upper() or 'NÚMERO' in str(c).upper() or 'NUMERO' in str(c).upper(): col_contrato = c; break
+            if 'CONTRATO' in str(c).upper() or 'NUMERO' in str(c).upper() or 'NÚMERO' in str(c).upper(): col_contrato = c; break
 
-    # Extração das listas brutas puras
+    # Extração higienizada das listas brutas
     lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_temp.columns else ['N/A'] * len(df_temp)
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp['SUPERVISOR']).iloc[:, 0].fillna('').tolist()] if 'SUPERVISOR' in df_temp.columns else [''] * len(df_temp)
+    lista_status_os = [str(x).lower().strip() for x in pd.DataFrame(df_temp[col_status_os]).iloc[:, 0].fillna('').tolist()] if col_status_os else [''] * len(df_temp)
+    lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()] if col_tipo in df_temp.columns else [''] * len(df_temp)
     lista_horarios = [tratar_horario(x) for x in df_temp[col_inicio].tolist()] if col_inicio else [None] * len(df_temp)
     lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()] if col_contrato else [''] * len(df_temp)
 
     df_base = pd.DataFrame({
         'Recurso': lista_recurso,
         'SUPERVISOR_ORIGINAL': lista_supervisor,
+        'Status_OS': lista_status_os,
+        'Tipo_Atividade': lista_tipo_ativ,
         'Hora_Inicio': lista_horarios,
         'Contrato_ID': lista_contratos
     })
@@ -116,18 +129,19 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # 🌟 FILTRAGEM RADICAL POR ID DE CONTRATO VALIDO (Ignora qualquer validação por texto de tipo)
-    # Limpa apenas nulos e foca em IDs de contrato legítimos com mais de 5 caracteres (ex: 129482830)
-    df_contratos_reais = df_base[
-        (df_base['Contrato_ID'].notna()) &
-        (df_base['Contrato_ID'] != '') &
-        (~df_base['Contrato_ID'].isin(['N/A', 'NAN', 'NaN', '0', 'None'])) &
-        (df_base['Contrato_ID'].str.len() >= 5) &
+    # 🌟 APLICANDO O FILTRO EXATO DO SEU PRINT DO EXCEL
+    # 1. Status precisa ser estritamente: concluído, iniciado ou suspenso
+    # 2. Ignora as linhas de "Na Base" ou pausas administrativas
+    df_filtrado_excel = df_base[
+        (df_base['Status_OS'].isin(['concluido', 'concluído', 'iniciado', 'suspenso'])) &
+        (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO|DESLOCAMENTO FIM", na=False)) &
+        (df_base['Contrato_ID'] != '') & 
+        (~df_base['Contrato_ID'].isin(['N/A', 'NAN', 'NaN', '0'])) &
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    # Captura rigorosamente o menor horário entre os contratos válidos de cada técnico
-    df_primeiro = df_contratos_reais.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
+    # Captura o menor horário de início entre as ordens que passaram no filtro de status
+    df_primeiro = df_filtrado_excel.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
     df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
