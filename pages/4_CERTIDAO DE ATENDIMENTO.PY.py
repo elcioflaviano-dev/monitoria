@@ -13,7 +13,7 @@ try:
 except:
     pass
 
-st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📜 SISTEMA DE CERTIDÃO</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📜 CERTIDÃO DE ATENDIMENTO</h1>', unsafe_allow_html=True)
 
 # === BANCO DE DADOS LOCAL (ARQUIVO PERMANENTE DE REGISTROS) ===
 ARQUIVO_BANCO = "banco_certidoes.csv"
@@ -105,7 +105,6 @@ with st.container(border=True):
     col1, col2, col3 = st.columns([2, 2, 3])
 
     with col1:
-        # Se a flag de limpeza estiver ativa, injeta string vazia na tela de forma forçada
         valor_padrao_input = "" if st.session_state["limpar_input_proxima"] else st.session_state.get("contrato_antigo_digitado", "")
         
         contrato_input = st.text_input(
@@ -114,7 +113,6 @@ with st.container(border=True):
             placeholder="Digite o contrato e pressione Enter..."
         ).strip()
         
-        # Reseta o gatilho da flag
         st.session_state["limpar_input_proxima"] = False
         st.session_state["contrato_antigo_digitado"] = contrato_input
 
@@ -148,12 +146,10 @@ with st.container(border=True):
     with col3:
         obs_input = st.text_input("Observações / Motivo:", placeholder="Insira notas adicionais aqui...").strip()
 
-    # 🌟 CRÍTICO: Removido on_click do botão. O processamento agora é feito em ordem sequencial perfeita
     if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True):
         if contrato_input != "":
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             
-            # Garante que vai salvar os dados encontrados antes de limpar qualquer coisa!
             nova_linha = pd.DataFrame([{
                 "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
@@ -166,7 +162,6 @@ with st.container(border=True):
             st.session_state["historico_certidoes"] = df_total
             st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
             
-            # 🌟 LIMPEZA POSTERIOR: Ativa as flags de reset pós-gravação
             st.session_state["limpar_input_proxima"] = True
             st.session_state["contrato_antigo_digitado"] = ""
             
@@ -215,8 +210,15 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    lista_contratos_reais = [str(c) for c in df_cards_sup['Contrato_Limpo'].unique() if str(c) != '']
-                    texto_copia_em_lote = ", ".join(lista_contratos_reais)
+                    # 🌟 RECONSTRUTOR DO BLOCO DE CÓPIA: Amarra o Número do Contrato + Primeiro Nome do Técnico
+                    lista_elementos_copia = []
+                    for _, row_c in df_cards_sup.iterrows():
+                        c_num_c = str(row_c['Contrato_Limpo'])
+                        nome_tec_c = str(row_c['Recurso']).strip().split()[0].upper() # Pega apenas o primeiro nome do técnico
+                        if c_num_c != '':
+                            lista_elementos_copia.append(f"{c_num_c} ({nome_tec_c})")
+                    
+                    texto_copia_em_lote = ", ".join(lista_elementos_copia)
                     
                     st.code(texto_copia_em_lote, language="text")
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
