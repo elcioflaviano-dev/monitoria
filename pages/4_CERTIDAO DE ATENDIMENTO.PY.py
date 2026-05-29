@@ -165,7 +165,7 @@ with st.container(border=True):
             st.session_state["limpar_input_proxima"] = True
             st.session_state["contrato_antigo_digitado"] = ""
             
-            st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
+            st.success(f"✅ Contrato {contrato_input} updated com sucesso!")
             st.rerun()
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
@@ -210,13 +210,13 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    # 🌟 RECONSTRUTOR DO BLOCO DE CÓPIA: Amarra o Número do Contrato + Primeiro Nome do Técnico
+                    # 🌟 ALINHAMENTO DO FORMATO DE CÓPIA: Contrato + Espaço + Primeiro Nome do Técnico (Sem parênteses!)
                     lista_elementos_copia = []
                     for _, row_c in df_cards_sup.iterrows():
                         c_num_c = str(row_c['Contrato_Limpo'])
-                        nome_tec_c = str(row_c['Recurso']).strip().split()[0].upper() # Pega apenas o primeiro nome do técnico
+                        nome_tec_c = str(row_c['Recurso']).strip().split()[0].upper() # Pega apenas o primeiro nome
                         if c_num_c != '':
-                            lista_elementos_copia.append(f"{c_num_c} ({nome_tec_c})")
+                            lista_elementos_copia.append(f"{c_num_c} {nome_tec_c}")
                     
                     texto_copia_em_lote = ", ".join(lista_elementos_copia)
                     
