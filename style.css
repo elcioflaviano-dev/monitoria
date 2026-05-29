@@ -69,30 +69,3 @@ div[data-testid="stMetricValue"] div {
     margin-top: 0px;
     letter-spacing: -0.5px;
 }
-
-/* =========================================================================
-   🚀 AJUSTES EXTREMOS PARA ELIMINAR O ESPAÇO EM BRANCO DO TOPO (MODO TV)
-   ========================================================================= */
-
-/* 1. Esconde a barra de ferramentas nativa do topo do Streamlit (Share, Menu, etc.) */
-header[data-testid="stHeader"] {
-    display: none !important;
-    height: 0px !important;
-}
-
-/* 2. Zera as margens da raiz do aplicativo para colar o conteúdo no topo */
-.stApp {
-    margin-top: 0px !important;
-    padding-top: 0px !important;
-}
-
-/* 3. Força a área principal do conteúdo a ignorar o recuo do cabeçalho */
-div[data-testid="stMainBlockContainer"] {
-    padding-top: 10px !important; /* Ajuste milimétrico para grudar no teto */
-}
-
-/* 4. Remove qualquer espaço que as tags de título (h1, h2, h3) criam sozinhas no topo */
-h1, h2, h3 {
-    margin-top: 0px !important;
-    padding-top: 0px !important;
-}
