@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-TEMPO_ROTACAO_SEGUNDOS = 30
+TEMPO_ROTACAO_SEGUNDOS = 15  # ⏱️ Alterado para 15 segundos conforme solicitado
 
 # --- CONTROLE INTERNO DE ROTAÇÃO NATIVA ---
 PAINEIS = ["LARGADA_MATINAL", "TEC1_PENDENTES", "PRIMEIRO_ATENDIMENTO"]
@@ -78,7 +78,7 @@ st.markdown(f'''
     </div>
 ''', unsafe_allow_html=True)
 
-# 🚀 MOTOR JAVASCRIPT EM SEGUNDO PLANO (Faz o relógio diminuir na tela e troca de página)
+# 🚀 MOTOR JAVASCRIPT EM SEGUNDO PLANO
 st.components.v1.html(f"""
     <script>
     let tempo = {TEMPO_ROTACAO_SEGUNDOS};
@@ -92,7 +92,6 @@ st.components.v1.html(f"""
         
         if (tempo <= 0) {{
             clearInterval(contador);
-            // Avisa o Streamlit para avançar o índice do painel
             window.parent.location.search = "?proximo_painel=true";
         }}
     }}, 1000);
