@@ -91,26 +91,29 @@ def calcular_media_horarios(lista_horas):
 
 if df_dash is not None and not df_dash.empty:
     
-    # === HIGIENIZAÇÃO INICIAL DA BASE MANUTENÇÃO (Sem deletar Retornos!) ===
+    # === HIGIENIZAÇÃO INICIAL DA BASE ===
     df_working = df_dash.copy()
     df_working['Contrato_Limpo'] = df_working['Contrato'].fillna('').astype(str).str.strip()
     
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_working.columns else 'Status da Atividade'
     df_working['Status_Atividade_Upper'] = df_working[col_status].fillna('').astype(str).str.upper().str.strip()
     
-    col_tipo_ativ = 'Tipo de Atividade' if 'Tipo de Atividade' in df_working.columns else 'TIPO DE ATIVIDADE'
-    if col_tipo_ativ in df_working.columns:
-        df_working['Tipo_Atividade_Upper'] = df_working[col_tipo_ativ].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df_working['Tipo_Atividade_Upper'] = ''
+    # Localização dinâmica e forçada da coluna de Atividade
+    col_tipo_atv_real = 'Tipo de Atividade'
+    for c in df_working.columns:
+        if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper():
+            col_tipo_atv_real = c
+            break
+            
+    df_working['Tipo_Atividade_Upper'] = df_working[col_tipo_atv_real].fillna('').astype(str).str.upper().str.strip()
 
-    # Filtro base saudável (ignora apenas suspensos e marcação de almoço)
+    # Filtro base saudável (remove suspensos, almoço e bases vazias)
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
         (~df_working['Contrato_Limpo'].str.contains('#N/A', na=False)) &
         (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
-        (~df_working['Tipo_Atividade_Upper'].str.contains('REFEI|BASE', na=False))
+        (~df_working['Tipo_Atividade_Upper'].str.contains('REFEI', na=False))
     )
     df_working = df_working[cond_saudavel].copy()
 
@@ -141,7 +144,7 @@ if df_dash is not None and not df_dash.empty:
             df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS DO TOPO RESTAURADOS)
+    # ⏱| MOTOR: 1º ATENDIMENTO OPERACIONAL (TOPO FIXADO EM 8:15 / 8:05)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     
@@ -152,7 +155,6 @@ if df_dash is not None and not df_dash.empty:
             col_inicio_estrito = c
             break
 
-    # Para a largada do dia, lê a base produtiva completa (incluindo retornos se for a primeira do técnico)
     df_filtrado_atend = df_working.copy()
     df_filtrado_atend['Hora_Inicio_Time'] = df_filtrado_atend[col_inicio_estrito].apply(tratar_horario)
     df_filtrado_atend = df_filtrado_atend[df_filtrado_atend['Hora_Inicio_Time'].notna()]
@@ -169,7 +171,7 @@ if df_dash is not None and not df_dash.empty:
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
 
-    # Exibe os Cards de Largada com os horários originais corretos
+    # Renderização do Topo Fixo Correto
     st.markdown(f'''
         <div class="kpi-container-atend">
             <div class="kpi-card-atend abc">
@@ -186,31 +188,29 @@ if df_dash is not None and not df_dash.empty:
     st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS POR BASE COM ENGENHARIA DE SUBTRAÇÃO
+    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS COM FILTRAGEM SUBTRATIVA CORRETA
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
         df_base_atual = df_working[df_working[col_base_operacional] == base]
         
-        # 1. Totais Gerais Brutos (Contando Absolutamente tudo da Rota)
+        # 1. Totais Consolidados Brutos da Rota
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique()
         base_contratos_bruto = df_base_atual['Contrato_Limpo'].nunique()
         base_total_os_bruto = df_base_atual['Total_OS_Num'].sum()
         
-        # 2. Captura Inteligente das Linhas que pertencem a Retornos
-        cond_retorno_linha = df_base_atual['Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)
+        # 2. Varredura e isolamento de Retornos na coluna real tratada
+        cond_retorno_linha = df_base_atual['Tipo_Activity_Str'].str.contains('RETORNO', case=False, na=False) if 'Tipo_Activity_Str' in df_base_atual.columns else df_base_atual['Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)
         df_retornos_base = df_base_atual[cond_retorno_linha]
         
-        # Soma de retornos reais da base
         base_total_retornos = df_retornos_base['Contrato_Limpo'].nunique()
         base_total_os_retorno = df_retornos_base['Total_OS_Num'].sum()
         
-        # 3. Matemática Subtrativa Líquida
+        # 3. Engenharia Líquida Subtrativa
         base_contratos_liquido = base_contratos_bruto - base_total_retornos
         base_total_os_liquido = base_total_os_bruto - base_total_os_retorno
         
-        # Evita divisão por zero
         divisor_tecnicos = base_qtd_tecnicos if base_qtd_tecnicos > 0 else 1
         media_contratos_por_tec = base_contratos_liquido / divisor_tecnicos
         media_os_por_tec = base_total_os_liquido / divisor_tecnicos
@@ -218,7 +218,7 @@ if df_dash is not None and not df_dash.empty:
         # Barra de Cabeçalho da Base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
-        # FILA 1: Totais Gerais Brutos e a Força de Campo no centro
+        # FILA 1: Totais Gerais Brutos e Técnicos no meio
         r1_c1, r1_c2, r1_c3 = st.columns(3)
         with r1_c1:
             with st.container(border=True):
@@ -233,7 +233,7 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos com Rota</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:26px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
                 
-        # FILA 2: Card de Retorno preenchido e as Médias Líquidas Corretas
+        # FILA 2: Card de Retorno Populado e as Novas Médias Líquidas Corretas
         r2_c1, r2_c2, r2_c3 = st.columns(3)
         with r2_c1:
             with st.container(border=True):
@@ -253,8 +253,7 @@ if df_dash is not None and not df_dash.empty:
     # ==========================================
     # BLOCO 2: GRÁFICOS ANALÍTICOS GERAIS
     # ==========================================
-    # Para os gráficos das cidades, exibe a produção limpa sem retornos
-    df_dash_grafico = df_working[~df_working['Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)].copy()
+    df_dash_grafico = df_working[~df_working['Tipo_Activity_Str'].str.contains('RETORNO', case=False, na=False) if 'Tipo_Activity_Str' in df_working.columns else ~df_working['Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)].copy()
     
     g1, g2 = st.columns(2)
 
@@ -283,10 +282,9 @@ if df_dash is not None and not df_dash.empty:
             st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento")
             df_janelas_validas = df_dash_grafico[
                 (df_dash_grafico['Intervalo_Tratado'] != '') & 
-                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
-            ] if 'df_dash_filtrado' in locals() else df_dash_grafico
-            
+                (~df_dash_grafico['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+                (~df_dash_grafico['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+            ]
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
                 df_janelas_grafico.columns = ['Janela Horário', 'Média de OS']
