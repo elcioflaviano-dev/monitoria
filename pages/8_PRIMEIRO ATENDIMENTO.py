@@ -12,13 +12,12 @@ try:
 except:
     pass
 
-# Customização CSS de Alta Performance Visual
+# Customização CSS
 st.markdown("""
     <style>
     .block-container { padding-top: 1.5rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 16px !important; }
     
-    /* Customização dos Cards de KPI do Topo */
     .kpi-container {
         display: flex;
         justify-content: center;
@@ -43,13 +42,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Título principal enxuto
 st.markdown('<h1 style="font-size: 30px; font-weight: 900; color: #006677; text-align: center; margin-top: 5px; margin-bottom: 20px;">⏱️ 1º ATENDIMENTO OPERACIONAL</h1>', unsafe_allow_html=True)
 
-# 🔄 HERANÇA INTELIGENTE DIRETA DA HOME
+# 🔄 HERANÇA DA HOME
 df_master = st.session_state.get('df_rota_ativa', None)
 
-# Função auxiliar para converter horários de forma flexível
 def tratar_horario(val):
     if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN', '00:00']:
         return None
@@ -76,41 +73,55 @@ def calcular_media_horarios(lista_horas):
         return "--:--"
     media_segundos = total_segundos / qtd
     media_time = str(timedelta(seconds=int(media_segundos)))
-    return ":".join(media_time.split(":")[:2]) # Retorna HH:MM
+    return ":".join(media_time.split(":")[:2])
 
 df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # 🌟 EXTRAÇÃO REAL POR ÍNDICE OPERACIONAL DIRETAMENTE DA PLANILHA
-    # Coleta os dados de forma pura baseada nas posições exatas da tabela que você enviou
-    lista_recurso = [str(x).strip() for x in df_temp.iloc[:, 0].fillna('N/A').tolist()] # Coluna 1 (Recurso)
-    lista_status_os = [str(x).lower().strip() for x in df_temp.iloc[:, 3].fillna('').tolist()] # Coluna 4 (Status)
-    lista_horarios = [tratar_horario(x) for x in df_temp.iloc[:, 10].tolist()] # Coluna 11 (Início exato da janela)
+    # Identificação inteligente das colunas principais
+    col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
+    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else None
+    col_status_os = None
+    col_inicio_estrito = None
     
-    # Caça a coluna Contrato e Supervisor dinamicamente para manter o PROCV ativo
-    col_supervisor = 'SUPERVISOR'
+    # Localização exata da coluna "Início" pura (removendo falsos positivos como "Início - Fim")
     for c in df_temp.columns:
-        if 'SUPERV' in str(c).upper(): col_supervisor = c; break
-        
-    col_contrato = 'Contrato'
-    for c in df_temp.columns:
-        if 'CONTRATO' in str(c).upper() or 'NÚMERO' in str(c).upper() or 'NUMERO' in str(c).upper(): col_contrato = c; break
+        c_clean = str(c).upper().strip().split('.')[0] # Remove possíveis .1 ou .2 do pandas
+        if c_clean in ['INÍCIO', 'INICIO']:
+            # Garante que não pegou uma coluna composta
+            if '-' not in str(c) and 'DO' not in str(c).upper():
+                col_inicio_estrito = c
+                break
 
-    lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_supervisor]).iloc[:, 0].fillna('').tolist()] if col_supervisor in df_temp.columns else [''] * len(df_temp)
-    lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()] if col_contrato in df_temp.columns else ['1'] * len(df_temp)
-    lista_tipo_ativ = [str(x).upper().strip() for x in df_temp.iloc[:, 21].fillna('').tolist()] if len(df_temp.columns) > 21 else [''] * len(df_temp)
+    for c in df_temp.columns:
+        if 'STATUS' in str(c).upper() and 'ATIV' not in str(c).upper():
+            col_status_os = c
+            break
+
+    # Fallbacks caso os nomes variem
+    if not col_inicio_estrito:
+        col_inicio_estrito = 'Início' if 'Início' in df_temp.columns else df_temp.columns[10]
+    if not col_status_os:
+        col_status_os = 'Status' if 'Status' in df_temp.columns else df_temp.columns[3]
+    if not col_supervisor:
+        for c in df_temp.columns:
+            if 'SUPERV' in str(c).upper(): col_supervisor = c; break
+
+    # Montando dataframe limpo focado na coluna Início solicitada
+    lista_recurso = [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()]
+    lista_status_os = [str(x).lower().strip() for x in df_temp[col_status_os].fillna('').tolist()]
+    lista_horarios = [tratar_horario(x) for x in df_temp[col_inicio_estrito].tolist()]
+    lista_supervisor = [str(x).upper().strip() for x in df_temp[col_supervisor].fillna('').tolist()] if col_supervisor else [''] * len(df_temp)
 
     df_base = pd.DataFrame({
         'Recurso': lista_recurso,
         'SUPERVISOR_ORIGINAL': lista_supervisor,
         'Status_OS': lista_status_os,
-        'Tipo_Atividade': lista_tipo_ativ,
-        'Hora_Inicio': lista_horarios,
-        'Contrato_ID': lista_contratos
+        'Hora_Inicio': lista_horarios
     })
     
-    # PROCV de amarração de supervisor por técnico
+    # Mapeamento / PROCV de Supervisor
     df_sup_mapeado = df_base[
         (df_base['SUPERVISOR_ORIGINAL'] != '') & (~df_base['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
     ].groupby('Recurso')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
@@ -120,34 +131,32 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # 🌟 FILTRAGEM DE ACORDO COM O SEU PRINT DO EXCEL
+    # 🌟 REGRA DE NEGÓCIO DA PRODUTIVIDADE:
+    # Filtra apenas os status autorizados (concluido, iniciado, suspenso) e que possuam horário válido
     df_filtrado_excel = df_base[
         (df_base['Status_OS'].str.contains('concl|inic|susp', na=False)) &
-        (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO", na=False)) &
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    # Pega o menor horário registrado por técnico
+    # Agrupa pelo menor horário da coluna Início de cada técnico
     df_primeiro = df_filtrado_excel.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
     df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
     df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
     
-    # Separação por regionais
+    # Filtro das Regionais
     df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # Cálculo de médias regionais
+    # Médias Gerais
     horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
     media_abc = calcular_media_horarios(horas_abc)
     
-    horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
+    horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['T--:--' if df_sp.empty else 'Técnico'])]['Hora_Inicio'].tolist()
     media_sp = calcular_media_horarios(horas_sp)
 
-    # =========================================================================
-    # 🌟 CARDS DE MÉDIAS
-    # =========================================================================
+    # Cards de Resultados
     st.markdown(f'''
         <div class="kpi-container">
             <div class="kpi-card abc">
@@ -161,9 +170,7 @@ if df_base is not None and not df_base.empty:
         </div>
     ''', unsafe_allow_html=True)
 
-    # ==========================================
-    # 🔴 REGIONAL ABC
-    # ==========================================
+    # Bloco Regional ABC
     st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
     
     if not df_abc.empty:
@@ -188,9 +195,7 @@ if df_base is not None and not df_base.empty:
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-    # ==========================================
-    # 🔵 REGIONAL SÃO PAULO (SP)
-    # ==========================================
+    # Bloco Regional SP
     st.markdown('<div style="background-color:#b30000; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
     if not df_sp.empty:
