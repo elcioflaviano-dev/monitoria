@@ -98,7 +98,7 @@ else:
 
 if df_dash is not None and not df_dash.empty:
     
-    # === PREPARAÇÃO BRUTA DOS DADOS ===
+    # === 🌟 PASSO 0: PURIFICAÇÃO RADICAL CONTRA RETORNO E RUIDOS ===
     df_working = df_dash.copy()
     df_working['Contrato_Limpo'] = df_working['Contrato'].fillna('').astype(str).str.strip()
     
@@ -111,9 +111,20 @@ if df_dash is not None and not df_dash.empty:
     else:
         df_working['Tipo_Atividade_Upper'] = ''
 
+    # Filtro mestre absoluto: se a linha for SUSPENSO, BASE, REFEIÇÃO ou RETORNO, ela é deletada aqui
+    cond_total_pureza = (
+        (df_working['Contrato_Limpo'] != '') & 
+        (df_working['Contrato_Limpo'] != 'nan') & 
+        (~df_working['Contrato_Limpo'].str.contains('#N/A', na=False)) &
+        (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
+        (~df_working['Tipo_Atividade_Upper'].str.contains('REFEI|RETORNO|BASE', na=False))
+    )
+    # A partir daqui, o dataframe só possui produção pura
+    df_working = df_working[cond_total_pureza].copy()
+
+    # Identificação das demais colunas tratadas
     col_recurso = 'Recurso' if 'Recurso' in df_working.columns else df_working.columns[0]
     
-    # Normalização da Base Operacional
     col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_working.columns else ('Cidade' if 'Cidade' in df_working.columns else 'GERAL')
     if col_base_operacional not in df_working.columns:
         df_working['REGIAO_BASE'] = 'BASE GERAL'
@@ -130,7 +141,7 @@ if df_dash is not None and not df_dash.empty:
     col_intervalo = 'Janela de Serviço' if 'Janela de Serviço' in df_working.columns else 'Intervalo de Tempo'
     df_working['Intervalo_Tratado'] = df_working[col_intervalo].fillna('').astype(str).str.strip() if col_intervalo in df_working.columns else ''
 
-    # Filtor de Supervisor Lateral
+    # Filtro Lateral de Supervisor
     if 'SUPERVISOR' in df_working.columns:
         lista_supervisores = ["TODOS"] + sorted(df_working['SUPERVISOR'].dropna().unique())
         supervisor_sel = st.sidebar.selectbox("Filtrar por Supervisor:", lista_supervisores)
@@ -149,12 +160,7 @@ if df_dash is not None and not df_dash.empty:
             col_inicio_estrito = c
             break
 
-    df_filtrado_atend = df_working[
-        (df_working['Status_Atividade_Upper'].str.contains('CONCL|INIC|SUSP', na=False)) &
-        (df_working['Contrato_Limpo'] != '') &
-        (~df_working['Contrato_Limpo'].isin(['nan', '0', '#N/A']))
-    ].copy()
-    
+    df_filtrado_atend = df_working.copy()
     df_filtrado_atend['Hora_Inicio_Time'] = df_filtrado_atend[col_inicio_estrito].apply(tratar_horario)
     df_filtrado_atend = df_filtrado_atend[df_filtrado_atend['Hora_Inicio_Time'].notna()]
     
@@ -187,29 +193,17 @@ if df_dash is not None and not df_dash.empty:
     st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: SEPARADOS COM REGRA DE EXCLUSÃO DE RETORNO DO PRODUTIVO
+    # 📊 SEÇÃO INDICADORES MACRO: 5 CARDS SEPARADOS POR BASE OPERACIONAL
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
-        df_base_total = df_working[df_working[col_base_operacional] == base]
+        df_base_atual = df_working[df_working[col_base_operacional] == base]
         
-        # 🏃‍♂️ CONTAGEM DE TÉCNICOS INTEGRAL DA ROTA (Independente de ter feito retorno ou não)
-        base_qtd_tecnicos = df_base_total[col_recurso].nunique()
-        
-        # 🌟 APLICAÇÃO DA REGRA DE PRODUTIVIDADE RESTRITA (Zera Retornos, Suspensos e Refeições)
-        cond_produtivo = (
-            (df_base_total['Contrato_Limpo'] != '') & 
-            (df_base_total['Contrato_Limpo'] != 'nan') & 
-            (~df_base_total['Contrato_Limpo'].str.contains('#N/A', na=False)) &
-            (~df_base_total['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
-            (~df_base_total['Tipo_Atividade_Upper'].str.contains('REFEI|RETORNO|BASE', na=False))
-        )
-        df_base_produtivo = df_base_total[cond_produtivo].copy()
-        
-        # Volumes Produtivos Reais da Base
-        base_contratos = df_base_produtivo['Contrato_Limpo'].nunique()
-        base_total_os = df_base_produtivo['Total_OS_Num'].sum()
+        # Como o dataframe já foi purificado no passo 0, os números aqui são 100% reais de produção liquida!
+        base_qtd_tecnicos = df_base_atual[col_recurso].nunique()
+        base_contratos = df_base_atual['Contrato_Limpo'].nunique()
+        base_total_os = df_base_atual['Total_OS_Num'].sum()
         
         divisor_tecnicos = base_qtd_tecnicos if base_qtd_tecnicos > 0 else 1
         media_contratos_por_tec = base_contratos / divisor_tecnicos
@@ -218,7 +212,7 @@ if df_dash is not None and not df_dash.empty:
         # Barra azul de cabeçalho da base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
-        # Renderização Organizada: Técnicos cravado no MEIO (Coluna 3)
+        # Renderização com Técnicos centralizado (Coluna 3)
         m1, m2, m3, m4, m5 = st.columns(5)
         
         with m1:
@@ -245,20 +239,14 @@ if df_dash is not None and not df_dash.empty:
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # ==========================================
-    # BLOCO 2: GRÁFICOS ANALÍTICOS GERAIS (Filtro Geral Aplicado)
+    # BLOCO 2: GRÁFICOS ANALÍTICOS GERAIS
     # ==========================================
-    df_dash_filtrado = df_working[
-        (df_working['Contrato_Limpo'] != '') & 
-        (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
-        (~df_working['Tipo_Atividade_Upper'].str.contains('REFEI|RETORNO|BASE', na=False))
-    ].copy()
-    
     g1, g2 = st.columns(2)
 
     with g1:
         with st.container(border=True):
             st.markdown("#### 🌆 Volume Total de O.S. por Cidade")
-            df_cidades_os = df_dash_filtrado.groupby('Cidade_Tratada')['Total_OS_Num'].sum().reset_index()
+            df_cidades_os = df_working.groupby('Cidade_Tratada')['Total_OS_Num'].sum().reset_index()
             df_cidades_os.columns = ['Cidade', 'Total OS']
             df_cidades_os = df_cidades_os.sort_values(by='Total OS', ascending=False)
             
@@ -278,10 +266,10 @@ if df_dash is not None and not df_dash.empty:
     with g2:
         with st.container(border=True):
             st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento")
-            df_janelas_validas = df_dash_filtrado[
-                (df_dash_filtrado['Intervalo_Tratado'] != '') & 
-                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+            df_janelas_validas = df_working[
+                (df_working['Intervalo_Tratado'] != '') & 
+                (~df_working['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+                (~df_working['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
             ]
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
@@ -306,8 +294,8 @@ if df_dash is not None and not df_dash.empty:
     # ==========================================
     with st.container(border=True):
         st.markdown("#### 🔍 Visão Analítica Consolidada")
-        if 'SUPERVISOR' in df_dash_filtrado.columns:
-            df_analitico = df_dash_filtrado.groupby(['SUPERVISOR', 'Cidade_Tratada']).agg(
+        if 'SUPERVISOR' in df_working.columns:
+            df_analitico = df_working.groupby(['SUPERVISOR', 'Cidade_Tratada']).agg(
                 Contratos_Unicos=('Contrato_Limpo', 'nunique'),
                 Total_Tarefas_OS=('Total_OS_Num', 'sum'),
                 Media_OS_Contrato=('Total_OS_Num', 'mean')
@@ -316,7 +304,7 @@ if df_dash is not None and not df_dash.empty:
             df_analitico.columns = ['Supervisor', 'Cidade', 'Contratos Únicos', 'Soma Total OS', 'Média OS/Contrato']
             st.dataframe(df_analitico.sort_values(by='Contratos Únicos', ascending=False), use_container_width=True, hide_index=True)
         else:
-            st.dataframe(df_dash_filtrado[['Contrato_Limpo', 'Cidade_Tratada', 'Total_OS_Num']], use_container_width=True, hide_index=True)
+            st.dataframe(df_working[['Contrato_Limpo', 'Cidade_Tratada', 'Total_OS_Num']], use_container_width=True, hide_index=True)
 
 else:
     st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro para gerar os gráficos.")
