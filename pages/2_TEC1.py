@@ -21,6 +21,7 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
     if "last_refresh_tec1" not in st.session_state:
         st.session_state["last_refresh_tec1"] = time.time()
     
+    # Linha de texto oculta limpa para não vazar números na tela
     st.text_input("refresh_trigger_tec1", value=str(st.session_state["last_refresh_tec1"]), label_visibility="collapsed")
     
     if time.time() - st.session_state["last_refresh_tec1"] > 30:
@@ -103,14 +104,21 @@ if df_master is not None and not df_master.empty:
 
         df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        # Filtra apenas o que já está na hora ou vencido (Passado e Presente)
-        df_tela = df_validos[df_validos['Hora_Limite_Janela'] <= (hora_atual + 1)].copy()
+        # 🔥 NOVA REGRA BLINDADA CONTRA SUMIÇO DE TÉCNICOS EM ATIVIDADE 🔥
+        # Mostra se a janela for atual/vencida (hora_atual + 2) OU se o cara já estiver em ROTA ou INICIADO
+        condicao_janela_ativa = (
+            (df_validos['Hora_Limite_Janela'] <= (hora_atual + 2)) | 
+            (df_validos['R_COUNT'] > 0) | 
+            (df_validos['I_COUNT'] > 0)
+        )
+        
+        df_tela = df_validos[condicao_janela_ativa].copy()
         
         if df_tela.empty:
             df_tela = df_validos.copy()
             st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⏰ [Hora Local: {hora_atual:02d}h] - Mostrando Visão Geral do Dia</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa: Ocultando contratos futuros automaticamente [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
     else:
         df_tela = df_validos.copy()
 
