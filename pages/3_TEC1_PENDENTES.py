@@ -67,7 +67,7 @@ df_master = st.session_state.get('df_rota_ativa', None)
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === PASSO 1: LIMPEZA DE LINHAS VAZIAS ===
+    # === PASSO 1: LIMPEZA DE LINHAS VAZIAS E TRATAMENTO DE .0 ===
     col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
     if not col_tecnico_check:
         for c in df.columns:
@@ -78,8 +78,10 @@ if df_master is not None and not df_master.empty:
     if col_tecnico_check:
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
+    # 🌟 Remove de vez o ".0" limpando strings de contrato vazias
     if 'Contrato' in df.columns:
-        df = df[df['Contrato'].fillna('').astype(str).str.strip() != ''].copy()
+        df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+        df = df[df['Contrato'] != ''].copy()
 
     # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
     df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
@@ -153,7 +155,6 @@ if df_master is not None and not df_master.empty:
                     
                     st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {total_pendentes}</span></div>', unsafe_allow_html=True)
                     
-                    # 🌟 LISTA DE TEXTO LIMPA: Sem as palavras repetitivas e com fonte maior
                     for idx, linha in df_super.iterrows():
                         contrato_num = linha.get('Contrato', 'N/A')
                         tecnico_nome = linha.get('Recurso_Tratado', 'N/A')
@@ -171,7 +172,6 @@ if df_master is not None and not df_master.empty:
                     
                     st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {total_pendentes}</span></div>', unsafe_allow_html=True)
                     
-                    # 🌟 LISTA DE TEXTO LIMPA: Sem as palavras repetitivas e com fonte maior
                     for idx, linha in df_super.iterrows():
                         contrato_num = linha.get('Contrato', 'N/A')
                         tecnico_nome = linha.get('Recurso_Tratado', 'N/A')
