@@ -1,10 +1,22 @@
 import streamlit as st
 import pandas as pd
 import os
+import time
 from datetime import datetime, timedelta
 
-# 1. Configuração da página
+# 1. Configuração da página (Inicia recolhida para dar espaço na TV)
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
+if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    if "last_refresh_certidao" not in st.session_state:
+        st.session_state["last_refresh_certidao"] = time.time()
+    
+    st.text_input("refresh_trigger_cert", value=str(st.session_state["last_refresh_certidao"]), label_visibility="collapsed")
+    
+    if time.time() - st.session_state["last_refresh_certidao"] > 60:
+        st.session_state["last_refresh_certidao"] = time.time()
+        st.rerun()
 
 # 2. Carregar Estilos Globais
 try:
@@ -39,7 +51,7 @@ if "historico_certidoes" not in st.session_state:
 if "limpar_input_proxima" not in st.session_state:
     st.session_state["limpar_input_proxima"] = False
 
-# 🔄 HERANÇA INTELIGENTE
+# 🔄 HERANÇA INTELIGENTE CONECTADA DIRETAMENTE À HOME
 df_master = st.session_state.get('df_rota_ativa', None)
 
 df_base_online = None
@@ -166,6 +178,7 @@ with st.container(border=True):
             st.session_state["contrato_antigo_digitado"] = ""
             
             st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
+            time.sleep(0.5) # Leve pausa para visualização da mensagem de sucesso
             st.rerun()
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
@@ -193,7 +206,9 @@ if df_base_online is not None:
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
     if not df_banco_atual.empty:
-        contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato"].tolist()
+        # Corrige validação garantindo que ambos os lados tratem contrato como string pura
+        df_banco_atual['Contrato_Str'] = df_banco_atual['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
+        contratos_validados = df_banco_atual[df_banco_atual["Status"].str.upper().isin(["OK", "NÃO ADERENTE"])]["Contrato_Str"].tolist()
         df_exibir_pendentes = df_base_filtrada[~df_base_filtrada['Contrato_Limpo'].isin(contratos_validados)]
     else:
         df_exibir_pendentes = df_base_filtrada
@@ -219,7 +234,6 @@ if df_base_online is not None:
                     
                     texto_copia_em_lote = "\n".join(lista_elementos_copia)
                     
-                    # 🌟 ALTURA FIXADA: height=100 trava a caixinha em mais ou menos 3 linhas com barra de rolagem lateral
                     st.code(texto_copia_em_lote, language="text", height=100)
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
                     
