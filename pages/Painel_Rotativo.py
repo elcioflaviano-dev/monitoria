@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# 1. Configuração da página ampla para a TV (força o início recolhido)
+# 1. Configuração da página ampla para a TV
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
@@ -36,25 +36,29 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# Injeta o CSS unificado com ocultação agressiva do menu lateral
+# 🔥 INJEÇÃO DE CSS AGRESSIVA (ZERA O MENU DIRETO NA RAIZ DO NAVEGADOR)
 st.markdown("""
     <style>
-        /* Dá espaço no topo para o título */
+        /* Desativa e apaga qualquer elemento de sidebar na marra */
+        section[data-testid="stSidebar"], 
+        [data-testid="stSidebar"], 
+        div[data-testid="stSidebarCollapseButton"],
+        button[data-testid="stSidebarCollapseButton"] {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0px !important;
+            transform: translateX(-100%) !important;
+        }
+        
+        /* Força a área principal a ocupar 100% da tela sem recuo esquerdo */
+        section.main, .stAppDeployButton {
+            margin-left: 0px !important;
+            padding-left: 0px !important;
+        }
+        
+        /* Dá 80px de espaço no topo para o título */
         .block-container { padding-top: 80px !important; padding-bottom: 5px !important; }
         .stDeployButton { display:none; }
-        
-        /* ❌ REMOVE COMPLETAMENTE O MENU LATERAL E O BOTÃO NATIVO NESTA PÁGINA */
-        [data-testid="stSidebar"], button[data-testid="stSidebarCollapseButton"] {
-            display: none !important;
-            width: 0px !important;
-        }
-        
-        /* Ajusta o conteúdo principal para ocupar 100% da largura da tela da TV */
-        [data-testid="stMainBlockContainer"] {
-            max-width: 100% !important;
-            padding-left: 20px !important;
-            padding-right: 20px !important;
-        }
         
         /* Barra preta fixada no topo absoluto da tela */
         .barra-status-tv {
