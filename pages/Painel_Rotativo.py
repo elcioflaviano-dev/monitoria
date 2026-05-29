@@ -36,22 +36,15 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# Injeta o CSS unificado com correção do botão do menu lateral
+# Injeta o CSS unificado com a estilização da barra e do botão de saída
 st.markdown("""
     <style>
-        /* Dá 80px de espaço no topo para o título e rebaixa o botão do menu lateral */
+        /* Dá 80px de espaço no topo para o título */
         .block-container { padding-top: 80px !important; padding-bottom: 5px !important; }
         .stDeployButton { display:none; }
         
-        /* 🛠️ CORREÇÃO: Força o botão original do menu do Streamlit a descer e aparecer abaixo da barra preta */
-        button[data-testid="stSidebarCollapseButton"] {
-            top: 45px !important;
-            left: 10px !important;
-            z-index: 9999999 !important;
-            background-color: #f0f2f6 !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-            border-radius: 4px !important;
-        }
+        /* Oculta completamente o botão de colapso padrão do streamlit para não confundir */
+        button[data-testid="stSidebarCollapseButton"] { display: none !important; }
         
         /* Barra preta fixada no topo absoluto da tela */
         .barra-status-tv {
@@ -59,11 +52,26 @@ st.markdown("""
             top: 0;
             left: 0;
             right: 0;
-            z-index: 999995; /* Levemente abaixo do botão para não cobri-lo */
+            z-index: 999995;
             background-color: #111; color: #fff; padding: 10px 20px;
-            font-size: 13px; font-weight: bold; display: flex; justify-content: space-between;
+            font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;
             font-family: sans-serif;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        /* Botão de voltar customizado para a Home */
+        .btn-voltar-home {
+            background-color: #cc6600;
+            color: white !important;
+            padding: 5px 12px;
+            border-radius: 4px;
+            text-decoration: none !important;
+            font-size: 12px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-voltar-home:hover {
+            background-color: #ff8811;
         }
         
         .title-abc-sp { font-size: 24px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
@@ -82,11 +90,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Barra fixa superior
+# Barra fixa superior com link direto para a página inicial (Home)
 st.markdown(f'''
     <div class="barra-status-tv">
-        <span>📺 MODO TV FILTRADO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
-        <span>🔄 Atualização e troca automática a cada {TEMPO_ROTACAO_SEGUNDOS}s</span>
+        <div>
+            <a href="/" target="_self" class="btn-voltar-home">🏠 VOLTAR PARA A HOME</a>
+            <span style="margin-left: 15px;">📺 MODO TV ATIVO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
+        </div>
+        <span>🔄 Troca automática a cada {TEMPO_ROTACAO_SEGUNDOS}s</span>
     </div>
 ''', unsafe_allow_html=True)
 
