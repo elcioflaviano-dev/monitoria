@@ -98,109 +98,74 @@ else:
 
 if df_dash is not None and not df_dash.empty:
     
-    # === HIGIENIZAÇÃO DOS DADOS ===
-    df_dash['Contrato_Limpo'] = df_dash['Contrato'].fillna('').astype(str).str.strip()
+    # === PREPARAÇÃO BRUTA DOS DADOS ===
+    df_working = df_dash.copy()
+    df_working['Contrato_Limpo'] = df_working['Contrato'].fillna('').astype(str).str.strip()
     
-    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_dash.columns else 'Status da Atividade'
-    df_dash['Status_Atividade_Upper'] = df_dash[col_status].fillna('').astype(str).str.upper().str.strip()
+    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_working.columns else 'Status da Atividade'
+    df_working['Status_Atividade_Upper'] = df_working[col_status].fillna('').astype(str).str.upper().str.strip()
     
-    # 1. Filtros básicos (contratos válidos e não suspensos)
-    cond_contrato_valido = (
-        (df_dash['Contrato_Limpo'] != '') & 
-        (df_dash['Contrato_Limpo'] != 'nan') & 
-        (~df_dash['Contrato_Limpo'].str.contains('#N/A', case=False, na=False)) &
-        (~df_dash['Status_Atividade_Upper'].str.contains('SUSPENSO', case=False, na=False))
-    )
-    
-    # 2. Filtro dinâmico na coluna 'Tipo de Atividade' (Elimina Refeição e Retorno de Credenciada)
-    col_tipo_ativ = 'Tipo de Atividade' if 'Tipo de Atividade' in df_dash.columns else 'TIPO DE ATIVIDADE'
-    if col_tipo_ativ in df_dash.columns:
-        df_dash['Tipo_Atividade_Upper'] = df_dash[col_tipo_ativ].fillna('').astype(str).str.upper().str.strip()
-        
-        cond_contrato_valido = (
-            cond_contrato_valido & 
-            (~df_dash['Tipo_Atividade_Upper'].str.contains('REFEICAO|REFEIÇÃO', case=False, na=False)) &
-            (~df_dash['Tipo_Atividade_Upper'].str.contains('RETORNO DE CREDENCIADA', case=False, na=False))
-        )
-        
-    df_dash_filtrado = df_dash[cond_contrato_valido].copy()
-    df_dash_filtrado['Contrato_Limpo'] = df_dash_filtrado['Contrato_Limpo'].apply(lambda x: str(x).split('.')[0].strip())
+    col_tipo_ativ = 'Tipo de Atividade' if 'Tipo de Atividade' in df_working.columns else 'TIPO DE ATIVIDADE'
+    if col_tipo_ativ in df_working.columns:
+        df_working['Tipo_Atividade_Upper'] = df_working[col_tipo_ativ].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df_working['Tipo_Atividade_Upper'] = ''
 
-    df_dash_filtrado['Cidade_Tratada'] = df_dash_filtrado['Cidade'].fillna('NÃO INFORMADA').astype(str).str.upper().str.strip() if 'Cidade' in df_dash_filtrado.columns else 'NÃO INFORMADA'
+    col_recurso = 'Recurso' if 'Recurso' in df_working.columns else df_working.columns[0]
     
-    col_tarefas = 'QTD_OS_COL' if 'QTD_OS_COL' in df_dash_filtrado.columns else 'Total de tarefas'
-    df_dash_filtrado['Total_OS_Num'] = pd.to_numeric(df_dash_filtrado[col_tarefas], errors='coerce').fillna(0).astype(int) if col_tarefas in df_dash_filtrado.columns else 1
-
-    col_intervalo = 'Janela de Serviço' if 'Janela de Serviço' in df_dash_filtrado.columns else 'Intervalo de Tempo'
-    df_dash_filtrado['Intervalo_Tratado'] = df_dash_filtrado[col_intervalo].fillna('').astype(str).str.strip() if col_intervalo in df_dash_filtrado.columns else ''
-
-    col_recurso = 'Recurso' if 'Recurso' in df_dash_filtrado.columns else df_dash_filtrado.columns[0]
-    
-    # Tratamento da Base Operacional
-    col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_dash_filtrado.columns else ('Cidade' if 'Cidade' in df_dash_filtrado.columns else 'GERAL')
-    if col_base_operacional not in df_dash_filtrado.columns:
-        df_dash_filtrado['REGIAO_BASE'] = 'BASE GERAL'
+    # Normalização da Base Operacional
+    col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_working.columns else ('Cidade' if 'Cidade' in df_working.columns else 'GERAL')
+    if col_base_operacional not in df_working.columns:
+        df_working['REGIAO_BASE'] = 'BASE GERAL'
         col_base_operacional = 'REGIAO_BASE'
     else:
-        df_dash_filtrado[col_base_operacional] = df_dash_filtrado[col_base_operacional].fillna('NÃO DEFINIDA').astype(str).str.upper().str.strip()
-        df_dash_filtrado[col_base_operacional] = df_dash_filtrado[col_base_operacional].replace({'NAN': 'NÃO DEFINIDA', '': 'NÃO DEFINIDA', '#N/A': 'NÃO DEFINIDA'})
+        df_working[col_base_operacional] = df_working[col_base_operacional].fillna('NÃO DEFINIDA').astype(str).str.upper().str.strip()
+        df_working[col_base_operacional] = df_working[col_base_operacional].replace({'NAN': 'NÃO DEFINIDA', '': 'NÃO DEFINIDA', '#N/A': 'NÃO DEFINIDA'})
 
-    # === FILTRO DE SUPERVISOR ===
-    if 'SUPERVISOR' in df_dash_filtrado.columns:
-        lista_supervisores = ["TODOS"] + sorted(df_dash_filtrado['SUPERVISOR'].dropna().unique())
+    df_working['Cidade_Tratada'] = df_working['Cidade'].fillna('NÃO INFORMADA').astype(str).str.upper().str.strip() if 'Cidade' in df_working.columns else 'NÃO INFORMADA'
+    
+    col_tarefas = 'QTD_OS_COL' if 'QTD_OS_COL' in df_working.columns else 'Total de tarefas'
+    df_working['Total_OS_Num'] = pd.to_numeric(df_working[col_tarefas], errors='coerce').fillna(0).astype(int) if col_tarefas in df_working.columns else 1
+    
+    col_intervalo = 'Janela de Serviço' if 'Janela de Serviço' in df_working.columns else 'Intervalo de Tempo'
+    df_working['Intervalo_Tratado'] = df_working[col_intervalo].fillna('').astype(str).str.strip() if col_intervalo in df_working.columns else ''
+
+    # Filtor de Supervisor Lateral
+    if 'SUPERVISOR' in df_working.columns:
+        lista_supervisores = ["TODOS"] + sorted(df_working['SUPERVISOR'].dropna().unique())
         supervisor_sel = st.sidebar.selectbox("Filtrar por Supervisor:", lista_supervisores)
-        
         if supervisor_sel != "TODOS":
-            df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
+            df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
     # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS DO TOPO)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
-    df_calc_atend = df_dash.copy()
     
     col_inicio_estrito = 'Início'
-    for c in df_calc_atend.columns:
+    for c in df_working.columns:
         c_clean = str(c).upper().strip().split('.')[0]
         if c_clean in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
             col_inicio_estrito = c
             break
 
-    col_supervisor_atend = 'SUPERVISOR' if 'SUPERVISOR' in df_calc_atend.columns else None
-    if not col_supervisor_atend:
-        for c in df_calc_atend.columns:
-            if 'SUPERV' in str(c).upper(): col_supervisor_atend = c; break
-
-    series_recurso = df_calc_atend[col_recurso] if col_recurso in df_calc_atend.columns else df_calc_atend.iloc[:, 0]
-    series_status = df_calc_atend[col_status] if col_status in df_calc_atend.columns else df_calc_atend.iloc[:, 3]
-    series_inicio = df_calc_atend[col_inicio_estrito] if col_inicio_estrito in df_calc_atend.columns else df_calc_atend.iloc[:, 10]
-    series_supervisor = df_calc_atend[col_supervisor_atend] if col_supervisor_atend and col_supervisor_atend in df_calc_atend.columns else pd.Series([''] * len(df_calc_atend))
-
-    df_base_atend = pd.DataFrame({
-        'Técnico': [str(x).strip() for x in series_recurso.fillna('N/A').tolist()],
-        'Status_OS': [str(x).lower().strip() for x in series_status.fillna('').tolist()],
-        'Hora_Inicio': [tratar_horario(x) for x in series_inicio.tolist()],
-        'Supervisor_Bruto': [str(x).upper().strip() for x in series_supervisor.fillna('').tolist()]
-    })
-    
-    df_sup_map = df_base_atend[(df_base_atend['Supervisor_Bruto'] != '') & (~df_base_atend['Supervisor_Bruto'].isin(['N/A', 'NAN', '#N/A']))].groupby('Técnico')['Supervisor_Bruto'].first().reset_index(name='Sup_Valido')
-    df_base_atend = pd.merge(df_base_atend, df_sup_map, on='Técnico', how='left')
-    df_base_atend['Supervisor'] = df_base_atend['Sup_Valido'].fillna(df_base_atend['Supervisor_Bruto'])
-
-    if 'SUPERVISOR' in df_dash_filtrado.columns and supervisor_sel != "TODOS":
-        df_base_atend = df_base_atend[df_base_atend['Supervisor'] == supervisor_sel]
-
-    df_filtrado_atend = df_base_atend[
-        (df_base_atend['Status_OS'].str.contains('concl|inic|susp', na=False)) &
-        (df_base_atend['Hora_Inicio'].notna())
+    df_filtrado_atend = df_working[
+        (df_working['Status_Atividade_Upper'].str.contains('CONCL|INIC|SUSP', na=False)) &
+        (df_working['Contrato_Limpo'] != '') &
+        (~df_working['Contrato_Limpo'].isin(['nan', '0', '#N/A']))
     ].copy()
     
+    df_filtrado_atend['Hora_Inicio_Time'] = df_filtrado_atend[col_inicio_estrito].apply(tratar_horario)
+    df_filtrado_atend = df_filtrado_atend[df_filtrado_atend['Hora_Inicio_Time'].notna()]
+    
     if not df_filtrado_atend.empty:
-        df_primeiros_horarios = df_filtrado_atend.sort_values('Hora_Inicio').groupby('Técnico').first().reset_index()
-        cond_sp_atend = df_primeiros_horarios['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)
+        df_primeiros_horarios = df_filtrado_atend.sort_values('Hora_Inicio_Time').groupby(col_recurso).first().reset_index()
         
-        horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio'].tolist()
-        horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio'].tolist()
+        col_supervisor_check = 'SUPERVISOR' if 'SUPERVISOR' in df_primeiros_horarios.columns else df_primeiros_horarios.columns[0]
+        cond_sp_atend = df_primeiros_horarios[col_supervisor_check].fillna('').astype(str).str.upper().str.contains("FRANCISCO|ALAN", na=False)
+        
+        horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio_Time'].tolist()
+        horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio_Time'].tolist()
         
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
@@ -221,28 +186,39 @@ if df_dash is not None and not df_dash.empty:
 
     st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
 
-
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: 5 CARDS SEPARADOS POR BASE OPERACIONAL
+    # 📊 SEÇÃO INDICADORES MACRO: SEPARADOS COM REGRA DE EXCLUSÃO DE RETORNO DO PRODUTIVO
     # =========================================================================
-    bases_disponiveis = sorted(df_dash_filtrado[col_base_operacional].unique())
+    bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
-        df_base_atual = df_dash_filtrado[df_dash_filtrado[col_base_operacional] == base]
+        df_base_total = df_working[df_working[col_base_operacional] == base]
         
-        # Barra azul de cabeçalho da base
-        st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
+        # 🏃‍♂️ CONTAGEM DE TÉCNICOS INTEGRAL DA ROTA (Independente de ter feito retorno ou não)
+        base_qtd_tecnicos = df_base_total[col_recurso].nunique()
         
-        # Cálculos específicos da Base Atual (Sem o Retorno de Credenciada)
-        base_qtd_tecnicos = df_base_atual[col_recurso].nunique() if col_recurso in df_base_atual.columns else 0
-        base_contratos = df_base_atual['Contrato_Limpo'].nunique()
-        base_total_os = df_base_atual['Total_OS_Num'].sum()
+        # 🌟 APLICAÇÃO DA REGRA DE PRODUTIVIDADE RESTRITA (Zera Retornos, Suspensos e Refeições)
+        cond_produtivo = (
+            (df_base_total['Contrato_Limpo'] != '') & 
+            (df_base_total['Contrato_Limpo'] != 'nan') & 
+            (~df_base_total['Contrato_Limpo'].str.contains('#N/A', na=False)) &
+            (~df_base_total['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
+            (~df_base_total['Tipo_Atividade_Upper'].str.contains('REFEI|RETORNO|BASE', na=False))
+        )
+        df_base_produtivo = df_base_total[cond_produtivo].copy()
+        
+        # Volumes Produtivos Reais da Base
+        base_contratos = df_base_produtivo['Contrato_Limpo'].nunique()
+        base_total_os = df_base_produtivo['Total_OS_Num'].sum()
         
         divisor_tecnicos = base_qtd_tecnicos if base_qtd_tecnicos > 0 else 1
         media_contratos_por_tec = base_contratos / divisor_tecnicos
         media_os_por_tec = base_total_os / divisor_tecnicos
         
-        # Renderização com Técnicos centralizado (Coluna 3)
+        # Barra azul de cabeçalho da base
+        st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
+        
+        # Renderização Organizada: Técnicos cravado no MEIO (Coluna 3)
         m1, m2, m3, m4, m5 = st.columns(5)
         
         with m1:
@@ -268,10 +244,15 @@ if df_dash is not None and not df_dash.empty:
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-
     # ==========================================
-    # BLOCO 2: GRÁFICOS ANALÍTICOS GERAIS
+    # BLOCO 2: GRÁFICOS ANALÍTICOS GERAIS (Filtro Geral Aplicado)
     # ==========================================
+    df_dash_filtrado = df_working[
+        (df_working['Contrato_Limpo'] != '') & 
+        (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
+        (~df_working['Tipo_Atividade_Upper'].str.contains('REFEI|RETORNO|BASE', na=False))
+    ].copy()
+    
     g1, g2 = st.columns(2)
 
     with g1:
@@ -298,9 +279,9 @@ if df_dash is not None and not df_dash.empty:
         with st.container(border=True):
             st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento")
             df_janelas_validas = df_dash_filtrado[
-                (df_janelas_validas['Intervalo_Tratado'] != '') & 
-                (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-                (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+                (df_dash_filtrado['Intervalo_Tratado'] != '') & 
+                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
             ]
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
