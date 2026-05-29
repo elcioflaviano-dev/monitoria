@@ -1,11 +1,33 @@
 import streamlit as st
 import pandas as pd
+import os
+import time
 from datetime import datetime, timedelta
 
-# Configura a página para ocupar toda a largura da tela
+# 1. Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Abre e injeta o arquivo style.css externo
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
+if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
+    try:
+        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except:
+        pass
+
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (Otimizado para 30 Segundos nesta tela)
+if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    if "last_refresh_tec1" not in st.session_state:
+        st.session_state["last_refresh_tec1"] = time.time()
+    
+    st.text_input("refresh_trigger_tec1", value=str(st.session_state["last_refresh_tec1"]), label_visibility="collapsed")
+    
+    if time.time() - st.session_state["last_refresh_tec1"] > 30:
+        st.session_state["last_refresh_tec1"] = time.time()
+        st.rerun()
+
+# 2. Abre e injeta o arquivo style.css externo
 try:
     with open("style.css", "r") as f:
         st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
@@ -18,7 +40,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# 🔄 HERANÇA INTELIGENTE: Puxa o DataFrame da memória global
 df_master = st.session_state.get('df_rota_ativa', None)
 
 if df_master is not None and not df_master.empty:
@@ -37,7 +58,6 @@ if df_master is not None and not df_master.empty:
     
     # Localiza e limpa a coluna de Contrato tirando o ".0" de float
     if 'Contrato' in df.columns:
-        # Remove nulos, converte para string, tira o .0 se houver e limpa espaços
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
         df = df[df['Contrato'] != ''].copy()
 
@@ -117,7 +137,7 @@ if df_master is not None and not df_master.empty:
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
         with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp" style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #008080; text-align: center;">ABC</div>', unsafe_allow_html=True)
             if not df_abc.empty:
                 matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
@@ -152,11 +172,5 @@ if df_master is not None and not df_master.empty:
             else:
                 st.info("Nenhum contrato ativo para SP nesta janela.")
 
-    # MODO TV AUTOMÁTICO
-    st.components.v1.html("""
-        <script>
-        setTimeout(function(){ window.parent.location.hash = "#3-tec1-pendentes"; }, 30000);
-        </script>
-    """, height=0)
 else:
     st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro.")
