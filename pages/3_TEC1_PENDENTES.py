@@ -1,9 +1,31 @@
 import streamlit as st
 import pandas as pd
+import os
+import time
 from datetime import datetime, timedelta
 
 # Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
+if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
+    try:
+        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except:
+        pass
+
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (30 Segundos para monitoramento de pendências)
+if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    if "last_refresh_pendentes" not in st.session_state:
+        st.session_state["last_refresh_pendentes"] = time.time()
+    
+    st.text_input("refresh_trigger_pend", value=str(st.session_state["last_refresh_pendentes"]), label_visibility="collapsed")
+    
+    if time.time() - st.session_state["last_refresh_pendentes"] > 30:
+        st.session_state["last_refresh_pendentes"] = time.time()
+        st.rerun()
 
 # Injeta CSS customizado para remover margens desnecessárias e ajustar fontes grandes
 st.markdown("""
@@ -61,7 +83,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# 🔄 HERANÇA INTELIGENTE
 df_master = st.session_state.get('df_rota_ativa', None)
 
 if df_master is not None and not df_master.empty:
@@ -194,12 +215,5 @@ if df_master is not None and not df_master.empty:
                         st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{contrato_num}</span> <span class="divisor-item">|</span> 👤 {tecnico_nome}</div>', unsafe_allow_html=True)
             else:
                 st.info("Nenhum pendente em SP.")
-
-    # MODO TV AUTOMÁTICO
-    st.components.v1.html("""
-        <script>
-        setTimeout(function(){ window.parent.location.hash = "#certidao"; }, 30000);
-        </script>
-    """, height=0)
 else:
     st.warning("👈 Insira os arquivos na página inicial primeiro.")
