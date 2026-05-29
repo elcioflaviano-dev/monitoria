@@ -123,20 +123,27 @@ if df_base is not None and not df_base.empty:
     
     if not df_abc.empty:
         supervisores_abc = sorted(df_abc['Supervisor'].unique().tolist())
-        cols_abc = st.columns(len(supervisores_abc)) # Cria colunas lado a lado dinamicamente
+        cols_abc = st.columns(len(supervisores_abc))
         
         for i, sup in enumerate(supervisores_abc):
             with cols_abc[i]:
-                # Cabeçalho do Card do Supervisor
+                # Dados estreitados do supervisor atual
+                df_sup_abc = df_abc[df_abc['Supervisor'] == sup][['Técnico', 'Horário', 'Hora_Inicio']].sort_values('Horário')
+                
+                # 🌟 Cálculo da média específica DESTE supervisor
+                horas_especificas = df_sup_abc['Hora_Inicio'].tolist()
+                media_supervisor = calcular_media_horarios(horas_especificas)
+                
+                # Cabeçalho do Card com Nome + Média do Supervisor na mesma linha
                 st.markdown(f'''
-                    <div style="background-color:#f1f7f6; border-left:4px solid #008080; padding:6px 10px; font-weight:bold; color:#004d40; font-size:14px; margin-bottom:8px; text-transform: uppercase;">
-                        👤 SUP. {sup}
+                    <div style="background-color:#f1f7f6; border-left:4px solid #008080; padding:6px 10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:bold; color:#004d40; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
+                        <span style="background-color:#008080; color:white; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:11px;">⏱️ {media_supervisor}</span>
                     </div>
                 ''', unsafe_allow_html=True)
                 
-                # Dados estreitados (Apenas Técnico e Horário)
-                df_sup_abc = df_abc[df_abc['Supervisor'] == sup][['Técnico', 'Horário']].sort_values('Horário')
-                st.dataframe(df_sup_abc, use_container_width=True, hide_index=True)
+                # Exibe a tabela enxuta
+                st.dataframe(df_sup_abc[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
     else:
         st.info("Nenhum atendimento produtivo na região ABC.")
 
@@ -158,20 +165,27 @@ if df_base is not None and not df_base.empty:
     
     if not df_sp.empty:
         supervisores_sp = sorted(df_sp['Supervisor'].unique().tolist())
-        cols_sp = st.columns(len(supervisores_sp)) # Cria colunas lado a lado dinamicamente
+        cols_sp = st.columns(len(supervisores_sp))
         
         for i, sup in enumerate(supervisores_sp):
             with cols_sp[i]:
-                # Cabeçalho do Card do Supervisor
+                # Dados estreitados do supervisor atual
+                df_sup_sp = df_sp[df_sp['Supervisor'] == sup][['Técnico', 'Horário', 'Hora_Inicio']].sort_values('Horário')
+                
+                # 🌟 Cálculo da média específica DESTE supervisor
+                horas_especificas = df_sup_sp['Hora_Inicio'].tolist()
+                media_supervisor = calcular_media_horarios(horas_especificas)
+                
+                # Cabeçalho do Card com Nome + Média do Supervisor na mesma linha
                 st.markdown(f'''
-                    <div style="background-color:#fff2f2; border-left:4px solid #b30000; padding:6px 10px; font-weight:bold; color:#660000; font-size:14px; margin-bottom:8px; text-transform: uppercase;">
-                        👤 SUP. {sup}
+                    <div style="background-color:#fff2f2; border-left:4px solid #b30000; padding:6px 10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:bold; color:#660000; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
+                        <span style="background-color:#b30000; color:white; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:11px;">⏱️ {media_supervisor}</span>
                     </div>
                 ''', unsafe_allow_html=True)
                 
-                # Dados estreitados (Apenas Técnico e Horário)
-                df_sup_sp = df_sp[df_sp['Supervisor'] == sup][['Técnico', 'Horário']].sort_values('Horário')
-                st.dataframe(df_sup_sp, use_container_width=True, hide_index=True)
+                # Exibe a tabela enxuta
+                st.dataframe(df_sup_sp[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
     else:
         st.info("Nenhum atendimento produtivo na região de SP.")
 else:
