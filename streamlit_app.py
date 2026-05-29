@@ -13,16 +13,13 @@ st.set_page_config(
 )
 
 # 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
-# Se houver dados carregados, a página atualiza sozinha para manter o painel vivo
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     if "last_refresh" not in st.session_state:
         st.session_state["last_refresh"] = time.time()
     
-    # Executa o auto-refresh de 60 segundos de forma nativa e estável
     st.text_input("refresh_trigger", value=str(st.session_state["last_refresh"]), label_visibility="collapsed")
-    time.sleep(1) # Delay técnico leve para estabilidade de renderização
+    time.sleep(1)
     
-    # Se passou 60 segundos do último marco, muda o estado para forçar o reload limpo
     if time.time() - st.session_state["last_refresh"] > 60:
         st.session_state["last_refresh"] = time.time()
         st.rerun()
@@ -62,7 +59,6 @@ def carregar_dados_sistema():
                     
                     if not df_individual.empty:
                         df_individual = df_individual.loc[:, ~df_individual.columns.duplicated()]
-                        # Limpa espaços dos cabeçalhos mantendo a grafia original do arquivo
                         df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
                         lista_dfs.append(df_individual)
                         
@@ -77,7 +73,6 @@ def carregar_dados_sistema():
             df_bruto = pd.concat(lista_dfs, ignore_index=True)
             df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
             
-            # PROCURA AS COLUNAS USANDO OS NOMES REAIS DO SEU ARQUIVO
             colunas_mapeadas = {}
             for col in list(df_bruto.columns):
                 col_upper = str(col).upper().strip()
@@ -95,7 +90,6 @@ def carregar_dados_sistema():
             
             df_bruto = df_bruto.rename(columns=colunas_mapeadas)
             
-            # Garante que a coluna chave do PROCV exista e esteja limpa
             if 'Login_Match' in df_bruto.columns:
                 df_bruto['Login_Match_Clean'] = df_bruto['Login_Match'].fillna('').astype(str).str.strip().str.upper()
                 df_bruto['Recurso'] = df_bruto['Login_Match'].fillna('').astype(str).str.strip()
@@ -114,15 +108,12 @@ def carregar_dados_sistema():
                 df_aux = pd.read_csv(io.StringIO(res_aux.text))
                 df_aux = df_aux.loc[:, ~df_aux.columns.duplicated()]
                 
-                # Padroniza os cabeçalhos do Sheets (LOGIN, NOME, SUPERVISOR, BASE)
                 df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
                 df_aux['LOGIN_SHEETS_CLEAN'] = df_aux['LOGIN'].fillna('').astype(str).str.strip().str.upper()
                 df_aux = df_aux[['LOGIN_SHEETS_CLEAN', 'SUPERVISOR', 'BASE', 'NOME']].drop_duplicates()
                 
-                # EXECUTA O PROCV (Merge)
                 df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match_Clean', right_on='LOGIN_SHEETS_CLEAN', how='left')
                 
-                # Aplica as variáveis vindas da planilha de cadastro
                 df_final['Recurso'] = df_final['NOME'].fillna(df_final['Recurso'])
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('#N/A').astype(str).str.strip().str.upper()
                 df_final['REGIAO_BASE'] = df_final['BASE'].fillna('N/A').astype(str).str.strip().str.upper()
@@ -147,12 +138,11 @@ df_master = carregar_dados_sistema()
 if df_master is not None and not df_master.empty:
     st.markdown("<br><br>", unsafe_allow_html=True)
     
-    # Card centralizado indicando sucesso absoluto de carga
     with st.container(border=True):
         st.markdown(
             f"""
             <div style="text-align: center; padding: 25px 10px;">
-                <h2 style="color: #2e7d32; font-size: 28px; margin-bottom: 10px;">🚀 UPLOAD CONCLUÍDO WITH SUCESS!</h2>
+                <h2 style="color: #2e7d32; font-size: 28px; margin-bottom: 10px;">🚀 UPLOAD CONCLUÍDO COM SUCESSO!</h2>
                 <p style="color: #444; font-size: 16px; margin-bottom: 20px;">
                     {len(df_master)} contratos integrados com a base de supervisores de campo.
                 </p>
@@ -168,6 +158,5 @@ if df_master is not None and not df_master.empty:
     st.info("💡 Use o menu lateral esquerdo para navegar entre os painéis operacionais. Este painel irá se atualizar sozinho a cada 60 segundos.")
 
 else:
-    # Mensagem caso nenhum arquivo tenha sido arrastado ainda
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.warning("👈 Aguardando os arquivos. Abra o menu lateral esquerdo expandindo a barra e arraste os ficheiros de rota diária (.xlsx ou .csv).")
