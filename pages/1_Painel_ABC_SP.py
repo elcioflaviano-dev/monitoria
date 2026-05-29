@@ -17,7 +17,7 @@ except:
 st.markdown("""
     <style>
     .block-container { padding-top: 1.5rem !important; }
-    div[data-testid="stHorizontalBlock"] { gap: 16px !important; }
+    div[data-testid="stHorizontalBlock"] { gap: 12px !important; }
     
     /* Grid dos Cards de KPI do 1º Contrato (Topo) */
     .kpi-container-atend {
@@ -146,7 +146,7 @@ if df_dash is not None and not df_dash.empty:
             df_dash_filtrado = df_dash_filtrado[df_dash_filtrado['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # ⏱️ RETORNO DO MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS DO TOPO)
+    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS DO TOPO)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     df_calc_atend = df_dash.copy()
@@ -197,7 +197,7 @@ if df_dash is not None and not df_dash.empty:
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
 
-    # 🌟 RENDERIZAÇÃO TOPO: EXIBE NOVAMENTE AS MÉDIAS DO 1º CONTRATO
+    # Renderização Topo: Médias do 1º Contrato
     st.markdown(f'''
         <div class="kpi-container-atend">
             <div class="kpi-card-atend abc">
@@ -215,7 +215,7 @@ if df_dash is not None and not df_dash.empty:
 
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: SEPARADOS DINAMICAMENTE POR BASE OPERACIONAL
+    # 📊 SEÇÃO INDICADORES MACRO: 5 CARDS SEPARADOS POR BASE OPERACIONAL
     # =========================================================================
     bases_disponiveis = sorted(df_dash_filtrado[col_base_operacional].unique())
     
@@ -226,29 +226,34 @@ if df_dash is not None and not df_dash.empty:
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
         # Cálculos específicos da Base Atual
+        base_qtd_tecnicos = df_base_atual[col_recurso].nunique() if col_recurso in df_base_atual.columns else 0
         base_contratos = df_base_atual['Contrato_Limpo'].nunique()
         base_total_os = df_base_atual['Total_OS_Num'].sum()
-        base_qtd_tecnicos = df_base_atual[col_recurso].nunique() if col_recurso in df_base_atual.columns else 1
-        if base_qtd_tecnicos == 0: base_qtd_tecnicos = 1
         
-        media_contratos_por_tec = base_contratos / base_qtd_tecnicos
-        media_os_por_tec = base_total_os / base_qtd_tecnicos
+        divisor_tecnicos = base_qtd_tecnicos if base_qtd_tecnicos > 0 else 1
+        media_contratos_por_tec = base_contratos / divisor_tecnicos
+        media_os_por_tec = base_total_os / divisor_tecnicos
         
-        # Renderização dos 4 blocos operacionais da base em colunas
-        m1, m2, m3, m4 = st.columns(4)
+        # Renderização dos 5 blocos operacionais lado a lado (st.columns(5))
+        m1, m2, m3, m4, m5 = st.columns(5)
+        
         with m1:
+            with st.container(border=True):
+                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos com Rota</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:28px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
+        with m2:
             with st.container(border=True):
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">📋 Total Contratos</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:28px; font-weight:900; color:#008080;">{base_contratos}</div>', unsafe_allow_html=True)
-        with m2:
+        with m3:
             with st.container(border=True):
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🛠️ Volume Total OS</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:28px; font-weight:900; color:#333;">{base_total_os}</div>', unsafe_allow_html=True)
-        with m3:
+        with m4:
             with st.container(border=True):
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">👤 Média Contratos / Téc</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:28px; font-weight:900; color:#008080;">{media_contratos_por_tec:.2f}</div>', unsafe_allow_html=True)
-        with m4:
+        with m5:
             with st.container(border=True):
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">⚡ Média OS / Téc</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:28px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
@@ -285,9 +290,9 @@ if df_dash is not None and not df_dash.empty:
         with st.container(border=True):
             st.markdown("#### 🕒 Média de O.S. por Janela de Atendimento")
             df_janelas_validas = df_dash_filtrado[
-                (df_dash_filtrado['Intervalo_Tratado'] != '') & 
-                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
-                (~df_dash_filtrado['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
+                (df_janelas_validas['Intervalo_Tratado'] != '') & 
+                (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('SEM JANELA')) &
+                (~df_janelas_validas['Intervalo_Tratado'].str.upper().str.contains('PADRAO'))
             ]
             if not df_janelas_validas.empty:
                 df_janelas_grafico = df_janelas_validas.groupby('Intervalo_Tratado')['Total_OS_Num'].mean().reset_index()
