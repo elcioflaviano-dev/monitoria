@@ -4,8 +4,17 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+ARQUIVO_BANCO = "banco_certidoes.csv"
+
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RIGIDO (À PROVA DE QUEDAS)
+if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
+    try:
+        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except:
+        pass
 
 # 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
@@ -18,7 +27,6 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         st.session_state["last_refresh_certidao"] = time.time()
         st.rerun()
 
-# 2. Carregar Estilos Globais
 try:
     with open("style.css", "r") as f:
         st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
@@ -26,9 +34,6 @@ except:
     pass
 
 st.markdown('<h1 style="font-size: 38px; font-weight: 900; color: #008080; text-align: center; margin-top: 25px; margin-bottom: 5px;">📜 CERTIDÃO DE ATENDIMENTO</h1>', unsafe_allow_html=True)
-
-# === BANCO DE DADOS LOCAL (ARQUIVO PERMANENTE DE REGISTROS) ===
-ARQUIVO_BANCO = "banco_certidoes.csv"
 
 def carregar_banco_historico():
     colunas_padrao = ["Data/Hora", "Contrato", "Status", "Supervisor", "Recurso", "Intervalo de Tempo", "Observação"]
@@ -47,22 +52,10 @@ def carregar_banco_historico():
 if "historico_certidoes" not in st.session_state:
     st.session_state["historico_certidoes"] = carregar_banco_historico()
 
-# 🌟 Estado para controle de limpeza do input
 if "limpar_input_proxima" not in st.session_state:
     st.session_state["limpar_input_proxima"] = False
 
-# =====================================================================
-# 🔄 INTERCEPTOR DE MEMÓRIA GLOBAL (BLINDAGEM CONTRA RERUN)
-# =====================================================================
-# Se por algum motivo o Streamlit tentar limpar a rota no rerun, puxamos do cache persistente
-if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
-    if 'backup_rota_local' not in st.session_state:
-        st.session_state['backup_rota_local'] = st.session_state['df_rota_ativa']
-elif 'backup_rota_local' in st.session_state and st.session_state['backup_rota_local'] is not None:
-    st.session_state['df_rota_ativa'] = st.session_state['backup_rota_local']
-
 df_master = st.session_state.get('df_rota_ativa', None)
-# =====================================================================
 
 df_base_online = None
 if df_master is not None and not df_master.empty:
@@ -98,7 +91,6 @@ if df_master is not None and not df_master.empty:
         'SUPERVISOR': lista_supervisor
     })
 
-# === AUTOMATIZAÇÃO DAS JANELAS (FUSO BRASÍLIA) ===
 hora_brasilia = (datetime.utcnow() - timedelta(hours=3)).hour
 
 if hora_brasilia < 11:
@@ -111,7 +103,6 @@ else:
     janelas_automaticas = ['08 - 10', '08 - 11', '08 - 12', '08:00 - 08:03', '11 - 14', '11:50 - 14:50', '12:00 - 15:00', '15 - 18']
     texto_status_janela = f"⏰ [Hora Local: {hora_brasilia:02d}h] - Tarde Ativa + Tudo Acumulado Pendente do Dia"
 
-# --- EXIBIÇÃO DA DATA DE ATUALIZAÇÃO SINCADA ---
 if df_base_online is not None:
     st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 20px;">{texto_status_janela}</div>', unsafe_allow_html=True)
 else:
@@ -119,29 +110,17 @@ else:
 
 janela_sel = "AUTOMÁTICO"
 
-# ==========================================
-# BLOCO 1: FORMULÁRIO DE ENTRADA
-# ==========================================
 with st.container(border=True):
     st.markdown("#### 📥 Verificar e Registrar Contrato")
     col1, col2, col3 = st.columns([2, 2, 3])
 
     with col1:
         valor_padrao_input = "" if st.session_state["limpar_input_proxima"] else st.session_state.get("contrato_antigo_digitado", "")
-        
-        contrato_input = st.text_input(
-            "Número do Contrato:", 
-            value=valor_padrao_input,
-            placeholder="Digite o contrato e pressione Enter...",
-            key="input_contrato_unico"
-        ).strip()
-        
+        contrato_input = st.text_input("Número do Contrato:", value=valor_padrao_input, placeholder="Digite o contrato...").strip()
         st.session_state["limpar_input_proxima"] = False
         st.session_state["contrato_antigo_digitado"] = contrato_input
 
-    supervisor_detectado = "N/A"
-    tecnico_detectado = "N/A"
-    detalhes_validacao = ""
+    supervisor_detectado, tecnico_detectado, detalhes_validacao = "N/A", "N/A", ""
 
     if contrato_input and df_base_online is not None and 'Contrato' in df_base_online.columns:
         df_base_online['Contrato_Limpo'] = df_base_online['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0].strip())
@@ -152,38 +131,32 @@ with st.container(border=True):
             supervisor_detectado = str(linha_contrato.get('SUPERVISOR', 'N/A')).upper().strip()
             tecnico_detectado = str(linha_contrato.get('Recurso', 'N/A')).upper().strip()
             status_os1 = str(linha_contrato.get('Status da O.S 1', '')).upper().strip()
-            
             if "NAME:" in status_os1:
                 status_os1 = status_os1.split("NAME:")[0].strip()
-            detalhes_validacao = f"📋 Encontrado | Técnico: {tecnico_detectado} | Status de Campo: {status_os1}"
+            detalhes_validacao = f"📋 Encontrado | Técnico: {tecnico_detectado} | Status: {status_os1}"
         else:
-            detalhes_validacao = "❌ Contrato não localizado na base de upload de hoje."
+            detalhes_validacao = "❌ Contrato não localizado na base de hoje."
 
     if contrato_input:
         st.caption(detalhes_validacao)
 
     with col2:
-        opcoes_status = ["OK", "NOK", "NÃO ADERENTE"]
-        status_final = st.selectbox("Resultado da Verificação:", opcoes_status)
-        
+        status_final = st.selectbox("Resultado da Verificação:", ["OK", "NOK", "NÃO ADERENTE"])
     with col3:
-        obs_input = st.text_input("Observações / Motivo:", placeholder="Insira notas adicionais aqui...").strip()
+        obs_input = st.text_input("Observações / Motivo:", placeholder="Insira notas...").strip()
 
     if st.button("💾 Gravar e Certificar Contrato", type="primary", use_container_width=True):
         if contrato_input != "":
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            
             nova_linha = pd.DataFrame([{
                 "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
                 "Intervalo de Tempo": "AUTOMÁTICO", "Observação": obs_input if obs_input != "" else "OK"
             }])
             
-            df_total = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True)
-            df_total = df_total.drop_duplicates(subset=["Contrato"], keep="first")
-            
+            df_total = pd.concat([nova_linha, st.session_state["historico_certidoes"]], ignore_index=True).drop_duplicates(subset=["Contrato"], keep="first")
             st.session_state["historico_certidoes"] = df_total
-            st.session_state["historico_certidoes"].to_csv(ARQUIVO_BANCO, index=False)
+            df_total.to_csv(ARQUIVO_BANCO, index=False)
             
             st.session_state["limpar_input_proxima"] = True
             st.session_state["contrato_antigo_digitado"] = ""
@@ -191,16 +164,9 @@ with st.container(border=True):
             st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
             time.sleep(0.4)
             st.rerun()
-        else:
-            st.warning("⚠️ Digite um contrato válido antes de salvar.")
 
 st.markdown("---")
-
-# ==========================================
-# BLOCO 2: PAINEL DE PENDENTES AUTOMÁTICO
-# ==========================================
 st.markdown("### 🗂️ CERTIDÃO PENDENTES")
-
 df_banco_atual = st.session_state["historico_certidoes"]
 
 if df_base_online is not None:
@@ -209,11 +175,7 @@ if df_base_online is not None:
     df_base_online['Status_Atividade_Limpo'] = df_base_online['Status da Atividade'].fillna('').astype(str).str.upper().str.strip()
     
     cond_janela = df_base_online['Intervalo_Limpo'].isin(janelas_automaticas)
-    cond_ativ = (
-        df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU", na=False) | 
-        df_base_online['Status_Atividade_Limpo'].str.contains("INIC", na=False)
-    )
-    
+    cond_ativ = (df_base_online['Status_Atividade_Limpo'].str.contains("CONCLU", na=False) | df_base_online['Status_Atividade_Limpo'].str.contains("INIC", na=False))
     df_base_filtrada = df_base_online[cond_janela & cond_ativ]
     
     if not df_banco_atual.empty:
@@ -226,7 +188,6 @@ if df_base_online is not None:
     if not df_exibir_pendentes.empty:
         df_exibir_pendentes = df_exibir_pendentes[~df_exibir_pendentes['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip().isin(['', 'N/A', 'NAN', '#N/A'])].copy()
         supervisores_na_tela = sorted(df_exibir_pendentes['SUPERVISOR'].dropna().unique())
-        
         cols_supervisores = st.columns(len(supervisores_na_tela) if len(supervisores_na_tela) > 0 else 1)
         
         for idx_sup, super_nome in enumerate(supervisores_na_tela):
@@ -235,53 +196,29 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    lista_elementos_copia = []
-                    for _, row_c in df_cards_sup.iterrows():
-                        c_num_c = str(row_c['Contrato_Limpo'])
-                        nome_tec_c = str(row_c['Recurso']).strip().split()[0].upper()
-                        if c_num_c != '':
-                            lista_elementos_copia.append(f"{c_num_c} {nome_tec_c}")
-                    
-                    texto_copia_em_lote = "\n".join(lista_elementos_copia)
-                    
-                    st.code(texto_copia_em_lote, language="text", height=100)
+                    lista_elementos_copia = [f"{str(row_c['Contrato_Limpo'])} {str(row_c['Recurso']).strip().split()[0].upper()}" for _, row_c in df_cards_sup.iterrows() if str(row_c['Contrato_Limpo']) != '']
+                    st.code("\n".join(lista_elementos_copia), language="text", height=100)
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
                     
                     for _, row_p in df_cards_sup.iterrows():
                         c_num = str(row_p['Contrato_Limpo'])
-                        status_real_campo = str(row_p['Status_Atividade_Limpo'])
-                        nome_tec = str(row_p['Recurso'])[:12].upper()
-                        
-                        if "CONCLU" in status_real_campo:
-                            bg_color = "#2e7d32"     
-                            txt_status = "CONCLUÍDO"
-                        else:
-                            bg_color = "#ff9800"     
-                            txt_status = "INICIADO"
-                        
+                        txt_status = "CONCLUÍDO" if "CONCLU" in str(row_p['Status_Atividade_Limpo']) else "INICIADO"
+                        bg_color = "#2e7d32" if txt_status == "CONCLUÍDO" else "#ff9800"
                         st.markdown(f"""
                             <div style="display:flex; justify-content:space-between; align-items:center; background-color:#f9f9f9; padding:6px 10px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:4px;">
-                                <div style="font-size:13px; color:#333; font-weight:700;">
-                                    <span style="font-family:monospace; color:#111; font-size:13px; font-weight:bold;">{c_num}</span>
-                                    <span> - 👤 {nome_tec}</span>
-                                </div>
+                                <div style="font-size:13px; color:#333; font-weight:700;"><span style="font-family:monospace; color:#111;">{c_num}</span> - 👤 {str(row_p['Recurso'])[:12].upper()}</div>
                                 <span style="background-color:{bg_color}; color:white; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px;">{txt_status}</span>
                             </div>
                         """, unsafe_allow_html=True)
     else:
-        st.info("✨ Todas as certidões produzidas (Iniciadas/Concluídas) até o momento foram validadas!")
+        st.info("✨ Todas as certidões produzidas foram validadas!")
 else:
     st.info("ℹ️ Aguardando o upload dos dados operacionais na página inicial.")
 
 st.markdown("---")
-
-# ==========================================
-# BLOCO 3: HISTÓRICO
-# ==========================================
-with st.expander("📊 Histórico Base de Auditoria (Última Posição dos Contratos Verificados)"):
+with st.expander("📊 Histórico Base de Auditoria"):
     if not df_banco_atual.empty:
         st.dataframe(df_banco_atual, use_container_width=True, hide_index=True)
-        
         csv_download = df_banco_atual.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Baixar Planilha de Auditoria (CSV)", data=csv_download, file_name="auditoria_certidoes.csv", mime="text/csv")
     else:
