@@ -151,7 +151,7 @@ with st.container(border=True):
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             
             nova_linha = pd.DataFrame([{
-                "Data/Hora": agora, "Contrato": contrato_input, "Status": status_final,
+                "Data/Hora": grandma, "Contrato": contrato_input, "Status": status_final,
                 "Supervisor": supervisor_detectado, "Recurso": tecnico_detectado,
                 "Intervalo de Tempo": "AUTOMÁTICO", "Observação": obs_input if obs_input != "" else "OK"
             }])
@@ -165,7 +165,7 @@ with st.container(border=True):
             st.session_state["limpar_input_proxima"] = True
             st.session_state["contrato_antigo_digitado"] = ""
             
-            st.success(f"✅ Contrato {contrato_input} updated com sucesso!")
+            st.success(f"✅ Contrato {contrato_input} atualizado com sucesso!")
             st.rerun()
         else:
             st.warning("⚠️ Digite um contrato válido antes de salvar.")
@@ -210,15 +210,16 @@ if df_base_online is not None:
                     df_cards_sup = df_exibir_pendentes[df_exibir_pendentes['SUPERVISOR'] == super_nome]
                     st.markdown(f"##### **{str(super_nome).upper()}** <span style='float:right; background-color:#ffe6e6; color:#b30000; padding:1px 6px; border-radius:4px; font-size:12px;'>Pendentes: {len(df_cards_sup)}</span>", unsafe_allow_html=True)
                     
-                    # 🌟 ALINHAMENTO DO FORMATO DE CÓPIA: Contrato + Espaço + Primeiro Nome do Técnico (Sem parênteses!)
+                    # 🌟 REORGANIZAÇÃO VERTICAL: Cada item agora é gerado em uma linha nova (\n)
                     lista_elementos_copia = []
                     for _, row_c in df_cards_sup.iterrows():
                         c_num_c = str(row_c['Contrato_Limpo'])
-                        nome_tec_c = str(row_c['Recurso']).strip().split()[0].upper() # Pega apenas o primeiro nome
+                        nome_tec_c = str(row_c['Recurso']).strip().split()[0].upper()
                         if c_num_c != '':
                             lista_elementos_copia.append(f"{c_num_c} {nome_tec_c}")
                     
-                    texto_copia_em_lote = ", ".join(lista_elementos_copia)
+                    # Usa o "\n" para quebrar a linha automaticamente dentro da caixa de cópia
+                    texto_copia_em_lote = "\n".join(lista_elementos_copia)
                     
                     st.code(texto_copia_em_lote, language="text")
                     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
