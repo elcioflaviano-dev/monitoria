@@ -82,39 +82,37 @@ df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # 🌟 CAPTURA DINÂMICA DA COLUNA DE HORÁRIO DE EXECUÇÃO REAL (Caça "Início - Fi" ou similares)
-    col_status_os = 'Status' if 'Status' in df_temp.columns else None
-    col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else ('Tipo de A' if 'Tipo de A' in df_temp.columns else None)
-    col_contrato = 'Contrato' if 'Contrato' in df_temp.columns else ('Número d' if 'Número d' in df_temp.columns else None)
-    
-    # Busca a coluna real de clique (Início - Fi ou Início do S)
+    # 🌟 MAPEAMENTO SEGURO POR PALAVRA-CHAVE CONTRA COLUNAS CORTADAS
+    col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
+    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else None
+    col_status_os = None
+    col_tipo = None
+    col_contrato = None
     col_real_clique = None
+    
+    # Varre as colunas buscando termos parciais para não errar por causa de cortes do Excel
     for c in df_temp.columns:
-        if 'INÍCIO -' in str(c).upper() or 'INICIO -' in str(c).upper() or 'INÍCIO DO' in str(c).upper():
-            col_real_clique = c
-            break
-            
-    # Fallback caso não ache pelo nome exato
-    if not col_real_clique:
-        col_real_clique = 'Início' if 'Início' in df_temp.columns else df_temp.columns[12] # Pega por índice aproximado se falhar
+        c_up = str(c).upper()
+        if 'SUPERV' in c_up: col_supervisor = c
+        elif 'STATUS' in c_up and 'ATIV' not in c_up: col_status_os = c
+        elif 'TIPO' in c_up and 'ATIV' in c_up: col_tipo = c
+        elif 'CONTRATO' in c_up or 'NÚMERO' in c_up or 'NUMERO' in c_up: col_contrato = c
+        elif 'INÍCIO -' in c_up or 'INICIO -' in c_up or 'INÍCIO DO' in c_up or 'INICIO DO' in c_up: col_real_clique = c
 
-    if not col_status_os:
-        for c in df_temp.columns:
-            if 'STATUS' in str(c).upper() and 'ATIV' not in str(c).upper(): col_status_os = c; break
-    if not col_tipo:
-        for c in df_temp.columns:
-            if 'TIPO' in str(c).upper(): col_tipo = c; break
-    if not col_contrato:
-        for c in df_temp.columns:
-            if 'CONTRATO' in str(c).upper() or 'NUMERO' in str(c).upper() or 'NÚMERO' in str(c).upper(): col_contrato = c; break
+    # Fallbacks de emergência baseados estritamente na estrutura visual do seu arquivo
+    if not col_status_os: col_status_os = 'Status' if 'Status' in df_temp.columns else df_temp.columns[3]
+    if not col_tipo: col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[21]
+    if not col_contrato: col_contrato = 'Contrato' if 'Contrato' in df_temp.columns else df_temp.columns[23]
+    if not col_real_clique: col_real_clique = df_temp.columns[12] # Coluna exata do horário real "Início - Fi"
+    if not col_supervisor: col_supervisor = 'SUPERVISOR'
 
-    # Extração higienizada das listas brutas
-    lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_temp.columns else ['N/A'] * len(df_temp)
-    lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp['SUPERVISOR']).iloc[:, 0].fillna('').tolist()] if 'SUPERVISOR' in df_temp.columns else [''] * len(df_temp)
-    lista_status_os = [str(x).lower().strip() for x in pd.DataFrame(df_temp[col_status_os]).iloc[:, 0].fillna('').tolist()] if col_status_os else [''] * len(df_temp)
-    lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()] if col_tipo in df_temp.columns else [''] * len(df_temp)
+    # Extração pura em listas com tratamento anti-ruído
+    lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp[col_recurso]).iloc[:, 0].fillna('N/A').tolist()]
+    lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_supervisor]).iloc[:, 0].fillna('').tolist()] if col_supervisor in df_temp.columns else [''] * len(df_temp)
+    lista_status_os = [str(x).lower().strip() for x in pd.DataFrame(df_temp[col_status_os]).iloc[:, 0].fillna('').tolist()]
+    lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()]
     lista_horarios = [tratar_horario(x) for x in df_temp[col_real_clique].tolist()]
-    lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()] if col_contrato else [''] * len(df_temp)
+    lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()]
 
     df_base = pd.DataFrame({
         'Recurso': lista_recurso,
@@ -125,7 +123,7 @@ if df_master is not None and not df_master.empty:
         'Contrato_ID': lista_contratos
     })
     
-    # PROCV de segurança do Supervisor baseado nas linhas preenchidas do dia
+    # PROCV de Supervisor interno inteligente
     df_sup_mapeado = df_base[
         (df_base['SUPERVISOR_ORIGINAL'] != '') & (~df_base['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
     ].groupby('Recurso')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
@@ -135,16 +133,16 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # 🌟 FILTRAGEM ALINHADA COM SEU PRINT DO EXCEL
+    # 🌟 FILTRAGEM AMPLIADA: Aceita variações com e sem acento de forma flexível
     df_filtrado_excel = df_base[
-        (df_base['Status_OS'].isin(['concluido', 'concluído', 'iniciado', 'suspenso'])) &
+        (df_base['Status_OS'].str.contains('concl|inic|susp', na=False)) &
         (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO|DESLOCAMENTO FIM", na=False)) &
         (df_base['Contrato_ID'] != '') & 
         (~df_base['Contrato_ID'].isin(['N/A', 'NAN', 'NaN', '0'])) &
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    # Captura o menor horário de início entre as ordens reais executadas
+    # Agrupa pegando o primeiro atendimento real de cada técnico
     df_primeiro = df_filtrado_excel.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
     df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
@@ -155,7 +153,7 @@ if df_base is not None and not df_base.empty:
     df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # Cálculo das médias para os blocos de KPI
+    # Cálculo das médias das bases
     horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
     media_abc = calcular_media_horarios(horas_abc)
     
