@@ -12,7 +12,7 @@ try:
 except:
     pass
 
-# Customização CSS
+# Customização CSS de Alta Performance Visual
 st.markdown("""
     <style>
     .block-container { padding-top: 1.5rem !important; }
@@ -79,40 +79,33 @@ df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Identificação inteligente das colunas principais
+    # 🌟 Captura Inteligente das Colunas Puras do Pandas
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
-    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else None
-    col_status_os = None
-    col_inicio_estrito = None
+    col_supervisor = 'SUPERVISOR'
+    col_status_os = 'Status'
+    col_inicio_estrito = 'Início'
     
-    # Localização exata da coluna "Início" pura (removendo falsos positivos como "Início - Fim")
+    # Varre as colunas buscando limpar acentos ou pontos duplicados que o Pandas cria (.1, .2)
     for c in df_temp.columns:
-        c_clean = str(c).upper().strip().split('.')[0] # Remove possíveis .1 ou .2 do pandas
-        if c_clean in ['INÍCIO', 'INICIO']:
-            # Garante que não pegou uma coluna composta
-            if '-' not in str(c) and 'DO' not in str(c).upper():
-                col_inicio_estrito = c
-                break
-
-    for c in df_temp.columns:
-        if 'STATUS' in str(c).upper() and 'ATIV' not in str(c).upper():
+        c_clean = str(c).upper().strip().split('.')[0]
+        if c_clean in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
+            col_inicio_estrito = c
+        elif c_clean == 'STATUS':
             col_status_os = c
-            break
+        elif 'SUPERV' in c_clean:
+            col_supervisor = c
 
-    # Fallbacks caso os nomes variem
-    if not col_inicio_estrito:
-        col_inicio_estrito = 'Início' if 'Início' in df_temp.columns else df_temp.columns[10]
-    if not col_status_os:
-        col_status_os = 'Status' if 'Status' in df_temp.columns else df_temp.columns[3]
-    if not col_supervisor:
-        for c in df_temp.columns:
-            if 'SUPERV' in str(c).upper(): col_supervisor = c; break
+    # 🌟 EXTRAÇÃO SEGURA BLINDADA CONTRA ATTRIBUTEERROR (Usa fallback por índice se o nome falhar)
+    series_recurso = df_temp[col_recurso] if col_recurso in df_temp.columns else df_temp.iloc[:, 0]
+    series_status = df_temp[col_status_os] if col_status_os in df_temp.columns else df_temp.iloc[:, 3]
+    series_inicio = df_temp[col_inicio_estrito] if col_inicio_estrito in df_temp.columns else df_temp.iloc[:, 10]
+    series_supervisor = df_temp[col_supervisor] if col_supervisor in df_temp.columns else (df_temp['SUPERVISOR'] if 'SUPERVISOR' in df_temp.columns else pd.Series([''] * len(df_temp)))
 
-    # Montando dataframe limpo focado na coluna Início solicitada
-    lista_recurso = [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()]
-    lista_status_os = [str(x).lower().strip() for x in df_temp[col_status_os].fillna('').tolist()]
-    lista_horarios = [tratar_horario(x) for x in df_temp[col_inicio_estrito].tolist()]
-    lista_supervisor = [str(x).upper().strip() for x in df_temp[col_supervisor].fillna('').tolist()] if col_supervisor else [''] * len(df_temp)
+    # Conversão segura para lista tratando nulos
+    lista_recurso = [str(x).strip() for x in series_recurso.fillna('N/A').tolist()]
+    lista_status_os = [str(x).lower().strip() for x in series_status.fillna('').tolist()]
+    lista_horarios = [tratar_horario(x) for x in series_inicio.tolist()]
+    lista_supervisor = [str(x).upper().strip() for x in series_supervisor.fillna('').tolist()]
 
     df_base = pd.DataFrame({
         'Recurso': lista_recurso,
@@ -121,7 +114,7 @@ if df_master is not None and not df_master.empty:
         'Hora_Inicio': lista_horarios
     })
     
-    # Mapeamento / PROCV de Supervisor
+    # Mapeamento / PROCV de Supervisor interno
     df_sup_mapeado = df_base[
         (df_base['SUPERVISOR_ORIGINAL'] != '') & (~df_base['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
     ].groupby('Recurso')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
@@ -131,32 +124,33 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # 🌟 REGRA DE NEGÓCIO DA PRODUTIVIDADE:
-    # Filtra apenas os status autorizados (concluido, iniciado, suspenso) e que possuam horário válido
+    # Filtra apenas os status desejados (concluido, iniciado, suspenso)
     df_filtrado_excel = df_base[
         (df_base['Status_OS'].str.contains('concl|inic|susp', na=False)) &
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    # Agrupa pelo menor horário da coluna Início de cada técnico
+    # Agrupa pegando o menor horário da coluna Início de cada técnico
     df_primeiro = df_filtrado_excel.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
     df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
     df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
     
-    # Filtro das Regionais
+    # Separação das Regionais
     df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # Médias Gerais
+    # Cálculo das Médias
     horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
     media_abc = calcular_media_horarios(horas_abc)
     
-    horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['T--:--' if df_sp.empty else 'Técnico'])]['Hora_Inicio'].tolist()
+    horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
     media_sp = calcular_media_horarios(horas_sp)
 
-    # Cards de Resultados
+    # =========================================================================
+    # 🌟 CARDS DE MÉDIAS
+    # =========================================================================
     st.markdown(f'''
         <div class="kpi-container">
             <div class="kpi-card abc">
@@ -170,7 +164,9 @@ if df_base is not None and not df_base.empty:
         </div>
     ''', unsafe_allow_html=True)
 
-    # Bloco Regional ABC
+    # ==========================================
+    # 🔴 REGIONAL ABC
+    # ==========================================
     st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
     
     if not df_abc.empty:
@@ -195,7 +191,9 @@ if df_base is not None and not df_base.empty:
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-    # Bloco Regional SP
+    # ==========================================
+    # 🔵 REGIONAL SÃO PAULO (SP)
+    # ==========================================
     st.markdown('<div style="background-color:#b30000; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
     if not df_sp.empty:
