@@ -13,11 +13,11 @@ try:
 except:
     pass
 
-# Customização CSS para os Cards do 1º Atendimento (Topo) e Seções de Bases
+# Customização CSS de Alta Performance para os Cards e Grid de 6 Colunas
 st.markdown("""
     <style>
     .block-container { padding-top: 1.5rem !important; }
-    div[data-testid="stHorizontalBlock"] { gap: 12px !important; }
+    div[data-testid="stHorizontalBlock"] { gap: 10px !important; }
     
     /* Grid dos Cards de KPI do 1º Contrato (Topo) */
     .kpi-container-atend {
@@ -51,6 +51,11 @@ st.markdown("""
         margin-top: 20px;
         margin-bottom: 12px;
         text-transform: uppercase;
+    }
+    
+    /* Ajuste milimétrico para os 6 cards não quebrarem linha */
+    div[data-testid="stKPIBlock"] {
+        padding: 6px 10px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -100,7 +105,7 @@ if df_dash is not None and not df_dash.empty:
     contrato_limpo_bruto = df_dash['Contrato'].fillna('').astype(str).str.strip()
 
     # =========================================================================
-    # ⏱️ 1º ATENDIMENTO OPERACIONAL (CÁLCULO INDEPENDENTE COM DADOS ORIGINAIS)
+    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS DO TOPO ISOLADOS)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     
@@ -111,7 +116,6 @@ if df_dash is not None and not df_dash.empty:
             col_inicio_estrito = c
             break
 
-    # Filtro operacional estrito para pegar a largada real (concluido, iniciado, suspenso)
     df_atend_isolado = df_dash[
         (status_upper_bruto.str.contains('CONCL|INIC|SUSP', na=False)) &
         (contrato_limpo_bruto != '') &
@@ -133,7 +137,7 @@ if df_dash is not None and not df_dash.empty:
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
 
-    # Renderização do Topo Fixo Correto (8:15 / 8:05)
+    # Renderização do Topo Fixo Correto
     st.markdown(f'''
         <div class="kpi-container-atend">
             <div class="kpi-card-atend abc">
@@ -150,7 +154,7 @@ if df_dash is not None and not df_dash.empty:
     st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
 
 
-    # === HIGIENIZAÇÃO PARA OS INDICADORES DAS BASES ===
+    # === HIGIENIZAÇÃO COMPLETA PARA OS CARDS MACRO ===
     df_working = df_dash.copy()
     df_working['Contrato_Limpo'] = contrato_limpo_bruto
     df_working['Status_Atividade_Upper'] = status_upper_bruto
@@ -161,7 +165,7 @@ if df_dash is not None and not df_dash.empty:
         if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper():
             df_working['Mestre_Tipo_Atividade_Upper'] += " " + df_working[c].fillna('').astype(str).str.upper().str.strip()
             
-    # Filtro base saudável (remove suspensos e refeição da visualização das bases)
+    # Filtro base saudável (remove suspensos e refeição da visualização)
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
@@ -196,7 +200,7 @@ if df_dash is not None and not df_dash.empty:
             df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS POR BASE COM CÁLCULO SUBTRATIVO
+    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS NA MESMA LINHA (st.columns(6))
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
@@ -226,35 +230,33 @@ if df_dash is not None and not df_dash.empty:
         # Barra de Cabeçalho da Base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
-        # FILA 1: Totais Gerais Brutos e Técnicos no meio
-        r1_c1, r1_c2, r1_c3 = st.columns(3)
-        with r1_c1:
+        # 🌟 EXPLOSÃO: 6 Colunas Alinhadas Perfeitamente lado a lado
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+        
+        with c1:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">📋 Total Geral Contratos</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#008080;">{base_contratos_bruto}</div>', unsafe_allow_html=True)
-        with r1_c2:
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">📋 Geral Contratos</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:24px; font-weight:900; color:#008080;">{base_contratos_bruto}</div>', unsafe_allow_html=True)
+        with c2:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🛠️ Volume Total OS</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#333;">{base_total_os_bruto}</div>', unsafe_allow_html=True)
-        with r1_c3:
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">🛠️ Volume Total OS</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:24px; font-weight:900; color:#333;">{base_total_os_bruto}</div>', unsafe_allow_html=True)
+        with c3:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos com Rota</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
-                
-        # FILA 2: Card de Retornos Populado e Médias Líquidas
-        r2_c1, r2_c2, r2_c3 = st.columns(3)
-        with r2_c1:
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos em Rota</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:24px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
+        with c4:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">⚠️ Total de Retornos</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#b30000;">{base_total_retornos}</div>', unsafe_allow_html=True)
-        with r2_c2:
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">⚠️ Total Retornos</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:24px; font-weight:900; color:#b30000;">{base_total_retornos}</div>', unsafe_allow_html=True)
+        with c5:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">👤 Média Contratos / Téc (Líquida)</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#008080;">{media_contratos_por_tec:.2f}</div>', unsafe_allow_html=True)
-        with r2_c3:
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">👤 Média Contratos/Téc</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:24px; font-weight:900; color:#008080;">{media_contratos_por_tec:.2f}</div>', unsafe_allow_html=True)
+        with c6:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">⚡ Média OS / Téc (Líquida)</div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:26px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">⚡ Média OS/Téc</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:24px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
