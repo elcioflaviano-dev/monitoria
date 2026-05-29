@@ -51,7 +51,7 @@ df_master = st.session_state.get('df_rota_ativa', None)
 
 # Função auxiliar para converter horários de forma flexível
 def tratar_horario(val):
-    if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN']:
+    if pd.isna(val) or str(val).strip() in ['', 'N/A', 'NAN', 'NaN', '00:00']:
         return None
     try:
         texto = str(val).strip().split()[-1]
@@ -82,19 +82,25 @@ df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Mapeamento absoluto das colunas com base na imagem enviada
-    col_status_os = 'Status' if 'Status' in df_temp.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else None)
-    col_inicio = 'Início' if 'Início' in df_temp.columns else ('Hora Início' if 'Hora Início' in df_temp.columns else None)
+    # 🌟 CAPTURA DINÂMICA DA COLUNA DE HORÁRIO DE EXECUÇÃO REAL (Caça "Início - Fi" ou similares)
+    col_status_os = 'Status' if 'Status' in df_temp.columns else None
     col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else ('Tipo de A' if 'Tipo de A' in df_temp.columns else None)
     col_contrato = 'Contrato' if 'Contrato' in df_temp.columns else ('Número d' if 'Número d' in df_temp.columns else None)
     
-    # Caça inteligente reserva por palavras-chave se as colunas vierem cortadas
+    # Busca a coluna real de clique (Início - Fi ou Início do S)
+    col_real_clique = None
+    for c in df_temp.columns:
+        if 'INÍCIO -' in str(c).upper() or 'INICIO -' in str(c).upper() or 'INÍCIO DO' in str(c).upper():
+            col_real_clique = c
+            break
+            
+    # Fallback caso não ache pelo nome exato
+    if not col_real_clique:
+        col_real_clique = 'Início' if 'Início' in df_temp.columns else df_temp.columns[12] # Pega por índice aproximado se falhar
+
     if not col_status_os:
         for c in df_temp.columns:
-            if 'STATUS' in str(c).upper() and 'OS' not in str(c).upper(): col_status_os = c; break
-    if not col_inicio:
-        for c in df_temp.columns:
-            if 'INIC' in str(c).upper() or 'HORA' in str(c).upper(): col_inicio = c; break
+            if 'STATUS' in str(c).upper() and 'ATIV' not in str(c).upper(): col_status_os = c; break
     if not col_tipo:
         for c in df_temp.columns:
             if 'TIPO' in str(c).upper(): col_tipo = c; break
@@ -107,7 +113,7 @@ if df_master is not None and not df_master.empty:
     lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp['SUPERVISOR']).iloc[:, 0].fillna('').tolist()] if 'SUPERVISOR' in df_temp.columns else [''] * len(df_temp)
     lista_status_os = [str(x).lower().strip() for x in pd.DataFrame(df_temp[col_status_os]).iloc[:, 0].fillna('').tolist()] if col_status_os else [''] * len(df_temp)
     lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()] if col_tipo in df_temp.columns else [''] * len(df_temp)
-    lista_horarios = [tratar_horario(x) for x in df_temp[col_inicio].tolist()] if col_inicio else [None] * len(df_temp)
+    lista_horarios = [tratar_horario(x) for x in df_temp[col_real_clique].tolist()]
     lista_contratos = [str(x).strip() for x in pd.DataFrame(df_temp[col_contrato]).iloc[:, 0].fillna('').tolist()] if col_contrato else [''] * len(df_temp)
 
     df_base = pd.DataFrame({
@@ -129,9 +135,7 @@ if df_master is not None and not df_master.empty:
 
 if df_base is not None and not df_base.empty:
     
-    # 🌟 APLICANDO O FILTRO EXATO DO SEU PRINT DO EXCEL
-    # 1. Status precisa ser estritamente: concluído, iniciado ou suspenso
-    # 2. Ignora as linhas de "Na Base" ou pausas administrativas
+    # 🌟 FILTRAGEM ALINHADA COM SEU PRINT DO EXCEL
     df_filtrado_excel = df_base[
         (df_base['Status_OS'].isin(['concluido', 'concluído', 'iniciado', 'suspenso'])) &
         (~df_base['Tipo_Atividade'].str.contains("BASE|REFEI|ALMO|DESLOCAMENTO FIM", na=False)) &
@@ -140,7 +144,7 @@ if df_base is not None and not df_base.empty:
         (df_base['Hora_Inicio'].notna())
     ].copy()
     
-    # Captura o menor horário de início entre as ordens que passaram no filtro de status
+    # Captura o menor horário de início entre as ordens reais executadas
     df_primeiro = df_filtrado_excel.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
     df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
     
