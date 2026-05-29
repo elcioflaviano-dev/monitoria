@@ -98,26 +98,23 @@ if df_dash is not None and not df_dash.empty:
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_working.columns else 'Status da Atividade'
     df_working['Status_Atividade_Upper'] = df_working[col_status].fillna('').astype(str).str.upper().str.strip()
     
-    # Localização dinâmica e forçada da coluna de Atividade
-    col_tipo_atv_real = 'Tipo de Atividade'
+    # 🌟 CRÍTICO: Consolida todas as colunas que começam com "Tipo de Atividade" para evitar falha por duplicidade (.1, .2)
+    df_working['Mestre_Tipo_Atividade_Upper'] = ""
     for c in df_working.columns:
         if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper():
-            col_tipo_atv_real = c
-            break
+            df_working['Mestre_Tipo_Atividade_Upper'] += " " + df_working[c].fillna('').astype(str).str.upper().str.strip()
             
-    df_working['Tipo_Atividade_Upper'] = df_working[col_tipo_atv_real].fillna('').astype(str).str.upper().str.strip()
-
-    # Filtro base saudável (remove suspensos, almoço e bases vazias)
+    # Filtro base saudável (remove suspensos e marcação de refeição de forma consolidada)
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
         (~df_working['Contrato_Limpo'].str.contains('#N/A', na=False)) &
         (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
-        (~df_working['Tipo_Atividade_Upper'].str.contains('REFEI', na=False))
+        (~df_working['Mestre_Tipo_Atividade_Upper'].str.contains('REFEI', na=False))
     )
     df_working = df_working[cond_saudavel].copy()
 
-    # Identificação das colunas estruturais
+    # Identificação das colunas estruturais restantes
     col_recurso = 'Recurso' if 'Recurso' in df_working.columns else df_working.columns[0]
     
     col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_working.columns else ('Cidade' if 'Cidade' in df_working.columns else 'GERAL')
@@ -144,7 +141,7 @@ if df_dash is not None and not df_dash.empty:
             df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # ⏱| MOTOR: 1º ATENDIMENTO OPERACIONAL (TOPO FIXADO EM 8:15 / 8:05)
+    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (TOPO COINCIDINDO EM 8:15 / 8:05)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     
@@ -171,7 +168,7 @@ if df_dash is not None and not df_dash.empty:
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
 
-    # Renderização do Topo Fixo Correto
+    # Exibição das médias do topo
     st.markdown(f'''
         <div class="kpi-container-atend">
             <div class="kpi-card-atend abc">
@@ -188,26 +185,26 @@ if df_dash is not None and not df_dash.empty:
     st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
 
     # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS COM FILTRAGEM SUBTRATIVA CORRETA
+    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS POR BASE COM INTEGRAÇÃO DE DUPLICIDADE
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
         df_base_atual = df_working[df_working[col_base_operacional] == base]
         
-        # 1. Totais Consolidados Brutos da Rota
+        # 1. Totais Brutos da Rota Completa
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique()
         base_contratos_bruto = df_base_atual['Contrato_Limpo'].nunique()
         base_total_os_bruto = df_base_atual['Total_OS_Num'].sum()
         
-        # 2. Varredura e isolamento de Retornos na coluna real tratada
-        cond_retorno_linha = df_base_atual['Tipo_Activity_Str'].str.contains('RETORNO', case=False, na=False) if 'Tipo_Activity_Str' in df_base_atual.columns else df_base_atual['Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)
+        # 2. Captura os Retornos varrendo o campo Mestre consolidado das duas colunas
+        cond_retorno_linha = df_base_atual['Mestre_Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)
         df_retornos_base = df_base_atual[cond_retorno_linha]
         
         base_total_retornos = df_retornos_base['Contrato_Limpo'].nunique()
         base_total_os_retorno = df_retornos_base['Total_OS_Num'].sum()
         
-        # 3. Engenharia Líquida Subtrativa
+        # 3. Engenharia Subtrativa Líquida
         base_contratos_liquido = base_contratos_bruto - base_total_retornos
         base_total_os_liquido = base_total_os_bruto - base_total_os_retorno
         
@@ -233,7 +230,7 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos com Rota</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:26px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
                 
-        # FILA 2: Card de Retorno Populado e as Novas Médias Líquidas Corretas
+        # FILA 2: O card de Retornos Populado com as Médias Líquidas Corretas
         r2_c1, r2_c2, r2_c3 = st.columns(3)
         with r2_c1:
             with st.container(border=True):
@@ -253,7 +250,7 @@ if df_dash is not None and not df_dash.empty:
     # ==========================================
     # BLOCO 2: GRÁFICOS ANALÍTICOS GERAIS
     # ==========================================
-    df_dash_grafico = df_working[~df_working['Tipo_Activity_Str'].str.contains('RETORNO', case=False, na=False) if 'Tipo_Activity_Str' in df_working.columns else ~df_working['Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)].copy()
+    df_dash_grafico = df_working[~df_working['Mestre_Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)].copy()
     
     g1, g2 = st.columns(2)
 
