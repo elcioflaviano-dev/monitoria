@@ -91,20 +91,77 @@ def calcular_media_horarios(lista_horas):
 
 if df_dash is not None and not df_dash.empty:
     
-    # === HIGIENIZAÇÃO INICIAL DA BASE ===
+    # Identificação das colunas estruturais na planilha bruta
+    col_recurso = 'Recurso' if 'Recurso' in df_dash.columns else df_dash.columns[0]
+    
+    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_dash.columns else 'Status da Atividade'
+    status_upper_bruto = df_dash[col_status].fillna('').astype(str).str.upper().str.strip()
+    
+    contrato_limpo_bruto = df_dash['Contrato'].fillna('').astype(str).str.strip()
+
+    # =========================================================================
+    # ⏱️ 1º ATENDIMENTO OPERACIONAL (CÁLCULO INDEPENDENTE COM DADOS ORIGINAIS)
+    # =========================================================================
+    media_abc, media_sp = "--:--", "--:--"
+    
+    col_inicio_estrito = 'Início'
+    for c in df_dash.columns:
+        c_clean = str(c).upper().strip().split('.')[0]
+        if c_clean in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
+            col_inicio_estrito = c
+            break
+
+    # Filtro operacional estrito para pegar a largada real (concluido, iniciado, suspenso)
+    df_atend_isolado = df_dash[
+        (status_upper_bruto.str.contains('CONCL|INIC|SUSP', na=False)) &
+        (contrato_limpo_bruto != '') &
+        (~contrato_limpo_bruto.isin(['nan', '0', '#N/A']))
+    ].copy()
+    
+    df_atend_isolado['Hora_Inicio_Time'] = df_atend_isolado[col_inicio_estrito].apply(tratar_horario)
+    df_atend_isolado = df_atend_isolado[df_atend_isolado['Hora_Inicio_Time'].notna()]
+    
+    if not df_atend_isolado.empty:
+        df_primeiros_horarios = df_atend_isolado.sort_values('Hora_Inicio_Time').groupby(col_recurso).first().reset_index()
+        
+        col_supervisor_check = 'SUPERVISOR' if 'SUPERVISOR' in df_primeiros_horarios.columns else df_primeiros_horarios.columns[0]
+        cond_sp_atend = df_primeiros_horarios[col_supervisor_check].fillna('').astype(str).str.upper().str.contains("FRANCISCO|ALAN", na=False)
+        
+        horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio_Time'].tolist()
+        horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio_Time'].tolist()
+        
+        media_abc = calcular_media_horarios(horas_abc)
+        media_sp = calcular_media_horarios(horas_sp)
+
+    # Renderização do Topo Fixo Correto (8:15 / 8:05)
+    st.markdown(f'''
+        <div class="kpi-container-atend">
+            <div class="kpi-card-atend abc">
+                <div class="kpi-title-atend">⏱️ Média 1º Contrato - ABC</div>
+                <div class="kpi-value-atend">{media_abc}</div>
+            </div>
+            <div class="kpi-card-atend sp">
+                <div class="kpi-title-atend">⏱️ Média 1º Contrato - SÃO PAULO</div>
+                <div class="kpi-value-atend">{media_sp}</div>
+            </div>
+        </div>
+    ''', unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
+
+
+    # === HIGIENIZAÇÃO PARA OS INDICADORES DAS BASES ===
     df_working = df_dash.copy()
-    df_working['Contrato_Limpo'] = df_working['Contrato'].fillna('').astype(str).str.strip()
+    df_working['Contrato_Limpo'] = contrato_limpo_bruto
+    df_working['Status_Atividade_Upper'] = status_upper_bruto
     
-    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_working.columns else 'Status da Atividade'
-    df_working['Status_Atividade_Upper'] = df_working[col_status].fillna('').astype(str).str.upper().str.strip()
-    
-    # 🌟 CRÍTICO: Consolida todas as colunas que começam com "Tipo de Atividade" para evitar falha por duplicidade (.1, .2)
+    # Consolida todas as colunas que começam com "Tipo de Atividade" para capturar os Retornos
     df_working['Mestre_Tipo_Atividade_Upper'] = ""
     for c in df_working.columns:
         if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper():
             df_working['Mestre_Tipo_Atividade_Upper'] += " " + df_working[c].fillna('').astype(str).str.upper().str.strip()
             
-    # Filtro base saudável (remove suspensos e marcação de refeição de forma consolidada)
+    # Filtro base saudável (remove suspensos e refeição da visualização das bases)
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
@@ -114,9 +171,7 @@ if df_dash is not None and not df_dash.empty:
     )
     df_working = df_working[cond_saudavel].copy()
 
-    # Identificação das colunas estruturais restantes
-    col_recurso = 'Recurso' if 'Recurso' in df_working.columns else df_working.columns[0]
-    
+    # Normalização da Base Operacional
     col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_working.columns else ('Cidade' if 'Cidade' in df_working.columns else 'GERAL')
     if col_base_operacional not in df_working.columns:
         df_working['REGIAO_BASE'] = 'BASE GERAL'
@@ -141,63 +196,19 @@ if df_dash is not None and not df_dash.empty:
             df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (TOPO COINCIDINDO EM 8:15 / 8:05)
-    # =========================================================================
-    media_abc, media_sp = "--:--", "--:--"
-    
-    col_inicio_estrito = 'Início'
-    for c in df_working.columns:
-        c_clean = str(c).upper().strip().split('.')[0]
-        if c_clean in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
-            col_inicio_estrito = c
-            break
-
-    df_filtrado_atend = df_working.copy()
-    df_filtrado_atend['Hora_Inicio_Time'] = df_filtrado_atend[col_inicio_estrito].apply(tratar_horario)
-    df_filtrado_atend = df_filtrado_atend[df_filtrado_atend['Hora_Inicio_Time'].notna()]
-    
-    if not df_filtrado_atend.empty:
-        df_primeiros_horarios = df_filtrado_atend.sort_values('Hora_Inicio_Time').groupby(col_recurso).first().reset_index()
-        
-        col_supervisor_check = 'SUPERVISOR' if 'SUPERVISOR' in df_primeiros_horarios.columns else df_primeiros_horarios.columns[0]
-        cond_sp_atend = df_primeiros_horarios[col_supervisor_check].fillna('').astype(str).str.upper().str.contains("FRANCISCO|ALAN", na=False)
-        
-        horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio_Time'].tolist()
-        horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio_Time'].tolist()
-        
-        media_abc = calcular_media_horarios(horas_abc)
-        media_sp = calcular_media_horarios(horas_sp)
-
-    # Exibição das médias do topo
-    st.markdown(f'''
-        <div class="kpi-container-atend">
-            <div class="kpi-card-atend abc">
-                <div class="kpi-title-atend">⏱️ Média 1º Contrato - ABC</div>
-                <div class="kpi-value-atend">{media_abc}</div>
-            </div>
-            <div class="kpi-card-atend sp">
-                <div class="kpi-title-atend">⏱️ Média 1º Contrato - SÃO PAULO</div>
-                <div class="kpi-value-atend">{media_sp}</div>
-            </div>
-        </div>
-    ''', unsafe_allow_html=True)
-
-    st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
-
-    # =========================================================================
-    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS POR BASE COM INTEGRAÇÃO DE DUPLICIDADE
+    # 📊 SEÇÃO INDICADORES MACRO: 6 CARDS POR BASE COM CÁLCULO SUBTRATIVO
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
         df_base_atual = df_working[df_working[col_base_operacional] == base]
         
-        # 1. Totais Brutos da Rota Completa
+        # 1. Totais Consolidados Brutos
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique()
         base_contratos_bruto = df_base_atual['Contrato_Limpo'].nunique()
         base_total_os_bruto = df_base_atual['Total_OS_Num'].sum()
         
-        # 2. Captura os Retornos varrendo o campo Mestre consolidado das duas colunas
+        # 2. Captura os Retornos varrendo o campo Mestre consolidado das colunas duplicadas
         cond_retorno_linha = df_base_atual['Mestre_Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)
         df_retornos_base = df_base_atual[cond_retorno_linha]
         
@@ -230,7 +241,7 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:12px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos com Rota</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:26px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
                 
-        # FILA 2: O card de Retornos Populado com as Médias Líquidas Corretas
+        # FILA 2: Card de Retornos Populado e Médias Líquidas
         r2_c1, r2_c2, r2_c3 = st.columns(3)
         with r2_c1:
             with st.container(border=True):
