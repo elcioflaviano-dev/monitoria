@@ -8,25 +8,24 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-TEMPO_ROTACAO_SEGUNDOS = 15  # Tempo exato para girar a tela
+TEMPO_ROTACAO_SEGUNDOS = 15  # Tempo exato de cada tela na TV
 
 # --- REFRESH NATIVO VIA HTML METATAG ---
 st.markdown(f'<meta http-equiv="refresh" content="{TEMPO_ROTACAO_SEGUNDOS}">', unsafe_allow_html=True)
 
-# --- MOTOR DE ROTAÇÃO OPERACIONAL ---
-PAINEIS = ["TEC1_OPERACIONAL", "TEC1_PENDENTES"]
+# --- ⏱️ MOTOR DE ROTAÇÃO POR RELÓGIO REAL (BLINDADO CONTRA RESET DE F5) ---
+# Usa os segundos atuais do relógio para definir qual painel mostrar
+segundos_atuais = datetime.now().second
 
-if "indice_painel" not in st.session_state:
-    st.session_state["indice_painel"] = 0
-    st.session_state["ultimo_giro_time"] = time.time()
-
-agora = time.time()
-if "ultimo_giro_time" in st.session_state:
-    if agora - st.session_state["ultimo_giro_time"] >= (TEMPO_ROTACAO_SEGUNDOS - 1):
-        st.session_state["indice_painel"] = (st.session_state["indice_painel"] + 1) % len(PAINEIS)
-        st.session_state["ultimo_giro_time"] = agora
-
-painel_atual = PAINEIS[st.session_state["indice_painel"]]
+# Divide o minuto em blocos de 15 segundos:
+# 00 a 14s -> Tela 1
+# 15 a 29s -> Tela 2
+# 30 a 44s -> Tela 1
+# 45 a 59s -> Tela 2
+if segundos_atuais < 15 or (segundos_atuais >= 30 and segundos_atuais < 45):
+    painel_atual = "TEC1_OPERACIONAL"
+else:
+    painel_atual = "TEC1_PENDENTES"
 
 # 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
 df_master = None
@@ -111,7 +110,7 @@ st.markdown(f'''
             <a href="/" target="_self" class="btn-voltar-home">🏠 VOLTAR PARA A HOME</a>
             <span style="margin-left: 15px;">📺 MODO TV ATIVO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
         </div>
-        <span>🔄 Troca automática a cada {TEMPO_ROTACAO_SEGUNDOS}s</span>
+        <span>🔄 Sincronizado por Relógio • Próximo giro em 15s</span>
     </div>
 ''', unsafe_allow_html=True)
 
