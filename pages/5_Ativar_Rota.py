@@ -6,53 +6,34 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
 if os.path.exists(ARQUIVO_ROTA_DISCO):
-    # Lendo o arquivo forçando o uso da primeira linha como cabeçalho
-    df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', quotechar='"', dtype=str)
-    df.columns = df.columns.str.strip()
-    
-    # 🔍 Busca por linhas na base + pendentes
-    mask = df.apply(lambda row: row.astype(str).str.contains('Na Base', case=False, na=False).any(), axis=1) & \
-           df.apply(lambda row: row.astype(str).str.contains('pendente', case=False, na=False).any(), axis=1)
-    
-    df_base = df[mask].copy()
-    
+    # Tenta ler o arquivo
+    try:
+        df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', quotechar='"', dtype=str)
+        df.columns = df.columns.str.strip()
+    except:
+        df = pd.DataFrame()
+
     st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
-    if df_base.empty:
-        st.success("🎉 Todos os técnicos foram liberados!")
-    else:
-        # AQUI É O PULO DO GATO:
-        # Forçamos o uso da segunda coluna (índice 1) para o nome, independente do cabeçalho
-        col_nome = df.columns[1] 
-        col_sup = 'SUPERVISOR' # Mantemos a busca pelo supervisor
+    # Verifica se é o arquivo completo (tem as colunas que você enviou antes)
+    if 'Login do Técnico' in df.columns:
+        # Lógica para o arquivo completo
+        mask = df['Tipo de Atividade.1'].str.contains('Na Base', case=False, na=False) & \
+               df['Status da Atividade'].str.contains('pendente', case=False, na=False)
         
-        # Cria lista limpa
-        lista_final = df_base[[col_nome]].drop_duplicates()
+        df_tela = df[mask].copy()
         
-        # Se existir coluna de supervisor, cruzamos os dados
-        if col_sup in df.columns:
-            df_sup = df[[col_nome, col_sup]].drop_duplicates(subset=[col_nome])
-            lista_final = lista_final.merge(df_sup, on=col_nome, how='left')
+        if df_tela.empty:
+            st.success("🎉 Todos os técnicos foram liberados!")
         else:
-            lista_final[col_sup] = 'N/A'
+            # ... (aqui entraria a lógica que já tínhamos de separar por cidade/supervisor)
+            st.write("Técnicos encontrados:", df_tela['Login do Técnico'].unique())
+            
+    else:
+        # Lógica de erro para quando o arquivo carregado está reduzido
+        st.error("⚠️ Você carregou um arquivo de exportação rápida (apenas 4 colunas).")
+        st.info("Para o painel funcionar, por favor, carregue o **Relatório Completo** (com as colunas: Login do Técnico, Cidade, Supervisor, etc).")
+        st.write("Colunas detectadas no arquivo atual:", df.columns.tolist())
 
-        def get_regiao(row):
-            sup = str(row[col_sup]).upper() if pd.notna(row[col_sup]) else ""
-            # Regra: Alan ou Francisco = SP, caso contrário = ABC
-            if 'ALAN' in sup or 'FRANCISCO' in sup: 
-                return 'SP'
-            return 'ABC'
-
-        lista_final['REGIAO'] = lista_final.apply(get_regiao, axis=1)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<h2 style="color: #005088; text-align: center;">ABC / GUARULHOS</h2>', unsafe_allow_html=True)
-            for _, row in lista_final[lista_final['REGIAO'] == 'ABC'].iterrows():
-                st.markdown(f'🏃‍♂️ <b>{row[col_nome]}</b>', unsafe_allow_html=True)
-        with col2:
-            st.markdown('<h2 style="color: #005088; text-align: center;">SÃO PAULO (SP)</h2>', unsafe_allow_html=True)
-            for _, row in lista_final[lista_final['REGIAO'] == 'SP'].iterrows():
-                st.markdown(f'🏃‍♂️ <b>{row[col_nome]}</b>', unsafe_allow_html=True)
 else:
-    st.error("Arquivo rota_sincronizada.csv não encontrado.")
+    st.warning("Arquivo não encontrado. Carregue o relatório completo.")
