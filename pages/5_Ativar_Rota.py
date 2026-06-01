@@ -67,15 +67,15 @@ df_ativar = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Padroniza as colunas removendo espaços e mantendo a grafia original do Streamlit para busca direta
+    # Padroniza as colunas removendo espaços e deixando a grafia idêntica à planilha
     df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
-    # Trava os alvos com precisão milimétrica baseada no cabeçalho real do seu print
+    # Trava os alvos com precisão baseada no cabeçalho real do seu Excel
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
     col_status = 'Status da Atividade' if 'Status da Atividade' in df_temp.columns else 'STATUS_ATIVIDADE'
     col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[-1]
 
-    # Cria as listas de processamento usando a exata tipagem de dados da planilha
+    # Cria as listas de processamento bruto forçando limpeza absoluta de strings
     lista_recurso = [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()]
     lista_tipo_ativ = [str(x).upper().strip() for x in df_temp[col_tipo].fillna('').tolist()]
     lista_status_at = [str(x).upper().strip() for x in df_temp[col_status].fillna('').tolist()]
@@ -117,8 +117,8 @@ if df_ativar is not None and not df_ativar.empty:
     # 1. Filtra as linhas de Largada do tipo "NA BASE"
     df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
     
-    # 2. Busca estritamente quem está PENDENTE na atividade "Na Base"
-    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND", na=False)].copy()
+    # 2. 🔥 AJUSTE CRÍTICO: Filtra usando o método parcial str.contains para evitar quebras por minúsculo/espaços
+    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PENDENTE", na=False, case=False)].copy()
     
     if not df_pendentes_reais.empty:
         df_lista = df_pendentes_reais.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
