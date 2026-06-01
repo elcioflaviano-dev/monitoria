@@ -13,48 +13,50 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
 
     df.columns = df.columns.str.strip()
 
-    # Filtro de "Na Base" + "pendente"
-    mask = df.apply(lambda row: row.astype(str).str.contains('Na Base', case=False, na=False).any(), axis=1) & \
-           df.apply(lambda row: row.astype(str).str.contains('pendente', case=False, na=False).any(), axis=1)
+    # Identifica as colunas chaves
+    col_nome = next((c for c in df.columns if 'Login' in c or 'Recurso' in c), df.columns[0])
+    col_status = 'Status da Atividade'
+    col_tipo = 'Tipo de Atividade.1'
+    col_supervisor = next((c for c in df.columns if 'SUPERVISOR' in c.upper()), None)
+
+    # 1. Encontra todos os nomes dos técnicos que estão "Na Base" e "pendente"
+    # Mesmo que a linha não tenha login, se ela tem um nome na coluna de Recurso, pegamos o nome
+    base_mask = df[col_tipo].str.contains('Na Base', case=False, na=False) & \
+                df[col_status].str.contains('pendente', case=False, na=False)
     
-    df_tela = df[mask].copy()
+    nomes_na_base = df[base_mask][col_nome].unique()
+
+    # 2. Agora criamos um DataFrame apenas com esses técnicos, trazendo o supervisor deles
+    # Buscamos o supervisor em qualquer outra linha onde esse nome apareça
+    df_result = pd.DataFrame(nomes_na_base, columns=[col_nome])
+    
+    # Fazemos um merge para trazer o supervisor baseado no nome do técnico
+    df_supervisor = df[[col_nome, col_supervisor]].drop_duplicates(subset=[col_nome])
+    df_final = df_result.merge(df_supervisor, on=col_nome, how='left')
 
     st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
-    if df_tela.empty:
-        st.success("🎉 Todos os técnicos foram liberados!")
+    if df_final.empty:
+        st.success("🎉 Todos os técnicos foram liberados para a rua!")
     else:
-        # Identifica colunas
-        col_login = next((c for c in df.columns if 'Login' in c or 'Recurso' in c), df.columns[0])
-        col_cidade = next((c for c in df.columns if 'Cidade' in c), None)
-
-        def definir_regiao(cidade):
-            if not cidade: return 'ABC'
-            c = str(cidade).upper()
-            # Se tiver 'PAULO', é SP. Caso contrário, ABC.
-            if 'PAULO' in c: return 'SP'
+        def definir_regiao(row):
+            sup = str(row[col_supervisor]).upper() if col_supervisor and pd.notna(row[col_supervisor]) else ""
+            if 'ALAN' in sup or 'FRANCISCO' in sup: 
+                return 'SP'
             return 'ABC'
 
-        df_tela['REGIAO'] = df_tela[col_cidade].apply(definir_regiao)
-        
-        # DEBUG: Mostra o que o sistema acha que é SP
-        # st.write("Cidades encontradas:", df_tela[col_cidade].unique())
+        df_final['REGIAO'] = df_final.apply(definir_regiao, axis=1)
         
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown('<h2 style="color: #005088; text-align: center;">ABC / GUARULHOS</h2>', unsafe_allow_html=True)
-            for _, row in df_tela[df_tela['REGIAO'] == 'ABC'].iterrows():
-                st.markdown(f'🏃‍♂️ <b>{row[col_login]}</b>', unsafe_allow_html=True)
+            for _, row in df_final[df_final['REGIAO'] == 'ABC'].iterrows():
+                st.markdown(f'🏃‍♂️ <b>{row[col_nome]}</b>', unsafe_allow_html=True)
         
         with col2:
             st.markdown('<h2 style="color: #005088; text-align: center;">SÃO PAULO (SP)</h2>', unsafe_allow_html=True)
-            lista_sp = df_tela[df_tela['REGIAO'] == 'SP']
-            if not lista_sp.empty:
-                for _, row in lista_sp.iterrows():
-                    st.markdown(f'🏃‍♂️ <b>{row[col_login]}</b>', unsafe_allow_html=True)
-            else:
-                st.info("Nenhum técnico identificado como SP.")
-                st.write("Cidades lidas na base:", df_tela[col_cidade].unique())
+            for _, row in df_final[df_final['REGIAO'] == 'SP'].iterrows():
+                st.markdown(f'🏃‍♂️ <b>{row[col_nome]}</b>', unsafe_allow_html=True)
 else:
     st.error("Arquivo rota_sincronizada.csv não encontrado.")
