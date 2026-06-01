@@ -49,18 +49,25 @@ if df_master is not None and not df_master.empty:
     col_status_real = 'Status da Atividade'
     col_supervisor = 'SUPERVISOR'
     col_janela = 'Janela de Serviço'
-    
-    # Captura a segunda coluna de atividade que o pandas joga como .1 devido à duplicidade de nome
-    col_tipo_real = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else 'Tipo de Atividade'
 
     if col_tecnico_check in df.columns and col_status_real in df.columns:
         # Remove linhas com técnicos inválidos
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
         
-        # 🔥 CAÇA SEM DISTINÇÃO DE LETRAS MINÚSCULAS/MAIÚSCULAS (case=False)
-        condicao_tipo = df[col_tipo_real].fillna('').astype(str).str.strip().str.contains('Na Base', case=False, na=False)
+        # 🔍 Encontra todas as colunas que começam com o nome "Tipo de Atividade" (captura as duas!)
+        colunas_tipo = [c for c in df.columns if 'Tipo de Atividade' in c]
+        
+        # Cria uma condição inicial falsa (tudo zero)
+        condicao_tipo = pd.Series(False, index=df.index)
+        
+        # Se qualquer uma das colunas gêmeas tiver a palavra "Na Base", vira Verdadeiro
+        for col in colunas_tipo:
+            condicao_tipo = condicao_tipo | df[col].fillna('').astype(str).str.strip().str.contains('Na Base', case=False, na=False)
+            
+        # Checa se o status está pendente ou em aberto (sem distinção de letras)
         condicao_status = df[col_status_real].fillna('').astype(str).str.strip().str.contains('pendente|aberto', case=False, na=False)
         
+        # Cruza as duas travas
         df_tela = df[condicao_tipo & condicao_status].copy()
     else:
         df_tela = pd.DataFrame()
@@ -69,7 +76,7 @@ if df_master is not None and not df_master.empty:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente encontrado no arquivo.")
     else:
-        # Tratamento de segurança para os supervisores dividirem as colunas
+        # Tratamento de segurança para os supervisores dividirem as colunas regionais
         if col_supervisor in df_tela.columns:
             df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
         else:
@@ -78,7 +85,7 @@ if df_master is not None and not df_master.empty:
         df_tela['SUP_REF'] = df_tela['SUP_REF'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
         df_tela['SUP_REF'] = df_tela['SUP_REF'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('FRANCISCO' if 'FRANCISCO' in str(x) else x))
 
-        # Divisão Regional utilizando os supervisores de âncora
+        # Divisão Regional utilizando os supervisores
         cond_sp = df_tela['SUP_REF'].str.contains('FRANCISCO|ALAN', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
