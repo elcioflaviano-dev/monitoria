@@ -36,6 +36,7 @@ if df_master is not None and not df_master.empty:
     col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
+    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
 
     df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
@@ -72,41 +73,26 @@ if df_master is not None and not df_master.empty:
 
         df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        # ⏱️ FILA CUMULATIVA: O teto avança, mas mantém as janelas passadas na tela
         if hora_atual < 12:
-            # Manhã: Janelas até 11h e 12h
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
             texto_status_janela = "Exibindo Manhã (Janelas até 11:00 e 12:00)"
         elif 12 <= hora_atual < 15:
-            # Tarde: Janelas da manhã + Janelas até 15h
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
             texto_status_janela = "Exibindo Acumulado Manhã + Tarde (Janelas até 15:00)"
         else:
-            # Reta Final: Janelas da manhã + Tarde + Noite (Geral completo)
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
             texto_status_janela = "Exibindo Visão Geral do Turno (Janelas até 18:00 / Acumulado)"
 
-        # Isola os registros da janela cumulativa atual (ou que o técnico já esteja executando em campo)
         df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
-        
         if df_tela.empty: df_tela = df_validos.copy()
         st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Progressiva Cumulativa Ativa • {texto_status_janela}</div>', unsafe_allow_html=True)
     else:
         df_tela = df_validos.copy()
 
-    # Lógica de de-para estável de supervisores
-    def vincular_supervisor_tecnico(nome_planilha):
-        nome_u = str(nome_planilha).upper().strip()
-        cadastro_recs = {
-            "ADRIEL": "ALAN", "AIRON": "ALAN", "ALAN": "ALAN DE ANDRADE DIAS", 
-            "ALEX": "FRANCISCO", "ALINE": "MAICON", "AMANDA": "ALAN", 
-            "DEBORA": "ALAN", "ELIAS": "ALAN", "ENOQUE": "ALAN"
-        }
-        for chave, supervisor in cadastro_recs.items():
-            if chave in nome_u: return supervisor
-        return "MAICON"
-
-    df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_tecnico_check].apply(vincular_supervisor_tecnico)
+    # 🔥 LEITURA LIMPA E PADRONIZAÇÃO DO SUPERVISOR DIRETAMENTE DO ARQUIVO DA HOME 🔥
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
 
     cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
     df_sp = df_tela[cond_sp].copy()
