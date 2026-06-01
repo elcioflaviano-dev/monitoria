@@ -133,7 +133,7 @@ if df_master is not None and not df_master.empty:
         
         # Garante a padronização e limpeza dos nomes dos supervisores gravados em disco
         df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_horarios[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
-        df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_rotativos['Supervisor_Limpo'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
+        df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_horarios['Supervisor_Limpo'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
         
         # Unifica as variações escritas do Alan para um único bloco padrão
         df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_horarios['Supervisor_Limpo'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else x)
@@ -173,7 +173,7 @@ if df_master is not None and not df_master.empty:
         ''', unsafe_allow_html=True)
 
         # ==========================================
-        # 🔴 REGIONAL ABC (Nelson, Marcos Roberto e Maicon separados)
+        # 🔴 REGIONAL ABC
         # ==========================================
         st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
         
