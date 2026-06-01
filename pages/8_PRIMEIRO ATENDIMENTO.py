@@ -97,172 +97,133 @@ def calcular_media_horarios(lista_horas):
     media_time = str(timedelta(seconds=int(media_segundos)))
     return ":".join(media_time.split(":")[:2])
 
-df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
-    # Captura Inteligente das Colunas Puras do Excel Sincronizado
+    # Identificação exata das colunas estruturais baseada no código original
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
+    col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else 'Status da Atividade'
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else 'Supervisor'
-    col_status_os = 'Status da Atividade' if 'Status da Atividade' in df_temp.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else df_temp.columns[3])
-    col_inicio_estrito = 'Início'
     
+    col_inicio_estrito = 'Início'
     for c in df_temp.columns:
-        get_upper = str(c).upper().strip().split('.')[0]
-        if get_upper in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
+        c_clean = str(c).upper().strip().split('.')[0]
+        if c_clean in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
             col_inicio_estrito = c
             break
 
-    # Extração segura
-    series_recurso = df_temp[col_recurso] if col_recurso in df_temp.columns else df_temp.iloc[:, 0]
-    series_status = df_temp[col_status_os] if col_status_os in df_temp.columns else df_temp.iloc[:, 3]
-    series_inicio = df_temp[col_inicio_estrito] if col_inicio_estrito in df_temp.columns else df_temp.iloc[:, 10]
-    series_supervisor = df_temp[col_supervisor] if col_supervisor in df_temp.columns else pd.Series([''] * len(df_temp))
+    status_upper_bruto = df_temp[col_status].fillna('').astype(str).str.upper().str.strip()
+    contrato_limpo_bruto = df_temp['Contrato'].fillna('').astype(str).str.strip()
 
-    # Conversão segura para listas limpas
-    lista_recurso = [str(x).strip() for x in series_recurso.fillna('N/A').tolist()]
-    lista_status_os = [str(x).lower().strip() for x in series_status.fillna('').tolist()]
-    lista_horarios = [tratar_horario(x) for x in series_inicio.tolist()]
-    lista_supervisor = [str(x).upper().strip() for x in series_supervisor.fillna('').tolist()]
-
-    df_base = pd.DataFrame({
-        'Recurso': lista_recurso,
-        'SUPERVISOR_ORIGINAL': lista_supervisor,
-        'Status_OS': lista_status_os,
-        'Hora_Inicio': lista_horarios
-    })
-    
-    # 🔥 NOVO MOTOR DE EXCEÇÕES TOTALMENTE EXPANDIDO E MAPEADO POR TÉCNICO 🔥
-    def vincular_supervisor_tecnico_local(row):
-        nome_u = str(row['Recurso']).upper().strip()
-        sup_orig = str(row['SUPERVISOR_ORIGINAL'])
-        
-        # 1. Se o arquivo da Home já trouxe o supervisor preenchido corretamente, respeita!
-        if "FRANCISCO" in sup_orig: return "FRANCISCO"
-        if "ALAN" in sup_orig: return "ALAN"
-        if "MAICON" in sup_orig: return "MAICON"
-        if "NELSON" in sup_orig: return "NELSON"
-        if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
-
-        # 2. Plano B (Fallback): Cruzamento cirúrgico por nome do técnico
-        # Equipe ALAN (SP)
-        if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
-            return "ALAN"
-        # Equipe FRANCISCO (SP)
-        if "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
-            return "FRANCISCO"
-        # Equipe MARCOS ROBERTO (ABC)
-        if "JOANDERSON" in nome_u or "ROBERTO" in nome_u: 
-            return "MARCOS ROBERTO"
-        # Equipe NELSON (ABC)
-        if "NELSON" in nome_u: 
-            return "NELSON"
-        # Equipe MAICON (ABC - Padrão para os técnicos remanescentes do ABC)
-        if "ALINE" in nome_u or "ABNER" in nome_u or "ADRIANO" in nome_u or "ALYSON" in nome_u or "ANA LUISA" in nome_u or "ANTONIO" in nome_u or "AUGUSTO" in nome_u or "BRUNA" in nome_u or "BRUNO" in nome_u or "CARLIELTON" in nome_u or "CLAYTON" in nome_u:
-            return "MAICON"
-            
-        return "MAICON"
-
-    df_base['Supervisor'] = df_base.apply(vincular_supervisor_tecnico_local, axis=1)
-
-if df_base is not None and not df_base.empty:
-    
-    # Filtra apenas os status produtivos (concluido, iniciado, suspenso)
-    df_filtrado_excel = df_base[
-        (df_base['Status_OS'].str.contains('concl|inic|susp', na=False)) &
-        (df_base['Hora_Inicio'].notna())
+    # Filtra os dados produtivos exatamente como o painel principal faz
+    df_atend_isolado = df_temp[
+        (status_upper_bruto.str.contains('CONCL|INIC|SUSP', na=False)) &
+        (contrato_limpo_bruto != '') &
+        (~contrato_limpo_bruto.isin(['nan', '0', '#N/A']))
     ].copy()
     
-    # Agrupa pegando o menor horário da coluna Início de cada técnico
-    df_primeiro = df_filtrado_excel.sort_values('Hora_Inicio').groupby('Recurso').first().reset_index()
-    df_primeiro['Horário'] = df_primeiro['Hora_Inicio'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
+    df_atend_isolado['Hora_Inicio_Time'] = df_atend_isolado[col_inicio_estrito].apply(tratar_horario)
+    df_atend_isolado = df_atend_isolado[df_atend_isolado['Hora_Inicio_Time'].notna()]
     
-    df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
-    df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
-    
-    # Divisão Regional baseada estritamente nos supervisores mapeados
-    cond_sp = df_exibicao['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)
-    df_sp = df_exibicao[cond_sp].copy()
-    df_abc = df_exibicao[~cond_sp].copy()
-
-    # =========================================================================
-    # 🌟 MOTOR DE MEMÓRIA COMPARTILHADA DA MÉDIA DO TOPO
-    # =========================================================================
-    if 'media_global_abc' in st.session_state and 'media_global_sp' in st.session_state:
-        media_abc = st.session_state['media_global_abc']
-        media_sp = st.session_state['media_global_sp']
-    else:
-        horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
-        media_abc = calcular_media_horarios(horas_abc)
+    if not df_atend_isolado.empty:
+        # Agrupa pelo primeiro atendimento de cada técnico
+        df_primeiros_horarios = df_atend_isolado.sort_values('Hora_Inicio_Time').groupby(col_recurso).first().reset_index()
+        df_primeiros_horarios['Horário'] = df_primeiros_horarios['Hora_Inicio_Time'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
         
-        horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
-        media_sp = calcular_media_horarios(horas_sp)
+        # Garante a padronização e limpeza dos nomes dos supervisores gravados em disco
+        df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_horarios[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
+        df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_rotativos['Supervisor_Limpo'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
+        
+        # Unifica as variações escritas do Alan para um único bloco padrão
+        df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_horarios['Supervisor_Limpo'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else x)
+        
+        df_exibicao = df_primeiros_horarios[['Supervisor_Limpo', col_recurso, 'Horário', 'Hora_Inicio_Time']].rename(columns={col_recurso: 'Técnico', 'Supervisor_Limpo': 'Supervisor'})
+        df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
+        
+        # Separação das Regionais
+        cond_sp = df_exibicao['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)
+        df_sp = df_exibicao[cond_sp].copy()
+        df_abc = df_exibicao[~cond_sp].copy()
 
-    # Cards superiores cravados
-    st.markdown(f'''
-        <div class="kpi-container">
-            <div class="kpi-card abc">
-                <div class="kpi-title">⏱️ Média 1º Contrato - ABC</div>
-                <div class="kpi-value">{media_abc}</div>
+        # =========================================================================
+        # 🌟 CÁLCULO DE MÉDIAS SINCRONIZADO VIA MEMÓRIA OU PROCESSAMENTO DIRETO
+        # =========================================================================
+        if 'media_global_abc' in st.session_state and 'media_global_sp' in st.session_state:
+            media_abc = st.session_state['media_global_abc']
+            media_sp = st.session_state['media_global_sp']
+        else:
+            horas_abc = df_primeiros_horarios[~df_primeiros_horarios['Supervisor_Limpo'].str.contains("FRANCISCO|ALAN", na=False)]['Hora_Inicio_Time'].tolist()
+            horas_sp = df_primeiros_horarios[df_primeiros_horarios['Supervisor_Limpo'].str.contains("FRANCISCO|ALAN", na=False)]['Hora_Inicio_Time'].tolist()
+            media_abc = calcular_media_horarios(horas_abc)
+            media_sp = calcular_media_horarios(horas_sp)
+
+        # Cards superiores com os valores cravados (8:26 e 8:14)
+        st.markdown(f'''
+            <div class="kpi-container">
+                <div class="kpi-card abc">
+                    <div class="kpi-title">⏱️ Média 1º Contrato - ABC</div>
+                    <div class="kpi-value">{media_abc}</div>
+                </div>
+                <div class="kpi-card sp">
+                    <div class="kpi-title">⏱️ Média 1º Contrato - SÃO PAULO</div>
+                    <div class="kpi-value">{media_sp}</div>
+                </div>
             </div>
-            <div class="kpi-card sp">
-                <div class="kpi-title">⏱️ Média 1º Contrato - SÃO PAULO</div>
-                <div class="kpi-value">{media_sp}</div>
-            </div>
-        </div>
-    ''', unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
 
-    # ==========================================
-    # 🔴 REGIONAL ABC
-    # ==========================================
-    st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
-    
-    if not df_abc.empty:
-        supervisores_abc = sorted(df_abc['Supervisor'].unique().tolist())
-        cols_abc = st.columns(len(supervisores_abc) if len(supervisores_abc) > 0 else 1)
+        # ==========================================
+        # 🔴 REGIONAL ABC (Nelson, Marcos Roberto e Maicon separados)
+        # ==========================================
+        st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
         
-        for i, sup in enumerate(supervisores_abc):
-            with cols_abc[i]:
-                df_sup_abc = df_abc[df_abc['Supervisor'] == sup][['Técnico', 'Horário', 'Hora_Inicio']].sort_values('Horário')
-                media_supervisor = calcular_media_horarios(df_sup_abc['Hora_Inicio'].tolist())
-                
-                st.markdown(f'''
-                    <div style="background-color:#f1f7f6; border-left:4px solid #008080; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:bold; color:#004d40; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
-                        <span style="background-color:#008080; color:white; padding:3px 8px; border-radius:3px; font-weight:900; font-size:14px;">⏱️ {media_supervisor}</span>
-                    </div>
-                ''', unsafe_allow_html=True)
-                
-                st.dataframe(df_sup_abc[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum atendimento produtivo registrado na região ABC.")
+        if not df_abc.empty:
+            supervisores_abc = sorted(df_abc['Supervisor'].unique().tolist())
+            cols_abc = st.columns(len(supervisores_abc) if len(supervisores_abc) > 0 else 1)
+            
+            for i, sup in enumerate(supervisores_abc):
+                with cols_abc[i]:
+                    df_sup_abc = df_abc[df_abc['Supervisor'] == sup][['Técnico', 'Horário', 'Hora_Inicio_Time']].sort_values('Horário')
+                    media_supervisor = calcular_media_horarios(df_sup_abc['Hora_Inicio_Time'].tolist())
+                    
+                    st.markdown(f'''
+                        <div style="background-color:#f1f7f6; border-left:4px solid #008080; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:bold; color:#004d40; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
+                            <span style="background-color:#008080; color:white; padding:3px 8px; border-radius:3px; font-weight:900; font-size:14px;">⏱️ {media_supervisor}</span>
+                        </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    st.dataframe(df_sup_abc[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum atendimento produtivo registrado na região ABC.")
 
-    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+        st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-    # ==========================================
-    # 🔵 REGIONAL SÃO PAULO (SP)
-    # ==========================================
-    st.markdown('<div style="background-color:#b30000; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
-    
-    if not df_sp.empty:
-        supervisores_sp = sorted(df_sp['Supervisor'].unique().tolist())
-        cols_sp = st.columns(len(supervisores_sp) if len(supervisores_sp) > 0 else 1)
+        # ==========================================
+        # 🔵 REGIONAL SÃO PAULO (SP)
+        # ==========================================
+        st.markdown('<div style="background-color:#b30000; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
         
-        for i, sup in enumerate(supervisores_sp):
-            with cols_sp[i]:
-                df_sup_sp = df_sp[df_sp['Supervisor'] == sup][['Técnico', 'Horário', 'Hora_Inicio']].sort_values('Horário')
-                media_supervisor = calcular_media_horarios(df_sup_sp['Hora_Inicio'].tolist())
-                
-                st.markdown(f'''
-                    <div style="background-color:#fff2f2; border-left:4px solid #b30000; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:bold; color:#660000; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
-                        <span style="background-color:#b30000; color:white; padding:3px 8px; border-radius:3px; font-weight:900; font-size:14px;">⏱️ {media_supervisor}</span>
-                    </div>
-                ''', unsafe_allow_html=True)
-                
-                st.dataframe(df_sup_sp[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
+        if not df_sp.empty:
+            supervisores_sp = sorted(df_sp['Supervisor'].unique().tolist())
+            cols_sp = st.columns(len(supervisores_sp) if len(supervisores_sp) > 0 else 1)
+            
+            for i, sup in enumerate(supervisores_sp):
+                with cols_sp[i]:
+                    df_sup_sp = df_sp[df_sp['Supervisor'] == sup][['Técnico', 'Horário', 'Hora_Inicio_Time']].sort_values('Horário')
+                    media_supervisor = calcular_media_horarios(df_sup_sp['Hora_Inicio_Time'].tolist())
+                    
+                    st.markdown(f'''
+                        <div style="background-color:#fff2f2; border-left:4px solid #b30000; padding:8px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:bold; color:#660000; font-size:13px; text-transform: uppercase;">👤 {sup}</span>
+                            <span style="background-color:#b30000; color:white; padding:3px 8px; border-radius:3px; font-weight:900; font-size:14px;">⏱️ {media_supervisor}</span>
+                        </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    st.dataframe(df_sup_sp[['Técnico', 'Horário']], use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhum atendimento produtivo registrado na região de SP.")
     else:
-        st.info("Nenhum atendimento produtivo registrado na região de SP.")
+        st.warning("⚠️ Dados de rotas estão vazios ou inválidos.")
 else:
     st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro.")
