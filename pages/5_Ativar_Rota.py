@@ -29,19 +29,16 @@ df_master = st.session_state.get('df_rota_ativa', None)
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # Índice das colunas baseado na sua foto:
-    # 3: 'Login do Técnico'
-    # 4: 'Status da Atividade'
-    # 13: 'Janela de Serviço'
-    # 23: 'Tipo de Atividade.1' (Coluna do 'Na Base')
-    # 119: 'SUPERVISOR'
-    
-    # Criamos um DataFrame limpo apenas com as colunas que importam pelo índice
+    # Índice das colunas baseado na foto: [3, 4, 13, 23, 119]
+    # LOGIN (3), STATUS (4), JANELA (13), TIPO (23), SUPERVISOR (119)
     df_clean = df.iloc[:, [3, 4, 13, 23, 119]].copy()
     df_clean.columns = ['LOGIN', 'STATUS', 'JANELA', 'TIPO', 'SUPERVISOR']
     
-    # 🔥 FILTRO BRUTO E FORÇADO
-    # Procura 'NA BASE' em TIPO e 'PENDENTE' em STATUS (case insensitive)
+    # 🔥 BLINDAGEM: Força a conversão para String explícita antes de qualquer operação .str
+    df_clean['STATUS'] = df_clean['STATUS'].astype(str)
+    df_clean['TIPO'] = df_clean['TIPO'].astype(str)
+    
+    # Filtro: Contém "Na Base" em TIPO e "Pendente" em STATUS (case insensitive)
     df_tela = df_clean[
         df_clean['TIPO'].str.contains('NA BASE', case=False, na=False) & 
         df_clean['STATUS'].str.contains('PENDENTE', case=False, na=False)
@@ -50,7 +47,7 @@ if df_master is not None and not df_master.empty:
     if df_tela.empty:
         st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente.")
     else:
-        # Lógica de divisão regional (Guarulhos/ABC ou SP)
+        # Lógica de divisão regional
         df_tela['SUP'] = df_tela['SUPERVISOR'].fillna('MAICON').str.upper()
         
         cond_sp = df_tela['SUP'].str.contains('FRANCISCO|ALAN', na=False)
@@ -67,4 +64,4 @@ if df_master is not None and not df_master.empty:
             for _, row in df_sp.iterrows():
                 st.markdown(f'<div class="item-linha-tec">🏃‍♂️ <b>{row["LOGIN"]}</b> <span style="float:right">Janela: {row["JANELA"]}</span></div>', unsafe_allow_html=True)
 else: 
-    st.warning("👈 Por favor, insira os arquivos de rota.")
+    st.warning("👈 Por favor, insira os arquivos de rota na página inicial.")
