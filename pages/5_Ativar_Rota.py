@@ -35,22 +35,33 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
         pass
 
 # =============================================================================
-# 📋 TABELA MATRIZ PARA O PROCV INTERNO
+# 📋 TABELA MATRIZ PARA O PROCV INTERNO (Expandida com os novos nomes)
 # =============================================================================
 @st.cache_data
 def obtener_matriz_procv():
+    # Cadastro de referência atualizado conforme os nomes reais do seu print
     dados_cadastro = {
         "RECURSO_NOME": [
             "MAICON", "MARCOS ROBERTO", "NELSON", 
-            "ALAN DE ANDRADE DIAS", "FRANCISCO GERALDO CARVALHO JUNIOR"
+            "ALAN DE ANDRADE DIAS", "FRANCISCO GERALDO CARVALHO JUNIOR",
+            "ADRIEL", "AIRON", "ALAN", "ALEX", "ALINE", "AMANDA", "ANA", "ANDERSC", 
+            "ANTONIO", "AUGUSTC", "BRUNO", "DANIEL", "DANILO", "DEBORA", "DOMINGO", 
+            "EDER", "EDSON", "EDUARDC", "ELIAS", "ENOQUE"
         ],
         "LOGIN_PROCV": [
             "L_MAICON", "L_MARCOS", "L_NELSON", 
-            "L_ALAN_DIAS", "L_FRANCISCO"
+            "L_ALAN_DIAS", "L_FRANCISCO",
+            "L_ADRIEL", "L_AIRON", "L_ALAN_R", "L_ALEX", "L_ALINE", "L_AMANDA", "L_ANA", "L_ANDERSC",
+            "L_ANTONIO", "L_AUGUSTC", "L_BRUNO", "L_DANIEL", "L_DANILO", "L_DEBORA", "L_DOMINGO",
+            "L_EDER", "L_EDSON", "L_EDUARDC", "L_ELIAS", "L_ENOQUE"
         ],
         "SUPERVISOR_PROCV": [
             "MAICON SUPERVISOR", "MARCOS SUPERVISOR", "NELSON SUPERVISOR", 
-            "ALAN", "FRANCISCO"
+            "ALAN", "FRANCISCO",
+            "MAICON SUPERVISOR", "MARCOS SUPERVISOR", "NELSON SUPERVISOR", "ALAN", "FRANCISCO", 
+            "ALAN", "FRANCISCO", "MAICON SUPERVISOR", "MARCOS SUPERVISOR", "ALAN", 
+            "FRANCISCO", "ALAN", "MAICON SUPERVISOR", "FRANCISCO", "MARCOS SUPERVISOR",
+            "ALAN", "FRANCISCO", "MAICON SUPERVISOR", "MARCOS SUPERVISOR", "ALAN"
         ]
     }
     return pd.DataFrame(dados_cadastro)
@@ -59,55 +70,51 @@ df_ativar = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # 🛠️ PASSO CRÍTICO: Limpa os nomes de todas as colunas tirando espaços e deixando em MAIÚSCULO
+    # Limpa os nomes das colunas
     df_temp.columns = [str(c).upper().strip() for c in df_temp.columns]
     
-    # Mapeamento dinâmico e inteligente por palavra-chave para evitar KEYERROR
     col_recurso = None
     col_status = None
     col_tipo = None
 
     for c in df_temp.columns:
-        if 'RECURSO' in c or 'TECNICO' in c or 'NOME' in c:
+        if 'RECURSO' in c or 'TECNICO' in c or 'RECURS' in c or 'NOME' in c:
             col_recurso = c
         if 'STATUS' in c:
             col_status = c
         if 'TIPO' in c or 'ATIVIDADE' in c:
             col_tipo = c
 
-    # Fallbacks de segurança extrema caso as palavras-chave falhem completamente
     if not col_recurso: col_recurso = df_temp.columns[0]
     if not col_status: col_status = df_temp.columns[3] if len(df_temp.columns) > 3 else df_temp.columns[0]
     if not col_tipo: col_tipo = df_temp.columns[-1]
 
-    # Extrai as listas usando os cabeçalhos dinâmicos mapeados com segurança
+    # Cria as listas de processamento
     lista_recurso = [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()]
     lista_tipo_ativ = [str(x).upper().strip() for x in df_temp[col_tipo].fillna('').tolist()]
     lista_status_at = [str(x).upper().strip() for x in df_temp[col_status].fillna('').tolist()]
 
-    # Monta a estrutura base limpa para a tela
     df_base = pd.DataFrame({
         'Recurso_Original': lista_recurso,
         'Tipo_Atividade_Upper': lista_tipo_ativ,
         'Status_Conclusao_Upper': lista_status_at
     })
     
-    # Limpa o nome do técnico para fazer a busca do PROCV (Ex: "ADRIEL 01/06" vira "ADRIEL")
+    # Chave para o PROCV por primeiro nome
     df_base['Chave_Busca'] = df_base['Recurso_Original'].str.split().str[0].str.upper().str.strip()
     
-    # Executa o PROCV na nossa tabela interna
+    # PROCV
     df_matriz = obtener_matriz_procv()
     df_matriz['Chave_Busca'] = df_matriz['RECURSO_NOME'].str.upper().str.strip()
     
     df_ativar = pd.merge(df_base, df_matriz, on='Chave_Busca', how='left')
     
-    # Preenche com valores padrão se o técnico não estiver cadastrado no dicionário acima
     df_ativar['SUPERVISOR'] = df_ativar['SUPERVISOR_PROCV'].fillna('ABC_GERAL').str.upper()
     df_ativar['Login_Final'] = df_ativar['LOGIN_PROCV'].fillna('-')
 
 # --- SUBTÍTULO ---
 if df_ativar is not None:
-    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 PROCV Automático de Login e Supervisor por Nome do Técnico Ativo</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 PROCV Automático de Login e Supervisor por Nome Ativo • Filtrando Estritamente Pendentes</div>', unsafe_allow_html=True)
 else:
     st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando o arquivo de rota na Página Inicial.</div>', unsafe_allow_html=True)
 
@@ -118,14 +125,15 @@ def destacar_linha_total(row):
     except: pass
     return [''] * len(row)
 
-# --- FILTRAGEM DA MONITORIA DA LARGADA MATINAL ---
+# --- FILTRAGEM DA MONITORIA DA LARGADA ---
 if df_ativar is not None and not df_ativar.empty:
     
     # 1. Filtra as linhas de Largada do tipo "NA BASE"
     df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
     
-    # 2. Captura apenas as linhas que estão com status "PENDENTE" de verdade
-    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND", na=False)].copy()
+    # 2. 🔥 ISOLAMENTO CRÍTICO: Filtra estritamente quem está como PENDENTE de verdade
+    # Isso faz com que 'iniciado' e 'concluído' sejam ignorados e sumam da tela automaticamente
+    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'] == 'PENDENTE'].copy()
     
     if not df_pendentes_reais.empty:
         df_lista = df_pendentes_reais.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
@@ -134,7 +142,7 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         df_lista = pd.DataFrame(columns=['Supervisor', 'Login', 'Técnico Pendente'])
 
-    # Divisão regional estável baseada no supervisor trazido pelo PROCV
+    # Divisão regional
     df_sp = df_lista[df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_lista[~df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
