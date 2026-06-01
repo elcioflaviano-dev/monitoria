@@ -102,7 +102,7 @@ if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
-    # 🌟 Captura Inteligente com Alvo Alinhado na Coluna Real do Excel Sincronizado
+    # Captura Inteligente das Colunas Puras do Excel Sincronizado
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else 'Supervisor'
     col_status_os = 'Status da Atividade' if 'Status da Atividade' in df_temp.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else df_temp.columns[3])
@@ -114,11 +114,11 @@ if df_master is not None and not df_master.empty:
             col_inicio_estrito = c
             break
 
-    # Extração segura usando as colunas reais validadas
+    # Extração segura
     series_recurso = df_temp[col_recurso] if col_recurso in df_temp.columns else df_temp.iloc[:, 0]
     series_status = df_temp[col_status_os] if col_status_os in df_temp.columns else df_temp.iloc[:, 3]
     series_inicio = df_temp[col_inicio_estrito] if col_inicio_estrito in df_temp.columns else df_temp.iloc[:, 10]
-    series_supervisor = df_temp[col_supervisor] if col_supervisor in df_temp.columns else pd.Series(['MAICON'] * len(df_temp))
+    series_supervisor = df_temp[col_supervisor] if col_supervisor in df_temp.columns else pd.Series([''] * len(df_temp))
 
     # Conversão segura para listas limpas
     lista_recurso = [str(x).strip() for x in series_recurso.fillna('N/A').tolist()]
@@ -133,25 +133,35 @@ if df_master is not None and not df_master.empty:
         'Hora_Inicio': lista_horarios
     })
     
-    # Mapeamento dinâmico interno por primeiro nome dos técnicos (Garante o mesmo critério do TEC1)
-    def vincular_supervisor_tecnico_local(nome_planilha):
-        nome_u = str(nome_planilha).upper().strip()
-        cadastro_recs = {
-            "ADRIEL": "ALAN", "AIRON": "ALAN", "ALAN": "ALAN DE ANDRADE DIAS", 
-            "ALEX": "FRANCISCO", "ALINE": "MAICON", "AMANDA": "ALAN", 
-            "DEBORA": "ALAN", "ELIAS": "ALAN", "ENOQUE": "ALAN"
-        }
-        for chave, supervisor in cadastro_recs.items():
-            if chave in nome_u: return supervisor
-        return None
+    # 🔥 NOVO MOTOR DE DISTRIBUIÇÃO EXPANDIDO E UNIFICADO POR PRIMEIRO NOME 🔥
+    def vincular_supervisor_tecnico_local(row):
+        nome_u = str(row['Recurso']).upper().strip()
+        sup_orig = str(row['SUPERVISOR_ORIGINAL'])
+        
+        # Se o Excel/Sheets trouxe o supervisor com nome correspondente, preserva e padroniza
+        if "FRANCISCO" in sup_orig: return "FRANCISCO"
+        if "ALAN" in sup_orig: return "ALAN"
+        if "MAICON" in sup_orig: return "MAICON"
+        if "NELSON" in sup_orig: return "NELSON"
+        if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
 
-    df_base['SUPERVISOR_PROCV'] = df_base['Recurso'].apply(vincular_supervisor_tecnico_local)
-    df_base['Supervisor'] = df_base['SUPERVISOR_PROCV'].fillna(df_base['SUPERVISOR_ORIGINAL']).str.upper().str.strip()
-    df_base['Supervisor'] = df_base['Supervisor'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
+        # Fallback de inteligência caso venha zerado na linha
+        if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
+            return "ALAN"
+        if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
+            return "FRANCISCO"
+        if "MARCOS" in nome_u: 
+            return "MARCOS ROBERTO"
+        if "NELSON" in nome_u: 
+            return "NELSON"
+            
+        return "MAICON"
+
+    df_base['Supervisor'] = df_base.apply(vincular_supervisor_tecnico_local, axis=1)
 
 if df_base is not None and not df_base.empty:
     
-    # Filtra apenas os status desejados (concluido, iniciado, suspenso) idêntico ao Painel_ABC
+    # Filtra apenas os status produtivos (concluido, iniciado, suspenso)
     df_filtrado_excel = df_base[
         (df_base['Status_OS'].str.contains('concl|inic|susp', na=False)) &
         (df_base['Hora_Inicio'].notna())
@@ -164,28 +174,25 @@ if df_base is not None and not df_base.empty:
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
     df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
     
-    # Separação das Regionais por Supervisor Âncoras
-    df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
-    df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
+    # Divisão Regional Estável baseada no supervisor unificado
+    cond_sp = df_exibicao['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)
+    df_sp = df_exibicao[cond_sp].copy()
+    df_abc = df_exibicao[~cond_sp].copy()
 
     # =========================================================================
-    # 🌟 MOTOR DE LIGAÇÃO: HERANÇA DIRETA DO PAINEL GLOBAL OU CÁLCULO LOCAL RECALIBRADO
+    # 🌟 MOTOR DE MEMÓRIA COMPARTILHADA DA MÉDIA DO TOPO
     # =========================================================================
     if 'media_global_abc' in st.session_state and 'media_global_sp' in st.session_state:
-        # Se veio do Painel_ABC_SP, puxa o valor idêntico da memória
         media_abc = st.session_state['media_global_abc']
         media_sp = st.session_state['media_global_sp']
     else:
-        # Fallback local com as colunas corrigidas de Status da Atividade
         horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
         media_abc = calcular_media_horarios(horas_abc)
         
         horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
         media_sp = calcular_media_horarios(horas_sp)
 
-    # =========================================================================
-    # 🌟 CARDS DE MÉDIAS (TRAVADOS COM O MESMO VALOR)
-    # =========================================================================
+    # Cards superiores cravados
     st.markdown(f'''
         <div class="kpi-container">
             <div class="kpi-card abc">
@@ -200,7 +207,7 @@ if df_base is not None and not df_base.empty:
     ''', unsafe_allow_html=True)
 
     # ==========================================
-    # 🔴 REGIONAL ABC
+    # 🔴 REGIONAL ABC (Exibe Maicon, Marcos Roberto e Nelson)
     # ==========================================
     st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
     
@@ -227,7 +234,7 @@ if df_base is not None and not df_base.empty:
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # ==========================================
-    # 🔵 REGIONAL SÃO PAULO (SP)
+    # 🔵 REGIONAL SÃO PAULO (Exibe Alan e Francisco unificados)
     # ==========================================
     st.markdown('<div style="background-color:#b30000; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
