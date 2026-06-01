@@ -21,6 +21,18 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
+# 🔥 MOTOR DO CARROSSEL DE INVERSÃO DE TELAS POR ATUALIZAÇÃO NATIVA 🔥
+SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
+
+if "index_supervisor_tv" not in st.session_state:
+    st.session_state["index_supervisor_tv"] = 0
+
+# Captura o supervisor da vez baseado no índice atual
+supervisor_atual = SUPERVISORES_CICLO[st.session_state["index_supervisor_tv"]]
+
+# Avança o contador para a próxima atualização (Garante que a próxima leitura mude a tela)
+st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
+
 # 🔥 INJEÇÃO DE CSS AGRESSIVA (SOME COM O MENU LATERAL DE VEZ)
 st.markdown("""
     <style>
@@ -69,16 +81,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Lista fixa dos supervisores ativos para criar a rotação cíclica
-SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
-
-# Indice controlador de rotação baseado no relógio global
-if "index_supervisor_tv" not in st.session_state:
-    st.session_state["index_supervisor_tv"] = 0
-
-# Descobre qual o supervisor da vez
-supervisor_atual = SUPERVISORES_CICLO[st.session_state["index_supervisor_tv"]]
-
 # Barra fixa superior dinâmica
 st.markdown(f'''
     <div class="barra-status-tv">
@@ -89,9 +91,6 @@ st.markdown(f'''
         <span>🔄 Próxima Equipe em {TEMPO_ROTACAO_SEGUNDOS}s</span>
     </div>
 ''', unsafe_allow_html=True)
-
-# Avança o índice para o próximo ciclo (Streamlit executará no próximo refresh de 15s)
-st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
 
 # =============================================================================
 # PROCESSAMENTO DOS DADOS COM FILA CUMULATIVA
@@ -141,13 +140,18 @@ if df_master is not None and not df_master.empty:
         
         if hora_atual < 12:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
+            texto_status_janela = "Fila da Manhã (Até 12:00)"
         elif 12 <= hora_atual < 15:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
+            texto_status_janela = "Fila da Tarde (Acumulado até 15:00)"
         else:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
+            texto_status_janela = "Visão Completa Turno (Acumulado)"
 
         df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
         if df_tela.empty: df_tela = df_validos.copy()
+            
+        st.markdown(f'<div style="text-align: center; color: #008080; font-size: 13px; font-weight: bold; margin-bottom: 10px; margin-top: -15px;">🔄 Fila Cumulativa: {texto_status_janela}</div>', unsafe_allow_html=True)
     else:
         df_tela = df_validos.copy()
 
@@ -178,13 +182,12 @@ if df_master is not None and not df_master.empty:
             
         st.markdown("<br><hr style='border-color:#ccc; margin-bottom:15px;'><br>", unsafe_allow_html=True)
 
-        # ⏳ LISTAGEM DOS CONTRATOS PENDENTES (OCUPANDO O RESTANTE DA TELA AMPLA)
+        # ⏳ LISTAGEM DOS CONTRATOS PENDENTES
         df_pendentes_lista = df_supervisor_atual[df_supervisor_atual['P_COUNT'] > 0].copy()
         
         st.markdown(f'<div style="font-size:18px; font-weight:bold; color:#333; margin-bottom:10px; text-transform:uppercase;">📋 LISTA DE CONTRATOS EM ABERTO ({supervisor_atual})</div>', unsafe_allow_html=True)
         
         if not df_pendentes_lista.empty:
-            # Divide os contratos em duas colunas na tela para dobrar a capacidade visual sem dar rolagem
             df_ordenado = df_pendentes_lista.sort_values('Contrato')
             metade = (len(df_ordenado) + 1) // 2
             df_col1 = df_ordenado.iloc[:metade]
@@ -197,7 +200,7 @@ if df_master is not None and not df_master.empty:
                     st.markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item-tv">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
             with t_col2:
                 for _, linha in df_col2.iterrows():
-                    st.markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item-tv">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
         else:
             st.success(f"🎉 Excelente! Nenhum contrato pendente para a equipe do {supervisor_atual} nesta janela!")
     else:
