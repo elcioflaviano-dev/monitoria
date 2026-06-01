@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Lista de técnicos de São Paulo (Alan e Francisco)
+# Lista de técnicos de SP (Conforme sua lista anterior)
 TECNICOS_SP = [
     "ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE",
     "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS",
@@ -25,12 +25,39 @@ TECNICOS_SP = [
     "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "DIEGO FRAGOSO DE BRITO"
 ]
 
+# Lista de técnicos do ABC/Guarulhos (Conforme sua lista atual)
+TECNICOS_ABC = [
+    "ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA",
+    "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS",
+    "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "ANTONIO WESLEY HOLANDA DA SILVA",
+    "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS",
+    "CARLOS EDUARDO DA SILVA CONCEICAO", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA",
+    "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDER SALES MONTEIRO",
+    "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES",
+    "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES",
+    "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA",
+    "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA",
+    "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRANDAO BASTOS",
+    "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME",
+    "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS",
+    "LUCAS SILVA DE LIMA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS HENRIQUE GOMES DA SILVA",
+    "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA",
+    "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO",
+    "PABLO WILLIAM DA SILVA", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA",
+    "RAFAEL DOS ANJOS BAPTISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS",
+    "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO",
+    "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "ALESSANDRO RAMOS DA SILVA",
+    "ALICE EULINA SILVA", "BRUNO PINHEIRO MAGALHAES", "KAUE BARBEIRO SOARES",
+    "ENZO RUBENS ARAUJO MACIEL", "HAMILTON RICARDO INACIO", "WILLIAM BORGES DOS SANTOS",
+    "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "DANIEL AUGUSTO PEREIRA",
+    "JULIO CESAR SILVA DOS SANTOS", "MATHEUS DA SILVA NASCIMENTO"
+]
+
 st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     df = st.session_state['df_rota_ativa']
     
-    # Filtro automático
     df_tela = df[
         (df['Tipo de Atividade.1'].astype(str).str.contains('NA BASE', na=False, case=False)) & 
         (df['Status da Atividade'].astype(str).str.contains('PENDENTE', na=False, case=False))
@@ -43,14 +70,12 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
     with col1:
         st.markdown('### 🏢 ABC / GUARULHOS')
         for nome in nomes_na_base:
-            # Se não estiver na lista de SP, é ABC
-            if nome.upper() not in [n.upper() for n in TECNICOS_SP]:
+            if nome.upper() in [n.upper() for n in TECNICOS_ABC]:
                 st.markdown(f'🏃‍♂️ {nome}')
                 
     with col2:
         st.markdown('### 🏙️ SÃO PAULO (SP)')
         for nome in nomes_na_base:
-            # Se estiver na lista de SP, é SP
             if nome.upper() in [n.upper() for n in TECNICOS_SP]:
                 st.markdown(f'🏃‍♂️ {nome}')
 else:
