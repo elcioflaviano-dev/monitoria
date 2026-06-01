@@ -9,23 +9,35 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
     df = st.session_state['df_rota_ativa']
     
     # Filtro: Na Base + Pendente
-    df_tela = df[
-        (df['Tipo de Atividade.1'].str.contains('NA BASE', na=False, case=False)) & 
-        (df['Status da Atividade'].str.contains('PENDENTE', na=False, case=False))
-    ].copy()
+    # Garantimos que as colunas existam antes de filtrar
+    if 'Tipo de Atividade.1' in df.columns and 'Status da Atividade' in df.columns:
+        df_tela = df[
+            (df['Tipo de Atividade.1'].astype(str).str.contains('NA BASE', na=False, case=False)) & 
+            (df['Status da Atividade'].astype(str).str.contains('PENDENTE', na=False, case=False))
+        ].copy()
+    else:
+        df_tela = pd.DataFrame()
 
     nomes_na_base = sorted(df_tela['Recurso'].unique().tolist())
 
-    # 1. Múltipla seleção para SP
+    # Lógica para resetar a seleção se a lista de nomes mudar (nova rota carregada)
+    if "ultima_lista_nomes" not in st.session_state or st.session_state["ultima_lista_nomes"] != nomes_na_base:
+        st.session_state["selecionados_sp"] = []
+        st.session_state["ultima_lista_nomes"] = nomes_na_base
+
+    # Múltipla seleção com callback para salvar no state
     st.markdown("### 🛠️ Configuração de Base")
     tecnicos_sp_selecionados = st.multiselect(
         "Selecione os técnicos que pertencem a SÃO PAULO (SP):",
         options=nomes_na_base,
-        default=st.session_state.get("selecionados_sp", [])
+        default=st.session_state["selecionados_sp"],
+        key="selector_sp"
     )
+    
+    # Atualiza o estado
     st.session_state["selecionados_sp"] = tecnicos_sp_selecionados
 
-    # 2. Exibição dividida
+    # Exibição dividida
     col1, col2 = st.columns(2)
     
     with col1:
