@@ -26,13 +26,15 @@ if time.time() - st.session_state["last_refresh_ativar"] > 30:
     st.session_state["last_refresh_ativar"] = time.time()
     st.rerun()
 
-# 🔄 HERANÇA INTELIGENTE: Puxa o arquivo carregado na Home
+# 🔄 HERANÇA ESTÁVEL DO DISCO (Força a leitura direta do arquivo físico da Home)
 df_master = None
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
         df_master = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     except:
         pass
+elif 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+    df_master = st.session_state['df_rota_ativa'].copy()
 
 # =============================================================================
 # 📋 TABELA MATRIZ PARA O PROCV INTERNO
@@ -66,34 +68,32 @@ df_ativar = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Padroniza as colunas removendo espaços
+    # Remove espaços ocultos das colunas do Excel
     df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
+    # Localiza as colunas exatas do print do Excel
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
-    col_status = 'Status da Atividade' if 'Status da Atividade' in df_temp.columns else 'STATUS_ATIVIDADE'
+    col_status = 'Status da Atividade' if 'Status da Atividade' in df_temp.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else df_temp.columns[3])
     col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[-1]
 
-    # Força a limpeza absoluta das strings para evitar falhas de espaços ocultos
-    df_temp['STATUS_CONVERSAO'] = df_temp[col_status].fillna('').astype(str).str.upper().str.strip()
-    df_temp['TIPO_CONVERSAO'] = df_temp[col_tipo].fillna('').astype(str).str.upper().str.strip()
+    # Cria cópias limpas e padronizadas em maiúsculo para tratamento do Pandas
+    df_temp['ST_LIMP'] = df_temp[col_status].fillna('').astype(str).str.upper().str.strip()
+    df_temp['TP_LIMP'] = df_temp[col_tipo].fillna('').astype(str).str.upper().str.strip()
 
-    # 🔥 PASSO DA REVOLUÇÃO: Filtra primeiro na raiz e elimina duplicados de OS antes do Procv
-    df_base_linhas = df_temp[df_temp['TIPO_CONVERSAO'].str.contains("BASE", na=False)].copy()
-    df_pendentes_reais = df_base_linhas[df_base_linhas['STATUS_CONVERSAO'].str.contains("PEND", na=False)].copy()
+    # 1. Filtra primeiro as linhas que possuem "BASE" no tipo e "PEND" no status
+    df_base_linhas = df_temp[df_temp['TP_LIMP'].str.contains("BASE", na=False)].copy()
+    df_pendentes_reais = df_base_linhas[df_base_linhas['ST_LIMP'].str.contains("PEND", na=False)].copy()
 
     if not df_pendentes_reais.empty:
-        # Remove redundâncias de linhas do mesmo técnico no Na Base
+        # 2. Elimina as redundâncias de linhas extras de ordens de serviço
         df_pendentes_reais = df_pendentes_reais.drop_duplicates(subset=[col_recurso])
 
-        lista_recurso = [str(x).strip() for x in df_pendentes_reais[col_recurso].tolist()]
-        lista_status_at = [str(x) for x in df_pendentes_reais['STATUS_CONVERSAO'].tolist()]
-
         df_ativar = pd.DataFrame({
-            'Recurso_Original': lista_recurso,
-            'Status_Conclusao_Upper': lista_status_at
+            'Recurso_Original': [str(x).strip() for x in df_pendentes_reais[col_recurso].tolist()],
+            'Status_Conclusao_Upper': [str(x) for x in df_pendentes_reais['ST_LIMP'].tolist()]
         })
         
-        # Aplica o PROCV por substring
+        # Executa o PROCV inteligente por substring
         logins_calculados = []
         supervisores_calculados = []
         
@@ -105,9 +105,9 @@ if df_master is not None and not df_master.empty:
         df_ativar['SUPERVISOR'] = supervisores_calculados
         df_ativar['Login_Final'] = logins_calculados
 
-# --- SUBTÍTULO ---
-if df_ativar is not None:
-    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 PROCV por Substring Ativo • Filtrando Estritamente O Status Pendente</div>', unsafe_allow_html=True)
+# --- SUBTÍTULO DE MONITORAMENTO ---
+if df_master is not None and not df_master.empty:
+    st.markdown(f'<div style="text-align: center; color: #555; font-size: 13px; font-weight: bold; margin-bottom: 20px;">🔄 Arquivo de Rota Identificado • PROCV Ativo por Substring</div>', unsafe_allow_html=True)
 else:
     st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 13px; font-weight: bold; margin-bottom: 20px;">⚠️ Aguardando o arquivo de rota na Página Inicial.</div>', unsafe_allow_html=True)
 
@@ -118,15 +118,15 @@ def destacar_linha_total(row):
     except: pass
     return [''] * len(row)
 
-# --- RENDEREZACAO NA MONITORIA DA LARGADA ---
+# --- RENDERIZAÇÃO NA TELA ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # Agrupa de forma limpa para exibição na tabela da TV
+    # Agrupa e organiza os dados finais
     df_lista = df_ativar.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
     df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Login_Final': 'Login', 'Recurso_Original': 'Técnico Pendente'})
     df_lista = df_lista[['Supervisor', 'Login', 'Técnico Pendente']]
 
-    # Divisão regional estável baseada nos supervisores
+    # Divisão regional
     df_sp = df_lista[df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_lista[~df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
@@ -158,5 +158,5 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         st.success("✅ 100% da equipe SP realizou a largada do 'Na Base'!")
 else:
-    # Se a lista estiver vazia após o tratamento correto
-    st.success("✅ 100% dos técnicos realizaram a largada matinal com sucesso!")
+    if df_master is not None and not df_master.empty:
+        st.success("✅ 100% dos técnicos realizaram a largada matinal com sucesso!")
