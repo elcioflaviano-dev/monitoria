@@ -69,11 +69,23 @@ if df_master is not None and not df_master.empty:
             try:
                 partes = janela_str.replace(':', '').split('-')
                 return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
-            except: return 24
+           # === PADRONIZAÇÃO RÍGIDA DE SUPERVISORES ===
+    def padronizar_supervisor(nome):
+        nome = str(nome).upper().strip()
+        # Se for Alan ou Francisco, é SP.
+        if 'ALAN' in nome or 'FRANCISCO' in nome:
+            return 'SP'
+        # Se for Maicon, Nelson ou Marcos Roberto, é ABC.
+        elif 'MAICON' in nome or 'NELSON' in nome or 'MARCOS' in nome:
+            return 'ABC'
+        # Fallback (caso o nome venha estranho, joga no ABC por segurança)
+        return 'ABC'
 
-        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
-        
-        if hora_atual < 12:
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].apply(padronizar_supervisor)
+    
+    # Agora a divisão é garantida:
+    df_sp = df_tela[df_tela['SUPERVISOR_MOSTRAR'] == 'SP'].copy()
+    df_abc = df_tela[df_tela['SUPERVISOR_MOSTRAR'] == 'ABC'].copy()
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
             texto_status_janela = "Exibindo Manhã (Janelas até 11:00 e 12:00)"
         elif 12 <= hora_atual < 15:
