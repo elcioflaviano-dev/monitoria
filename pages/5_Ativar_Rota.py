@@ -1,37 +1,41 @@
 import streamlit as st
 import pandas as pd
+import os  # <--- A IMPORTAÇÃO QUE FALTAVA
 
 st.set_page_config(layout="wide")
 
-# 1. CARREGAR DADOS
+# 1. Carrega os dados da Rota (que já estão na memória)
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     df_rota = st.session_state['df_rota_ativa']
     
-    # Suponha que você tenha um arquivo 'funcionarios.csv' com colunas ['NOME', 'SUPERVISOR']
-    # Se não tiver, precisamos carregar essa lista de alguma forma. 
-    # Vou assumir que você tem um CSV com a referência.
+    # 2. Carrega a lista de Funcionários
+    # Se o arquivo não existir, criamos um DataFrame vazio para não travar o app
     if os.path.exists("funcionarios.csv"):
-        df_func = pd.read_csv("funcionarios.csv")
+        df_func = pd.read_csv("funcionarios.csv", dtype=str)
     else:
-        st.error("⚠️ Preciso do arquivo 'funcionarios.csv' para fazer o PROCV. Suba ele na página inicial!")
-        st.stop()
+        st.warning("⚠️ Arquivo 'funcionarios.csv' não encontrado. Não será possível filtrar por Supervisor.")
+        df_func = pd.DataFrame(columns=['NOME', 'SUPERVISOR'])
 
-    # 2. FILTRO BASE + PENDENTE
+    # 3. Filtro Base + Pendente
     df_tela = df_rota[
         (df_rota['Tipo de Atividade.1'].str.contains('NA BASE', na=False, case=False)) & 
         (df_rota['Status da Atividade'].str.contains('PENDENTE', na=False, case=False))
     ].copy()
 
-    # 3. O "PROCV" (Merge)
-    # Amarra o Nome do Técnico da Rota com o Nome na Planilha de Funcionários
-    df_final = df_tela.merge(df_func, left_on='Recurso', right_on='NOME', how='left')
+    # 4. Cruzamento (PROCV)
+    # Se tivermos dados de funcionários, fazemos o merge
+    if not df_func.empty:
+        df_final = df_tela.merge(df_func, left_on='Recurso', right_on='NOME', how='left')
+    else:
+        df_final = df_tela.copy()
+        df_final['SUPERVISOR'] = 'N/A'
 
-    # 4. EXIBIÇÃO SEPARADA
+    # 5. Exibição
     st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
-    # Filtro de SP (Alan e Francisco)
+    # Filtro: Se for Alan ou Francisco, é SP. Senão, é ABC.
     sp_mask = df_final['SUPERVISOR'].str.contains('ALAN|FRANCISCO', na=False, case=False)
     
     with col1:
@@ -45,4 +49,4 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
             st.markdown(f'🏃‍♂️ {nome}')
 
 else:
-    st.error("⚠️ Nenhum dado de rota carregado.")
+    st.error("⚠️ Nenhum dado de rota carregado. Vá na página inicial e suba o arquivo.")
