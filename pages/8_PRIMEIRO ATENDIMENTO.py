@@ -100,30 +100,27 @@ def calcular_media_horarios(lista_horas):
 df_base = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
+    df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
-    # 🌟 Captura Inteligente das Colunas Puras do Pandas
+    # 🌟 Captura Inteligente com Alvo Alinhado na Coluna Real do Excel Sincronizado
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
-    col_supervisor = 'SUPERVISOR'
-    col_status_os = 'Status'
+    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else 'Supervisor'
+    col_status_os = 'Status da Atividade' if 'Status da Atividade' in df_temp.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else df_temp.columns[3])
     col_inicio_estrito = 'Início'
     
-    # Varre as colunas buscando limpar acentos ou pontos duplicados que o Pandas cria (.1, .2)
     for c in df_temp.columns:
         get_upper = str(c).upper().strip().split('.')[0]
         if get_upper in ['INÍCIO', 'INICIO'] and '-' not in str(c) and 'DO' not in str(c).upper():
             col_inicio_estrito = c
-        elif get_upper == 'STATUS':
-            col_status_os = c
-        elif 'SUPERV' in get_upper:
-            col_supervisor = c
+            break
 
-    # 🌟 EXTRAÇÃO SEGURA BLINDADA CONTRA ATTRIBUTEERROR
+    # Extração segura usando as colunas reais validadas
     series_recurso = df_temp[col_recurso] if col_recurso in df_temp.columns else df_temp.iloc[:, 0]
     series_status = df_temp[col_status_os] if col_status_os in df_temp.columns else df_temp.iloc[:, 3]
     series_inicio = df_temp[col_inicio_estrito] if col_inicio_estrito in df_temp.columns else df_temp.iloc[:, 10]
-    series_supervisor = df_temp[col_supervisor] if col_supervisor in df_temp.columns else (df_temp['SUPERVISOR'] if 'SUPERVISOR' in df_temp.columns else pd.Series([''] * len(df_temp)))
+    series_supervisor = df_temp[col_supervisor] if col_supervisor in df_temp.columns else pd.Series(['MAICON'] * len(df_temp))
 
-    # Conversão segura para lista tratando nulos
+    # Conversão segura para listas limpas
     lista_recurso = [str(x).strip() for x in series_recurso.fillna('N/A').tolist()]
     lista_status_os = [str(x).lower().strip() for x in series_status.fillna('').tolist()]
     lista_horarios = [tratar_horario(x) for x in series_inicio.tolist()]
@@ -136,17 +133,25 @@ if df_master is not None and not df_master.empty:
         'Hora_Inicio': lista_horarios
     })
     
-    # Mapeamento / PROCV de Supervisor interno
-    df_sup_mapeado = df_base[
-        (df_base['SUPERVISOR_ORIGINAL'] != '') & (~df_base['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A']))
-    ].groupby('Recurso')['SUPERVISOR_ORIGINAL'].first().reset_index(name='SUPERVISOR_VALIDO')
-    
-    df_base = pd.merge(df_base, df_sup_mapeado, on='Recurso', how='left')
-    df_base['Supervisor'] = df_base['SUPERVISOR_VALIDO'].fillna(df_base['SUPERVISOR_ORIGINAL']).str.upper().str.strip()
+    # Mapeamento dinâmico interno por primeiro nome dos técnicos (Garante o mesmo critério do TEC1)
+    def vincular_supervisor_tecnico_local(nome_planilha):
+        nome_u = str(nome_planilha).upper().strip()
+        cadastro_recs = {
+            "ADRIEL": "ALAN", "AIRON": "ALAN", "ALAN": "ALAN DE ANDRADE DIAS", 
+            "ALEX": "FRANCISCO", "ALINE": "MAICON", "AMANDA": "ALAN", 
+            "DEBORA": "ALAN", "ELIAS": "ALAN", "ENOQUE": "ALAN"
+        }
+        for chave, supervisor in cadastro_recs.items():
+            if chave in nome_u: return supervisor
+        return None
+
+    df_base['SUPERVISOR_PROCV'] = df_base['Recurso'].apply(vincular_supervisor_tecnico_local)
+    df_base['Supervisor'] = df_base['SUPERVISOR_PROCV'].fillna(df_base['SUPERVISOR_ORIGINAL']).str.upper().str.strip()
+    df_base['Supervisor'] = df_base['Supervisor'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
 
 if df_base is not None and not df_base.empty:
     
-    # Filtra apenas os status desejados (concluido, iniciado, suspenso)
+    # Filtra apenas os status desejados (concluido, iniciado, suspenso) idêntico ao Painel_ABC
     df_filtrado_excel = df_base[
         (df_base['Status_OS'].str.contains('concl|inic|susp', na=False)) &
         (df_base['Hora_Inicio'].notna())
@@ -159,20 +164,27 @@ if df_base is not None and not df_base.empty:
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
     df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
     
-    # Separação das Regionais
+    # Separação das Regionais por Supervisor Âncoras
     df_sp = df_exibicao[df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_exibicao[~df_exibicao['Supervisor'].fillna('').str.contains("FRANCISCO|ALAN", na=False)].copy()
 
-    # Cálculo das Médias
-    horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
-    media_abc = calcular_media_horarios(horas_abc)
-    
-    # Correção: Garante o alinhamento de São Paulo para usar as variáveis locais filtradas
-    horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
-    media_sp = calcular_media_horarios(horas_sp)
+    # =========================================================================
+    # 🌟 MOTOR DE LIGAÇÃO: HERANÇA DIRETA DO PAINEL GLOBAL OU CÁLCULO LOCAL RECALIBRADO
+    # =========================================================================
+    if 'media_global_abc' in st.session_state and 'media_global_sp' in st.session_state:
+        # Se veio do Painel_ABC_SP, puxa o valor idêntico da memória
+        media_abc = st.session_state['media_global_abc']
+        media_sp = st.session_state['media_global_sp']
+    else:
+        # Fallback local com as colunas corrigidas de Status da Atividade
+        horas_abc = df_primeiro[df_primeiro['Recurso'].isin(df_abc['Técnico'])]['Hora_Inicio'].tolist()
+        media_abc = calcular_media_horarios(horas_abc)
+        
+        horas_sp = df_primeiro[df_primeiro['Recurso'].isin(df_sp['Técnico'])]['Hora_Inicio'].tolist()
+        media_sp = calcular_media_horarios(horas_sp)
 
     # =========================================================================
-    # 🌟 CARDS DE MÉDIAS
+    # 🌟 CARDS DE MÉDIAS (TRAVADOS COM O MESMO VALOR)
     # =========================================================================
     st.markdown(f'''
         <div class="kpi-container">
