@@ -86,19 +86,6 @@ st.markdown(f'''
     </div>
 ''', unsafe_allow_html=True)
 
-# 📋 MATRIZ DE DE-PARA UNIFICADA PARA OS SUPERVISORES
-def vincular_supervisor_tecnico(nome_planilha):
-    nome_u = str(nome_planilha).upper().strip()
-    cadastro_recs = {
-        "ADRIEL": "ALAN", "AIRON": "ALAN", "ALAN": "ALAN DE ANDRADE DIAS", 
-        "ALEX": "FRANCISCO", "ALINE": "MAICON", "AMANDA": "ALAN", 
-        "DEBORA": "ALAN", "ELIAS": "ALAN", "ENOQUE": "ALAN"
-    }
-    for chave, supervisor in cadastro_recs.items():
-        if chave in nome_u: 
-            return supervisor
-    return "MAICON"
-
 # =============================================================================
 # LÓGICA COLETIVA DE DADOS SINCRONIZADA
 # =============================================================================
@@ -106,7 +93,6 @@ if df_master is not None and not df_master.empty:
     df = df_master.copy()
     df.columns = [str(c).strip() for c in df.columns]
     
-    # Mapeamento dinâmico baseado nas colunas reais da planilha do seu Excel
     col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
@@ -130,16 +116,46 @@ if df_master is not None and not df_master.empty:
     # Base unificada de ativos (Exibe tudo o que for válido operativamente no dia)
     df_tela = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
 
-    # Aplica a regra inteligente de supervisors por nome
-    df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_tecnico_check].apply(vincular_supervisor_tecnico)
+    # Puxa o supervisor original se ele existir e for válido
+    if 'SUPERVISOR' in df_tela.columns:
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip()
+    else:
+        df_tela['SUPERVISOR_MOSTRAR'] = ''
 
+    # 🔥 NOVO MOTOR UNIFICADO E EXPANDIDO (IDÊNTICO ÀS OUTRAS TELAS) 🔥
+    def vincular_supervisor_tecnico(row):
+        nome_u = str(row[col_tecnico_check]).upper().strip()
+        sup_orig = str(row['SUPERVISOR_MOSTRAR'])
+        
+        # Se o Excel já trouxe o supervisor da Home correto, mantém ele!
+        if "FRANCISCO" in sup_orig: return "FRANCISCO"
+        if "ALAN" in sup_orig: return "ALAN"
+        if "MAICON" in sup_orig: return "MAICON"
+        if "NELSON" in sup_orig: return "NELSON"
+        if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
+
+        # Fallback inteligente por primeiro nome do técnico
+        if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
+            return "ALAN"
+        if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
+            return "FRANCISCO"
+        if "MARCOS" in nome_u: 
+            return "MARCOS ROBERTO"
+        if "NELSON" in nome_u: 
+            return "NELSON"
+            
+        return "MAICON"
+
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
+
+    # Divisão regional estável usando os supervisores como âncora
     cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
     df_sp = df_tela[cond_sp].copy()
     df_abc = df_tela[~cond_sp].copy()
 
-    # =========================================================================
-    # 📺 TELA 1: TEC1 OPERACIONAL
-    # =========================================================================
+    # ==========================================
+    # 📊 TELA 1: TEC1 OPERACIONAL
+    # ==========================================
     if painel_atual == "TEC1_OPERACIONAL":
         st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #006677; text-align: center; margin-bottom: 15px;">📊 TEC1 OPERACIONAL</h1>', unsafe_allow_html=True)
         
@@ -174,13 +190,13 @@ if df_master is not None and not df_master.empty:
                         with m3: st.metric(label="🟢 INICIADO", value=i)
             else: st.info("Nenhum contrato ativo para SP nesta janela.")
 
-    # =========================================================================
+    # ==========================================
     # 📺 TELA 2: TEC1 PENDENTES
-    # =========================================================================
+    # ==========================================
     elif painel_atual == "TEC1_PENDENTES":
         st.markdown('<h1 style="font-size: 32px; font-weight: 900; color: #cc6600; text-align: center; margin-bottom: 15px;">⏳ TEC1 CONTRATOS PENDENTES</h1>', unsafe_allow_html=True)
         
-        # Filtra estritamente as linhas onde a contagem de pendente é maior que zero
+        # Filtra as linhas onde a contagem de pendente é maior que zero
         df_abc_p = df_abc[df_abc['P_COUNT'] > 0].copy()
         df_sp_p = df_sp[df_sp['P_COUNT'] > 0].copy()
 
