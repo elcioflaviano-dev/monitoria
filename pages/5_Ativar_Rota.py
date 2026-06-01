@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import time
+from datetime import datetime
 
 # 1. Configuração da página ampla
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -34,26 +35,22 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
         pass
 
 # =============================================================================
-# 📋 TABELA MATRIZ PARA O PROCV INTERNO (Adicione ou altere os técnicos aqui)
+# 📋 TABELA MATRIZ PARA O PROCV INTERNO
 # =============================================================================
 @st.cache_data
-def obter_matriz_procv():
-    # Cadastro de referência: Nome do Técnico -> Login e Supervisor correspondente
+def obtener_matriz_procv():
     dados_cadastro = {
         "RECURSO_NOME": [
             "MAICON", "MARCOS ROBERTO", "NELSON", 
-            "ALAN DE ANDRADE DIAS", "FRANCISCO GERALDO CARVALHO JUNIOR",
-            "ADRIEL", "AIRON HE", "ALAN ROB", "ALEX BER", "ALINE CAI", "AMANDA", "ANA LUIS"
+            "ALAN DE ANDRADE DIAS", "FRANCISCO GERALDO CARVALHO JUNIOR"
         ],
         "LOGIN_PROCV": [
             "L_MAICON", "L_MARCOS", "L_NELSON", 
-            "L_ALAN_DIAS", "L_FRANCISCO",
-            "L_ADRIEL", "L_AIRON", "L_ALAN_R", "L_ALEX", "L_ALINE", "L_AMANDA", "L_ANA"
+            "L_ALAN_DIAS", "L_FRANCISCO"
         ],
         "SUPERVISOR_PROCV": [
             "MAICON SUPERVISOR", "MARCOS SUPERVISOR", "NELSON SUPERVISOR", 
-            "ALAN", "FRANCISCO",
-            "ABC_SUPERV", "ABC_SUPERV", "ABC_SUPERV", "SP_SUPERV", "SP_SUPERV", "ALAN", "FRANCISCO"
+            "ALAN", "FRANCISCO"
         ]
     }
     return pd.DataFrame(dados_cadastro)
@@ -61,37 +58,52 @@ def obter_matriz_procv():
 df_ativar = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
-    df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
-    # Identifica as colunas com base no seu print real
-    col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
-    col_status = 'Status' if 'Status' in df_temp.columns else 'Status'
+    # 🛠️ PASSO CRÍTICO: Limpa os nomes de todas as colunas tirando espaços e deixando em MAIÚSCULO
+    df_temp.columns = [str(c).upper().strip() for c in df_temp.columns]
     
+    # Mapeamento dinâmico e inteligente por palavra-chave para evitar KEYERROR
+    col_recurso = None
+    col_status = None
     col_tipo = None
+
     for c in df_temp.columns:
-        if 'TIPO' in str(c).upper(): col_tipo = c; break
+        if 'RECURSO' in c or 'TECNICO' in c or 'NOME' in c:
+            col_recurso = c
+        if 'STATUS' in c:
+            col_status = c
+        if 'TIPO' in c or 'ATIVIDADE' in c:
+            col_tipo = c
+
+    # Fallbacks de segurança extrema caso as palavras-chave falhem completamente
+    if not col_recurso: col_recurso = df_temp.columns[0]
+    if not col_status: col_status = df_temp.columns[3] if len(df_temp.columns) > 3 else df_temp.columns[0]
     if not col_tipo: col_tipo = df_temp.columns[-1]
 
-    # Cria a estrutura base com tratamento de maiúsculas para o PROCV bater certinho
+    # Extrai as listas usando os cabeçalhos dinâmicos mapeados com segurança
+    lista_recurso = [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()]
+    lista_tipo_ativ = [str(x).upper().strip() for x in df_temp[col_tipo].fillna('').tolist()]
+    lista_status_at = [str(x).upper().strip() for x in df_temp[col_status].fillna('').tolist()]
+
+    # Monta a estrutura base limpa para a tela
     df_base = pd.DataFrame({
-        'Recurso_Original': [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()],
-        'Tipo_Atividade_Upper': [str(x).upper().strip() for x in df_temp[col_tipo].fillna('').tolist()],
-        'Status_Conclusao_Upper': [str(x).upper().strip() for x in df_temp[col_status].fillna('').tolist()]
+        'Recurso_Original': lista_recurso,
+        'Tipo_Atividade_Upper': lista_tipo_ativ,
+        'Status_Conclusao_Upper': lista_status_at
     })
     
-    # Cria uma coluna limpa (sem o código de data se houver) para bater com a matriz do PROCV
-    # Exemplo: Se vier "ADRIEL 01/06/26", limpa para buscar apenas por "ADRIEL"
+    # Limpa o nome do técnico para fazer a busca do PROCV (Ex: "ADRIEL 01/06" vira "ADRIEL")
     df_base['Chave_Busca'] = df_base['Recurso_Original'].str.split().str[0].str.upper().str.strip()
     
-    # Carrega a matriz do PROCV e faz o cruzamento de dados (Merge)
-    df_matriz = obter_matriz_procv()
+    # Executa o PROCV na nossa tabela interna
+    df_matriz = obtener_matriz_procv()
     df_matriz['Chave_Busca'] = df_matriz['RECURSO_NOME'].str.upper().str.strip()
     
     df_ativar = pd.merge(df_base, df_matriz, on='Chave_Busca', how='left')
     
-    # Define os valores finais tratados pelo PROCV interno
-    df_ativar['SUPERVISOR'] = df_ativar['SUPERVISOR_PROCV'].fillna('SEM SUPERVISOR CADASTRADO').str.upper()
-    df_ativar['Login_Final'] = df_ativar['LOGIN_PROCV'].fillna('NÃO ENCONTRADO')
+    # Preenche com valores padrão se o técnico não estiver cadastrado no dicionário acima
+    df_ativar['SUPERVISOR'] = df_ativar['SUPERVISOR_PROCV'].fillna('ABC_GERAL').str.upper()
+    df_ativar['Login_Final'] = df_ativar['LOGIN_PROCV'].fillna('-')
 
 # --- SUBTÍTULO ---
 if df_ativar is not None:
@@ -122,7 +134,7 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         df_lista = pd.DataFrame(columns=['Supervisor', 'Login', 'Técnico Pendente'])
 
-    # Divisão regional inteligente baseada no supervisor trazido pelo PROCV
+    # Divisão regional estável baseada no supervisor trazido pelo PROCV
     df_sp = df_lista[df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_lista[~df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
