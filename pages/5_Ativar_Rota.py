@@ -8,99 +8,63 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
+# 🔄 HERANÇA INTELIGENTE
 if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
     try: 
         st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     except: 
         pass
 
-# 🚀 REFRESH AUTOMÁTICO PARA A TV (30 Segundos)
-if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
-    if "last_refresh_ativar" not in st.session_state: 
-        st.session_state["last_refresh_ativar"] = time.time()
-    if time.time() - st.session_state["last_refresh_ativar"] > 30:
-        st.session_state["last_refresh_ativar"] = time.time()
-        st.rerun()
-
 st.markdown("""
     <style>
-        .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
-        .stDeployButton { display:none; }
-        .title-abc-sp { font-size: 26px !important; font-weight: 800 !important; margin-bottom: 15px !important; text-align: center; color: #005088; border-bottom: 3px solid #008080; padding-bottom: 5px; }
-        .item-linha-tec { font-size: 20px; padding: 10px 15px; border-bottom: 1px solid #eee; color: #111; font-family: sans-serif; }
-        .item-nome-tecnico { font-weight: 900; color: #008080; }
-        .item-janela-tec { float: right; font-size: 16px; background-color: #e0f2f1; color: #004d40; padding: 2px 10px; border-radius: 4px; font-weight: bold; }
+        .title-abc-sp { font-size: 26px !important; font-weight: 800 !important; color: #005088; text-align: center; border-bottom: 3px solid #008080; }
+        .item-linha-tec { font-size: 20px; padding: 10px 15px; border-bottom: 1px solid #eee; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #008080; text-align: center; margin-top: 5px; margin-bottom: 25px;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
 df_master = st.session_state.get('df_rota_ativa', None)
 
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # Colunas Fixas conforme sua planilha
-    col_tecnico_check = 'Login do Técnico'
-    col_status_real = 'Status da Atividade'
-    col_tipo_real = 'Tipo de Atividade.1' # <-- AQUI ESTÁ A COLUNA CORRETA (com .1)
-    col_supervisor = 'SUPERVISOR'
-    col_janela = 'Janela de Serviço'
+    # Índice das colunas baseado na sua foto:
+    # 3: 'Login do Técnico'
+    # 4: 'Status da Atividade'
+    # 13: 'Janela de Serviço'
+    # 23: 'Tipo de Atividade.1' (Coluna do 'Na Base')
+    # 119: 'SUPERVISOR'
     
-    # Remove linhas com técnicos inválidos
-    df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+    # Criamos um DataFrame limpo apenas com as colunas que importam pelo índice
+    df_clean = df.iloc[:, [3, 4, 13, 23, 119]].copy()
+    df_clean.columns = ['LOGIN', 'STATUS', 'JANELA', 'TIPO', 'SUPERVISOR']
     
-    # Filtro: Tipo de Atividade.1 deve ser "Na Base" E Status ser "pendente"
-    # Usamos case=False para ignorar maiúsculas/minúsculas
-    condicao_base = df[col_tipo_real].fillna('').astype(str).str.contains('Na Base', case=False, na=False)
-    condicao_status = df[col_status_real].fillna('').astype(str).str.contains('pendente', case=False, na=False)
-    
-    df_tela = df[condicao_base & condicao_status].copy()
+    # 🔥 FILTRO BRUTO E FORÇADO
+    # Procura 'NA BASE' em TIPO e 'PENDENTE' em STATUS (case insensitive)
+    df_tela = df_clean[
+        df_clean['TIPO'].str.contains('NA BASE', case=False, na=False) & 
+        df_clean['STATUS'].str.contains('PENDENTE', case=False, na=False)
+    ].copy()
 
     if df_tela.empty:
-        st.markdown("<br><br>", unsafe_allow_html=True)
         st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente.")
     else:
-        # Padronização de Supervisores
-        df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
-        df_tela['SUP_REF'] = df_tela['SUP_REF'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('FRANCISCO' if 'FRANCISCO' in str(x) else x))
-
-        # Divisão Regional
-        cond_sp = df_tela['SUP_REF'].str.contains('FRANCISCO|ALAN', na=False)
-        df_sp = df_tela[cond_sp].copy()
-        df_abc = df_tela[~cond_sp].copy()
-
-        col_coluna_abc, col_coluna_sp = st.columns(2)
+        # Lógica de divisão regional (Guarulhos/ABC ou SP)
+        df_tela['SUP'] = df_tela['SUPERVISOR'].fillna('MAICON').str.upper()
         
-        with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
-            if not df_abc.empty:
-                df_abc_limpo = df_abc.drop_duplicates(subset=[col_tecnico_check])
-                for _, linha in df_abc_limpo.iterrows():
-                    janela_texto = linha.get(col_janela, "N/A")
-                    st.markdown(f'''
-                        <div class="item-linha-tec">
-                            🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
-                            <span class="item-janela-tec">Janela: {janela_texto}</span>
-                        </div>
-                    ''', unsafe_allow_html=True)
-            else: 
-                st.info("Nenhum técnico retido.")
+        cond_sp = df_tela['SUP'].str.contains('FRANCISCO|ALAN', na=False)
+        df_sp = df_tela[cond_sp].drop_duplicates(subset=['LOGIN'])
+        df_abc = df_tela[~cond_sp].drop_duplicates(subset=['LOGIN'])
 
-        with col_coluna_sp:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
+            for _, row in df_abc.iterrows():
+                st.markdown(f'<div class="item-linha-tec">🏃‍♂️ <b>{row["LOGIN"]}</b> <span style="float:right">Janela: {row["JANELA"]}</span></div>', unsafe_allow_html=True)
+        with col2:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
-            if not df_sp.empty:
-                df_sp_limpo = df_sp.drop_duplicates(subset=[col_tecnico_check])
-                for _, linha in df_sp_limpo.iterrows():
-                    janela_texto = linha.get(col_janela, "N/A")
-                    st.markdown(f'''
-                        <div class="item-linha-tec">
-                            🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
-                            <span class="item-janela-tec">Janela: {janela_texto}</span>
-                        </div>
-                    ''', unsafe_allow_html=True)
-            else: 
-                st.info("Nenhum técnico retido.")
+            for _, row in df_sp.iterrows():
+                st.markdown(f'<div class="item-linha-tec">🏃‍♂️ <b>{row["LOGIN"]}</b> <span style="float:right">Janela: {row["JANELA"]}</span></div>', unsafe_allow_html=True)
 else: 
-    st.warning("👈 Por favor, insira os arquivos de rota na página inicial primeiro.")
+    st.warning("👈 Por favor, insira os arquivos de rota.")
