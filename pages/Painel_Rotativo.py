@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-import time
 from datetime import datetime, timedelta
 
 # 1. Configuração da página ampla para a TV
@@ -18,26 +17,13 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# 🔥 MOTOR DE CONTROLE DE TEMPO INTERNO
-if "last_rotacao_time" not in st.session_state:
-    st.session_state["last_rotacao_time"] = time.time()
+# 🔥 MOTOR DE CONTROLE DO CARROSSEL POR SESSÃO STABLE 🔥
+SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
 
 if "index_supervisor_tv" not in st.session_state:
     st.session_state["index_supervisor_tv"] = 0
 
-SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
-
-# Flag para sabermos se mudou de tela e precisamos falar
-if "precisa_falar" not in st.session_state:
-    st.session_state["precisa_falar"] = True
-
-# Verifica se passou o tempo para avançar o supervisor
-if time.time() - st.session_state["last_rotacao_time"] > TEMPO_ROTACAO_SEGUNDOS:
-    st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
-    st.session_state["last_rotacao_time"] = time.time()
-    st.session_state["precisa_falar"] = True  # Ativa o gatilho da fala para a nova tela
-    st.rerun()
-
+# Captura o supervisor atual antes de incrementar o índice para a próxima rodada
 supervisor_atual = SUPERVISORES_CICLO[st.session_state["index_supervisor_tv"]]
 
 # 🔥 INJEÇÃO DE CSS AGRESSIVA (SOME COM O MENU LATERAL DE VEZ)
@@ -95,7 +81,7 @@ st.markdown(f'''
             <a href="/" target="_self" class="btn-voltar-home">🏠 VOLTAR PARA A HOME</a>
             <span style="margin-left: 15px;">📺 CARROSSEL AUDIOFALANTE • EQUIPE ATUAL: <b style="color: #ff9800; font-size: 15px;">{supervisor_atual}</b></span>
         </div>
-        <span>🔄 Troca Automática Ativa (15s por Equipe)</span>
+        <span>🔄 Próximo giro automático em {TEMPO_ROTACAO_SEGUNDOS}s</span>
     </div>
 ''', unsafe_allow_html=True)
 
@@ -187,38 +173,21 @@ if df_master is not None and not df_master.empty:
         with c_kpi2:
             st.markdown(f'<div class="card-meta-tv rota"><div class="card-meta-label">🟣 TÉCNICOS EM ROTA</div><div class="card-meta-value">{r_total}</div></div>', unsafe_allow_html=True)
         with c_kpi3:
-            st.markdown(f'<div class="card-meta-tv localizado iniciado"><div class="card-meta-label">🟢 ATENDIMENTOS INICIADOS</div><div class="card-meta-value">{i_total}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="card-meta-tv iniciado"><div class="card-meta-label">🟢 ATENDIMENTOS INICIADOS</div><div class="card-meta-value">{i_total}</div></div>', unsafe_allow_html=True)
             
-        # 🔥 MOTOR DE TEXTO PARA VOZ (SINTETIZADOR JAVASCRIPT EM PORTUGUÊS) 🔥
-        if st.session_state["precisa_falar"]:
-            frase_narracao = f"Téc um {texto_audio_janela}. Supervisor {supervisor_atual.lower()}, possui {p_total} pendentes, {r_total} em rota, e {i_total} iniciados."
-            
-            # Código JS injetado para falar usando a voz nativa do navegador da TV
-            st.markdown(f"""
-                <script>
-                    var msg = new SpeechSynthesisUtterance();
-                    msg.text = "{frase_narracao}";
-                    msg.lang = "pt-BR";
-                    msg.rate = 1.0;  // Velocidade normal da fala
-                    msg.pitch = 1.0; // Tom da voz
-                    window.speechSynthesis.speak(msg);
-                </script>
-            """, unsafe_allow_html=True)
-            
-            # Bloqueia a fala para não ficar repetindo até que mude de supervisor
-            st.session_state["precisa_falar"] = False
-
         st.markdown("<br><hr style='border-color:#ccc; margin-bottom:15px;'><br>", unsafe_allow_html=True)
 
-        # ⏳ LISTAGEM DOS CONTRATOS PENDENTES
+        # ⏳ LISTAGEM DOS CONTRATOS PENDENTES - CORREÇÃO DA DUPLICIDADE
         df_pendentes_lista = df_supervisor_atual[df_supervisor_atual['P_COUNT'] > 0].copy()
         st.markdown(f'<div style="font-size:18px; font-weight:bold; color:#333; margin-bottom:10px; text-transform:uppercase;">📋 LISTA DE CONTRATOS EM ABERTO ({supervisor_atual})</div>', unsafe_allow_html=True)
         
         if not df_pendentes_lista.empty:
-            df_ordenado = df_pendentes_lista.sort_values('Contrato')
-            metade = (len(df_ordenado) + 1) // 2
-            df_col1 = df_ordenado.iloc[:metade]
-            df_col2 = df_ordenado.iloc[metade:]
+            df_ordenado = df_pendentes_lista.sort_values('Contrato').drop_duplicates(subset=['Contrato'])
+            total_linhas = len(df_ordenado)
+            
+            # Divisão cirúrgica baseada na contagem real das linhas para nunca duplicar
+            df_col1 = df_ordenado.iloc[:(total_linhas + 1) // 2]
+            df_col2 = df_ordenado.iloc[(total_linhas + 1) // 2:]
             
             t_col1, t_col2 = st.columns(2)
             with t_col1:
@@ -229,11 +198,35 @@ if df_master is not None and not df_master.empty:
                     st.markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item-tv">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
         else:
             st.success(f"🎉 Excelente! Nenhum contrato pendente para a equipe do {supervisor_atual} nesta janela!")
+
+        # 🔥 NOVO MOTOR DE NARRACÃO E TIMING COMBINADO (HTML5 ISOLADO DE ALTA PERFORMANCE)
+        frase_narracao = f"Téc um {texto_audio_janela}. Supervisor {supervisor_atual.lower()}, possui {p_total} pendentes, {r_total} em rota, e {i_total} iniciados."
+        
+        # Incrementa o index na sessão para preparar a próxima tela do Streamlit
+        st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
+        
+        # Componente JavaScript autônomo: Fala uma única vez e gerencia o cronômetro sem quebrar o som
+        st.components.v1.html(f"""
+            <script>
+                if (!window.jaFalou) {{
+                    var msg = new SpeechSynthesisUtterance();
+                    msg.text = "{frase_narracao}";
+                    msg.lang = "pt-BR";
+                    msg.rate = 1.0;
+                    window.speechSynthesis.speak(msg);
+                    window.jaFalou = true;
+                }}
+                
+                // Aguarda os 15 segundos exatos de exibição em tela antes de solicitar a troca do Streamlit
+                setTimeout(function() {{
+                    window.parent.location.reload();
+                }}, {TEMPO_ROTACAO_SEGUNDOS * 1000});
+            </script>
+        """, height=0, width=0)
     else:
         st.info(f"Nenhuma atividade registrada para o supervisor {supervisor_atual} nesta faixa de horário.")
+        st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
+        time.sleep(2)
+        st.rerun()
 else:
     st.warning("👈 Por favor, insira os arquivos de rota na página inicial primeiro.")
-
-# Mantém o loop contínuo do timer rodando em segundo plano
-time.sleep(1)
-st.rerun()
