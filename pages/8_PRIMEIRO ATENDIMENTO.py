@@ -133,27 +133,34 @@ if df_master is not None and not df_master.empty:
         'Hora_Inicio': lista_horarios
     })
     
-    # 🔥 MOTOR DE DISTRIBUIÇÃO COMPLETO E CORRIGIDO PARA AS TABELAS 🔥
+    # 🔥 NOVO MOTOR DE EXCEÇÕES TOTALMENTE EXPANDIDO E MAPEADO POR TÉCNICO 🔥
     def vincular_supervisor_tecnico_local(row):
         nome_u = str(row['Recurso']).upper().strip()
         sup_orig = str(row['SUPERVISOR_ORIGINAL'])
         
-        # 1. Se o arquivo já trouxe o supervisor preenchido corretamente, mantém e padroniza
+        # 1. Se o arquivo da Home já trouxe o supervisor preenchido corretamente, respeita!
         if "FRANCISCO" in sup_orig: return "FRANCISCO"
         if "ALAN" in sup_orig: return "ALAN"
         if "MAICON" in sup_orig: return "MAICON"
         if "NELSON" in sup_orig: return "NELSON"
         if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
 
-        # 2. Plano B: Identifica por primeiro nome do técnico (Mapeamento Expandido)
+        # 2. Plano B (Fallback): Cruzamento cirúrgico por nome do técnico
+        # Equipe ALAN (SP)
         if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
             return "ALAN"
-        if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
+        # Equipe FRANCISCO (SP)
+        if "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
             return "FRANCISCO"
-        if "MARCOS" in nome_u: 
+        # Equipe MARCOS ROBERTO (ABC)
+        if "JOANDERSON" in nome_u or "ROBERTO" in nome_u: 
             return "MARCOS ROBERTO"
+        # Equipe NELSON (ABC)
         if "NELSON" in nome_u: 
             return "NELSON"
+        # Equipe MAICON (ABC - Padrão para os técnicos remanescentes do ABC)
+        if "ALINE" in nome_u or "ABNER" in nome_u or "ADRIANO" in nome_u or "ALYSON" in nome_u or "ANA LUISA" in nome_u or "ANTONIO" in nome_u or "AUGUSTO" in nome_u or "BRUNA" in nome_u or "BRUNO" in nome_u or "CARLIELTON" in nome_u or "CLAYTON" in nome_u:
+            return "MAICON"
             
         return "MAICON"
 
