@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import time
 from datetime import datetime, timedelta
 
 # 1. Configuração da página ampla para a TV
@@ -17,13 +18,26 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# 🔥 MOTOR DE CONTROLE DO CARROSSEL POR SESSÃO STABLE 🔥
-SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
+# 🔥 CONTROLADOR DE TEMPO E SESSÃO SEGURO (NATIVO PYTHON) 🔥
+if "last_rotacao_tv" not in st.session_state:
+    st.session_state["last_rotacao_tv"] = time.time()
 
 if "index_supervisor_tv" not in st.session_state:
     st.session_state["index_supervisor_tv"] = 0
 
-# Captura o supervisor atual antes de incrementar o índice para a próxima rodada
+if "chave_fala_gatilho" not in st.session_state:
+    st.session_state["chave_fala_gatilho"] = ""
+
+SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
+
+# Verifica se passaram os 15 segundos usando o relógio interno do servidor
+tempo_decorrido = time.time() - st.session_state["last_rotacao_tv"]
+
+if tempo_decorrido >= TEMPO_ROTACAO_SEGUNDOS:
+    st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
+    st.session_state["last_rotacao_tv"] = time.time()
+    st.rerun()
+
 supervisor_atual = SUPERVISORES_CICLO[st.session_state["index_supervisor_tv"]]
 
 # 🔥 INJEÇÃO DE CSS AGRESSIVA (SOME COM O MENU LATERAL DE VEZ)
@@ -81,7 +95,7 @@ st.markdown(f'''
             <a href="/" target="_self" class="btn-voltar-home">🏠 VOLTAR PARA A HOME</a>
             <span style="margin-left: 15px;">📺 CARROSSEL AUDIOFALANTE • EQUIPE ATUAL: <b style="color: #ff9800; font-size: 15px;">{supervisor_atual}</b></span>
         </div>
-        <span>🔄 Próximo giro automático em {TEMPO_ROTACAO_SEGUNDOS}s</span>
+        <span>🔄 Próximo giro em {int(max(0, TEMPO_ROTACAO_SEGUNDOS - tempo_decorrido))}s</span>
     </div>
 ''', unsafe_allow_html=True)
 
@@ -175,9 +189,27 @@ if df_master is not None and not df_master.empty:
         with c_kpi3:
             st.markdown(f'<div class="card-meta-tv iniciado"><div class="card-meta-label">🟢 ATENDIMENTOS INICIADOS</div><div class="card-meta-value">{i_total}</div></div>', unsafe_allow_html=True)
             
+        # 🔥 MOTOR DE ÁUDIO REVOLUCIONÁRIO SEM DUPLICAR E SEM PRENDER A TELA 🔥
+        id_unico_fala = f"{supervisor_atual}_{p_total}_{r_total}_{i_total}"
+        
+        if st.session_state["chave_fala_gatilho"] != id_unico_fala:
+            frase_narracao = f"Téc um {texto_audio_janela}. Supervisor {supervisor_atual.lower()}, possui {p_total} pendentes, {r_total} em rota, e {i_total} iniciados."
+            
+            # Injeta o áudio de forma autônoma (Garante disparo único por mudança real)
+            st.components.v1.html(f"""
+                <script>
+                    var msg = new SpeechSynthesisUtterance();
+                    msg.text = "{frase_narracao}";
+                    msg.lang = "pt-BR";
+                    msg.rate = 1.0;
+                    window.speechSynthesis.speak(msg);
+                </script>
+            """, height=0, width=0)
+            st.session_state["chave_fala_gatilho"] = id_unico_fala
+
         st.markdown("<br><hr style='border-color:#ccc; margin-bottom:15px;'><br>", unsafe_allow_html=True)
 
-        # ⏳ LISTAGEM DOS CONTRATOS PENDENTES - CORREÇÃO DA DUPLICIDADE
+        # ⏳ LISTAGEM DOS CONTRATOS PENDENTES (Livre de duplicados)
         df_pendentes_lista = df_supervisor_atual[df_supervisor_atual['P_COUNT'] > 0].copy()
         st.markdown(f'<div style="font-size:18px; font-weight:bold; color:#333; margin-bottom:10px; text-transform:uppercase;">📋 LISTA DE CONTRATOS EM ABERTO ({supervisor_atual})</div>', unsafe_allow_html=True)
         
@@ -185,7 +217,6 @@ if df_master is not None and not df_master.empty:
             df_ordenado = df_pendentes_lista.sort_values('Contrato').drop_duplicates(subset=['Contrato'])
             total_linhas = len(df_ordenado)
             
-            # Divisão cirúrgica baseada na contagem real das linhas para nunca duplicar
             df_col1 = df_ordenado.iloc[:(total_linhas + 1) // 2]
             df_col2 = df_ordenado.iloc[(total_linhas + 1) // 2:]
             
@@ -198,35 +229,11 @@ if df_master is not None and not df_master.empty:
                     st.markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item-tv">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
         else:
             st.success(f"🎉 Excelente! Nenhum contrato pendente para a equipe do {supervisor_atual} nesta janela!")
-
-        # 🔥 NOVO MOTOR DE NARRACÃO E TIMING COMBINADO (HTML5 ISOLADO DE ALTA PERFORMANCE)
-        frase_narracao = f"Téc um {texto_audio_janela}. Supervisor {supervisor_atual.lower()}, possui {p_total} pendentes, {r_total} em rota, e {i_total} iniciados."
-        
-        # Incrementa o index na sessão para preparar a próxima tela do Streamlit
-        st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
-        
-        # Componente JavaScript autônomo: Fala uma única vez e gerencia o cronômetro sem quebrar o som
-        st.components.v1.html(f"""
-            <script>
-                if (!window.jaFalou) {{
-                    var msg = new SpeechSynthesisUtterance();
-                    msg.text = "{frase_narracao}";
-                    msg.lang = "pt-BR";
-                    msg.rate = 1.0;
-                    window.speechSynthesis.speak(msg);
-                    window.jaFalou = true;
-                }}
-                
-                // Aguarda os 15 segundos exatos de exibição em tela antes de solicitar a troca do Streamlit
-                setTimeout(function() {{
-                    window.parent.location.reload();
-                }}, {TEMPO_ROTACAO_SEGUNDOS * 1000});
-            </script>
-        """, height=0, width=0)
     else:
         st.info(f"Nenhuma atividade registrada para o supervisor {supervisor_atual} nesta faixa de horário.")
-        st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
-        time.sleep(2)
-        st.rerun()
 else:
     st.warning("👈 Por favor, insira os arquivos de rota na página inicial primeiro.")
+
+# ⏱️ RELÓGIO DE SEGUNDO PLANO (Faz o Streamlit reavaliar o tempo a cada 1s sem perder cache)
+time.sleep(1)
+st.rerun()
