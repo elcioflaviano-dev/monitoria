@@ -1,169 +1,162 @@
 import streamlit as st
 import pandas as pd
-import requests
-import io
-import time
 import os
+import time
+from datetime import datetime, timedelta
 
-st.set_page_config(
-    page_title="Painel de Produtividade",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+# Configurações de layout da página
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
-# Força o carregamento do arquivo do disco se a sessão limpar
+# 🔄 HERANÇA ESTÁVEL DO ARQUIVO FÍSICO
 if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
         st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     except:
         pass
 
-# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
-if st.session_state.get('df_rota_ativa') is not None:
-    if "last_refresh" not in st.session_state:
-        st.session_state["last_refresh"] = time.time()
-    
-    st.text_input("refresh_trigger", value=str(st.session_state["last_refresh"]), label_visibility="collapsed")
-    time.sleep(1)
-    
-    if time.time() - st.session_state["last_refresh"] > 60:
-        st.session_state["last_refresh"] = time.time()
-        st.rerun()
-
+# Carrega os estilos do arquivo CSS para manter o visual bonito das caixas
 try:
     with open("style.css", "r") as f:
         st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
 except:
     pass
 
-st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
-st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado de performance por blocos regionais e supervisão</div>', unsafe_allow_html=True)
+df_master = st.session_state.get('df_rota_ativa', None)
 
-def carregar_dados_sistema():
-    st.sidebar.markdown("### 📑 CARGA DA ROTA DIÁRIA")
-    
-    arquivos_postados = st.sidebar.file_uploader(
-        "Arraste todos os arquivos da rota aqui de uma vez", 
-        type=["csv", "xlsx"],
-        accept_multiple_files=True,
-        key="uploader_global"
-    )
-    
-    if arquivos_postados:
-        lista_dfs = []
-        
-        try:
-            for arquivo in arquivos_postados:
-                try:
-                    if arquivo.name.endswith('.xlsx'):
-                        bytes_data = arquivo.read()
-                        df_individual = pd.read_excel(io.BytesIO(bytes_data), engine='openpyxl')
-                    else:
-                        df_individual = pd.read_csv(arquivo, on_bad_lines='skip')
-                    
-                    if not df_individual.empty:
-                        df_individual = df_individual.loc[:, ~df_individual.columns.duplicated()]
-                        df_individual.columns = [str(c).strip().replace('\xa0', ' ') for c in df_individual.columns]
-                        lista_dfs.append(df_individual)
-                        
-                except Exception as err_arquivo:
-                    st.sidebar.error(f"Erro no arquivo {arquivo.name}: {err_arquivo}")
-                    continue
-            
-            if not lista_dfs:
-                st.sidebar.error("⚠️ Nenhum arquivo pôde ser lido.")
-                return st.session_state.get('df_rota_ativa', None)
-                
-            df_bruto = pd.concat(lista_dfs, ignore_index=True)
-            df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
-            
-            colunas_mapeadas = {}
-            for col in list(df_bruto.columns):
-                col_upper = str(col).upper().strip()
-                
-                if 'LOGIN DO TÉCNICO' in col_upper or 'LOGIN DO TECNICO' in col_upper:
-                    colunas_mapeadas[col] = 'Login_Match'
-                elif 'STATUS DA ATIVIDADE' in col_upper or 'STATUS_ATIVIDADE' in col_upper:
-                    colunas_mapeadas[col] = 'STATUS_ATIVIDADE'
-                elif 'STATUS DA O.S 1' in col_upper or 'STATUS OS 1' in col_upper:
-                    colunas_mapeadas[col] = 'STATUS_OS1'
-                elif 'TIPO O.S 1' in col_upper or 'TIPO DE OS' in col_upper:
-                    colunas_mapeadas[col] = 'Tipo O.S 1'
-                elif 'TOTAL DE TAREFAS' in col_upper:
-                    colunas_mapeadas[col] = 'QTD_OS_COL'
-            
-            df_bruto = df_bruto.rename(columns=colunas_mapeadas)
-            
-            if 'Login_Match' in df_bruto.columns:
-                df_bruto['Login_Match_Clean'] = df_bruto['Login_Match'].fillna('').astype(str).str.strip().str.upper()
-                df_bruto['Recurso'] = df_bruto['Login_Match'].fillna('').astype(str).str.strip()
-            else:
-                for c in df_bruto.columns:
-                    if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
-                        df_bruto['Login_Match_Clean'] = df_bruto[c].fillna('').astype(str).str.strip().str.upper()
-                        df_bruto['Recurso'] = df_bruto[c].fillna('').astype(str).str.strip()
-                        break
-
-            url_base = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
-            res_aux = requests.get(url_base, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-            
-            if res_aux.status_code == 200:
-                df_aux = pd.read_csv(io.StringIO(res_aux.text))
-                df_aux = df_aux.loc[:, ~df_aux.columns.duplicated()]
-                
-                df_aux.columns = [str(c).strip().upper() for c in df_aux.columns]
-                df_aux['LOGIN_SHEETS_CLEAN'] = df_aux['LOGIN'].fillna('').astype(str).str.strip().str.upper()
-                df_aux = df_aux[['LOGIN_SHEETS_CLEAN', 'SUPERVISOR', 'BASE', 'NOME']].drop_duplicates()
-                
-                df_final = pd.merge(df_bruto, df_aux, left_on='Login_Match_Clean', right_on='LOGIN_SHEETS_CLEAN', how='left')
-                
-                df_final['Recurso'] = df_final['NOME'].fillna(df_final['Recurso'])
-                df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('#N/A').astype(str).str.strip().str.upper()
-                df_final['REGIAO_BASE'] = df_final['BASE'].fillna('N/A').astype(str).str.strip().str.upper()
-                
-                df_final = df_final.drop(columns=['Login_Match_Clean', 'LOGIN_SHEETS_CLEAN', 'NOME', 'BASE'], errors='ignore')
-                
-                df_final = df_final.astype(str)
-                st.sidebar.success(f"✅ {len(lista_dfs)} arquivo(s) processado(s) com sucesso!")
-                
-                # GUARDA NO SESSÃO E SALVA O ARQUIVO FÍSICO NO DISCO
-                st.session_state['df_rota_ativa'] = df_final
-                df_final.to_csv(ARQUIVO_ROTA_DISCO, index=False)
-                
-                return df_final
-            else:
-                st.sidebar.error("❌ Erro ao conectar com a aba de supervisores do Google Sheets.")
-                return st.session_state.get('df_rota_ativa', None)
-        except Exception as e:
-            st.sidebar.error(f"❌ Erro geral no motor de carga: {e}")
-            return st.session_state.get('df_rota_ativa', None)
-            
-    return st.session_state.get('df_rota_ativa', None)
-
-df_master = carregar_dados_sistema()
+# MATRIZ DE DE-PARA UNIFICADA PARA OS SUPERVISORES
+def vincular_supervisor_tecnico(nome_planilha):
+    nome_u = str(nome_planilha).upper().strip()
+    cadastro_recs = {
+        "ADRIEL": "ALAN", "AIRON": "ALAN", "ALAN": "ALAN DE ANDRADE DIAS", 
+        "ALEX": "FRANCISCO", "ALINE": "MAICON", "AMANDA": "ALAN", 
+        "DEBORA": "ALAN", "ELIAS": "ALAN", "ENOQUE": "ALAN"
+    }
+    for chave, supervisor in cadastro_recs.items():
+        if chave in nome_u: 
+            return supervisor
+    return "MAICON"
 
 if df_master is not None and not df_master.empty:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    with st.container(border=True):
-        st.markdown(
-            f"""
-            <div style="text-align: center; padding: 25px 10px;">
-                <h2 style="color: #2e7d32; font-size: 28px; margin-bottom: 10px;">🚀 UPLOAD CONCLUÍDO COM SUCESSO!</h2>
-                <p style="color: #444; font-size: 16px; margin-bottom: 20px;">
-                    {len(df_master)} contratos integrados e salvos em disco no sistema.
-                </p>
-                <div style="display: inline-block; background-color: #e8f5e9; color: #1b5e20; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 14px;">
-                    🎯 Dados Prontos e Sincronizados com a TV da Monitoria
-                </div>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.info("💡 Use o menu lateral esquerdo para navegar entre os painéis operacionais. Este painel irá se atualizar sozinho a cada 60 segundos.")
+    df = df_master.copy()
+    df.columns = [str(c).strip() for c in df.columns]
+    
+    # 🛠️ MAPEAMENTO SEGURO DAS COLUNAS DO EXCEL REAL
+    col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
+    col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
+    col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
+
+    # Limpa linhas inválidas
+    df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+    
+    if 'Contrato' in df.columns:
+        df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+    
+    df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
+    df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
+    
+    # Remove marcação de almoço
+    df_limpo['Tipo_Activity_Str'] = df_limpo[col_tipo_real].fillna('').astype(str)
+    df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
+    
+    # Contadores operacionais
+    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
+    df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
+    df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
+    
+    # 🔥 APLICAÇÃO DA REGRA UNIFICADA: Vincula supervisor por primeiro nome
+    df_limpo['SUPERVISOR_MOSTRAR'] = df_limpo[col_tecnico_check].apply(vincular_supervisor_tecnico)
+    
+    # Separação regional por supervisor âncora
+    cond_sp = df_limpo['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+
+    # Lógica para alternar as telas no painel rotativo (Baseado no tempo ou parâmetro existente)
+    # Aqui dividimos o código nas duas funções visuais idênticas para renderizar conforme a sua lógica de rotação:
+    
+    # =========================================================================
+    # LÓGICA DA VISÃO: TEC1 OPERACIONAL (image_fe6f5d.png)
+    # =========================================================================
+    def renderizar_visao_operacional():
+        st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 10px; margin-bottom: 5px;">📊 TEC1 OPERACIONAL</h1>', unsafe_allow_html=True)
+        
+        df_tela = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+        df_sp = df_tela[cond_sp].copy()
+        df_abc = df_tela[~cond_sp].copy()
+        
+        c_abc, c_sp = st.columns(2)
+        with c_abc:
+            st.markdown('<div class="title-abc-sp" style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #008080; text-align: center;">ABC</div>', unsafe_allow_html=True)
+            if not df_abc.empty:
+                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
+                for _, dados in matriz_abc.iterrows():
+                    superv = dados['SUPERVISOR_MOSTRAR']
+                    p, r, i = int(dados['P_COUNT']), int(dados['R_COUNT']), int(dados['I_COUNT'])
+                    with st.container(border=True):
+                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 {superv} <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: {p+r+i}</span></div>', unsafe_allow_html=True)
+                        m1, m2, m3 = st.columns(3)
+                        with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>', unsafe_allow_html=True)
+                        with m2: st.metric(label="🟣 EM ROTA", value=r)
+                        with m3: st.metric(label="🟢 INICIADO", value=i)
+        
+        with c_sp:
+            st.markdown('<div style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #b30000; text-align: center;">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            if not df_sp.empty:
+                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
+                for _, dados in matriz_sp.iterrows():
+                    superv = dados['SUPERVISOR_MOSTRAR']
+                    p, r, i = int(dados['P_COUNT']), int(dados['R_COUNT']), int(dados['I_COUNT'])
+                    with st.container(border=True):
+                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 {superv} <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: {p+r+i}</span></div>', unsafe_allow_html=True)
+                        m1, m2, m3 = st.columns(3)
+                        with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>', unsafe_allow_html=True)
+                        with m2: st.metric(label="🟣 EM ROTA", value=r)
+                        with m3: st.metric(label="🟢 INICIADO", value=i)
+
+    # =========================================================================
+    # LÓGICA DA VISÃO: TEC1 CONTRATOS PENDENTES (image_fe6f27.png)
+    # =========================================================================
+    def renderizar_visao_listagem_pendentes():
+        st.markdown('<h1 style="font-size: 32px; font-weight: 900; color: #cc6600; text-align: center; margin-top: 5px; margin-bottom: 5px;">⏳ TEC1 CONTRATOS PENDENTES</h1>', unsafe_allow_html=True)
+        
+        df_pend = df_limpo[df_limpo['P_COUNT'] > 0].copy()
+        df_sp = df_pend[cond_sp].copy()
+        df_abc = df_pend Ram[~cond_sp].copy()
+        
+        c_abc, c_sp = st.columns(2)
+        with c_abc:
+            st.markdown('<div class="title-abc-sp" style="font-size: 24px; font-weight: 800; text-align: center; color: #005088;">ABC</div>', unsafe_allow_html=True)
+            if not df_abc.empty:
+                for supervisor in sorted(df_abc['SUPERVISOR_MOSTRAR'].unique()):
+                    df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
+                    st.markdown(f'<div style="background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #333; margin-top: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #008080;">👤 {supervisor} <span style="background-color: #ffebee; color: #c62828; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 900;">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
+                    for _, linha in df_super.iterrows():
+                        st.markdown(f'<div style="font-size: 15px; padding: 5px 12px; border-bottom: 1px solid #eee; color: #222;">📄 <span style="font-weight: 900; color: #cc6600; font-size: 16px;">{linha.get("Contrato", "N/A")}</span> <span style="color: #bbb; margin: 0 8px;">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
+            else:
+                st.success("🎉 Nenhum contrato pendente no ABC para esta janela!")
+                
+        with c_sp:
+            st.markdown('<div class="title-abc-sp" style="font-size: 24px; font-weight: 800; text-align: center; color: #005088;">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            if not df_sp.empty:
+                for supervisor in sorted(df_sp['SUPERVISOR_MOSTRAR'].unique()):
+                    df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
+                    st.markdown(f'<div style="background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #333; margin-top: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #b30000;">👤 {supervisor} <span style="background-color: #ffebee; color: #c62828; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 900;">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
+                    for _, linha in df_super.iterrows():
+                        st.markdown(f'<div style="font-size: 15px; padding: 5px 12px; border-bottom: 1px solid #eee; color: #222;">📄 <span style="font-weight: 900; color: #cc6600; font-size: 16px;">{linha.get("Contrato", "N/A")}</span> <span style="color: #bbb; margin: 0 8px;">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
+            else:
+                st.success("🎉 Nenhum contrato pendente em SP para esta janela!")
+
+    # === CONTROLE DO CARROSSEL DE TEMPO DO PAINEL ROTATIVO ===
+    # Mantém a sua lógica existente de alternância usando st.session_state
+    if "index_rotacao" not in st.session_state:
+        st.session_state["index_rotacao"] = 0
+
+    # Alterna entre as duas visões de forma limpa a cada ciclo de refresh
+    if st.session_state["index_rotacao"] == 0:
+        renderizar_visao_operacional()
+        st.session_state["index_rotacao"] = 1
+    else:
+        renderizar_visao_listagem_pendentes()
+        st.session_state["index_rotacao"] = 0
 else:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.warning("👈 Aguardando os arquivos. Abra o menu lateral esquerdo expandindo a barra e arraste os ficheiros de rota diária (.xlsx ou .csv).")
+    st.warning("👈 Por favor, carregue o arquivo de rota na tela inicial primeiro.")
