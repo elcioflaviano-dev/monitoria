@@ -41,43 +41,47 @@ df_master = st.session_state.get('df_rota_ativa', None)
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # Remove espaços invisíveis das colunas vindas do arquivo
-    df.columns = [str(c).strip() for c in df.columns]
-    
-    # 🛠️ ALVO FIXO NAS COLUNAS EXATAS DA SUA PLANILHA REAL
-    col_tecnico_check = 'Login do Técnico'
-    col_status_real = 'Status da Atividade'
-    col_supervisor = 'SUPERVISOR'
-    col_janela = 'Janela de Serviço'
+    # 🛠️ CAPTURA DINÂMICA DE COLUNAS ESSENCIAIS POR IDENTIFICAÇÃO PARCIAL
+    col_tecnico_check = None
+    for c in df.columns:
+        if 'LOGIN' in str(c).upper() or 'RECURSO' in str(c).upper():
+            col_tecnico_check = c
+            break
+    if not col_tecnico_check:
+        col_tecnico_check = df.columns[0]
 
-    if col_tecnico_check in df.columns and col_status_real in df.columns:
-        # Remove linhas com técnicos inválidos
-        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
-        
-        # 🔍 Encontra todas as colunas que começam com o nome "Tipo de Atividade" (captura as duas!)
-        colunas_tipo = [c for c in df.columns if 'Tipo de Atividade' in c]
-        
-        # Cria uma condição inicial falsa (tudo zero)
-        condicao_tipo = pd.Series(False, index=df.index)
-        
-        # Se qualquer uma das colunas gêmeas tiver a palavra "Na Base", vira Verdadeiro
-        for col in colunas_tipo:
-            condicao_tipo = condicao_tipo | df[col].fillna('').astype(str).str.strip().str.contains('Na Base', case=False, na=False)
-            
-        # Checa se o status está pendente ou em aberto (sem distinção de letras)
-        condicao_status = df[col_status_real].fillna('').astype(str).str.strip().str.contains('pendente|aberto', case=False, na=False)
-        
-        # Cruza as duas travas
-        df_tela = df[condicao_tipo & condicao_status].copy()
-    else:
-        df_tela = pd.DataFrame()
+    col_supervisor = None
+    for c in df.columns:
+        if 'SUPERVISOR' in str(c).upper():
+            col_supervisor = c
+            break
+
+    col_janela = None
+    for c in df.columns:
+        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
+            col_janela = c
+            break
+
+    # Limpa linhas com IDs vazios
+    df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+
+    # 🔥 VARREDURA DE MATRIZ TEXTUAL BRUTA PARALELA (INDEPENDENTE DE COLUNA) 🔥
+    # Cria uma cópia em formato string maiúscula para busca geral na linha inteira
+    df_string_matrix = df.astype(str).apply(lambda x: x.str.upper().str.strip())
+    
+    # Valida se a linha possui o termo "NA BASE" e se possui o termo operacional de pendência
+    linha_tem_na_base = df_string_matrix.apply(lambda row: row.str.contains('NA BASE', regex=False).any(), axis=1)
+    linha_tem_pendente = df_string_matrix.apply(lambda row: row.str.contains('PENDENTE|ABERTO', regex=True).any(), axis=1)
+    
+    # Filtra cruzando as duas verdades absolutas por conteúdo
+    df_tela = df[linha_tem_na_base & linha_tem_pendente].copy()
 
     if df_tela.empty:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente encontrado no arquivo.")
     else:
         # Tratamento de segurança para os supervisores dividirem as colunas regionais
-        if col_supervisor in df_tela.columns:
+        if col_supervisor and col_supervisor in df_tela.columns:
             df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
         else:
             df_tela['SUP_REF'] = 'MAICON'
@@ -97,7 +101,7 @@ if df_master is not None and not df_master.empty:
             if not df_abc.empty:
                 df_abc_limpo = df_abc.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
                 for _, linha in df_abc_limpo.iterrows():
-                    janela_texto = linha.get(col_janela, "N/A") if col_janela in df_abc.columns else "N/A"
+                    janela_texto = linha.get(col_janela, "N/A") if col_janela and col_janela in df_abc.columns else "N/A"
                     st.markdown(f'''
                         <div class="item-linha-tec">
                             🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
@@ -112,7 +116,7 @@ if df_master is not None and not df_master.empty:
             if not df_sp.empty:
                 df_sp_limpo = df_sp.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
                 for _, linha in df_sp_limpo.iterrows():
-                    janela_texto = linha.get(col_janela, "N/A") if col_janela in df_sp.columns else "N/A"
+                    janela_texto = linha.get(col_janela, "N/A") if col_janela and col_janela in df_sp.columns else "N/A"
                     st.markdown(f'''
                         <div class="item-linha-tec">
                             🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
