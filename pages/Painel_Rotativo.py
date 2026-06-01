@@ -7,7 +7,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 SUPERVISORES = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
 
-# Sessão e Controle
+# Sessão
 if "idx" not in st.session_state: st.session_state.idx = 0
 if "last_time" not in st.session_state: st.session_state.last_time = time.time()
 
@@ -18,15 +18,14 @@ if time.time() - st.session_state.last_time > espera:
     st.session_state.last_time = time.time()
     st.rerun()
 
-# CSS FIXO
+# CSS AJUSTADO
 st.markdown("""<style>
     section[data-testid="stSidebar"] { display: none !important; }
-    .top-bar { position: fixed; top:0; left:0; width:100%; background:#000; color:#fff; padding:15px; text-align:center; font-size:24px; font-weight:900; z-index:999; }
-    .main-content { margin-top: 80px; }
-    .box-p { background:#ffcccc; padding:30px; border-radius:15px; border:4px solid #b30000; text-align:center; }
-    .valor-p { font-size: 100px; font-weight:900; color:#b30000; }
-    .lista-scroll { height: 75vh; overflow-y: hidden; }
-    .card-c { background:#eee; padding:12px; margin:8px 0; border-radius:5px; display:flex; justify-content:space-between; font-weight:bold; font-size:20px; }
+    .top-bar { position: fixed; top:0; left:0; width:100%; background:#000; color:#fff; padding:10px; text-align:center; font-size:20px; font-weight:900; z-index:999; }
+    .box-p { background:#ffcccc; padding:15px; border-radius:10px; border:3px solid #b30000; text-align:center; }
+    .valor-p { font-size: 50px; font-weight:900; color:#b30000; }
+    .card-c { background:#eee; padding:8px; margin:5px 0; border-radius:4px; display:flex; justify-content:space-between; font-weight:bold; font-size:16px; }
+    .container { margin-top: 60px; display: flex; gap: 20px; }
 </style>""", unsafe_allow_html=True)
 
 # Dados
@@ -40,19 +39,18 @@ if st.session_state.idx < len(SUPERVISORES):
     pendentes = df[(df['SUPERVISOR'].str.contains(sup, case=False, na=False)) & 
                    (df['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False))]
     
-    st.markdown('<div class="main-content"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="container">', unsafe_allow_html=True)
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        st.markdown(f'<div class="box-p"><div class="valor-p">{len(pendentes)}</div><h1>PENDENTES</h1></div>', unsafe_allow_html=True)
-        # Fala
+        st.markdown(f'<div class="box-p"><div class="valor-p">{len(pendentes)}</div><h4>PENDENTES</h4></div>', unsafe_allow_html=True)
         st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('Supervisor {sup}, {len(pendentes)} pendentes.'); window.speechSynthesis.speak(m);</script>", height=0)
     
     with col2:
-        st.markdown('<div class="lista-scroll">', unsafe_allow_html=True)
         for _, row in pendentes.iterrows():
-            st.markdown(f'<div class="card-c"><span>📄 {row["Contrato"]}</span><span>👤 {row.get("Recurso", "Técnico").upper()}</span></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="card-c"><span>📄 {row["Contrato"]}</span><span>👤 {row.get("Recurso", "TÉCNICO").upper()}</span></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 else:
     st.markdown('<div class="top-bar">PAINEL EM PAUSA (40s)</div>', unsafe_allow_html=True)
 
