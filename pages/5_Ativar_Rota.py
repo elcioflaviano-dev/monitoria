@@ -42,38 +42,40 @@ if df_master is not None and not df_master.empty:
     df = df_master.copy()
     df.columns = [str(c).strip() for c in df.columns]
     
-    # 🛠️ IDENTIFICAÇÃO DAS COLUNAS
+    # 🛠️ MAPEAMENTO EXATO BASEADO NAS LINHAS DO SEU PRINT
     col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
+    col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
     
     col_janela = None
     for c in df.columns:
         if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
             col_janela = c
             break
-    
+
     if col_tecnico_check:
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
 
-    # Padroniza o texto do status original da planilha
+    # Tratamento de textos em caixa alta para evitar erros de leitura
     df['Status_Pure_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
+    df['Tipo_Pure_Upper'] = df[col_tipo_real].fillna('').astype(str).str.upper().str.strip()
     
-    # 🔥 FILTRO CIRÚRGICO: Passa apenas quem tiver "EM BASE" e for "PENDENTE"
-    condicao_em_base_pendente = (df['Status_Pure_Upper'].str.contains('EM BASE', na=False)) & \
-                                (df['Status_Pure_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False))
+    # 🔥 O FILTRO PERFEITO: Tipo de Atividade igual a "NA BASE" e Status igual a "PENDENTE"
+    condicao_retido_pátio = (df['Tipo_Pure_Upper'] == 'NA BASE') & \
+                            (df['Status_Pure_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False))
     
-    df_tela = df[condicao_em_base_pendente].copy()
+    df_tela = df[condicao_retido_pátio].copy()
 
     if df_tela.empty:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.success("🎉 100% da equipe liberada! Nenhum técnico retivo com status 'Em Base Pendente'.")
+        st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente.")
     else:
-        # Padronização invisível de supervisores apenas para fazer a separação regional (Guarulhos/ABC vs SP)
+        # Padronização invisível de supervisores para a divisão regional (Guarulhos/ABC vs SP)
         df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
         df_tela['SUP_REF'] = df_tela['SUP_REF'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('FRANCISCO' if 'FRANCISCO' in str(x) else x))
 
-        # Divisão Regional utilizando os mesmos critérios das outras telas
+        # Divisão regional idêntica aos outros painéis do seu sistema
         cond_sp = df_tela['SUP_REF'].str.contains('FRANCISCO|ALAN', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
@@ -83,7 +85,7 @@ if df_master is not None and not df_master.empty:
         with col_coluna_abc:
             st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
             if not df_abc.empty:
-                # Remove duplicidades de linhas do mesmo técnico para listar o nome uma única vez
+                # Ordena e remove duplicados do mesmo técnico para listar o nome uma única vez
                 df_abc_limpo = df_abc.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
                 for _, linha in df_abc_limpo.iterrows():
                     janela_texto = linha.get(col_janela, "N/A") if col_janela else "N/A"
@@ -99,7 +101,7 @@ if df_master is not None and not df_master.empty:
         with col_coluna_sp:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             if not df_sp.empty:
-                # Remove duplicidades de linhas do mesmo técnico para listar o nome uma única vez
+                # Ordena e remove duplicados do mesmo técnico para listar o nome uma única vez
                 df_sp_limpo = df_sp.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
                 for _, linha in df_sp_limpo.iterrows():
                     janela_texto = linha.get(col_janela, "N/A") if col_janela else "N/A"
