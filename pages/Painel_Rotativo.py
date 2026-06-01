@@ -8,19 +8,10 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-TEMPO_ROTACAO_SEGUNDOS = 15  # Tempo exato para girar a tela
+TEMPO_ROTACAO_SEGUNDOS = 15  # Tempo exato para girar de supervisor
 
-# --- REFRESH NATIVO VIA HTML METATAG (Força a atualização a cada 15s) ---
+# --- REFRESH NATIVO VIA HTML METATAG (Força o Streamlit a rodar a cada 15s) ---
 st.markdown(f'<meta http-equiv="refresh" content="{TEMPO_ROTACAO_SEGUNDOS}">', unsafe_allow_html=True)
-
-# --- ⏱️ MOTOR DE ROTAÇÃO POR RELÓGIO REAL ---
-segundos_atuais = datetime.now().second
-
-# Divide o minuto em blocos estáveis de 15 segundos
-if segundos_atuais < 15 or (segundos_atuais >= 30 and segundos_atuais < 45):
-    painel_atual = "TEC1_OPERACIONAL"
-else:
-    painel_atual = "TEC1_PENDENTES"
 
 # 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
 df_master = None
@@ -59,35 +50,51 @@ st.markdown("""
             background-color: #cc6600; color: white !important; padding: 5px 12px;
             border-radius: 4px; text-decoration: none !important; font-size: 12px; font-weight: bold;
         }
-        .title-abc-sp { font-size: 24px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
-        .super-bar {
-            background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px;
-            font-weight: bold; color: #333; margin-top: 12px; margin-bottom: 6px;
-            display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #cc6600;
-        }
-        .super-total { background-color: #ffebee; color: #c62828; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 900; }
-        .item-linha { font-size: 16px; padding: 5px 12px; border-bottom: 1px solid #eee; color: #222; }
-        .item-contrato { font-weight: 900; color: #cc6600; font-size: 17px; }
-        .divisor-item { color: #bbb; margin: 0 8px; }
-        .custom-pendente-box { background-color: #ffcccc !important; border: 2px solid #ff9999 !important; border-radius: 6px; padding: 5px !important; text-align: center; height: 100%; }
-        .custom-pendente-label { font-size: 10px !important; font-weight: 800 !important; text-transform: uppercase; color: #800000 !important; margin-bottom: 2px; }
-        .custom-pendente-value { font-size: 34px !important; color: #b30000 !important; font-weight: 900 !important; line-height: 1.1; }
+        .title-supervisor-tv { font-size: 38px !important; font-weight: 900 !important; color: #005088; text-align: center; margin-bottom: 15px; text-transform: uppercase; }
+        .item-linha-tv { font-size: 19px; padding: 8px 15px; border-bottom: 1px solid #eee; color: #111; }
+        .item-contrato-tv { font-weight: 900; color: #cc6600; font-size: 20px; }
+        .divisor-item-tv { color: #bbb; margin: 0 10px; }
+        
+        .custom-pendente-box { background-color: #ffcccc !important; border: 2px solid #ff9999 !important; border-radius: 6px; padding: 15px !important; text-align: center; }
+        .custom-pendente-label { font-size: 13px !important; font-weight: 800 !important; text-transform: uppercase; color: #800000 !important; margin-bottom: 4px; }
+        .custom-pendente-value { font-size: 48px !important; color: #b30000 !important; font-weight: 900 !important; line-height: 1.1; }
+        
+        .card-meta-tv { background-color: #f8f9fa; border-radius: 6px; padding: 15px; text-align: center; border-top: 5px solid #6c757d; }
+        .card-meta-label { font-size: 13px; font-weight: bold; color: #555; text-transform: uppercase; margin-bottom: 4px; }
+        .card-meta-value { font-size: 48px; font-weight: 900; color: #212529; line-height: 1.1; }
+        .card-meta-tv.rota { border-top-color: #0288d1; }
+        .card-meta-tv.rota .card-meta-value { color: #0288d1; }
+        .card-meta-tv.iniciado { border-top-color: #2e7d32; }
+        .card-meta-tv.iniciado .card-meta-value { color: #2e7d32; }
     </style>
 """, unsafe_allow_html=True)
 
-# Barra fixa superior com link para retornar à Home (Usa URL relativa '/' estável para o Streamlit Cloud)
+# Lista fixa dos supervisores ativos para criar a rotação cíclica
+SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
+
+# Indice controlador de rotação baseado no relógio global
+if "index_supervisor_tv" not in st.session_state:
+    st.session_state["index_supervisor_tv"] = 0
+
+# Descobre qual o supervisor da vez
+supervisor_atual = SUPERVISORES_CICLO[st.session_state["index_supervisor_tv"]]
+
+# Barra fixa superior dinâmica
 st.markdown(f'''
     <div class="barra-status-tv">
         <div>
             <a href="/" target="_self" class="btn-voltar-home">🏠 VOLTAR PARA A HOME</a>
-            <span style="margin-left: 15px;">📺 MODO TV ATIVO • EXIBINDO: {painel_atual.replace("_", " ")}</span>
+            <span style="margin-left: 15px;">📺 CARROSSEL ATIVO • EQUIPE ATUAL: <b style="color: #ff9800; font-size: 15px;">{supervisor_atual}</b></span>
         </div>
-        <span>🔄 Sincronizado por Relógio • Próximo giro em 15s</span>
+        <span>🔄 Próxima Equipe em {TEMPO_ROTACAO_SEGUNDOS}s</span>
     </div>
 ''', unsafe_allow_html=True)
 
+# Avança o índice para o próximo ciclo (Streamlit executará no próximo refresh de 15s)
+st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
+
 # =============================================================================
-# LÓGICA COLETIVA DE DADOS SINCRONIZADA
+# PROCESSAMENTO DOS DADOS COM FILA CUMULATIVA
 # =============================================================================
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
@@ -114,124 +121,86 @@ if df_master is not None and not df_master.empty:
     df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
     df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
 
-    # Base unificada de ativos
     df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
 
-    # === ⏱️ MOTOR DE JANELAS ACUMULATIVO PARA A TV ===
+    # === MOTOR DE JANELAS ACUMULATIVO ===
     col_janela = None
     for c in df_validos.columns:
-        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
-            col_janela = c
-            break
+        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): col_janela = c; break
 
     hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
 
     if col_janela is not None and not df_validos.empty:
         df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
-        
         def extrair_hora_limite(janela_str):
             try:
                 partes = janela_str.replace(':', '').split('-')
                 return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
-            except: 
-                return 24
-
+            except: return 24
         df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        # Filtros de teto progressivo cumulativo
         if hora_atual < 12:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
-            texto_status_janela = "Fila da Manhã (Até 12:00)"
         elif 12 <= hora_atual < 15:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
-            texto_status_janela = "Fila da Tarde (Acumulado até 15:00)"
         else:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
-            texto_status_janela = "Visão Completa Turno (Acumulado)"
 
         df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
-        if df_tela.empty: 
-            df_tela = df_validos.copy()
-            
-        st.markdown(f'<div style="text-align: center; color: #008080; font-size: 13px; font-weight: bold; margin-bottom: 10px; margin-top: -15px;">🔄 Fila Cumulativa: {texto_status_janela}</div>', unsafe_allow_html=True)
+        if df_tela.empty: df_tela = df_validos.copy()
     else:
         df_tela = df_validos.copy()
 
-    # Leitura e padronização segura dos supervisores
+    # Padronização e Limpeza dos Supervisores
     df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
     df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
     df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
 
-    cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
-    df_sp = df_tela[cond_sp].copy()
-    df_abc = df_tela[~cond_sp].copy()
+    # Isola estritamente os dados do supervisor selecionado para esta página
+    df_supervisor_atual = df_tela[df_tela['SUPERVISOR_MOSTRAR'] == supervisor_atual].copy()
 
-    # ==========================================
-    # 📊 TELA 1: TEC1 OPERACIONAL
-    # ==========================================
-    if painel_atual == "TEC1_OPERACIONAL":
-        st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #006677; text-align: center; margin-bottom: 15px;">📊 TEC1 OPERACIONAL</h1>', unsafe_allow_html=True)
+    st.markdown(f'<div class="title-supervisor-tv">👤 SUPERVISÃO: {supervisor_atual}</div>', unsafe_allow_html=True)
+
+    if not df_supervisor_atual.empty:
+        # Consolida volumetria macro do supervisor da vez
+        p_total = int(df_supervisor_atual['P_COUNT'].sum())
+        r_total = int(df_supervisor_atual['R_COUNT'].sum())
+        i_total = int(df_supervisor_atual['I_COUNT'].sum())
         
-        col_coluna_abc, col_coluna_sp = st.columns(2)
-        with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp" style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #008080; text-align: center;">ABC</div>', unsafe_allow_html=True)
-            if not df_abc.empty:
-                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
-                for _, dados_super in matriz_abc.iterrows():
-                    sup = dados_super['SUPERVISOR_MOSTRAR']
-                    p, r, i = int(dados_super['P_COUNT']), int(dados_super['R_COUNT']), int(dados_super['I_COUNT'])
-                    with st.container(border=True):
-                        st.markdown(f'<div style="font-size:18px; font-weight:bold; margin-bottom:8px;">📋 {sup} <span style="float:right; font-size:13px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: {p+r+i}</span></div>', unsafe_allow_html=True)
-                        m1, m2, m3 = st.columns(3)
-                        with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>', unsafe_allow_html=True)
-                        with m2: st.metric(label="🟣 EM ROTA", value=r)
-                        with m3: st.metric(label="🟢 INICIADO", value=i)
-            else: st.info("Nenhum contrato ativo para o ABC nesta janela.")
+        # 📊 RENDERIZAÇÃO DO TOPO DA TELA (KPI CARDS ENORMES)
+        c_kpi1, c_kpi2, c_kpi3 = st.columns(3)
+        with c_kpi1:
+            st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 CONTRATOS PENDENTES</div><div class="custom-pendente-value">{p_total}</div></div>', unsafe_allow_html=True)
+        with c_kpi2:
+            st.markdown(f'<div class="card-meta-tv rota"><div class="card-meta-label">🟣 TÉCNICOS EM ROTA</div><div class="card-meta-value">{r_total}</div></div>', unsafe_allow_html=True)
+        with c_kpi3:
+            st.markdown(f'<div class="card-meta-tv iniciado"><div class="card-meta-label">🟢 ATENDIMENTOS INICIADOS</div><div class="card-meta-value">{i_total}</div></div>', unsafe_allow_html=True)
+            
+        st.markdown("<br><hr style='border-color:#ccc; margin-bottom:15px;'><br>", unsafe_allow_html=True)
 
-        with col_coluna_sp:
-            st.markdown('<div style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #b30000; text-align: center;">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
-            if not df_sp.empty:
-                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
-                for _, dados_super in matriz_sp.iterrows():
-                    sup = dados_super['SUPERVISOR_MOSTRAR']
-                    p, r, i = int(dados_super['P_COUNT']), int(dados_super['R_COUNT']), int(dados_super['I_COUNT'])
-                    with st.container(border=True):
-                        st.markdown(f'<div style="font-size:18px; font-weight:bold; margin-bottom:8px;">📋 {sup} <span style="float:right; font-size:13px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total: {p+r+i}</span></div>', unsafe_allow_html=True)
-                        m1, m2, m3 = st.columns(3)
-                        with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{p}</div></div>', unsafe_allow_html=True)
-                        with m2: st.metric(label="🟣 EM ROTA", value=r)
-                        with m3: st.metric(label="🟢 INICIADO", value=i)
-            else: st.info("Nenhum contrato ativo para SP nesta janela.")
-
-    # ==========================================
-    # 📺 TELA 2: TEC1 PENDENTES
-    # ==========================================
-    elif painel_atual == "TEC1_PENDENTES":
-        st.markdown('<h1 style="font-size: 32px; font-weight: 900; color: #cc6600; text-align: center; margin-bottom: 15px;">⏳ TEC1 CONTRATOS PENDENTES</h1>', unsafe_allow_html=True)
+        # ⏳ LISTAGEM DOS CONTRATOS PENDENTES (OCUPANDO O RESTANTE DA TELA AMPLA)
+        df_pendentes_lista = df_supervisor_atual[df_supervisor_atual['P_COUNT'] > 0].copy()
         
-        # Filtra as linhas onde a contagem de pendente é maior que zero
-        df_abc_p = df_abc[df_abc['P_COUNT'] > 0].copy()
-        df_sp_p = df_sp[df_sp['P_COUNT'] > 0].copy()
-
-        col_coluna_abc, col_coluna_sp = st.columns(2)
-        with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
-            if not df_abc_p.empty:
-                for supervisor in sorted(df_abc_p['SUPERVISOR_MOSTRAR'].unique()):
-                    df_super = df_abc_p[df_abc_p['SUPERVISOR_MOSTRAR'] == supervisor]
-                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
-                    for _, linha in df_super.iterrows():
-                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
-            else: st.success("🎉 Nenhum contrato pendente no ABC para esta janela!")
-
-        with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
-            if not df_sp_p.empty:
-                for supervisor in sorted(df_sp_p['SUPERVISOR_MOSTRAR'].unique()):
-                    df_super = df_sp_p[df_sp_p['SUPERVISOR_MOSTRAR'] == supervisor]
-                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
-                    for _, linha in df_super.iterrows():
-                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
-            else: st.success("🎉 Nenhum contrato pendente em SP para esta janela!")
+        st.markdown(f'<div style="font-size:18px; font-weight:bold; color:#333; margin-bottom:10px; text-transform:uppercase;">📋 LISTA DE CONTRATOS EM ABERTO ({supervisor_atual})</div>', unsafe_allow_html=True)
+        
+        if not df_pendentes_lista.empty:
+            # Divide os contratos em duas colunas na tela para dobrar a capacidade visual sem dar rolagem
+            df_ordenado = df_pendentes_lista.sort_values('Contrato')
+            metade = (len(df_ordenado) + 1) // 2
+            df_col1 = df_ordenado.iloc[:metade]
+            df_col2 = df_ordenado.iloc[metade:]
+            
+            t_col1, t_col2 = st.columns(2)
+            
+            with t_col1:
+                for _, linha in df_col1.iterrows():
+                    st.markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item-tv">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
+            with t_col2:
+                for _, linha in df_col2.iterrows():
+                    st.markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
+        else:
+            st.success(f"🎉 Excelente! Nenhum contrato pendente para a equipe do {supervisor_atual} nesta janela!")
+    else:
+        st.info(f"Nenhuma atividade registrada para o supervisor {supervisor_atual} nesta faixa de horário.")
 else:
     st.warning("👈 Por favor, insira os arquivos de rota na página inicial primeiro.")
