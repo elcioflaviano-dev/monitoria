@@ -40,42 +40,49 @@ df_master = st.session_state.get('df_rota_ativa', None)
 
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
+    
+    # Remove espaços invisíveis das colunas vindas do arquivo
     df.columns = [str(c).strip() for c in df.columns]
     
-    # 🛠️ MAPEAMENTO EXATO BASEADO NAS LINHAS DO SEU PRINT
-    col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
-    col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
-    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
-    col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
+    # 🛠️ AJUSTE DINÂMICO PARA CAPTURAR A SEGUNDA COLUNA REPETIDA (.1)
+    col_tecnico_check = 'Login do Técnico'
+    col_status_real = 'Status da Atividade'
+    col_supervisor = 'SUPERVISOR'
+    col_janela = 'Janela de Serviço'
     
-    col_janela = None
-    for c in df.columns:
-        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
-            col_janela = c
-            break
+    # Procura pela coluna que contêm o Tipo de Atividade correto (priorizando a duplicada com .1)
+    col_tipo_real = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else 'Tipo de Atividade'
 
-    if col_tecnico_check:
+    # Verifica se as colunas mínimas estão presentes
+    if col_tecnico_check in df.columns and col_status_real in df.columns and col_tipo_real in df.columns:
+        
+        # Limpa linhas com técnico em branco
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
 
-    # Tratamento de textos em caixa alta para evitar erros de leitura
-    df['Status_Pure_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
-    df['Tipo_Pure_Upper'] = df[col_tipo_real].fillna('').astype(str).str.upper().str.strip()
-    
-    # 🔥 O FILTRO PERFEITO: Tipo de Atividade igual a "NA BASE" e Status igual a "PENDENTE"
-    condicao_retido_pátio = (df['Tipo_Pure_Upper'] == 'NA BASE') & \
-                            (df['Status_Pure_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False))
-    
-    df_tela = df[condicao_retido_pátio].copy()
+        # Padroniza os textos das células em caixa alta
+        df['Status_Pure_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
+        df['Tipo_Pure_Upper'] = df[col_tipo_real].fillna('').astype(str).str.upper().str.strip()
+        
+        # 🔥 FILTRO CORRIGIDO: Agora varrendo a coluna correta do "Na Base"
+        condicao_retido = (df['Tipo_Pure_Upper'] == 'NA BASE') & (df['Status_Pure_Upper'] == 'PENDENTE')
+        df_tela = df[condicao_retido].copy()
+    else:
+        df_tela = pd.DataFrame()
 
     if df_tela.empty:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente.")
     else:
-        # Padronização invisível de supervisores para a divisão regional (Guarulhos/ABC vs SP)
-        df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
+        # Mapeamento do supervisor direto do arquivo
+        if col_supervisor in df_tela.columns:
+            df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
+        else:
+            df_tela['SUP_REF'] = 'MAICON'
+            
+        df_tela['SUP_REF'] = df_tela['SUP_REF'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
         df_tela['SUP_REF'] = df_tela['SUP_REF'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('FRANCISCO' if 'FRANCISCO' in str(x) else x))
 
-        # Divisão regional idêntica aos outros painéis do seu sistema
+        # Divisão Regional utilizando os supervisores
         cond_sp = df_tela['SUP_REF'].str.contains('FRANCISCO|ALAN', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
@@ -85,10 +92,9 @@ if df_master is not None and not df_master.empty:
         with col_coluna_abc:
             st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
             if not df_abc.empty:
-                # Ordena e remove duplicados do mesmo técnico para listar o nome uma única vez
                 df_abc_limpo = df_abc.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
                 for _, linha in df_abc_limpo.iterrows():
-                    janela_texto = linha.get(col_janela, "N/A") if col_janela else "N/A"
+                    janela_texto = linha.get(col_janela, "N/A") if col_janela in df_abc.columns else "N/A"
                     st.markdown(f'''
                         <div class="item-linha-tec">
                             🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
@@ -101,10 +107,9 @@ if df_master is not None and not df_master.empty:
         with col_coluna_sp:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             if not df_sp.empty:
-                # Ordena e remove duplicados do mesmo técnico para listar o nome uma única vez
                 df_sp_limpo = df_sp.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
                 for _, linha in df_sp_limpo.iterrows():
-                    janela_texto = linha.get(col_janela, "N/A") if col_janela else "N/A"
+                    janela_texto = linha.get(col_janela, "N/A") if col_janela in df_sp.columns else "N/A"
                     st.markdown(f'''
                         <div class="item-linha-tec">
                             🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
