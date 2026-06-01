@@ -2,111 +2,31 @@ import streamlit as st
 import pandas as pd
 import os
 import time
-from datetime import datetime, timedelta
 
-# 1. Configuração da página ampla para a TV
+# 1. Configuração (Ajustado para 8 segundos)
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
-
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-TEMPO_ROTACAO_SEGUNDOS = 15
+TEMPO_ROTACAO_SEGUNDOS = 8 
 
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
-df_master = None
-if os.path.exists(ARQUIVO_ROTA_DISCO):
-    try: df_master = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
-    except: pass
-
-# 🔥 CONTROLADOR DE SESSÃO
-if "last_rotacao_tv" not in st.session_state: st.session_state["last_rotacao_tv"] = time.time()
-if "index_supervisor_tv" not in st.session_state: st.session_state["index_supervisor_tv"] = 0
-if "sub_painel_tv" not in st.session_state: st.session_state["sub_painel_tv"] = "CENARIO"
-if "chave_fala_gatilho" not in st.session_state: st.session_state["chave_fala_gatilho"] = ""
-
-SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
-
-# ⏱️ RELÓGIO DE ALTERNAÇÃO
-tempo_decorrido = time.time() - st.session_state["last_rotacao_tv"]
-tempo_restante = int(max(0, TEMPO_ROTACAO_SEGUNDOS - tempo_decorrido))
-
-if tempo_decorrido >= TEMPO_ROTACAO_SEGUNDOS:
-    if st.session_state["sub_painel_tv"] == "CENARIO":
-        st.session_state["sub_painel_tv"] = "CONTRATOS"
-    else:
-        st.session_state["sub_painel_tv"] = "CENARIO"
-        st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
-    st.session_state["last_rotacao_tv"] = time.time()
-    st.rerun()
-
-supervisor_atual = SUPERVISORES_CICLO[st.session_state["index_supervisor_tv"]]
-sub_tela_atual = st.session_state["sub_painel_tv"]
-supervisor_titulo = "FRANCISCO" if "FRANCISCO" in supervisor_atual else supervisor_atual
-
-# CSS E BARRA FIXA
-st.markdown("""<style>
-    section[data-testid="stSidebar"], div[data-testid="stSidebarCollapseButton"] { display: none !important; }
-    .barra-status-tv { 
-        position: fixed; top: 0; left: 0; right: 0; z-index: 999995; 
-        background-color: #111; color: #fff; padding: 10px 20px; 
-        font-size: 13px; font-weight: bold; display: flex; 
-        justify-content: space-between; align-items: center; 
-    }
-    .btn-voltar-home { background-color: #cc6600; color: white !important; padding: 5px 12px; border-radius: 4px; text-decoration: none !important; font-size: 12px; }
-    .title-supervisor-tv { font-size: 42px !important; font-weight: 900 !important; color: #005088; text-align: center; margin-top: 50px; }
-    .item-linha-tv { font-size: 21px; padding: 10px; border-bottom: 1px solid #eee; }
-    .item-contrato-tv { font-weight: 900; color: #cc6600; }
-    .custom-pendente-box { background-color: #ffcccc; border: 2px solid #ff9999; border-radius: 6px; padding: 25px; text-align: center; }
-    .custom-pendente-value { font-size: 64px; font-weight: 900; color: #b30000; }
-    .card-meta-tv { background-color: #f8f9fa; border-radius: 6px; padding: 25px; text-align: center; border-top: 5px solid #6c757d; }
-    .card-meta-value { font-size: 64px; font-weight: 900; }
-</style>""", unsafe_allow_html=True)
-
-# BARRA SUPERIOR CORRIGIDA
-st.markdown(f'''
-    <div class="barra-status-tv">
-        <div>
-            <a href="/" target="_self" class="btn-voltar-home">🏠 VOLTAR</a>
-            <span style="margin-left: 15px;">📺 TV MODE • EQUIPE: <b>{supervisor_titulo}</b> • TELA: <b>{sub_tela_atual}</b></span>
-        </div>
-        <div>🔄 Próxima transição em {tempo_restante}s</div>
-    </div>
-''', unsafe_allow_html=True)
-
-# PROCESSAMENTO
-if df_master is not None and not df_master.empty:
-    df = df_master.copy()
-    col_tecnico = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
-    
-    # Cálculos P, R, I
-    df['P_COUNT'] = df['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False).astype(int)
-    df['R_COUNT'] = df['Status da Atividade'].fillna('').str.contains('ROTA', case=False, na=False).astype(int)
-    df['I_COUNT'] = df['Status da Atividade'].fillna('').str.contains('INICIADO', case=False, na=False).astype(int)
-    
-    # Padronização Supervisor
-    def padronizar(nome):
-        nome = str(nome).upper()
-        if 'ALAN' in nome or 'FRANCISCO' in nome: return 'SP'
-        return 'ABC'
-
-    df['SUPERVISOR_MOSTRAR'] = df['SUPERVISOR'].apply(padronizar)
-    df_supervisor_atual = df[df['SUPERVISOR'].str.contains(supervisor_atual, case=False, na=False)].copy()
+# ... (Mantenha o carregamento do df_master e controladores de sessão iguais)
+# ... (Certifique-se de que o id_unico_fala e o bloco st.components.v1.html estejam presentes na tela CENARIO)
 
     if sub_tela_atual == "CENARIO":
         st.markdown(f'<div class="title-supervisor-tv">👤 SUPERVISÃO: {supervisor_titulo}</div>', unsafe_allow_html=True)
-        c1, c2, c3 = st.columns(3)
-        c1.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-value">{int(df_supervisor_atual["P_COUNT"].sum())}</div>🔴 PENDENTES</div>', unsafe_allow_html=True)
-        c2.markdown(f'<div class="card-meta-tv"><div class="card-meta-value">{int(df_supervisor_atual["R_COUNT"].sum())}</div>🟣 EM ROTA</div>', unsafe_allow_html=True)
-        c3.markdown(f'<div class="card-meta-tv"><div class="card-meta-value">{int(df_supervisor_atual["I_COUNT"].sum())}</div>🟢 INICIADO</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="title-supervisor-tv" style="color: #cc6600;">⏳ PENDENTES: {supervisor_titulo}</div>', unsafe_allow_html=True)
-        pendentes = df_supervisor_atual[df_supervisor_atual['P_COUNT'] > 0]
-        if not pendentes.empty:
-            cols = st.columns(2)
-            for i, (_, linha) in enumerate(pendentes.iterrows()):
-                cols[i % 2].markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato")}</span> | 👤 {linha.get(col_tecnico)}</div>', unsafe_allow_html=True)
-        else:
-            st.success("🎉 Tudo limpo!")
-else:
-    st.warning("Carregue o arquivo de rota na página inicial.")
+        
+        # [Cards de KPI aqui...]
 
-time.sleep(1)
-st.rerun()
+        # 🔥 GATILHO DA VOZ REATIVADO
+        id_unico_fala = f"{supervisor_titulo}_{p_total}_{r_total}_{i_total}"
+        if st.session_state["chave_fala_gatilho"] != id_unico_fala:
+            frase_narracao = f"Supervisor {supervisor_titulo}, possui {p_total} pendentes."
+            st.components.v1.html(f"""
+                <script>
+                    var msg = new SpeechSynthesisUtterance("{frase_narracao}");
+                    msg.lang = "pt-BR";
+                    window.speechSynthesis.speak(msg);
+                </script>
+            """, height=0, width=0)
+            st.session_state["chave_fala_gatilho"] = id_unico_fala
+
+# [Restante do código...]
