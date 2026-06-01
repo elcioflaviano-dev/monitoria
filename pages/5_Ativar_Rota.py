@@ -3,26 +3,9 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Inicializa as listas dinâmicas se não existirem
-if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
-if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
-
-# Listas oficiais iniciais
-TECNICOS_SP = [...] # (Insira a lista completa que te passei antes aqui)
-TECNICOS_ABC = [...] # (Insira a lista completa que te passei antes aqui)
+# (Mantenha as suas listas LISTA_SP_FIXA e LISTA_ABC_FIXA aqui como no código anterior)
 
 st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
-
-# --- CAMPO PARA NOVO NOME ---
-with st.expander("➕ Incluir Novo Técnico Manualmente"):
-    col_a, col_b, col_c = st.columns([2, 1, 1])
-    novo_nome = col_a.text_input("Nome do Técnico:").upper().strip()
-    nova_base = col_b.selectbox("Base:", ["SP", "ABC"])
-    if col_c.button("Adicionar"):
-        if novo_nome:
-            if nova_base == "SP": st.session_state["novos_sp"].append(novo_nome)
-            else: st.session_state["novos_abc"].append(novo_nome)
-            st.rerun()
 
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     df = st.session_state['df_rota_ativa']
@@ -33,22 +16,43 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
 
     nomes_na_base = sorted(df_tela['Recurso'].unique().tolist())
     
-    # Consolidar listas oficiais + nomes incluídos manualmente
-    lista_sp_final = [n.upper() for n in TECNICOS_SP] + [n.upper() for n in st.session_state["novos_sp"]]
-    lista_abc_final = [n.upper() for n in TECNICOS_ABC] + [n.upper() for n in st.session_state["novos_abc"]]
+    lista_sp = [str(n).upper() for n in LISTA_SP_FIXA] + [str(n).upper() for n in st.session_state.get("novos_sp", [])]
+    lista_abc = [str(n).upper() for n in LISTA_ABC_FIXA] + [str(n).upper() for n in st.session_state.get("novos_abc", [])]
 
-    col1, col2 = st.columns(2)
+    # Separar os nomes em listas para distribuir nas 4 colunas
+    nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
+    nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
+
+    # Dividir as listas ao meio para colocar em duas colunas cada
+    mid_abc = len(nomes_abc) // 2
+    mid_sp = len(nomes_sp) // 2
+
+    c1, c2, c3, c4 = st.columns(4)
     
-    with col1:
-        st.markdown('### 🏢 ABC / GUARULHOS')
-        for nome in nomes_na_base:
-            if nome.upper() in lista_abc_final or nome.upper() not in lista_sp_final:
-                st.markdown(f'🏃‍♂️ {nome}')
-                
-    with col2:
-        st.markdown('### 🏙️ SÃO PAULO (SP)')
-        for nome in nomes_na_base:
-            if nome.upper() in lista_sp_final:
-                st.markdown(f'🏃‍♂️ {nome}')
+    with c1:
+        st.markdown('### 🏢 ABC (1/2)')
+        for nome in nomes_abc[:mid_abc]: st.markdown(f'🏃‍♂️ {nome}')
+    with c2:
+        st.markdown('### 🏢 ABC (2/2)')
+        for nome in nomes_abc[mid_abc:]: st.markdown(f'🏃‍♂️ {nome}')
+    with c3:
+        st.markdown('### 🏙️ SP (1/2)')
+        for nome in nomes_sp[:mid_sp]: st.markdown(f'🏃‍♂️ {nome}')
+    with c4:
+        st.markdown('### 🏙️ SP (2/2)')
+        for nome in nomes_sp[mid_sp:]: st.markdown(f'🏃‍♂️ {nome}')
+
+    # --- INCLUSAO MANUAL NA PARTE DE BAIXO ---
+    st.divider()
+    with st.expander("➕ Incluir Novo Técnico (Na parte inferior)"):
+        c_a, c_b, c_c = st.columns([2, 1, 1])
+        nome_input = c_a.text_input("Nome do Técnico:").upper().strip()
+        base_input = c_b.selectbox("Base:", ["SP", "ABC"])
+        if c_c.button("Adicionar"):
+            if nome_input:
+                if base_input == "SP": st.session_state["novos_sp"].append(nome_input)
+                else: st.session_state["novos_abc"].append(nome_input)
+                st.rerun()
+
 else:
-    st.error("⚠️ Nenhum dado carregado na página inicial.")
+    st.error("⚠️ Nenhum dado de rota carregado.")
