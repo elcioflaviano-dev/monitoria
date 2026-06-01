@@ -40,10 +40,14 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
 def realizar_procv_inteligente(nome_planilha):
     nome_u = str(nome_planilha).upper().strip()
     
-    # Cadastro de cruzamento por Substring
+    # Dicionário de cruzamento por Substring baseado nos nomes reais da planilha
     cadastro_recs = {
         "ADRIEL": {"login": "L_ADRIEL", "supervisor": "ALAN"},
+        "AIRON": {"login": "L_AIRON", "supervisor": "ALAN"},
+        "ALAN": {"login": "L_ALAN_R", "supervisor": "FRANCISCO"},
+        "ALEX": {"login": "L_ALEX", "supervisor": "FRANCISCO"},
         "ALINE": {"login": "L_ALINE", "supervisor": "FRANCISCO"},
+        "AMANDA": {"login": "L_AMANDA", "supervisor": "ALAN"},
         "DEBORA": {"login": "L_DEBORA", "supervisor": "ALAN"},
         "EDER": {"login": "L_EDER", "supervisor": "FRANCISCO"},
         "ELIAS": {"login": "L_ELIAS", "supervisor": "ALAN"},
@@ -63,26 +67,15 @@ df_ativar = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Limpa os cabeçalhos deixando tudo em maiúsculo
-    df_temp.columns = [str(c).upper().strip() for c in df_temp.columns]
+    # Padroniza as colunas removendo espaços e mantendo a grafia original do Streamlit para busca direta
+    df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
-    col_recurso = None
-    col_status = None
-    col_tipo = None
+    # Trava os alvos com precisão milimétrica baseada no cabeçalho real do seu print
+    col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
+    col_status = 'Status da Atividade' if 'Status da Atividade' in df_temp.columns else 'STATUS_ATIVIDADE'
+    col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[-1]
 
-    for c in df_temp.columns:
-        if 'RECURS' in c or 'TECNICO' in c or 'NOME' in c:
-            col_recurso = c
-        if 'STATUS' in c:
-            col_status = c
-        if 'TIPO' in c or 'ATIVIDADE' in c:
-            col_tipo = c
-
-    if not col_recurso: col_recurso = df_temp.columns[0]
-    if not col_status: col_status = df_temp.columns[3] if len(df_temp.columns) > 3 else df_temp.columns[0]
-    if not col_tipo: col_tipo = df_temp.columns[-1]
-
-    # Cria as listas de processamento bruto
+    # Cria as listas de processamento usando a exata tipagem de dados da planilha
     lista_recurso = [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()]
     lista_tipo_ativ = [str(x).upper().strip() for x in df_temp[col_tipo].fillna('').tolist()]
     lista_status_at = [str(x).upper().strip() for x in df_temp[col_status].fillna('').tolist()]
@@ -93,7 +86,7 @@ if df_master is not None and not df_master.empty:
         'Status_Conclusao_Upper': lista_status_at
     })
     
-    # Aplica o PROCV Inteligente por nome
+    # Aplica o PROCV Inteligente por substring de nome
     logins_calculados = []
     supervisores_calculados = []
     
@@ -124,7 +117,7 @@ if df_ativar is not None and not df_ativar.empty:
     # 1. Filtra as linhas de Largada do tipo "NA BASE"
     df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
     
-    # 2. 🔥 FILTRO TOLERANTE A ESPAÇOS: Busca parcial por "PEND" para não ignorar "pendente " com espaços
+    # 2. Busca estritamente quem está PENDENTE na atividade "Na Base"
     df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND", na=False)].copy()
     
     if not df_pendentes_reais.empty:
@@ -134,7 +127,7 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         df_lista = pd.DataFrame(columns=['Supervisor', 'Login', 'Técnico Pendente'])
 
-    # Divisão regional
+    # Divisão regional estável baseada nos supervisores
     df_sp = df_lista[df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_lista[~df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
