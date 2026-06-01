@@ -21,8 +21,6 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
     if "last_refresh_dash" not in st.session_state:
         st.session_state["last_refresh_dash"] = time.time()
     
-    st.text_input("refresh_trigger_dash", value=str(st.session_state["last_refresh_dash"]), label_visibility="collapsed")
-    
     if time.time() - st.session_state["last_refresh_dash"] > 60:
         st.session_state["last_refresh_dash"] = time.time()
         st.rerun()
@@ -123,7 +121,7 @@ if df_dash is not None and not df_dash.empty:
     contrato_limpo_bruto = df_dash['Contrato'].fillna('').astype(str).str.strip()
 
     # =========================================================================
-    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS FIXOS DO TOPO)
+    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CALDS FIXOS DO TOPO COM LINK GLOBAL)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     
@@ -153,6 +151,10 @@ if df_dash is not None and not df_dash.empty:
         
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
+
+    # 🔥 SALVA NA MEMÓRIA GLOBAL DO SISTEMA PARA A OUTRA PÁGINA PEGAR IDÊNTICO 🔥
+    st.session_state['media_global_abc'] = media_abc
+    st.session_state['media_global_sp'] = media_sp
 
     # Renderização HTML dos Cards do Topo
     st.markdown(f'''
@@ -254,7 +256,7 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#333;">{base_total_os_bruto}</div>', unsafe_allow_html=True)
         with c3:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos em Rota</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">🏃\u200d♂️ Técnicos em Rota</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
         with c4:
             with st.container(border=True):
@@ -262,7 +264,7 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#b30000;">{base_total_retornos}</div>', unsafe_allow_html=True)
         with c5:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">👤 Média Contratos/Téc</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">¼ Média Contratos/Téc</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#008080;">{media_contratos_por_tec:.2f}</div>', unsafe_allow_html=True)
         with c6:
             with st.container(border=True):
