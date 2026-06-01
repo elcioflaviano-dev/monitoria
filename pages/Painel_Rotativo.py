@@ -3,59 +3,65 @@ import pandas as pd
 import os
 import time
 
+# 1. Layout Totalmente Expandido e Sem Menu
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+# 2. CSS "Agresivo" para TV (Esconde menu, trava barra)
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"], section[data-testid="stSidebar"], div[data-testid="stSidebarCollapseButton"] { display: none !important; }
+        .barra-preta { 
+            position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+            background: #000; color: #fff; padding: 15px; 
+            text-align: center; font-size: 24px; font-weight: 900;
+        }
+        .main { margin-top: 60px !important; }
+        .card-c { background: #f8f9fa; border-left: 8px solid #cc6600; padding: 15px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center; }
+    </style>
+""", unsafe_allow_html=True)
+
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-
-# Carregamento
-df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str) if os.path.exists(ARQUIVO_ROTA_DISCO) else None
-if df is not None and 'Contrato' in df.columns:
-    df['Contrato'] = df['Contrato'].str.replace('.0', '', regex=False)
-
 SUPERVISORES = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
 
-# Controle de Sessão
+# Sessão
 if "idx" not in st.session_state: st.session_state.idx = 0
 if "last_move" not in st.session_state: st.session_state.last_move = time.time()
 
-# Lógica de Rotação (5s por sup, 40s final)
+# Lógica de Tempo (5s por supervisor, 40s no fim)
+tempo_agora = time.time()
 espera = 5 if st.session_state.idx < len(SUPERVISORES) else 40
-if time.time() - st.session_state.last_move > espera:
+segundos_restantes = int(espera - (tempo_agora - st.session_state.last_move))
+
+if tempo_agora - st.session_state.last_move > espera:
     st.session_state.idx = (st.session_state.idx + 1) % (len(SUPERVISORES) + 1)
-    st.session_state.last_move = time.time()
+    st.session_state.last_move = tempo_agora
     st.rerun()
 
-# CSS de Layout Profissional
-st.markdown("""<style>
-    .barra-preta { background: #000; color: #fff; padding: 20px; text-align: center; font-size: 30px; font-weight: 900; }
-    .card-sup { background: #005088; color: #fff; padding: 15px; border-radius: 10px; text-align: center; font-size: 24px; margin-bottom: 20px; }
-    .box-p { background: #ffcccc; padding: 20px; border-radius: 10px; text-align: center; border: 4px solid #b30000; }
-    .valor-p { font-size: 60px; font-weight: 900; color: #b30000; }
-    .card-c { background: #f8f9fa; border-left: 8px solid #cc6600; padding: 15px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center; }
-</style>""", unsafe_allow_html=True)
+# Barra Fixa Superior com contador
+st.markdown(f'<div class="barra-preta">EQUIPE: {SUPERVISORES[st.session_state.idx % len(SUPERVISORES)] if st.session_state.idx < len(SUPERVISORES) else "PAUSA"} | Segundos: {max(0, segundos_restantes)}</div>', unsafe_allow_html=True)
 
-# Exibição
-if st.session_state.idx < len(SUPERVISORES):
-    sup = SUPERVISORES[st.session_state.idx]
-    st.markdown(f'<div class="barra-preta">EQUIPE EM FOCO: {sup}</div>', unsafe_allow_html=True)
+# Conteúdo
+if os.path.exists(ARQUIVO_ROTA_DISCO):
+    df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    if 'Contrato' in df.columns: df['Contrato'] = df['Contrato'].str.replace('.0', '', regex=False)
     
-    if df is not None:
+    if st.session_state.idx < len(SUPERVISORES):
+        sup = SUPERVISORES[st.session_state.idx]
         df_sup = df[df['SUPERVISOR'].str.contains(sup, case=False, na=False)]
         pendentes = df_sup[df_sup['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False)]
         
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.markdown(f'<div class="box-p"><div class="valor-p">{len(pendentes)}</div>PENDENTES</div>', unsafe_allow_html=True)
-        with col2:
-            for _, row in pendentes.iterrows():
-                st.markdown(f'<div class="card-c">📄 CONTRATO: {row.get("Contrato")} | 👤 {row.get("Recurso", "Técnico").upper()}</div>', unsafe_allow_html=True)
+        st.markdown(f"## 👤 {sup}")
+        st.markdown(f"### Pendentes: {len(pendentes)}")
         
-        # Fala (Apenas uma vez por supervisor)
-        st.components.v1.html(f"""<script>
-            var msg = new SpeechSynthesisUtterance("Supervisor {sup}, possui {len(pendentes)} pendentes.");
-            msg.lang = 'pt-BR'; window.speechSynthesis.speak(msg);
-        </script>""", height=0)
+        # Fala (apenas quando carrega o supervisor)
+        st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('Supervisor {sup}, possui {len(pendentes)} pendentes.'); window.speechSynthesis.speak(m);</script>", height=0)
+        
+        for _, row in pendentes.iterrows():
+            st.markdown(f'<div class="card-c">📄 CONTRATO: {row.get("Contrato")} | 👤 {row.get("Recurso", "TÉCNICO").upper()}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown("<h1>⏳ AGUARDANDO PRÓXIMO CICLO...</h1>", unsafe_allow_html=True)
 else:
-    st.markdown('<div class="barra-preta">PAINEL AGUARDANDO PRÓXIMO CICLO...</div>', unsafe_allow_html=True)
-    st.info("Pausa para descanso do painel...")
+    st.warning("Arquivo não encontrado.")
 
 time.sleep(1)
+st.rerun()
