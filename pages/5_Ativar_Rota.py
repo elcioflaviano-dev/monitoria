@@ -10,7 +10,7 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     # 1. MAPEAMENTO (Substitua o 'X' pelo índice da coluna do Supervisor que você vai me dizer)
     # Coluna 0 = Nome do Técnico | Coluna X = Nome do Supervisor
     COL_NOME = 0
-    COL_SUP = X  # <--- ME DIGA QUAL É ESSE NÚMERO
+    COL_SUP = 1  # <--- ME DIGA QUAL É ESSE NÚMERO
     
     # Criamos um dicionário técnico -> supervisor
     df_mapa = df[[COL_NOME, COL_SUP]].dropna().drop_duplicates(subset=[COL_NOME])
