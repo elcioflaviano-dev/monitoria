@@ -6,24 +6,32 @@ st.set_page_config(layout="wide")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
 if os.path.exists(ARQUIVO_ROTA_DISCO):
+    # Lemos como texto puro, sem cabeçalhos
     df = pd.read_csv(ARQUIVO_ROTA_DISCO, header=None, dtype=str)
     
-    # Pega as colunas [1, 2, 22] e limpa
-    df_clean = df.iloc[1:, [1, 2, 22]].copy()
-    df_clean.columns = ['NOME', 'STATUS', 'TIPO']
-    
-    # LIMPEZA EXTRA: Remove espaços em branco antes/depois e coloca tudo em minúsculo
-    df_clean['STATUS'] = df_clean['STATUS'].fillna('').str.strip().str.lower()
-    df_clean['TIPO'] = df_clean['TIPO'].fillna('').str.strip().str.upper()
+    st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
-    st.write("--- DIAGNÓSTICO DE DADOS ---")
+    # Lógica: Se uma linha contiver "NA BASE" e "PENDENTE", capturamos o nome.
+    # O nome está na COLUNA 0 (de acordo com o que identificamos como correto agora).
     
-    # Mostra o que existe de único nas colunas para a gente comparar
-    st.write("Status únicos encontrados:", df_clean['STATUS'].unique())
-    st.write("Tipos únicos encontrados:", df_clean['TIPO'].unique())
+    tecnicos_pendentes = []
     
-    # Mostra as primeiras 20 linhas processadas
-    st.dataframe(df_clean.head(20))
+    for index, row in df.iterrows():
+        linha_texto = " ".join(row.fillna('').astype(str)).upper()
+        if "NA BASE" in linha_texto and "PENDENTE" in linha_texto:
+            # Captura o nome da coluna 0 (ajuste se for outra coluna)
+            nome = row[0] 
+            if nome and nome != "nan":
+                tecnicos_pendentes.append(nome)
     
+    tecnicos_unicos = sorted(list(set(tecnicos_pendentes)))
+    
+    if not tecnicos_unicos:
+        st.success("🎉 Todos os técnicos foram liberados para a rua!")
+    else:
+        st.markdown('<h2 style="color: #005088; text-align: center;">TÉCNICOS PENDENTES</h2>', unsafe_allow_html=True)
+        for nome in tecnicos_unicos:
+            st.markdown(f'🏃‍♂️ <b>{nome}</b>', unsafe_allow_html=True)
+            
 else:
-    st.error("Arquivo não encontrado.")
+    st.error("Arquivo rota_sincronizada.csv não encontrado.")
