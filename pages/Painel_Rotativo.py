@@ -86,74 +86,54 @@ st.markdown(f'''
     </div>
 ''', unsafe_allow_html=True)
 
+# 📋 MATRIZ DE DE-PARA UNIFICADA PARA OS SUPERVISORES
+def vincular_supervisor_tecnico(nome_planilha):
+    nome_u = str(nome_planilha).upper().strip()
+    cadastro_recs = {
+        "ADRIEL": "ALAN", "AIRON": "ALAN", "ALAN": "ALAN DE ANDRADE DIAS", 
+        "ALEX": "FRANCISCO", "ALINE": "MAICON", "AMANDA": "ALAN", 
+        "DEBORA": "ALAN", "ELIAS": "ALAN", "ENOQUE": "ALAN"
+    }
+    for chave, supervisor in cadastro_recs.items():
+        if chave in nome_u: 
+            return supervisor
+    return "MAICON"
+
 # =============================================================================
-# LÓGICA COLETIVA DE DADOS SINCRONIZADA (Mesma regra do TEC1 e Pendentes)
+# LÓGICA COLETIVA DE DADOS SINCRONIZADA
 # =============================================================================
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
+    df.columns = [str(c).strip() for c in df.columns]
     
-    col_tecnico_check = None
-    for c in df.columns:
-        if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper(): 
-            col_tecnico_check = c; break
+    # Mapeamento dinâmico baseado nas colunas reais da planilha do seu Excel
+    col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
+    col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
+    col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
             
-    if col_tecnico_check:
-        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+    df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
     if 'Contrato' in df.columns:
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
         df = df[df['Contrato'] != ''].copy()
 
-    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
+    df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
-    if 'Tipo de Atividade' in df_limpo.columns:
-        df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
-        df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
+    df_limpo['Tipo_Activity_Str'] = df_limpo[col_tipo_real].fillna('').astype(str)
+    df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
 
-    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
+    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
     df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
     df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
 
-    # Base unificada de ativos
-    df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+    # Base unificada de ativos (Exibe tudo o que for válido operativamente no dia)
+    df_tela = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
 
-    col_janela = None
-    for c in df_validos.columns:
-        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
-            col_janela = c; break
+    # Aplica a regra inteligente de supervisors por nome
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_tecnico_check].apply(vincular_supervisor_tecnico)
 
-    if col_janela is not None and not df_validos.empty:
-        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
-        hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
-        
-        def extrair_hora_limite(janela_str):
-            try:
-                partes = janela_str.replace(':', '').split('-')
-                return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
-            except: return 24
-            
-        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
-        
-        # 🔥 CRITICAL: Aplica a mesma REGRA BLINDADA (Hora + 2 OU Em Rota OU Iniciado)
-        condicao_janela_sincronizada = (
-            (df_validos['Hora_Limite_Janela'] <= (hora_atual + 2)) | 
-            (df_validos['R_COUNT'] > 0) | 
-            (df_validos['I_COUNT'] > 0)
-        )
-        df_tela = df_validos[condicao_janela_sincronizada].copy()
-        
-        if df_tela.empty: 
-            df_tela = df_validos.copy()
-    else:
-        df_tela = df_validos.copy()
-
-    if 'SUPERVISOR' in df_tela.columns:
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'NAN': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'}).astype(str).str.upper().str.strip()
-    else:
-        df_tela['SUPERVISOR_MOSTRAR'] = 'PENDENTE CADASTRO'
-
-    cond_sp = (df_tela['REGIAO_BASE'].fillna('').astype(str).str.upper().str.contains('SÃO PAULO|SP', na=False) | df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False))
+    cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
     df_sp = df_tela[cond_sp].copy()
     df_abc = df_tela[~cond_sp].copy()
 
@@ -165,7 +145,7 @@ if df_master is not None and not df_master.empty:
         
         col_coluna_abc, col_coluna_sp = st.columns(2)
         with col_coluna_abc:
-            st.markdown('<div style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #008080; text-align: center;">ABC</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp" style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #008080; text-align: center;">ABC</div>', unsafe_allow_html=True)
             if not df_abc.empty:
                 matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 for _, dados_super in matriz_abc.iterrows():
@@ -204,10 +184,6 @@ if df_master is not None and not df_master.empty:
         df_abc_p = df_abc[df_abc['P_COUNT'] > 0].copy()
         df_sp_p = df_sp[df_sp['P_COUNT'] > 0].copy()
 
-        if 'RECURSO' in df_tela.columns: col_r = 'RECURSO'
-        elif 'Recurso' in df_tela.columns: col_r = 'Recurso'
-        else: col_r = col_tecnico_check
-
         col_coluna_abc, col_coluna_sp = st.columns(2)
         with col_coluna_abc:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
@@ -216,7 +192,7 @@ if df_master is not None and not df_master.empty:
                     df_super = df_abc_p[df_abc_p['SUPERVISOR_MOSTRAR'] == supervisor]
                     st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
                     for _, linha in df_super.iterrows():
-                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_r, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
             else: st.success("🎉 Nenhum contrato pendente no ABC para esta janela!")
 
         with col_coluna_sp:
@@ -226,7 +202,7 @@ if df_master is not None and not df_master.empty:
                     df_super = df_sp_p[df_sp_p['SUPERVISOR_MOSTRAR'] == supervisor]
                     st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
                     for _, linha in df_super.iterrows():
-                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_r, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
             else: st.success("🎉 Nenhum contrato pendente em SP para esta janela!")
 else:
     st.warning("👈 Por favor, insira os arquivos de rota na página inicial primeiro.")
