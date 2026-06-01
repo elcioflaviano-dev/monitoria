@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
@@ -45,6 +45,7 @@ if df_master is not None and not df_master.empty:
     # 🛠️ TRAVA DE COLUNAS IDÊNTICA AO TEC1 OPERACIONAL
     col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
+    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
     
     if col_tecnico_check:
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
@@ -57,44 +58,65 @@ if df_master is not None and not df_master.empty:
     df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
-    # 🔥 Conta os pendentes reais
+    # Conta os marcadores reais operacionais
     df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
-    df_tela = df_limpo[df_limpo['P_COUNT'] > 0].copy()
+    df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
+    df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
+    
+    df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+
+    # === MOTOR DE JANELAS PROGRESSIVO E CUMULATIVO ===
+    col_janela = None
+    for c in df_validos.columns:
+        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
+            col_janela = c
+            break
+
+    hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+
+    if col_janela is not None and not df_validos.empty:
+        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
+        
+        def extrair_hora_limite(janela_str):
+            try:
+                partes = janela_str.replace(':', '').split('-')
+                return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
+            except: 
+                return 24
+
+        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
+        
+        # Define os tetos dinâmicos acumulativos baseados no relógio real
+        if hora_atual < 12:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
+            texto_status_janela = "Pendentes da Manhã (Janelas até 11h e 12h)"
+        elif 12 <= hora_atual < 15:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
+            texto_status_janela = "Pendentes Acumulados (Manhã + Janelas até 15h)"
+        else:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
+            texto_status_janela = "Todos os Pendentes do Turno (Acumulado Completo)"
+
+        # Isola os registros da janela cumulativa ou que continuem ativos em andamento de campo
+        df_base_janela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
+        df_tela = df_base_janela[df_base_janela['P_COUNT'] > 0].copy()
+        
+        if df_tela.empty and df_base_janela.empty: 
+            df_tela = df_validos[df_validos['P_COUNT'] > 0].copy()
+            
+        st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⏰ Progressão: {texto_status_janela}</div>', unsafe_allow_html=True)
+    else:
+        df_tela = df_validos[df_validos['P_COUNT'] > 0].copy()
 
     if df_tela.empty:
         st.success("🎉 Nenhum contrato pendente para esta janela!")
     else:
-        # Puxa o supervisor original gravado
-        if 'SUPERVISOR' in df_tela.columns:
-            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip()
-        else:
-            df_tela['SUPERVISOR_MOSTRAR'] = ''
+        # 🔥 ALINHAMENTO COMPLETO DOS SUPERVISORES SEM PERDER MARCOS OU NELSON
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
 
-        # Mapeamento de supervisores por primeiro nome do técnico (Garante a sincronia completa)
-        def vincular_supervisor_tecnico(row):
-            nome_u = str(row[col_tecnico_check]).upper().strip()
-            sup_orig = str(row['SUPERVISOR_MOSTRAR'])
-            
-            if "FRANCISCO" in sup_orig: return "FRANCISCO"
-            if "ALAN" in sup_orig: return "ALAN"
-            if "MAICON" in sup_orig: return "MAICON"
-            if "NELSON" in sup_orig: return "NELSON"
-            if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
-
-            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
-                return "ALAN"
-            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
-                return "FRANCISCO"
-            if "MARCOS" in nome_u: 
-                return "MARCOS ROBERTO"
-            if "NELSON" in nome_u: 
-                return "NELSON"
-                
-            return "MAICON"
-
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
-
-        # Divisão regional
+        # Divisão regional estável por supervisor
         cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
@@ -110,7 +132,7 @@ if df_master is not None and not df_master.empty:
                     for _, linha in df_super.iterrows():
                         st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
             else: 
-                st.info("Nenhum pendente no ABC.")
+                st.info("Nenhum pendente no ABC para esta janela.")
 
         with col_coluna_sp:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
@@ -121,6 +143,6 @@ if df_master is not None and not df_master.empty:
                     for _, linha in df_super.iterrows():
                         st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
             else: 
-                st.info("Nenhum pendente em SP.")
+                st.info("Nenhum pendente em SP para esta janela.")
 else: 
     st.warning("👈 Insira os arquivos na página inicial primeiro.")
