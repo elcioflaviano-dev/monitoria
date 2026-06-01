@@ -17,55 +17,45 @@ SUPERVISORES = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO
 if "idx" not in st.session_state: st.session_state.idx = 0
 if "last_move" not in st.session_state: st.session_state.last_move = time.time()
 
-# Troca de Supervisor a cada 5 segundos
-if time.time() - st.session_state.last_move > 5:
-    st.session_state.idx = (st.session_state.idx + 1) % len(SUPERVISORES)
+# Lógica de Rotação (5s por sup, 40s final)
+espera = 5 if st.session_state.idx < len(SUPERVISORES) else 40
+if time.time() - st.session_state.last_move > espera:
+    st.session_state.idx = (st.session_state.idx + 1) % (len(SUPERVISORES) + 1)
     st.session_state.last_move = time.time()
     st.rerun()
 
-sup = SUPERVISORES[st.session_state.idx]
-
-# Estilo para TV
+# CSS de Layout Profissional
 st.markdown("""<style>
-    .header-tv { background: #000; color: #fff; padding: 20px; text-align: center; font-size: 30px; font-weight: 900; }
+    .barra-preta { background: #000; color: #fff; padding: 20px; text-align: center; font-size: 30px; font-weight: 900; }
     .card-sup { background: #005088; color: #fff; padding: 15px; border-radius: 10px; text-align: center; font-size: 24px; margin-bottom: 20px; }
-    .box-pendente { background: #ffcccc; padding: 20px; border-radius: 10px; text-align: center; border: 4px solid #b30000; }
-    .valor { font-size: 80px; font-weight: 900; color: #b30000; }
-    .card-contrato { background: #f8f9fa; border-left: 10px solid #cc6600; padding: 15px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center; }
+    .box-p { background: #ffcccc; padding: 20px; border-radius: 10px; text-align: center; border: 4px solid #b30000; }
+    .valor-p { font-size: 60px; font-weight: 900; color: #b30000; }
+    .card-c { background: #f8f9fa; border-left: 8px solid #cc6600; padding: 15px; margin: 10px 0; display: flex; justify-content: space-between; align-items: center; }
 </style>""", unsafe_allow_html=True)
 
-st.markdown(f'<div class="header-tv">EQUIPE EM FOCO: {sup}</div>', unsafe_allow_html=True)
-
-if df is not None:
-    df_sup = df[df['SUPERVISOR'].str.contains(sup, case=False, na=False)]
-    pendentes = df_sup[df_sup['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False)]
+# Exibição
+if st.session_state.idx < len(SUPERVISORES):
+    sup = SUPERVISORES[st.session_state.idx]
+    st.markdown(f'<div class="barra-preta">EQUIPE EM FOCO: {sup}</div>', unsafe_allow_html=True)
     
-    # Exibe Informações
-    st.markdown(f'<div class="card-sup">SUPERVISOR: {sup}</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.markdown(f'<div class="box-pendente"><div class="valor">{len(pendentes)}</div>PENDENTES</div>', unsafe_allow_html=True)
-    
-    with col2:
-        for _, row in pendentes.iterrows():
-            st.markdown(f'''
-                <div class="card-contrato">
-                    <span style="font-size:24px; font-weight:bold;">📄 {row.get("Contrato")}</span>
-                    <span style="font-size:20px; color:#555;">👤 {row.get("Recurso", "Técnico").upper()}</span>
-                </div>
-            ''', unsafe_allow_html=True)
-
-    # Fala Automática (Dispara uma vez por supervisor)
-    fala = f"Supervisor {sup}, possui {len(pendentes)} contratos pendentes."
-    st.components.v1.html(f"""<script>
-        var msg = new SpeechSynthesisUtterance("{fala}");
-        msg.lang = 'pt-BR';
-        window.speechSynthesis.speak(msg);
-    </script>""", height=0)
-
+    if df is not None:
+        df_sup = df[df['SUPERVISOR'].str.contains(sup, case=False, na=False)]
+        pendentes = df_sup[df_sup['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False)]
+        
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.markdown(f'<div class="box-p"><div class="valor-p">{len(pendentes)}</div>PENDENTES</div>', unsafe_allow_html=True)
+        with col2:
+            for _, row in pendentes.iterrows():
+                st.markdown(f'<div class="card-c">📄 CONTRATO: {row.get("Contrato")} | 👤 {row.get("Recurso", "Técnico").upper()}</div>', unsafe_allow_html=True)
+        
+        # Fala (Apenas uma vez por supervisor)
+        st.components.v1.html(f"""<script>
+            var msg = new SpeechSynthesisUtterance("Supervisor {sup}, possui {len(pendentes)} pendentes.");
+            msg.lang = 'pt-BR'; window.speechSynthesis.speak(msg);
+        </script>""", height=0)
 else:
-    st.warning("Carregando...")
+    st.markdown('<div class="barra-preta">PAINEL AGUARDANDO PRÓXIMO CICLO...</div>', unsafe_allow_html=True)
+    st.info("Pausa para descanso do painel...")
 
 time.sleep(1)
-st.rerun()
