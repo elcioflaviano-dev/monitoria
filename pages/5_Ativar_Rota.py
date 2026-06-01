@@ -13,7 +13,7 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
 
     df.columns = df.columns.str.strip()
 
-    # 🔍 Busca robusta pelos técnicos em base
+    # Filtro de "Na Base" + "pendente"
     mask = df.apply(lambda row: row.astype(str).str.contains('Na Base', case=False, na=False).any(), axis=1) & \
            df.apply(lambda row: row.astype(str).str.contains('pendente', case=False, na=False).any(), axis=1)
     
@@ -22,22 +22,23 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
     if df_tela.empty:
-        st.success("🎉 Todos os técnicos foram liberados para a rua!")
+        st.success("🎉 Todos os técnicos foram liberados!")
     else:
         # Identifica colunas
         col_login = next((c for c in df.columns if 'Login' in c or 'Recurso' in c), df.columns[0])
         col_cidade = next((c for c in df.columns if 'Cidade' in c), None)
 
-        def definir_regiao(row):
-            if col_cidade and col_cidade in row:
-                cidade = str(row[col_cidade]).upper()
-                # Se contiver 'PAULO', é São Paulo. Se não, ABC/Guarulhos.
-                if 'PAULO' in cidade: 
-                    return 'SP'
+        def definir_regiao(cidade):
+            if not cidade: return 'ABC'
+            c = str(cidade).upper()
+            # Se tiver 'PAULO', é SP. Caso contrário, ABC.
+            if 'PAULO' in c: return 'SP'
             return 'ABC'
 
-        df_tela['REGIAO'] = df_tela.apply(definir_regiao, axis=1)
-        df_tela = df_tela.drop_duplicates(subset=[col_login])
+        df_tela['REGIAO'] = df_tela[col_cidade].apply(definir_regiao)
+        
+        # DEBUG: Mostra o que o sistema acha que é SP
+        # st.write("Cidades encontradas:", df_tela[col_cidade].unique())
         
         col1, col2 = st.columns(2)
         
@@ -48,12 +49,12 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
         
         with col2:
             st.markdown('<h2 style="color: #005088; text-align: center;">SÃO PAULO (SP)</h2>', unsafe_allow_html=True)
-            # Mostra o que ele encontrou em SP
             lista_sp = df_tela[df_tela['REGIAO'] == 'SP']
             if not lista_sp.empty:
                 for _, row in lista_sp.iterrows():
                     st.markdown(f'🏃‍♂️ <b>{row[col_login]}</b>', unsafe_allow_html=True)
             else:
-                st.info("Nenhum técnico identificado em SP.")
+                st.info("Nenhum técnico identificado como SP.")
+                st.write("Cidades lidas na base:", df_tela[col_cidade].unique())
 else:
     st.error("Arquivo rota_sincronizada.csv não encontrado.")
