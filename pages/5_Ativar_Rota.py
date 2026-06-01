@@ -45,11 +45,14 @@ if df_master is not None and not df_master.empty:
     
     for c in df_temp.columns:
         c_upper = str(c).upper().strip()
-        if 'TIPO DE ATIVIDADE' in c_upper or 'TIPO_ATIVIDADE' in c_upper: col_tipo = c
-        if 'STATUS DA ATIVIDADE' in c_upper or 'STATUS_ATIVIDADE' in c_upper: col_status = c
-        if 'LOGIN' in c_upper: col_login = c
+        if 'TIPO DE ATIVIDADE' in c_upper or 'TIPO_ATIVIDADE' in c_upper or 'TIPO DE A' in c_upper: 
+            col_tipo = c
+        if 'STATUS DA ATIVIDADE' in c_upper or 'STATUS_ATIVIDADE' in c_upper or 'STATUS DA' in c_upper: 
+            col_status = c
+        if 'LOGIN' in c_upper: 
+            col_login = c
 
-    # Fallbacks caso os nomes variem milimetricamente
+    # Fallbacks de segurança caso os nomes variem milimetricamente
     if not col_tipo: col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[0]
     if not col_status: col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else df_temp.columns[0]
     if not col_login: col_login = 'Login' if 'Login' in df_temp.columns else df_temp.columns[0]
@@ -105,11 +108,13 @@ def destacar_linha_total(row):
 # --- PROCESSAMENTO DA LARGADA MATINAL ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # 1. Filtra tudo o que for do tipo "NA BASE"
-    df_base_linhas = df_ativar[df_ativar['Tipo_Activity_Str'].str.contains("BASE", na=False) if 'Tipo_Activity_Str' in df_ativar.columns else df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
+    # 1. 🔥 FILTRO INTELIGENTE EXPANDIDO: Busca por termos comuns de primeiro evento do dia
+    # Procura por "BASE", "LOGON", "LARGADA" ou "TURNO" para cobrir qualquer variação do sistema
+    termo_busca_largada = "BASE|LOGON|LARGADA|TURNO"
+    df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains(termo_busca_largada, na=False, case=False)].copy()
     
-    # 2. Desse grupo, separa apenas os que continuam com status PENDENTE
-    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND", na=False)].copy()
+    # 2. Desse grupo, separa apenas os que continuam com status PENDENTE / EM ABERTO / ABERTO
+    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND|ABERTO|EM ABERTO", na=False, case=False)].copy()
     
     if not df_pendentes_reais.empty:
         df_lista = df_pendentes_reais.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
