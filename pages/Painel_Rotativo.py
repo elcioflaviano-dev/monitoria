@@ -40,15 +40,18 @@ if st.session_state.idx < len(SUPERVISORES):
                    (df['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False))]
     
     st.markdown('<div class="container">', unsafe_allow_html=True)
-    col1, col2 = st.columns([1, 2])
+    col1, col2 = st.columns([1, 3]) # Coluna esquerda menor, direita maior
     
     with col1:
         st.markdown(f'<div class="box-p"><div class="valor-p">{len(pendentes)}</div><h4>PENDENTES</h4></div>', unsafe_allow_html=True)
+        # Fala
         st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('Supervisor {sup}, {len(pendentes)} pendentes.'); window.speechSynthesis.speak(m);</script>", height=0)
     
     with col2:
-        for _, row in pendentes.iterrows():
-            st.markdown(f'<div class="card-c"><span>📄 {row["Contrato"]}</span><span>👤 {row.get("Recurso", "TÉCNICO").upper()}</span></div>', unsafe_allow_html=True)
+        # Divide a lista em duas colunas internas
+        sub_cols = st.columns(2)
+        for i, (_, row) in enumerate(pendentes.iterrows()):
+            sub_cols[i % 2].markdown(f'<div class="card-c"><span>📄 {row["Contrato"]}</span><span>👤 {row.get("Recurso", "TÉCNICO").upper()}</span></div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 else:
