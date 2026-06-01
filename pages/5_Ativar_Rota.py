@@ -2,13 +2,16 @@ import streamlit as st
 import pandas as pd
 import os
 
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
 if os.path.exists(ARQUIVO_ROTA_DISCO):
-    # Lendo sem cabeçalhos para respeitar os índices 3 e 22
-    df = pd.read_csv(ARQUIVO_ROTA_DISCO, header=None, dtype=str)
+    # 🛠️ A MÁGICA: quotechar='"' trata o que está entre aspas como uma coisa só
+    # E sep=None com engine='python' faz o Pandas descobrir o separador sozinho
+    df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', quotechar='"', dtype=str)
     
+    st.write("Colunas detectadas:", df.columns.tolist())
+    st.dataframe(df.head(5))
     # 🛠️ Mapeamento fixo pelo índice
     # Coluna 3: Status da Atividade | Coluna 22: Tipo de Atividade
     df_tela = df[
