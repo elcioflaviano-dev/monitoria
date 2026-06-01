@@ -10,9 +10,6 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 TEMPO_ROTACAO_SEGUNDOS = 15  # Tempo exato para girar de supervisor
 
-# --- REFRESH NATIVO VIA HTML METATAG (Força o Streamlit a rodar a cada 15s) ---
-st.markdown(f'<meta http-equiv="refresh" content="{TEMPO_ROTACAO_SEGUNDOS}">', unsafe_allow_html=True)
-
 # 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
 df_master = None
 if os.path.exists(ARQUIVO_ROTA_DISCO):
@@ -21,17 +18,27 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     except:
         pass
 
-# 🔥 MOTOR DO CARROSSEL DE INVERSÃO DE TELAS POR ATUALIZAÇÃO NATIVA 🔥
-SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
+# 🔥 MOTOR DE CONTROLE DE TEMPO INTERNO
+if "last_rotacao_time" not in st.session_state:
+    st.session_state["last_rotacao_time"] = time.time()
 
 if "index_supervisor_tv" not in st.session_state:
     st.session_state["index_supervisor_tv"] = 0
 
-# Captura o supervisor da vez baseado no índice atual
-supervisor_atual = SUPERVISORES_CICLO[st.session_state["index_supervisor_tv"]]
+SUPERVISORES_CICLO = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO"]
 
-# Avança o contador para a próxima atualização (Garante que a próxima leitura mude a tela)
-st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
+# Flag para sabermos se mudou de tela e precisamos falar
+if "precisa_falar" not in st.session_state:
+    st.session_state["precisa_falar"] = True
+
+# Verifica se passou o tempo para avançar o supervisor
+if time.time() - st.session_state["last_rotacao_time"] > TEMPO_ROTACAO_SEGUNDOS:
+    st.session_state["index_supervisor_tv"] = (st.session_state["index_supervisor_tv"] + 1) % len(SUPERVISORES_CICLO)
+    st.session_state["last_rotacao_time"] = time.time()
+    st.session_state["precisa_falar"] = True  # Ativa o gatilho da fala para a nova tela
+    st.rerun()
+
+supervisor_atual = SUPERVISORES_CICLO[st.session_state["index_supervisor_tv"]]
 
 # 🔥 INJEÇÃO DE CSS AGRESSIVA (SOME COM O MENU LATERAL DE VEZ)
 st.markdown("""
@@ -86,9 +93,9 @@ st.markdown(f'''
     <div class="barra-status-tv">
         <div>
             <a href="/" target="_self" class="btn-voltar-home">🏠 VOLTAR PARA A HOME</a>
-            <span style="margin-left: 15px;">📺 CARROSSEL ATIVO • EQUIPE ATUAL: <b style="color: #ff9800; font-size: 15px;">{supervisor_atual}</b></span>
+            <span style="margin-left: 15px;">📺 CARROSSEL AUDIOFALANTE • EQUIPE ATUAL: <b style="color: #ff9800; font-size: 15px;">{supervisor_atual}</b></span>
         </div>
-        <span>🔄 Próxima Equipe em {TEMPO_ROTACAO_SEGUNDOS}s</span>
+        <span>🔄 Troca Automática Ativa (15s por Equipe)</span>
     </div>
 ''', unsafe_allow_html=True)
 
@@ -129,6 +136,7 @@ if df_master is not None and not df_master.empty:
 
     hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
 
+    texto_audio_janela = "geral"
     if col_janela is not None and not df_validos.empty:
         df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
         def extrair_hora_limite(janela_str):
@@ -141,12 +149,15 @@ if df_master is not None and not df_master.empty:
         if hora_atual < 12:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
             texto_status_janela = "Fila da Manhã (Até 12:00)"
+            texto_audio_janela = "Até doze horas"
         elif 12 <= hora_atual < 15:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
             texto_status_janela = "Fila da Tarde (Acumulado até 15:00)"
+            texto_audio_janela = "Acumulado até quinze horas"
         else:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
             texto_status_janela = "Visão Completa Turno (Acumulado)"
+            texto_audio_janela = "Fechamento de turno"
 
         df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
         if df_tela.empty: df_tela = df_validos.copy()
@@ -160,31 +171,47 @@ if df_master is not None and not df_master.empty:
     df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
     df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
 
-    # Isola estritamente os dados do supervisor selecionado para esta página
     df_supervisor_atual = df_tela[df_tela['SUPERVISOR_MOSTRAR'] == supervisor_atual].copy()
 
     st.markdown(f'<div class="title-supervisor-tv">👤 SUPERVISÃO: {supervisor_atual}</div>', unsafe_allow_html=True)
 
     if not df_supervisor_atual.empty:
-        # Consolida volumetria macro do supervisor da vez
         p_total = int(df_supervisor_atual['P_COUNT'].sum())
         r_total = int(df_supervisor_atual['R_COUNT'].sum())
         i_total = int(df_supervisor_atual['I_COUNT'].sum())
         
-        # 📊 RENDERIZAÇÃO DO TOPO DA TELA (KPI CARDS ENORMES)
+        # 📊 RENDERIZAÇÃO DO TOPO DA TELA
         c_kpi1, c_kpi2, c_kpi3 = st.columns(3)
         with c_kpi1:
             st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 CONTRATOS PENDENTES</div><div class="custom-pendente-value">{p_total}</div></div>', unsafe_allow_html=True)
         with c_kpi2:
             st.markdown(f'<div class="card-meta-tv rota"><div class="card-meta-label">🟣 TÉCNICOS EM ROTA</div><div class="card-meta-value">{r_total}</div></div>', unsafe_allow_html=True)
         with c_kpi3:
-            st.markdown(f'<div class="card-meta-tv iniciado"><div class="card-meta-label">🟢 ATENDIMENTOS INICIADOS</div><div class="card-meta-value">{i_total}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="card-meta-tv localizado iniciado"><div class="card-meta-label">🟢 ATENDIMENTOS INICIADOS</div><div class="card-meta-value">{i_total}</div></div>', unsafe_allow_html=True)
             
+        # 🔥 MOTOR DE TEXTO PARA VOZ (SINTETIZADOR JAVASCRIPT EM PORTUGUÊS) 🔥
+        if st.session_state["precisa_falar"]:
+            frase_narracao = f"Téc um {texto_audio_janela}. Supervisor {supervisor_atual.lower()}, possui {p_total} pendentes, {r_total} em rota, e {i_total} iniciados."
+            
+            # Código JS injetado para falar usando a voz nativa do navegador da TV
+            st.markdown(f"""
+                <script>
+                    var msg = new SpeechSynthesisUtterance();
+                    msg.text = "{frase_narracao}";
+                    msg.lang = "pt-BR";
+                    msg.rate = 1.0;  // Velocidade normal da fala
+                    msg.pitch = 1.0; // Tom da voz
+                    window.speechSynthesis.speak(msg);
+                </script>
+            """, unsafe_allow_html=True)
+            
+            # Bloqueia a fala para não ficar repetindo até que mude de supervisor
+            st.session_state["precisa_falar"] = False
+
         st.markdown("<br><hr style='border-color:#ccc; margin-bottom:15px;'><br>", unsafe_allow_html=True)
 
         # ⏳ LISTAGEM DOS CONTRATOS PENDENTES
         df_pendentes_lista = df_supervisor_atual[df_supervisor_atual['P_COUNT'] > 0].copy()
-        
         st.markdown(f'<div style="font-size:18px; font-weight:bold; color:#333; margin-bottom:10px; text-transform:uppercase;">📋 LISTA DE CONTRATOS EM ABERTO ({supervisor_atual})</div>', unsafe_allow_html=True)
         
         if not df_pendentes_lista.empty:
@@ -194,7 +221,6 @@ if df_master is not None and not df_master.empty:
             df_col2 = df_ordenado.iloc[metade:]
             
             t_col1, t_col2 = st.columns(2)
-            
             with t_col1:
                 for _, linha in df_col1.iterrows():
                     st.markdown(f'<div class="item-linha-tv">📄 <span class="item-contrato-tv">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item-tv">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
@@ -207,3 +233,7 @@ if df_master is not None and not df_master.empty:
         st.info(f"Nenhuma atividade registrada para o supervisor {supervisor_atual} nesta faixa de horário.")
 else:
     st.warning("👈 Por favor, insira os arquivos de rota na página inicial primeiro.")
+
+# Mantém o loop contínuo do timer rodando em segundo plano
+time.sleep(1)
+st.rerun()
