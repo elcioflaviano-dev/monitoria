@@ -21,9 +21,6 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
     if "last_refresh_tec1" not in st.session_state:
         st.session_state["last_refresh_tec1"] = time.time()
     
-    # Linha de texto oculta limpa para não vazar números na tela
-    st.text_input("refresh_trigger_tec1", value=str(st.session_state["last_refresh_tec1"]), label_visibility="collapsed")
-    
     if time.time() - st.session_state["last_refresh_tec1"] > 30:
         st.session_state["last_refresh_tec1"] = time.time()
         st.rerun()
@@ -46,16 +43,16 @@ df_master = st.session_state.get('df_rota_ativa', None)
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # === PASSO 1: LIMPEZA DE LINHAS VAZIAS E REMOÇÃO DO .0 DO CONTRATO ===
-    col_tecnico_check = 'Login do Técnico' if 'Login do Técnico' in df.columns else None
-    if not col_tecnico_check:
-        for c in df.columns:
-            if 'TECNICO' in str(c).upper() or 'LOGIN' in str(c).upper():
-                col_tecnico_check = c
-                break
-                
-    if col_tecnico_check:
-        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+    # Padroniza as colunas removendo espaços
+    df.columns = [str(c).strip() for c in df.columns]
+    
+    # === PASSO 1: MACOTE DE TRAVAS DAS COLUNAS REAIS DO EXCEL ===
+    col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else (df.columns[0] if len(df.columns) > 0 else 'Recurso')
+    col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else 'Status')
+    col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
+
+    # Força a limpeza das linhas de técnicos vazias
+    df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
     # Localiza e limpa a coluna de Contrato tirando o ".0" de float
     if 'Contrato' in df.columns:
@@ -63,64 +60,26 @@ if df_master is not None and not df_master.empty:
         df = df[df['Contrato'] != ''].copy()
 
     # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
-    df['Status_Atividade_Upper'] = df['STATUS_ATIVIDADE'].fillna('').astype(str).str.upper().str.strip() if 'STATUS_ATIVIDADE' in df.columns else ''
+    df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
     
     # FILTRAGEM: Remove status suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
     # Remove as marcações operacionais de almoço (Refeicao)
-    if 'Tipo de Atividade' in df_limpo.columns:
-        df_limpo['Tipo_Activity_Str'] = df_limpo['Tipo de Atividade'].fillna('').astype(str)
-        df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
+    df_limpo['Tipo_Activity_Str'] = df_limpo[col_tipo_real].fillna('').astype(str)
+    df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
         
     # === PASSO 2: FILTRAGEM PRÉVIA DE STATUS ATIVOS EM CAMPO ===
-    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO', na=False).astype(int)
+    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
     df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
     df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
     
-    # Cria uma base apenas com os contratos válidos que estão acontecendo no dia
-    df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+    # 🔥 NOVA REGRA BLINDADA ATIVA EM CAMPO 🔥
+    # Exibe tudo o que for válido operativamente no turno atual (Independente do horário limite da janela)
+    df_tela = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
 
-    # Mapeia a coluna de Janela
-    col_janela = 'Janela de Serviço' if 'Janela de Serviço' in df_validos.columns else None
-    if not col_janela:
-        for c in df_validos.columns:
-            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): col_janela = c; break
-
-    if col_janela is not None and not df_validos.empty:
-        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
-        
-        # 🌟 MOTOR AUTOMÁTICO INTELIGENTE POR HORÁRIO OPERACIONAL (FUSO SÃO PAULO)
-        hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
-        
-        def extrair_hora_limite(janela_str):
-            try:
-                partes = janela_str.replace(':', '').split('-')
-                if len(partes) == 2:
-                    return int(partes[1].strip()[:2])
-                return 24
-            except:
-                return 24
-
-        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
-        
-        # 🔥 NOVA REGRA BLINDADA CONTRA SUMIÇO DE TÉCNICOS EM ATIVIDADE 🔥
-        # Mostra se a janela for atual/vencida (hora_atual + 2) OU se o cara já estiver em ROTA ou INICIADO
-        condicao_janela_ativa = (
-            (df_validos['Hora_Limite_Janela'] <= (hora_atual + 2)) | 
-            (df_validos['R_COUNT'] > 0) | 
-            (df_validos['I_COUNT'] > 0)
-        )
-        
-        df_tela = df_validos[condicao_janela_ativa].copy()
-        
-        if df_tela.empty:
-            df_tela = df_validos.copy()
-            st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⏰ [Hora Local: {hora_atual:02d}h] - Mostrando Visão Geral do Dia</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
-    else:
-        df_tela = df_validos.copy()
+    hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+    st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa Sincronizada [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
 
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
@@ -129,9 +88,20 @@ if df_master is not None and not df_master.empty:
         if 'SUPERVISOR' in df_tela.columns:
             df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('PENDENTE CADASTRO').replace({'#N/A': 'PENDENTE CADASTRO', 'NAN': 'PENDENTE CADASTRO', '': 'PENDENTE CADASTRO'})
         else:
-            df_tela['SUPERVISOR_MOSTRAR'] = 'PENDENTE CADASTRO'
+            df_tela['SUPERVISOR_MOSTRAR'] = 'ABC_GERAL'
             
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].astype(str).str.upper().str.strip()
+
+        # Ajuste dinâmico de supervisores com base no mapeamento da Home
+        def vincular_supervisor_tecnico(row):
+            nome_u = str(row[col_tecnico_check]).upper()
+            if "FRANCISCO" in nome_u or "ALAN" in nome_u: return row['SUPERVISOR_MOSTRAR']
+            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u: return "ALAN"
+            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
+            if "AIRON" in nome_u: return "ALAN"
+            return row['SUPERVISOR_MOSTRAR']
+
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
         # Divisão Regional utilizando as regras da Home
         cond_sp = (
