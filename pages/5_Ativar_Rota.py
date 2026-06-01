@@ -44,36 +44,34 @@ if df_master is not None and not df_master.empty:
     # Remove espaços invisíveis das colunas vindas do arquivo
     df.columns = [str(c).strip() for c in df.columns]
     
-    # 🛠️ AJUSTE DINÂMICO PARA CAPTURAR A SEGUNDA COLUNA REPETIDA (.1)
+    # 🛠️ MAPEAMENTO DAS OUTRAS COLUNAS FIXAS DA SUA PLANILHA
     col_tecnico_check = 'Login do Técnico'
     col_status_real = 'Status da Atividade'
     col_supervisor = 'SUPERVISOR'
     col_janela = 'Janela de Serviço'
-    
-    # Procura pela coluna que contêm o Tipo de Atividade correto (priorizando a duplicada com .1)
-    col_tipo_real = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else 'Tipo de Atividade'
 
-    # Verifica se as colunas mínimas estão presentes
-    if col_tecnico_check in df.columns and col_status_real in df.columns and col_tipo_real in df.columns:
-        
-        # Limpa linhas com técnico em branco
+    if col_tecnico_check in df.columns and col_status_real in df.columns:
+        # Limpa linhas vazias
         df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
-
-        # Padroniza os textos das células em caixa alta
-        df['Status_Pure_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
-        df['Tipo_Pure_Upper'] = df[col_tipo_real].fillna('').astype(str).str.upper().str.strip()
         
-        # 🔥 FILTRO CORRIGIDO: Agora varrendo a coluna correta do "Na Base"
-        condicao_retido = (df['Tipo_Pure_Upper'] == 'NA BASE') & (df['Status_Pure_Upper'] == 'PENDENTE')
+        # Padroniza a coluna de status para checar o pendente
+        df['Status_Pure_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
+        
+        # 🔥 MOTOR DE BUSCA EM MATRIZ COMPLETA 🔥
+        # Varre absolutamente todas as colunas da linha procurando pela expressão "NA BASE"
+        contem_na_base = df.astype(str).apply(lambda row: row.str.upper().str.strip().eq('NA BASE').any(), axis=1)
+        
+        # O filtro cruza: qualquer coluna contendo "NA BASE" + coluna de status igual a "PENDENTE"
+        condicao_retido = contem_na_base & (df['Status_Pure_Upper'] == 'PENDENTE')
         df_tela = df[condicao_retido].copy()
     else:
         df_tela = pd.DataFrame()
 
     if df_tela.empty:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente.")
+        st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente encontrado no arquivo.")
     else:
-        # Mapeamento do supervisor direto do arquivo
+        # Mapeamento estável de supervisores para a divisão das colunas regionais
         if col_supervisor in df_tela.columns:
             df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
         else:
@@ -82,7 +80,7 @@ if df_master is not None and not df_master.empty:
         df_tela['SUP_REF'] = df_tela['SUP_REF'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
         df_tela['SUP_REF'] = df_tela['SUP_REF'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('FRANCISCO' if 'FRANCISCO' in str(x) else x))
 
-        # Divisão Regional utilizando os supervisores
+        # Divisão Regional
         cond_sp = df_tela['SUP_REF'].str.contains('FRANCISCO|ALAN', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
