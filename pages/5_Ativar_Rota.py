@@ -40,7 +40,7 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
 def realizar_procv_inteligente(nome_planilha):
     nome_u = str(nome_planilha).upper().strip()
     
-    # Dicionário de cruzamento: se o termo da esquerda estiver no nome da planilha, define o supervisor e login
+    # Cadastro de cruzamento por Substring
     cadastro_recs = {
         "ADRIEL": {"login": "L_ADRIEL", "supervisor": "ALAN"},
         "ALINE": {"login": "L_ALINE", "supervisor": "FRANCISCO"},
@@ -57,8 +57,6 @@ def realizar_procv_inteligente(nome_planilha):
         if chave in nome_u:
             return dados["login"], dados["supervisor"]
             
-    # Fallback caso o técnico novo não esteja na lista acima (evita zerar a tela)
-    # Técnicos sem cadastro explícito serão jogados temporariamente para o ABC para auditoria
     return "-", "ABC_GERAL"
 
 df_ativar = None
@@ -95,7 +93,7 @@ if df_master is not None and not df_master.empty:
         'Status_Conclusao_Upper': lista_status_at
     })
     
-    # 🔥 APLICAÇÃO DO PROCV BLINDADO POR SUBSTRING 🔥
+    # Aplica o PROCV Inteligente por nome
     logins_calculados = []
     supervisores_calculados = []
     
@@ -126,8 +124,8 @@ if df_ativar is not None and not df_ativar.empty:
     # 1. Filtra as linhas de Largada do tipo "NA BASE"
     df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
     
-    # 2. Filtra estritamente quem está como PENDENTE de verdade
-    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'] == 'PENDENTE'].copy()
+    # 2. 🔥 FILTRO TOLERANTE A ESPAÇOS: Busca parcial por "PEND" para não ignorar "pendente " com espaços
+    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND", na=False)].copy()
     
     if not df_pendentes_reais.empty:
         df_lista = df_pendentes_reais.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
@@ -136,7 +134,7 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         df_lista = pd.DataFrame(columns=['Supervisor', 'Login', 'Técnico Pendente'])
 
-    # Divisão regional baseada no supervisor mapeado pelo PROCV
+    # Divisão regional
     df_sp = df_lista[df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_lista[~df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
 
@@ -151,7 +149,7 @@ if df_ativar is not None and not df_ativar.empty:
         df_tot_abc = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Login": "-", "Técnico Pendente": f"{tot_tecs_abc} Técnicos com Na Base Pendente"}])
         st.dataframe(df_tot_abc.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
     else:
-        st.success("White_Check_Mark_Emoji ✅ 100% da equipe ABC realizou a largada do 'Na Base'!")
+        st.success("✅ 100% da equipe ABC realizou a largada do 'Na Base'!")
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
