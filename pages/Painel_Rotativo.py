@@ -3,74 +3,71 @@ import pandas as pd
 import os
 import time
 
-# 1. Configuração de tela para TV
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-TEMPO_ROTACAO_SEGUNDOS = 5  # Tempo solicitado
 
 # Carregamento
 df_master = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str) if os.path.exists(ARQUIVO_ROTA_DISCO) else None
 
-# Controle de Sessão
+# Controle de Ciclo
 if "index_sup_tv" not in st.session_state: st.session_state["index_sup_tv"] = 0
-if "last_rotacao_tv" not in st.session_state: st.session_state["last_rotacao_tv"] = time.time()
+if "ciclo_completo" not in st.session_state: st.session_state["ciclo_completo"] = False
 
 SUPERVISORES = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
 
-# Lógica de Rotação (5 segundos)
-if time.time() - st.session_state["last_rotacao_tv"] >= TEMPO_ROTACAO_SEGUNDOS:
-    st.session_state["index_sup_tv"] = (st.session_state["index_sup_tv"] + 1) % len(SUPERVISORES)
-    st.session_state["last_rotacao_tv"] = time.time()
+# Lógica de Tempo (5s por supervisor, 40s no final)
+if st.session_state["ciclo_completo"]:
+    time.sleep(40)
+    st.session_state["ciclo_completo"] = False
+    st.session_state["index_sup_tv"] = 0
+    st.rerun()
+else:
+    time.sleep(5)
+    st.session_state["index_sup_tv"] += 1
+    if st.session_state["index_sup_tv"] >= len(SUPERVISORES):
+        st.session_state["ciclo_completo"] = True
     st.rerun()
 
-supervisor_atual = SUPERVISORES[st.session_state["index_sup_tv"]]
+supervisor_atual = SUPERVISORES[st.session_state["index_sup_tv"] % len(SUPERVISORES)]
 
-# CSS para TV (Sem menu lateral)
+# CSS Aprimorado
 st.markdown("""<style>
-    section[data-testid="stSidebar"] { display: none !important; }
-    .header-tv { background: #111; color: #fff; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
-    .btn-home { background: #cc6600; color: white; padding: 5px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; }
-    .box-pendente { background: #ffcccc; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #b30000; }
-    .valor-pendente { font-size: 80px; font-weight: 900; color: #b30000; }
+    .barra-preta { background: #000; color: #fff; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; }
+    .card-contrato { background: #f4f4f4; border-left: 6px solid #cc6600; padding: 15px; margin: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+    .contrato-txt { font-size: 24px; font-weight: 800; color: #333; }
+    .tecnico-txt { font-size: 20px; color: #666; }
 </style>""", unsafe_allow_html=True)
 
-# Barra Superior
-st.markdown(f'''
-    <div class="header-tv">
-        <div><a href="/" target="_self" class="btn-home">🏠 HOME</a></div>
-        <div>📺 TV MODE • SUPERVISOR: <b>{supervisor_atual}</b></div>
-        <div>🔄 {TEMPO_ROTACAO_SEGUNDOS}s</div>
-    </div>
-''', unsafe_allow_html=True)
+# Layout
+st.markdown(f'<div class="barra-preta">TV MODE • EQUIPE: {supervisor_atual}</div>', unsafe_allow_html=True)
 
-# Processamento
 if df_master is not None:
     df = df_master.copy()
-    # Filtra pelo supervisor atual
-    df_sup = df[df['SUPERVISOR'].str.contains(supervisor_atual, case=False, na=False)]
-    p_total = int(df_sup['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False).sum())
-
-    st.markdown(f"<h1 style='text-align:center'>EQUIPE: {supervisor_atual}</h1>", unsafe_allow_html=True)
+    # Limpeza do .0
+    if 'Contrato' in df.columns:
+        df['Contrato'] = df['Contrato'].astype(str).str.replace('.0', '', regex=False)
     
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.markdown(f'<div class="box-pendente"><div class="valor-pendente">{p_total}</div>PENDENTES</div>', unsafe_allow_html=True)
-        
-        # Gatilho de Fala (Apenas Pendentes)
-        st.components.v1.html(f"""
-            <script>
-                var msg = new SpeechSynthesisUtterance("Supervisor {supervisor_atual}, possui {p_total} pendentes.");
-                msg.lang = "pt-BR";
-                window.speechSynthesis.speak(msg);
-            </script>
-        """, height=0)
-
-    with col2:
-        st.subheader("Lista de Pendentes:")
-        st.dataframe(df_sup[df_sup['Status da Atividade'].str.contains('PENDENTE', case=False, na=False)][['Contrato', 'Recurso']], use_container_width=True)
-
+    # Filtro
+    df_sup = df[df['SUPERVISOR'].str.contains(supervisor_atual, case=False, na=False)]
+    pendentes = df_sup[df_sup['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False)]
+    
+    p_total = len(pendentes)
+    
+    st.markdown(f"<h1 style='text-align:center'>Total de Pendentes: {p_total}</h1>", unsafe_allow_html=True)
+    
+    # Fala
+    st.components.v1.html(f"""<script>
+        var msg = new SpeechSynthesisUtterance("Supervisor {supervisor_atual}, {p_total} pendentes.");
+        msg.lang = "pt-BR"; window.speechSynthesis.speak(msg);
+    </script>""", height=0)
+    
+    # Layout Visual dos Contratos
+    for _, linha in pendentes.iterrows():
+        st.markdown(f'''
+            <div class="card-contrato">
+                <span class="contrato-txt">📄 CONTRATO: {linha.get('Contrato', 'N/A')}</span>
+                <span class="tecnico-txt">👤 {linha.get('Recurso', 'TÉCNICO').upper()}</span>
+            </div>
+        ''', unsafe_allow_html=True)
 else:
-    st.warning("Arquivo não encontrado.")
-
-time.sleep(1)
-st.rerun()
+    st.warning("Carregando...")
