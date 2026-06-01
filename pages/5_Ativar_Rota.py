@@ -23,26 +23,18 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         st.session_state["last_refresh_ativar"] = time.time()
         st.rerun()
 
-try:
-    with open("style.css", "r") as f: 
-        st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
-except: 
-    pass
-
 st.markdown("""
     <style>
         .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
         .stDeployButton { display:none; }
-        .title-abc-sp { font-size: 24px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
-        .super-bar { background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #333; margin-top: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #008080; }
-        .super-total { background-color: #e0f2f1; color: #004d40; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 900; }
-        .item-linha { font-size: 16px; padding: 5px 12px; border-bottom: 1px solid #eee; color: #222; }
-        .item-tecnico { font-weight: 900; color: #008080; font-size: 17px; }
-        .divisor-item { color: #bbb; margin: 0 8px; }
+        .title-abc-sp { font-size: 26px !important; font-weight: 800 !important; margin-bottom: 15px !important; text-align: center; color: #005088; border-bottom: 3px solid #008080; padding-bottom: 5px; }
+        .item-linha-tec { font-size: 20px; padding: 10px 15px; border-bottom: 1px solid #eee; color: #111; font-family: sans-serif; }
+        .item-nome-tecnico { font-weight: 900; color: #008080; }
+        .item-janela-tec { float: right; font-size: 16px; background-color: #e0f2f1; color: #004d40; padding: 2px 10px; border-radius: 4px; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<h1 style="font-size: 32px; font-weight: 900; color: #008080; text-align: center; margin-top: 5px; margin-bottom: 5px;">🚀 TÉCNICOS EM BASE (PENDENTES)</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #008080; text-align: center; margin-top: 5px; margin-bottom: 25px;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
 df_master = st.session_state.get('df_rota_ativa', None)
 
@@ -54,6 +46,7 @@ if df_master is not None and not df_master.empty:
     col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
+    
     col_janela = None
     for c in df.columns:
         if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
@@ -74,52 +67,49 @@ if df_master is not None and not df_master.empty:
 
     if df_tela.empty:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.success("🎉 Nenhum técnico retido! 100% da equipe com status 'Em Base Pendente' foi liberada para a rua!")
+        st.success("🎉 100% da equipe liberada! Nenhum técnico retivo com status 'Em Base Pendente'.")
     else:
-        # Padronização e Limpeza dos Supervisores direto do disco
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(
-            lambda x: 'ALAN' if 'ALAN' in str(x) 
-            else ('FRANCISCO GERALDO CARVALHO JUNIOR' if 'FRANCISCO' in str(x) 
-            else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
-        )
+        # Padronização invisível de supervisores apenas para fazer a separação regional (Guarulhos/ABC vs SP)
+        df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
+        df_tela['SUP_REF'] = df_tela['SUP_REF'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('FRANCISCO' if 'FRANCISCO' in str(x) else x))
 
-        # Divisão Regional Estável
-        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+        # Divisão Regional utilizando os mesmos critérios das outras telas
+        cond_sp = df_tela['SUP_REF'].str.contains('FRANCISCO|ALAN', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
         with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp">ABC / GUARULHOS</div>', unsafe_allow_html=True)
             if not df_abc.empty:
-                # Remove duplicados para listar apenas uma linha por técnico retido
-                df_abc_limpo = df_abc.drop_duplicates(subset=[col_tecnico_check])
-                for supervisor in sorted(df_abc_limpo['SUPERVISOR_MOSTRAR'].unique()):
-                    df_super = df_abc_limpo[df_abc_limpo['SUPERVISOR_MOSTRAR'] == supervisor]
-                    sup_exibicao = "FRANCISCO" if "FRANCISCO" in supervisor else supervisor
-                    
-                    st.markdown(f'<div class="super-bar">👤 {sup_exibicao} <span class="super-total">Na Base: {len(df_super)}</span></div>', unsafe_allow_html=True)
-                    for _, linha in df_super.iterrows():
-                        st.markdown(f'<div class="item-linha">🏃‍♂️ <span class="item-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span> <span class="divisor-item">|</span> Janela: {linha.get(col_janela if col_janela else "Intervalo", "N/A")}</div>', unsafe_allow_html=True)
+                # Remove duplicidades de linhas do mesmo técnico para listar o nome uma única vez
+                df_abc_limpo = df_abc.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
+                for _, linha in df_abc_limpo.iterrows():
+                    janela_texto = linha.get(col_janela, "N/A") if col_janela else "N/A"
+                    st.markdown(f'''
+                        <div class="item-linha-tec">
+                            🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
+                            <span class="item-janela-tec">Janela: {janela_texto}</span>
+                        </div>
+                    ''', unsafe_allow_html=True)
             else: 
-                st.info("Nenhum técnico 'Em Base' no ABC.")
+                st.info("Nenhum técnico retido em base na região do ABC.")
 
         with col_coluna_sp:
             st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             if not df_sp.empty:
-                # Remove duplicados para listar apenas uma linha por técnico retido
-                df_sp_limpo = df_sp.drop_duplicates(subset=[col_tecnico_check])
-                for supervisor in sorted(df_sp_limpo['SUPERVISOR_MOSTRAR'].unique()):
-                    df_super = df_sp_limpo[df_sp_limpo['SUPERVISOR_MOSTRAR'] == supervisor]
-                    sup_exibicao = "FRANCISCO" if "FRANCISCO" in supervisor else supervisor
-                    
-                    st.markdown(f'<div class="super-bar">👤 {sup_exibicao} <span class="super-total">Na Base: {len(df_super)}</span></div>', unsafe_allow_html=True)
-                    for _, linha in df_super.iterrows():
-                        st.markdown(f'<div class="item-linha">🏃‍♂️ <span class="item-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span> <span class="divisor-item">|</span> Janela: {linha.get(col_janela if col_janela else "Intervalo", "N/A")}</div>', unsafe_allow_html=True)
+                # Remove duplicidades de linhas do mesmo técnico para listar o nome uma única vez
+                df_sp_limpo = df_sp.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
+                for _, linha in df_sp_limpo.iterrows():
+                    janela_texto = linha.get(col_janela, "N/A") if col_janela else "N/A"
+                    st.markdown(f'''
+                        <div class="item-linha-tec">
+                            🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
+                            <span class="item-janela-tec">Janela: {janela_texto}</span>
+                        </div>
+                    ''', unsafe_allow_html=True)
             else: 
-                st.info("Nenhum técnico 'Em Base' em SP.")
+                st.info("Nenhum técnico retido em base na região de SP.")
 else: 
     st.warning("👈 Por favor, insira os arquivos de rota na página inicial primeiro.")
