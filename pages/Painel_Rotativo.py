@@ -96,6 +96,7 @@ if df_master is not None and not df_master.empty:
     col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
+    col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
             
     df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
@@ -113,40 +114,53 @@ if df_master is not None and not df_master.empty:
     df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
     df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
 
-    # Base unificada de ativos (Exibe tudo o que for válido operativamente no dia)
-    df_tela = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+    # Base unificada de ativos
+    df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
 
-    # Puxa o supervisor original se ele existir e for válido
-    if 'SUPERVISOR' in df_tela.columns:
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip()
-    else:
-        df_tela['SUPERVISOR_MOSTRAR'] = ''
+    # === ⏱️ MOTOR DE JANELAS ACUMULATIVO PARA A TV ===
+    col_janela = None
+    for c in df_validos.columns:
+        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
+            col_janela = c
+            break
 
-    # 🔥 NOVO MOTOR UNIFICADO E EXPANDIDO (IDÊNTICO ÀS OUTRAS TELAS) 🔥
-    def vincular_supervisor_tecnico(row):
-        nome_u = str(row[col_tecnico_check]).upper().strip()
-        sup_orig = str(row['SUPERVISOR_MOSTRAR'])
+    hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+
+    if col_janela is not None and not df_validos.empty:
+        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
         
-        # Se o Excel já trouxe o supervisor da Home correto, mantém ele!
-        if "FRANCISCO" in sup_orig: return "FRANCISCO"
-        if "ALAN" in sup_orig: return "ALAN"
-        if "MAICON" in sup_orig: return "MAICON"
-        if "NELSON" in sup_orig: return "NELSON"
-        if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
+        def extrair_hora_limite(janela_str):
+            try:
+                partes = janela_str.replace(':', '').split('-')
+                return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
+            except: 
+                return 24
 
-        # Fallback inteligente por primeiro nome do técnico
-        if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
-            return "ALAN"
-        if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
-            return "FRANCISCO"
-        if "MARCOS" in nome_u: 
-            return "MARCOS ROBERTO"
-        if "NELSON" in nome_u: 
-            return "NELSON"
+        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
+        
+        # Filtros de teto progressivo idênticos ao TEC1
+        if hora_atual < 12:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
+            texto_status_janela = "Fila da Manhã (Até 12:00)"
+        elif 12 <= hora_atual < 15:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
+            texto_status_janela = "Fila da Tarde (Acumulado até 15:00)"
+        else:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
+            texto_status_janela = "Visão Completa Turno (Acumulado)"
+
+        df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
+        if df_tela.empty: 
+            df_tela = df_validos.copy()
             
-        return "MAICON"
+        st.markdown(f'<div style="text-align: center; color: #008080; font-size: 13px; font-weight: bold; margin-bottom: 10px; margin-top: -15px;">🔄 Fila Cumulativa: {texto_status_janela}</div>', unsafe_allow_html=True)
+    else:
+        df_tela = df_validos.copy()
 
-    df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
+    # 🔥 ALINHAMENTO COMPLETO DOS SUPERVISORES SEM PERDER MARCOS OU NELSON 🔥
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
+    df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
 
     # Divisão regional estável usando os supervisores como âncora
     cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
