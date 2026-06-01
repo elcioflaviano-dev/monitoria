@@ -75,7 +75,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Barra fixa superior com link para retornar à Home
+# Barra fixa superior com link para retornar à Home (Usa URL relativa '/' estável para o Streamlit Cloud)
 st.markdown(f'''
     <div class="barra-status-tv">
         <div>
@@ -138,7 +138,7 @@ if df_master is not None and not df_master.empty:
 
         df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        # Filtros de teto progressivo idênticos ao TEC1
+        # Filtros de teto progressivo cumulativo
         if hora_atual < 12:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
             texto_status_janela = "Fila da Manhã (Até 12:00)"
@@ -157,12 +157,11 @@ if df_master is not None and not df_master.empty:
     else:
         df_tela = df_validos.copy()
 
-    # 🔥 ALINHAMENTO COMPLETO DOS SUPERVISORES SEM PERDER MARCOS OU NELSON 🔥
+    # Leitura e padronização segura dos supervisores
     df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
     df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
     df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
 
-    # Divisão regional estável usando os supervisores como âncora
     cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
     df_sp = df_tela[cond_sp].copy()
     df_abc = df_tela[~cond_sp].copy()
