@@ -35,12 +35,11 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
         pass
 
 # =============================================================================
-# 📋 TABELA MATRIZ PARA O PROCV INTERNO (Mapeado estritamente com os técnicos)
+# 📋 TABELA MATRIZ PARA O PROCV INTERNO
 # =============================================================================
 def realizar_procv_inteligente(nome_planilha):
     nome_u = str(nome_planilha).upper().strip()
     
-    # Dicionário de cruzamento por Substring baseado nos nomes reais da planilha
     cadastro_recs = {
         "ADRIEL": {"login": "L_ADRIEL", "supervisor": "ALAN"},
         "AIRON": {"login": "L_AIRON", "supervisor": "ALAN"},
@@ -67,36 +66,44 @@ df_ativar = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Padroniza as colunas removendo espaços e deixando a grafia idêntica à planilha
+    # Padroniza as colunas removendo espaços
     df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
-    # Trava os alvos com precisão baseada no cabeçalho real do seu Excel
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
     col_status = 'Status da Atividade' if 'Status da Atividade' in df_temp.columns else 'STATUS_ATIVIDADE'
     col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[-1]
 
-    # Cria as listas de processamento bruto forçando limpeza absoluta de strings
-    lista_recurso = [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()]
-    lista_tipo_ativ = [str(x).upper().strip() for x in df_temp[col_tipo].fillna('').tolist()]
-    lista_status_at = [str(x).upper().strip() for x in df_temp[col_status].fillna('').tolist()]
+    # Força a limpeza absoluta das strings para evitar falhas de espaços ocultos
+    df_temp['STATUS_CONVERSAO'] = df_temp[col_status].fillna('').astype(str).str.upper().str.strip()
+    df_temp['TIPO_CONVERSAO'] = df_temp[col_tipo].fillna('').astype(str).str.upper().str.strip()
 
-    df_ativar = pd.DataFrame({
-        'Recurso_Original': lista_recurso,
-        'Tipo_Atividade_Upper': lista_tipo_ativ,
-        'Status_Conclusao_Upper': lista_status_at
-    })
-    
-    # Aplica o PROCV Inteligente por substring de nome
-    logins_calculados = []
-    supervisores_calculados = []
-    
-    for nome in df_ativar['Recurso_Original']:
-        log, sup = realizar_procv_inteligente(nome)
-        logins_calculados.append(log)
-        supervisores_calculados.append(sup)
+    # 🔥 PASSO DA REVOLUÇÃO: Filtra primeiro na raiz e elimina duplicados de OS antes do Procv
+    df_base_linhas = df_temp[df_temp['TIPO_CONVERSAO'].str.contains("BASE", na=False)].copy()
+    df_pendentes_reais = df_base_linhas[df_base_linhas['STATUS_CONVERSAO'].str.contains("PEND", na=False)].copy()
+
+    if not df_pendentes_reais.empty:
+        # Remove redundâncias de linhas do mesmo técnico no Na Base
+        df_pendentes_reais = df_pendentes_reais.drop_duplicates(subset=[col_recurso])
+
+        lista_recurso = [str(x).strip() for x in df_pendentes_reais[col_recurso].tolist()]
+        lista_status_at = [str(x) for x in df_pendentes_reais['STATUS_CONVERSAO'].tolist()]
+
+        df_ativar = pd.DataFrame({
+            'Recurso_Original': lista_recurso,
+            'Status_Conclusao_Upper': lista_status_at
+        })
         
-    df_ativar['SUPERVISOR'] = supervisores_calculados
-    df_ativar['Login_Final'] = logins_calculados
+        # Aplica o PROCV por substring
+        logins_calculados = []
+        supervisores_calculados = []
+        
+        for nome in df_ativar['Recurso_Original']:
+            log, sup = realizar_procv_inteligente(nome)
+            logins_calculados.append(log)
+            supervisores_calculados.append(sup)
+            
+        df_ativar['SUPERVISOR'] = supervisores_calculados
+        df_ativar['Login_Final'] = logins_calculados
 
 # --- SUBTÍTULO ---
 if df_ativar is not None:
@@ -111,21 +118,13 @@ def destacar_linha_total(row):
     except: pass
     return [''] * len(row)
 
-# --- FILTRAGEM DA MONITORIA DA LARGADA ---
+# --- RENDEREZACAO NA MONITORIA DA LARGADA ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # 1. Filtra as linhas de Largada do tipo "NA BASE"
-    df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
-    
-    # 2. 🔥 AJUSTE CRÍTICO: Filtra usando o método parcial str.contains para evitar quebras por minúsculo/espaços
-    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PENDENTE", na=False, case=False)].copy()
-    
-    if not df_pendentes_reais.empty:
-        df_lista = df_pendentes_reais.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
-        df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Login_Final': 'Login', 'Recurso_Original': 'Técnico Pendente'})
-        df_lista = df_lista[['Supervisor', 'Login', 'Técnico Pendente']]
-    else:
-        df_lista = pd.DataFrame(columns=['Supervisor', 'Login', 'Técnico Pendente'])
+    # Agrupa de forma limpa para exibição na tabela da TV
+    df_lista = df_ativar.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
+    df_lista = df_lista.rename(columns={'SUPERVISOR': 'Supervisor', 'Login_Final': 'Login', 'Recurso_Original': 'Técnico Pendente'})
+    df_lista = df_lista[['Supervisor', 'Login', 'Técnico Pendente']]
 
     # Divisão regional estável baseada nos supervisores
     df_sp = df_lista[df_lista['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)].copy()
@@ -159,4 +158,5 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         st.success("✅ 100% da equipe SP realizou a largada do 'Na Base'!")
 else:
-    st.warning("👈 Carregue o arquivo de rota na página inicial para liberar a visualização.")
+    # Se a lista estiver vazia após o tratamento correto
+    st.success("✅ 100% dos técnicos realizaram a largada matinal com sucesso!")
