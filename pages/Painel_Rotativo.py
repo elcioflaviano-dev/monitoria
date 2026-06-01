@@ -5,13 +5,13 @@ from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# 1. CSS ESTÁVEL
+# 1. CSS Fixo
 st.markdown("""<style>
     [data-testid="stSidebar"] { display: none !important; }
     .barra-preta { background:#000; color:#fff; padding:15px; text-align:center; font-size:25px; font-weight:900; position:fixed; top:0; left:0; width:100%; z-index:9999; display: flex; justify-content: space-between; align-items: center; }
     .btn-home { color:#fff; text-decoration:none; font-weight:bold; border:1px solid #fff; padding:5px 10px; border-radius:5px; font-size:16px; }
-    .hora-gigante { font-size: 150px; font-weight:900; text-align:center; margin-top: 150px; color: #000; }
-    .card-c { background:#eee; padding:10px; border-radius:5px; font-size:18px; font-weight:bold; border-left:5px solid #cc6600; margin:5px; }
+    .hora-gigante { font-size: 150px; font-weight:900; text-align:center; margin-top: 100px; color: #000; }
+    .card-c { background:#eee; padding:8px; border-radius:4px; font-size:16px; font-weight:bold; border-left:5px solid #cc6600; margin:5px; }
     .conteudo { margin-top: 80px; }
 </style>""", unsafe_allow_html=True)
 
@@ -29,17 +29,20 @@ if tempo_passado > espera:
     st.session_state.last_time = time.time()
     st.rerun()
 
-# 2. BARRA PRETA FORA DO CONTAINER (Não some nunca)
+# 2. BARRA PRETA FORA DE QUALQUER CONTAINER (NUNCA SUMIRÁ)
 sup_ou_pausa = SUPERVISORES[st.session_state.idx] if st.session_state.idx < len(SUPERVISORES) else "PAUSA"
+segundos_restantes = int(espera - tempo_passado)
+
 st.markdown(f'''<div class="barra-preta">
     <a href="/" class="btn-home">🏠 HOME</a>
-    <span>{sup_ou_pausa} | {int(espera - tempo_passado)}s</span>
-    <span style="visibility:hidden">HOME</span>
+    <span>{sup_ou_pausa} | {segundos_restantes}s</span>
+    <span style="visibility:hidden; padding:5px 10px;">HOME</span>
 </div>''', unsafe_allow_html=True)
 
-# 3. CONTAINER DE LIMPEZA (Só limpa o que está abaixo da barra)
-placeholder = st.empty()
-with placeholder.container():
+# 3. CONTAINER DE CONTEÚDO (ESTE SERÁ LIMPO)
+conteudo = st.container()
+
+with conteudo:
     st.markdown('<div class="conteudo">', unsafe_allow_html=True)
     if st.session_state.idx < len(SUPERVISORES):
         sup = SUPERVISORES[st.session_state.idx]
