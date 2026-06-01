@@ -41,58 +41,60 @@ df_master = st.session_state.get('df_rota_ativa', None)
 if df_master is not None and not df_master.empty:
     df = df_master.copy()
     
-    # 🛠️ CAPTURA DINÂMICA DE COLUNAS ESSENCIAIS POR IDENTIFICAÇÃO PARCIAL
-    col_tecnico_check = None
-    for c in df.columns:
-        if 'LOGIN' in str(c).upper() or 'RECURSO' in str(c).upper():
-            col_tecnico_check = c
-            break
-    if not col_tecnico_check:
-        col_tecnico_check = df.columns[0]
-
-    col_supervisor = None
-    for c in df.columns:
-        if 'SUPERVISOR' in str(c).upper():
-            col_supervisor = c
-            break
-
+    # Remove espaços invisíveis das colunas vindas do arquivo
+    df.columns = [str(c).strip() for c in df.columns]
+    
+    # 🛠️ TRAVA DAS COLUNAS REAIS DA SUA PLANILHA
+    col_tecnico_check = 'Login do Técnico'
+    col_status_real = 'Status da Atividade'
+    col_supervisor = 'SUPERVISOR'
+    
+    # Encontra a coluna de Janela ignorando variações de maiúsculas/minúsculas
     col_janela = None
     for c in df.columns:
         if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
             col_janela = c
             break
 
-    # Limpa linhas com IDs vazios
-    df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
-
-    # 🔥 VARREDURA DE MATRIZ TEXTUAL BRUTA PARALELA (INDEPENDENTE DE COLUNA) 🔥
-    # Cria uma cópia em formato string maiúscula para busca geral na linha inteira
-    df_string_matrix = df.astype(str).apply(lambda x: x.str.upper().str.strip())
-    
-    # Valida se a linha possui o termo "NA BASE" e se possui o termo operacional de pendência
-    linha_tem_na_base = df_string_matrix.apply(lambda row: row.str.contains('NA BASE', regex=False).any(), axis=1)
-    linha_tem_pendente = df_string_matrix.apply(lambda row: row.str.contains('PENDENTE|ABERTO', regex=True).any(), axis=1)
-    
-    # Filtra cruzando as duas verdades absolutas por conteúdo
-    df_tela = df[linha_tem_na_base & linha_tem_pendente].copy()
+    if col_tecnico_check in df.columns and col_status_real in df.columns:
+        # Remove linhas vazias
+        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+        
+        # Padroniza a coluna de status para checar o pendente
+        df['Status_Pure_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
+        
+        # 🔥 MOTOR DE BUSCA EM MATRIZ COMPLETA 🔥
+        # Varre as linhas procurando pela expressão "NA BASE"
+        contem_na_base = df.astype(str).apply(lambda row: row.str.upper().str.strip().eq('NA BASE').any(), axis=1)
+        
+        # O filtro cruza: qualquer coluna contendo "NA BASE" + coluna de status igual a "PENDENTE"
+        condicao_retido = contem_na_base & (df['Status_Pure_Upper'] == 'PENDENTE')
+        df_tela = df[condicao_retido].copy()
+    else:
+        df_tela = pd.DataFrame()
 
     if df_tela.empty:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente encontrado no arquivo.")
+        st.success("🎉 100% da equipe liberada para a rua! Nenhum técnico com 'Na Base' pendente encontrado.")
     else:
-        # Tratamento de segurança para os supervisores dividirem as colunas regionais
-        if col_supervisor and col_supervisor in df_tela.columns:
-            df_tela['SUP_REF'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
-        else:
-            df_tela['SUP_REF'] = 'MAICON'
-            
-        df_tela['SUP_REF'] = df_tela['SUP_REF'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
-        df_tela['SUP_REF'] = df_tela['SUP_REF'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('FRANCISCO' if 'FRANCISCO' in str(x) else x))
+        # 🔥 NOVO MOTOR DE MApeAMENTO REGIONAL POR NOME COMPLETO DO TÉCNICO 🔥
+        def vincular_regiao_por_nome(nome_tecnico):
+            nome_u = str(nome_tecnico).upper().strip()
+            # Lista de técnicos mapeados para a regional São Paulo (SP)
+            tecnicos_sp = [
+                "ADRIEL", "AIRON", "ALAN", "AMANDA", "DEBORA", "ELIAS", "AIRON",
+                "ALINE", "ALEX", "EDER", "ENOQUE", "FRANCISCO"
+            ]
+            for t_sp in tecnicos_sp:
+                if t_sp in nome_u:
+                    return "SÃO PAULO"
+            return "ABC"
 
-        # Divisão Regional utilizando os supervisores
-        cond_sp = df_tela['SUP_REF'].str.contains('FRANCISCO|ALAN', na=False)
-        df_sp = df_tela[cond_sp].copy()
-        df_abc = df_tela[~cond_sp].copy()
+        df_tela['REGIAO_TRATADA'] = df_tela[col_tecnico_check].apply(vincular_regiao_por_nome)
+
+        # Divisão Regional limpa por nome de equipe
+        df_sp = df_tela[df_tela['REGIAO_TRATADA'] == "SÃO PAULO"].copy()
+        df_abc = df_tela[df_tela['REGIAO_TRATADA'] == "ABC"].copy()
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
@@ -101,7 +103,7 @@ if df_master is not None and not df_master.empty:
             if not df_abc.empty:
                 df_abc_limpo = df_abc.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
                 for _, linha in df_abc_limpo.iterrows():
-                    janela_texto = linha.get(col_janela, "N/A") if col_janela and col_janela in df_abc.columns else "N/A"
+                    janela_texto = linha.get(col_janela, "N/A") if col_janela and str(linha.get(col_janela)) != 'nan' else "N/A"
                     st.markdown(f'''
                         <div class="item-linha-tec">
                             🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
@@ -116,7 +118,7 @@ if df_master is not None and not df_master.empty:
             if not df_sp.empty:
                 df_sp_limpo = df_sp.drop_duplicates(subset=[col_tecnico_check]).sort_values(col_tecnico_check)
                 for _, linha in df_sp_limpo.iterrows():
-                    janela_texto = linha.get(col_janela, "N/A") if col_janela and col_janela in df_sp.columns else "N/A"
+                    janela_texto = linha.get(col_janela, "N/A") if col_janela and str(linha.get(col_janela)) != 'nan' else "N/A"
                     st.markdown(f'''
                         <div class="item-linha-tec">
                             🏃‍♂️ <span class="item-nome-tecnico">{str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</span>
