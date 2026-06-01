@@ -1,66 +1,49 @@
 import streamlit as st
 import pandas as pd
 import os
-import time
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
-# Carregamento e Limpeza inicial
-df_master = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str) if os.path.exists(ARQUIVO_ROTA_DISCO) else None
-if df_master is not None and 'Contrato' in df_master.columns:
-    df_master['Contrato'] = df_master['Contrato'].str.replace('.0', '', regex=False)
+# CSS para o Layout ficar bonito e profissional
+st.markdown("""
+    <style>
+        .barra-topo { background: #000; color: #fff; padding: 20px; text-align: center; font-size: 32px; font-weight: 900; margin-bottom: 20px; }
+        .card-supervisor { background: #005088; color: #fff; padding: 15px; font-size: 28px; font-weight: 800; border-radius: 5px; margin-top: 30px; }
+        .card-pendente { background: #f8f9fa; border-left: 8px solid #cc6600; padding: 15px; margin: 10px 0; border-radius: 5px; box-shadow: 2px 2px 5px #ccc; }
+        .txt-contrato { font-size: 22px; font-weight: 800; color: #cc6600; }
+        .txt-tecnico { font-size: 20px; color: #333; float: right; }
+    </style>
+""", unsafe_allow_html=True)
 
-SUPERVISORES = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
+st.markdown('<div class="barra-topo">PAINEL DE GESTÃO DE PENDÊNCIAS</div>', unsafe_allow_html=True)
 
-# Sessão
-if "idx" not in st.session_state: st.session_state.idx = 0
-if "tela" not in st.session_state: st.session_state.tela = "CENARIO"
-
-# Lógica de Tempo: 5s por tela, 40s no final
-tempo_agora = time.time()
-if "last_time" not in st.session_state: st.session_state.last_time = tempo_agora
-
-# Define o tempo de espera
-espera = 5 if st.session_state.idx < len(SUPERVISORES) else 40
-
-if tempo_agora - st.session_state.last_time >= espera:
-    if st.session_state.tela == "CENARIO":
-        st.session_state.tela = "CONTRATOS"
-    else:
-        st.session_state.tela = "CENARIO"
-        st.session_state.idx = (st.session_state.idx + 1) % (len(SUPERVISORES) + 1)
-    st.session_state.last_time = tempo_agora
-    st.rerun()
-
-sup = SUPERVISORES[st.session_state.idx % len(SUPERVISORES)]
-if st.session_state.idx >= len(SUPERVISORES):
-    st.markdown("<h1>⏳ AGUARDANDO PRÓXIMO CICLO...</h1>", unsafe_allow_html=True)
-    time.sleep(1); st.rerun()
-
-# CSS (Sem menu, faixa preta no topo)
-st.markdown("""<style>
-    section[data-testid="stSidebar"] { display: none; }
-    .top-bar { background: #000; color: #fff; padding: 20px; text-align: center; font-size: 30px; font-weight: bold; }
-    .card { background: #f0f0f0; padding: 20px; border-left: 10px solid #cc6600; margin: 10px; font-size: 24px; font-weight: bold; }
-</style>""", unsafe_allow_html=True)
-
-st.markdown(f'<div class="top-bar">EQUIPE: {sup} | TELA: {st.session_state.tela}</div>', unsafe_allow_html=True)
-
-if df_master is not None:
-    df_sup = df_master[df_master['SUPERVISOR'].str.contains(sup, case=False, na=False)]
-    pendentes = df_sup[df_sup['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False)]
+if os.path.exists(ARQUIVO_ROTA_DISCO):
+    df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    # Limpa o ".0" de todos os contratos
+    if 'Contrato' in df.columns:
+        df['Contrato'] = df['Contrato'].str.replace('.0', '', regex=False)
     
-    if st.session_state.tela == "CENARIO":
-        p_total = len(pendentes)
-        st.metric("🔴 PENDENTES", p_total)
-        # Fala curta
-        st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('Supervisor {sup}, {p_total} pendentes.'); window.speechSynthesis.speak(m);</script>", height=0)
-    else:
-        for _, row in pendentes.iterrows():
-            st.markdown(f'<div class="card">📄 {row["Contrato"]} | 👤 {row.get("Recurso", "Técnico")}</div>', unsafe_allow_html=True)
+    supervisores = df['SUPERVISOR'].unique()
+    
+    for sup in supervisores:
+        df_sup = df[df['SUPERVISOR'] == sup]
+        pendentes = df_sup[df_sup['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False)]
+        
+        # Cabeçalho do Supervisor
+        st.markdown(f'<div class="card-supervisor">👤 SUPERVISOR: {sup} (Total Pendentes: {len(pendentes)})</div>', unsafe_allow_html=True)
+        
+        if not pendentes.empty:
+            # Layout em colunas para os contratos ficarem organizados
+            cols = st.columns(2)
+            for i, (_, row) in enumerate(pendentes.iterrows()):
+                cols[i % 2].markdown(f'''
+                    <div class="card-pendente">
+                        <span class="txt-contrato">📄 {row.get('Contrato', 'N/A')}</span>
+                        <span class="txt-tecnico">👤 {row.get('Recurso', 'TÉCNICO').upper()}</span>
+                    </div>
+                ''', unsafe_allow_html=True)
+        else:
+            st.info(f"Equipe {sup} sem pendências no momento.")
 else:
-    st.warning("Carregando...")
-
-time.sleep(1)
-st.rerun()
+    st.error("Arquivo de dados não encontrado.")
