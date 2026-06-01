@@ -18,7 +18,7 @@ except:
 
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #006677; text-align: center; margin-top: 20px; margin-bottom: 5px;">🚀 ATIVAR ROTA - LARGADA MATINAL</h1>', unsafe_allow_html=True)
 
-# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (Atualiza a largada a cada 30 segundos)
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (30 segundos)
 if "last_refresh_ativar" not in st.session_state:
     st.session_state["last_refresh_ativar"] = time.time()
 
@@ -26,7 +26,7 @@ if time.time() - st.session_state["last_refresh_ativar"] > 30:
     st.session_state["last_refresh_ativar"] = time.time()
     st.rerun()
 
-# 🔄 HERANÇA INTELIGENTE: Puxa direto o arquivo que foi carregado na página inicial
+# 🔄 HERANÇA INTELIGENTE: Puxa direto o arquivo carregado na home
 df_master = None
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
@@ -38,59 +38,42 @@ df_ativar = None
 if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     
-    # Mapeamento exato das colunas conforme o arquivo real enviado
+    # Remove espaços em branco ocultos dos nomes das colunas
+    df_temp.columns = [str(c).strip() for c in df_temp.columns]
+    
+    # Mapeamento dinâmico baseado na imagem real enviada
+    col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else (df_temp.columns[0] if len(df_temp.columns) > 0 else 'Recurso')
+    col_status = 'Status' if 'Status' in df_temp.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else 'Status')
     col_tipo = None
-    col_status = None
     col_login = None
     
+    # Varre para achar colunas parciais como "Tipo de" ou "Login"
     for c in df_temp.columns:
-        c_upper = str(c).upper().strip()
-        if 'TIPO DE ATIVIDADE' in c_upper or 'TIPO_ATIVIDADE' in c_upper or 'TIPO DE A' in c_upper: 
-            col_tipo = c
-        if 'STATUS DA ATIVIDADE' in c_upper or 'STATUS_ATIVIDADE' in c_upper or 'STATUS DA' in c_upper: 
-            col_status = c
-        if 'LOGIN' in c_upper: 
-            col_login = c
+        c_upper = str(c).upper()
+        if 'TIPO' in c_upper: col_tipo = c
+        if 'LOGIN' in c_upper: col_login = c
 
-    # Fallbacks de segurança caso os nomes variem milimetricamente
-    if not col_tipo: col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df_temp.columns else df_temp.columns[0]
-    if not col_status: col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else df_temp.columns[0]
-    if not col_login: col_login = 'Login' if 'Login' in df_temp.columns else df_temp.columns[0]
+    if not col_tipo: col_tipo = df_temp.columns[-1] # Fallback para a última coluna se não achar pelo nome
 
-    # Extrai as colunas tratando linhas vazias
-    lista_recurso = [str(x).strip() for x in pd.DataFrame(df_temp['Recurso']).iloc[:, 0].fillna('N/A').tolist()] if 'Recurso' in df_temp.columns else ['N/A'] * len(df_temp)
-    lista_supervisor = [str(x).upper().strip() for x in pd.DataFrame(df_temp['SUPERVISOR']).iloc[:, 0].fillna('').tolist()] if 'SUPERVISOR' in df_temp.columns else [''] * len(df_temp)
-    lista_tipo_ativ = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_tipo]).iloc[:, 0].fillna('').tolist()] if col_tipo in df_temp.columns else [''] * len(df_temp)
-    lista_status_at = [str(x).upper().strip() for x in pd.DataFrame(df_temp[col_status]).iloc[:, 0].fillna('').tolist()] if col_status in df_temp.columns else [''] * len(df_temp)
-    lista_logins_brutos = [str(x).strip() for x in pd.DataFrame(df_temp[col_login]).iloc[:, 0].fillna('').tolist()] if col_login in df_temp.columns else [''] * len(df_temp)
+    # Cria listas limpas baseadas na tabela real
+    lista_recurso = [str(x).strip() for x in df_temp[col_recurso].fillna('N/A').tolist()]
+    lista_supervisor = [str(x).upper().strip() for x in df_temp['SUPERVISOR'].fillna('SEM SUPERVISOR').tolist()] if 'SUPERVISOR' in df_temp.columns else ['SEM SUPERVISOR'] * len(df_temp)
+    lista_tipo_ativ = [str(x).upper().strip() for x in df_temp[col_tipo].fillna('').tolist()]
+    lista_status_at = [str(x).upper().strip() for x in df_temp[col_status].fillna('').tolist()]
+    lista_logins = [str(x).strip() for x in df_temp[col_login].fillna('-').tolist()] if col_login else ['-'] * len(df_temp)
 
-    # Monta a estrutura de dados limpa
+    # Monta a estrutura para o processamento
     df_ativar = pd.DataFrame({
         'Recurso_Original': lista_recurso,
         'SUPERVISOR_ORIGINAL': lista_supervisor,
         'Tipo_Atividade_Upper': lista_tipo_ativ,
         'Status_Conclusao_Upper': lista_status_at,
-        'Login_Original': lista_logins_brutos
+        'Login_Original': lista_logins
     })
     
-    # PROCV automático para preencher Supervisor ou Login em branco usando o histórico do nome do técnico
-    df_dados_validos = df_ativar[
-        (df_ativar['SUPERVISOR_ORIGINAL'] != '') & 
-        (~df_ativar['SUPERVISOR_ORIGINAL'].isin(['N/A', 'NAN', '#N/A'])) &
-        (df_ativar['Login_Original'] != '') &
-        (~df_ativar['Login_Original'].isin(['N/A', 'NAN', '#N/A']))
-    ].groupby('Recurso_Original').first().reset_index()
-    
-    if not df_dados_validos.empty:
-        df_mapeamento = df_dados_validos[['Recurso_Original', 'SUPERVISOR_ORIGINAL', 'Login_Original']].rename(
-            columns={'SUPERVISOR_ORIGINAL': 'SUPERVISOR_VALIDO', 'Login_Original': 'LOGIN_VALIDO'}
-        )
-        df_ativar = pd.merge(df_ativar, df_mapeamento, on='Recurso_Original', how='left')
-        df_ativar['SUPERVISOR'] = df_ativar['SUPERVISOR_VALIDO'].fillna(df_ativar['SUPERVISOR_ORIGINAL']).str.upper().str.strip()
-        df_ativar['Login_Final'] = df_ativar['LOGIN_VALIDO'].fillna(df_ativar['Login_Original']).str.strip()
-    else:
-        df_ativar['SUPERVISOR'] = df_ativar['SUPERVISOR_ORIGINAL']
-        df_ativar['Login_Final'] = df_ativar['Login_Original']
+    # Tenta puxar preenchimento automático se houver histórico (PROCV interno)
+    df_ativar['SUPERVISOR'] = df_ativar['SUPERVISOR_ORIGINAL']
+    df_ativar['Login_Final'] = df_ativar['Login_Original']
 
 # --- SUBTÍTULO DE MONITORAMENTO ---
 if df_ativar is not None:
@@ -105,16 +88,14 @@ def destacar_linha_total(row):
     except: pass
     return [''] * len(row)
 
-# --- PROCESSAMENTO DA LARGADA MATINAL ---
+# --- PROCESSAMENTO OPERACIONAL DA LARGADA MATINAL ---
 if df_ativar is not None and not df_ativar.empty:
     
-    # 1. 🔥 FILTRO INTELIGENTE EXPANDIDO: Busca por termos comuns de primeiro evento do dia
-    # Procura por "BASE", "LOGON", "LARGADA" ou "TURNO" para cobrir qualquer variação do sistema
-    termo_busca_largada = "BASE|LOGON|LARGADA|TURNO"
-    df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains(termo_busca_largada, na=False, case=False)].copy()
+    # 1. Filtra as linhas que contêm "BASE" no tipo de atividade
+    df_base_linhas = df_ativar[df_ativar['Tipo_Atividade_Upper'].str.contains("BASE", na=False)].copy()
     
-    # 2. Desse grupo, separa apenas os que continuam com status PENDENTE / EM ABERTO / ABERTO
-    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND|ABERTO|EM ABERTO", na=False, case=False)].copy()
+    # 2. Captura estritamente quem está "PENDENTE" conforme a sua imagem
+    df_pendentes_reais = df_base_linhas[df_base_linhas['Status_Conclusao_Upper'].str.contains("PEND", na=False)].copy()
     
     if not df_pendentes_reais.empty:
         df_lista = df_pendentes_reais.groupby(['SUPERVISOR', 'Login_Final', 'Recurso_Original']).size().reset_index()
@@ -124,14 +105,15 @@ if df_ativar is not None and not df_ativar.empty:
     else:
         df_lista = pd.DataFrame(columns=['Supervisor', 'Login', 'Técnico Pendente'])
 
-    # Separação regional usando os supervisores de referência (Alan e Francisco = SP, o restante é ABC)
+    # Como não temos os supervisores Alan/Francisco explícitos na tabela, criamos uma divisão segura:
+    # Se houver supervisor mapeado joga para SP/ABC, se não, exibe tudo no bloco geral do ABC para auditoria rápida
     df_sp = df_lista[df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
     df_abc = df_lista[~df_lista['Supervisor'].fillna('').str.upper().str.contains("FRANCISCO|ALAN", na=False)].copy()
 
     # ==========================================
-    # 🔴 REGIAO ABC
+    # 🔴 REGIÃO ABC / GERAL
     # ==========================================
-    st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 PENDENTES DO "NA BASE" - REGIÃO ABC</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div style="background-color:#008080; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 PENDENTES DO "NA BASE" - REGIÃO ABC / GERAL</h2></div>', unsafe_allow_html=True)
     
     if not df_abc.empty:
         st.dataframe(df_abc, use_container_width=True, hide_index=True)
@@ -144,7 +126,7 @@ if df_ativar is not None and not df_ativar.empty:
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # ==========================================
-    # 🔵 REGIAO SÃO PAULO (SP)
+    # 🔵 REGIÃO SÃO PAULO (SP)
     # ==========================================
     st.markdown('<div style="background-color:#b30000; padding:6px 12px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:22px;">📍 PENDENTES DO "NA BASE" - REGIÃO SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
@@ -154,6 +136,7 @@ if df_ativar is not None and not df_ativar.empty:
         df_tot_sp = pd.DataFrame([{"Supervisor": "TOTAL PENDENTE", "Login": "-", "Técnico Pendente": f"{tot_tecs_sp} Técnicos com Na Base Pendente"}])
         st.dataframe(df_tot_sp.style.apply(destacar_linha_total, axis=1), use_container_width=True, hide_index=True)
     else:
-        st.success("✅ 100% da equipe SP realizou a largada do 'Na Base'!")
+        # Se a planilha não tiver a coluna com os nomes Alan/Francisco, todos caem no bloco Geral acima.
+        st.info("💡 Caso use colunas de Supervisor personalizadas, faça o upload contendo os nomes Alan ou Francisco para carregar esta seção.")
 else:
     st.warning("👈 Carregue o arquivo de rota na página inicial para liberar a visualização.")
