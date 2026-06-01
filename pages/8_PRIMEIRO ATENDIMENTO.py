@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit st
 import pandas as pd
 import os
 import time
@@ -133,19 +133,19 @@ if df_master is not None and not df_master.empty:
         'Hora_Inicio': lista_horarios
     })
     
-    # 🔥 NOVO MOTOR DE DISTRIBUIÇÃO EXPANDIDO E UNIFICADO POR PRIMEIRO NOME 🔥
+    # 🔥 MOTOR DE DISTRIBUIÇÃO COMPLETO E CORRIGIDO PARA AS TABELAS 🔥
     def vincular_supervisor_tecnico_local(row):
         nome_u = str(row['Recurso']).upper().strip()
         sup_orig = str(row['SUPERVISOR_ORIGINAL'])
         
-        # Se o Excel/Sheets trouxe o supervisor com nome correspondente, preserva e padroniza
+        # 1. Se o arquivo já trouxe o supervisor preenchido corretamente, mantém e padroniza
         if "FRANCISCO" in sup_orig: return "FRANCISCO"
         if "ALAN" in sup_orig: return "ALAN"
         if "MAICON" in sup_orig: return "MAICON"
         if "NELSON" in sup_orig: return "NELSON"
         if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
 
-        # Fallback de inteligência caso venha zerado na linha
+        # 2. Plano B: Identifica por primeiro nome do técnico (Mapeamento Expandido)
         if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
             return "ALAN"
         if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
@@ -174,7 +174,7 @@ if df_base is not None and not df_base.empty:
     df_exibicao = df_primeiro[['Supervisor', 'Recurso', 'Horário', 'Hora_Inicio']].rename(columns={'Recurso': 'Técnico'})
     df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
     
-    # Divisão Regional Estável baseada no supervisor unificado
+    # Divisão Regional baseada estritamente nos supervisores mapeados
     cond_sp = df_exibicao['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)
     df_sp = df_exibicao[cond_sp].copy()
     df_abc = df_exibicao[~cond_sp].copy()
@@ -207,7 +207,7 @@ if df_base is not None and not df_base.empty:
     ''', unsafe_allow_html=True)
 
     # ==========================================
-    # 🔴 REGIONAL ABC (Exibe Maicon, Marcos Roberto e Nelson)
+    # 🔴 REGIONAL ABC
     # ==========================================
     st.markdown('<div style="background-color:#008080; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL ABC</h2></div>', unsafe_allow_html=True)
     
@@ -234,7 +234,7 @@ if df_base is not None and not df_base.empty:
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # ==========================================
-    # 🔵 REGIONAL SÃO PAULO (Exibe Alan e Francisco unificados)
+    # 🔵 REGIONAL SÃO PAULO (SP)
     # ==========================================
     st.markdown('<div style="background-color:#b30000; padding:6px 15px; border-radius:4px; margin-bottom:15px;"><h2 style="color:white; margin:0px; font-size:18px; font-weight: bold;">📍 DETALHAMENTO DA EQUIPE - REGIONAL SÃO PAULO (SP)</h2></div>', unsafe_allow_html=True)
     
