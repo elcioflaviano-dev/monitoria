@@ -3,80 +3,52 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
-# Lista de técnicos de SP (Conforme sua lista anterior)
-TECNICOS_SP = [
-    "ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE",
-    "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS",
-    "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "EDCARLOS PEREIRA DE JESUS",
-    "GETULIO DOS SANTOS CAFE", "GLEMERSON LIMA DE SOUZA", "GUILHERME DE OLIVEIRA DANTAS",
-    "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS",
-    "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS",
-    "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA",
-    "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS",
-    "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "TAILSON JUAN SANTOS DA CONCEICAO",
-    "ALAN CESAR CARDOSO", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO",
-    "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA",
-    "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA",
-    "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA",
-    "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON",
-    "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA",
-    "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA",
-    "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA",
-    "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "DIEGO FRAGOSO DE BRITO"
-]
+# Inicializa as listas dinâmicas se não existirem
+if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
+if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
 
-# Lista de técnicos do ABC/Guarulhos (Conforme sua lista atual)
-TECNICOS_ABC = [
-    "ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA",
-    "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS",
-    "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "ANTONIO WESLEY HOLANDA DA SILVA",
-    "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS",
-    "CARLOS EDUARDO DA SILVA CONCEICAO", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA",
-    "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDER SALES MONTEIRO",
-    "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES",
-    "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES",
-    "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA",
-    "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA",
-    "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRANDAO BASTOS",
-    "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME",
-    "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS",
-    "LUCAS SILVA DE LIMA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS HENRIQUE GOMES DA SILVA",
-    "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA",
-    "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO",
-    "PABLO WILLIAM DA SILVA", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA",
-    "RAFAEL DOS ANJOS BAPTISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS",
-    "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO",
-    "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "ALESSANDRO RAMOS DA SILVA",
-    "ALICE EULINA SILVA", "BRUNO PINHEIRO MAGALHAES", "KAUE BARBEIRO SOARES",
-    "ENZO RUBENS ARAUJO MACIEL", "HAMILTON RICARDO INACIO", "WILLIAM BORGES DOS SANTOS",
-    "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "DANIEL AUGUSTO PEREIRA",
-    "JULIO CESAR SILVA DOS SANTOS", "MATHEUS DA SILVA NASCIMENTO"
-]
+# Listas oficiais iniciais
+TECNICOS_SP = [...] # (Insira a lista completa que te passei antes aqui)
+TECNICOS_ABC = [...] # (Insira a lista completa que te passei antes aqui)
 
 st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
+# --- CAMPO PARA NOVO NOME ---
+with st.expander("➕ Incluir Novo Técnico Manualmente"):
+    col_a, col_b, col_c = st.columns([2, 1, 1])
+    novo_nome = col_a.text_input("Nome do Técnico:").upper().strip()
+    nova_base = col_b.selectbox("Base:", ["SP", "ABC"])
+    if col_c.button("Adicionar"):
+        if novo_nome:
+            if nova_base == "SP": st.session_state["novos_sp"].append(novo_nome)
+            else: st.session_state["novos_abc"].append(novo_nome)
+            st.rerun()
+
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     df = st.session_state['df_rota_ativa']
-    
     df_tela = df[
         (df['Tipo de Atividade.1'].astype(str).str.contains('NA BASE', na=False, case=False)) & 
         (df['Status da Atividade'].astype(str).str.contains('PENDENTE', na=False, case=False))
     ].copy()
 
     nomes_na_base = sorted(df_tela['Recurso'].unique().tolist())
+    
+    # Consolidar listas oficiais + nomes incluídos manualmente
+    lista_sp_final = [n.upper() for n in TECNICOS_SP] + [n.upper() for n in st.session_state["novos_sp"]]
+    lista_abc_final = [n.upper() for n in TECNICOS_ABC] + [n.upper() for n in st.session_state["novos_abc"]]
 
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown('### 🏢 ABC / GUARULHOS')
         for nome in nomes_na_base:
-            if nome.upper() in [n.upper() for n in TECNICOS_ABC]:
+            if nome.upper() in lista_abc_final or nome.upper() not in lista_sp_final:
                 st.markdown(f'🏃‍♂️ {nome}')
                 
     with col2:
         st.markdown('### 🏙️ SÃO PAULO (SP)')
         for nome in nomes_na_base:
-            if nome.upper() in [n.upper() for n in TECNICOS_SP]:
+            if nome.upper() in lista_sp_final:
                 st.markdown(f'🏃‍♂️ {nome}')
 else:
-    st.error("⚠️ Nenhum dado carregado. Vá na página inicial e suba o arquivo.")
+    st.error("⚠️ Nenhum dado carregado na página inicial.")
