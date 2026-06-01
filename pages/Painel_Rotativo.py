@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
+import os
 import time
 from datetime import datetime, timedelta
 
-# Configuração de Página
+# Configurações iniciais
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# CSS FIXO E SEM ERROS DE SINTAXE
+# CSS para o painel de TV
 st.markdown("""<style>
     [data-testid="stSidebar"] { display: none !important; }
     .barra-preta { background:#000; color:#fff; padding:15px; text-align:center; font-size:25px; font-weight:900; position:fixed; top:0; left:0; width:100%; z-index:9999; display: flex; justify-content: space-between; align-items: center; }
@@ -32,7 +33,7 @@ if tempo_passado > espera:
     st.session_state.last_time = time.time()
     st.rerun()
 
-# Barra Fixa (Fora do container para não sumir)
+# Barra Superior (Sempre visível)
 sup_ou_pausa = SUPERVISORES[st.session_state.idx] if st.session_state.idx < len(SUPERVISORES) else "PAUSA"
 segundos_restantes = int(espera - tempo_passado)
 
@@ -42,28 +43,37 @@ st.markdown(f'''<div class="barra-preta">
     <span style="visibility:hidden; padding:5px 10px;">HOME</span>
 </div>''', unsafe_allow_html=True)
 
-# Conteúdo (Com limpeza total)
+# Conteúdo (Com limpeza total via container)
 conteudo = st.container()
 with conteudo:
     st.markdown('<div class="conteudo">', unsafe_allow_html=True)
     if st.session_state.idx < len(SUPERVISORES):
         sup = SUPERVISORES[st.session_state.idx]
+        
+        # Verificação segura de arquivo
         if os.path.exists("rota_sincronizada.csv"):
             df = pd.read_csv("rota_sincronizada.csv", dtype=str)
-            if 'Contrato' in df.columns: df['Contrato'] = df['Contrato'].str.replace('.0', '', regex=False)
+            if 'Contrato' in df.columns: 
+                df['Contrato'] = df['Contrato'].str.replace('.0', '', regex=False)
             
+            # Filtro estrito
             pendentes = df[(df['SUPERVISOR'].str.strip().str.upper() == sup.strip().upper()) & 
                            (df['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False))]
             
             st.title(f"🔴 {len(pendentes)} PENDENTES")
+            
             st.markdown('<div class="grade-contratos">', unsafe_allow_html=True)
             for _, row in pendentes.iterrows():
                 st.markdown(f'<div class="card-c">📄 {row["Contrato"]} | 👤 {row.get("Recurso", "TÉC").upper()}</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
             
+            # Fala (apenas no primeiro meio segundo da tela)
             if tempo_passado < 0.5:
                 st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('Supervisor {sup}, {len(pendentes)} pendentes.'); window.speechSynthesis.speak(m);</script>", height=0)
+        else:
+            st.error("Arquivo rota_sincronizada.csv não encontrado.")
     else:
+        # Modo Hora
         hora_local = (datetime.utcnow() - timedelta(hours=3)).strftime("%H:%M:%S")
         st.markdown(f'<div class="hora-gigante">{hora_local}</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
