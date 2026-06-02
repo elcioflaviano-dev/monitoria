@@ -50,52 +50,70 @@ if tempo_passado > espera:
     st.session_state.falar = True
     st.rerun()
 
-# --- SCRIPT JAVASCRIPT BASE PARA O APITO DE CRUZEIRO E VOZ LUCIANA ---
+# --- SCRIPT JAVASCRIPT: ALERTA DE AEROPORTO (DING-DONG) E VOZ LUCIANA ---
 JS_MOTOR_AUDIO = """
-function tocarApitoCruzeiro() {
+function tocarAlertaChamaAtencao() {
     try {
         let ctx = new (window.AudioContext || window.webkitAudioContext)();
-        let osc = ctx.createOscillator();
-        let gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'triangle'; // Onda mais encorpada e grave
-        osc.frequency.setValueAtTime(110, ctx.currentTime); // Frequência grave de navio
+        let tempo = ctx.currentTime;
         
-        gain.gain.setValueAtTime(0, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.2); // Ataque
-        gain.gain.setValueAtTime(0.8, ctx.currentTime + 1.2); // Sustentação
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0); // Fim
+        // Primeira nota (Ding - aguda e forte)
+        let osc1 = ctx.createOscillator();
+        let gain1 = ctx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(880, tempo); // Frequência alta
+        gain1.gain.setValueAtTime(0, tempo);
+        gain1.gain.linearRampToValueAtTime(1.0, tempo + 0.05); // Volume MÁXIMO
+        gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(tempo);
+        osc1.stop(tempo + 0.6);
         
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 2.0);
+        // Segunda nota (Dong - um pouco mais grave)
+        let osc2 = ctx.createOscillator();
+        let gain2 = ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(659.25, tempo + 0.4);
+        gain2.gain.setValueAtTime(0, tempo + 0.4);
+        gain2.gain.linearRampToValueAtTime(1.0, tempo + 0.45); // Volume MÁXIMO
+        gain2.gain.exponentialRampToValueAtTime(0.01, tempo + 1.5);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(tempo + 0.4);
+        osc2.stop(tempo + 1.5);
+        
     } catch(e) {}
 }
 
 function anunciar(texto, delay) {
     setTimeout(() => {
-        tocarApitoCruzeiro();
-        // A voz fala 1.8 segundos após o apito começar, para não embolar os sons
+        tocarAlertaChamaAtencao();
+        
+        // A voz fala 1.5 segundos após o alerta sonoro
         setTimeout(() => {
             let m = new SpeechSynthesisUtterance(texto);
             m.lang = 'pt-BR';
             m.rate = 1.0;
             
-            // Busca as vozes do sistema e prioriza a Luciana
+            // Trava na voz da Luciana
             let voices = window.speechSynthesis.getVoices();
             let vozLuciana = voices.find(v => v.name.includes('Luciana'));
             let vozAlternativa = voices.find(v => v.lang.includes('pt-BR') && v.name.includes('Google')) || voices.find(v => v.lang.includes('pt-BR'));
             
-            if(vozLuciana) { m.voice = vozLuciana; } 
-            else if(vozAlternativa) { m.voice = vozAlternativa; }
+            if(vozLuciana) { 
+                m.voice = vozLuciana; 
+            } else if(vozAlternativa) { 
+                m.voice = vozAlternativa; 
+            }
             
             window.speechSynthesis.speak(m);
-        }, 1800); 
+        }, 1500); 
     }, delay);
 }
 """
 
-# Limpeza total forçada da tela
+# Limpeza total forçada da tela (Fim do efeito fantasma)
 placeholder = st.empty()
 
 with placeholder.container():
