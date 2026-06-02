@@ -137,7 +137,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
 # === RENDERIZAÇÃO DA TELA 0: VISÃO GERAL ===
 if st.session_state.idx == 0: 
     st.markdown(f'''<div class="topo-container">
-        <div class="nome-sup">RESUMO GERAL DA OPERAÇÃO</div>
+        <div class="nome-sup">CONTRATOS PENDENTES</div>
         <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
     </div>''', unsafe_allow_html=True)
 
@@ -223,7 +223,7 @@ if st.session_state.idx == 0:
         if st.session_state.novo_ciclo:
             script_cenario = f"<script>{JS_MOTOR_AUDIO}"
             script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
-            script_cenario += f"anunciarBase('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
+            script_cenario += f"anunciarBase('Contratos Pendentes. Base A B C: {qtd_abc} pendentes.', 0);\n"
             script_cenario += f"anunciarBase('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
             
             for i, sup_full in enumerate(SUPERVISORES):
@@ -260,7 +260,7 @@ if st.session_state.idx == 0:
 # --- RENDERIZAÇÃO DA TELA 1: PAUSA / HORA ---
 elif st.session_state.idx == 1:
     st.markdown(f'''<div class="topo-container">
-        <div class="nome-sup">PAUSA</div>
+        <div class="nome-sup">HORÁRIO</div>
         <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
     </div>''', unsafe_allow_html=True)
 
