@@ -65,7 +65,6 @@ else: espera = 20
 tempo_passado = time.time() - st.session_state.last_time
 
 # === MOTOR DE TRANSIÇÃO ===
-# Quando o tempo limite é atingido, muda de tela e ativa a "flag" para recriar os áudios
 if tempo_passado > espera:
     st.session_state.idx = (st.session_state.idx + 1) % 2 
     st.session_state.last_time = time.time()
@@ -80,12 +79,13 @@ function tocarAlertaChamaAtencao() {
         let tempo = ctx.currentTime;
         let osc1 = ctx.createOscillator(); let gain1 = ctx.createGain();
         osc1.type = 'triangle'; osc1.frequency.setValueAtTime(880, tempo);
-        gain1.gain.setValueAtTime(0, tempo); gain1.gain.linearRampToValueAtTime(1.0, tempo + 0.05); gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
+        // Apito inicial com volume reduzido (0.4) para não abafar a voz
+        gain1.gain.setValueAtTime(0, tempo); gain1.gain.linearRampToValueAtTime(0.4, tempo + 0.05); gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
         osc1.connect(gain1); gain1.connect(ctx.destination); osc1.start(tempo); osc1.stop(tempo + 0.6);
         
         let osc2 = ctx.createOscillator(); let gain2 = ctx.createGain();
         osc2.type = 'triangle'; osc2.frequency.setValueAtTime(659.25, tempo + 0.4);
-        gain2.gain.setValueAtTime(0, tempo + 0.4); gain2.gain.linearRampToValueAtTime(1.0, tempo + 0.45); gain2.gain.exponentialRampToValueAtTime(0.01, tempo + 1.5);
+        gain2.gain.setValueAtTime(0, tempo + 0.4); gain2.gain.linearRampToValueAtTime(0.4, tempo + 0.45); gain2.gain.exponentialRampToValueAtTime(0.01, tempo + 1.5);
         osc2.connect(gain2); gain2.connect(ctx.destination); osc2.start(tempo + 0.4); osc2.stop(tempo + 1.5);
     } catch(e) {}
 }
@@ -95,7 +95,9 @@ function anunciarBase(texto, delay) {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
             let m = new SpeechSynthesisUtterance(texto);
-            m.lang = 'pt-BR'; m.rate = 1.0;
+            m.lang = 'pt-BR'; m.rate = 1.0; 
+            m.volume = 1.0; // FORÇA O VOLUME DA VOZ PARA O MÁXIMO
+            
             function setVoiceAndSpeak() {
                 let voices = window.speechSynthesis.getVoices();
                 let vozLuciana = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.lang.includes('pt-BR'));
@@ -124,7 +126,9 @@ function animarSupervisor(texto, delay, index, totalSup) {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
             let m = new SpeechSynthesisUtterance(texto);
-            m.lang = 'pt-BR'; m.rate = 1.0;
+            m.lang = 'pt-BR'; m.rate = 1.0; 
+            m.volume = 1.0; // FORÇA O VOLUME DA VOZ PARA O MÁXIMO
+            
             let voices = window.speechSynthesis.getVoices();
             let vozLuciana = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.lang.includes('pt-BR'));
             if(vozLuciana) { m.voice = vozLuciana; }
@@ -137,7 +141,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
 # === RENDERIZAÇÃO DA TELA 0: VISÃO GERAL ===
 if st.session_state.idx == 0: 
     st.markdown(f'''<div class="topo-container">
-        <div class="nome-sup">CONTRATOS PENDENTES</div>
+        <div class="nome-sup">RESUMO GERAL DA OPERAÇÃO</div>
         <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
     </div>''', unsafe_allow_html=True)
 
@@ -219,11 +223,10 @@ if st.session_state.idx == 0:
         # 2. LINHA DE BAIXO: SUPERVISORES E O CONGELAMENTO DE ÁUDIO
         cols_sup = st.columns(len(SUPERVISORES))
         
-        # Só cria o script de áudio na PRIMEIRA passagem, para não cortar o tempo do Javascript!
         if st.session_state.novo_ciclo:
             script_cenario = f"<script>{JS_MOTOR_AUDIO}"
             script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
-            script_cenario += f"anunciarBase('Contratos Pendentes. Base A B C: {qtd_abc} pendentes.', 0);\n"
+            script_cenario += f"anunciarBase('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
             script_cenario += f"anunciarBase('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
             
             for i, sup_full in enumerate(SUPERVISORES):
@@ -231,17 +234,14 @@ if st.session_state.idx == 0:
                 nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
                 texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
                 
-                # Agenda o Zoom e a Voz!
                 script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
             
             script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
             script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
             
-            # Grava o script para as próximas atualizações da tela
             st.session_state.script_audio_atual = script_cenario
             st.session_state.novo_ciclo = False 
             
-        # Desenha as caixas no HTML (elas atualizam normalmente)
         for i, sup_full in enumerate(SUPERVISORES):
             qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
             nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
@@ -251,7 +251,6 @@ if st.session_state.idx == 0:
                     <div class="box-num">{qtd_pendentes}</div>
                 </div>''', unsafe_allow_html=True)
                 
-        # Injete o áudio "congelado" para que ele execute sem ser interrompido!
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     else:
@@ -260,7 +259,7 @@ if st.session_state.idx == 0:
 # --- RENDERIZAÇÃO DA TELA 1: PAUSA / HORA ---
 elif st.session_state.idx == 1:
     st.markdown(f'''<div class="topo-container">
-        <div class="nome-sup">HORÁRIO</div>
+        <div class="nome-sup">PAUSA</div>
         <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
     </div>''', unsafe_allow_html=True)
 
