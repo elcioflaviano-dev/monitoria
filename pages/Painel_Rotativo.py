@@ -67,7 +67,19 @@ with conteudo.container():
         if os.path.exists("rota_sincronizada.csv"):
             df = pd.read_csv("rota_sincronizada.csv", dtype=str)
             df.columns = [str(c).strip() for c in df.columns]
-            df['SUPERVISOR_CLEAN'] = df['SUPERVISOR'].astype(str).str.strip().str.upper()
+            
+            # --- PADRONIZADOR FLEXÍVEL DE SUPERVISORES ---
+            def padronizar_supervisor(nome):
+                n = str(nome).upper().strip()
+                if 'ALAN' in n: return 'ALAN'
+                if 'MARCOS' in n: return 'MARCOS ROBERTO'
+                if 'FRANCISCO' in n: return 'FRANCISCO GERALDO CARVALHO JUNIOR'
+                if 'MAICON' in n: return 'MAICON'
+                if 'NELSON' in n: return 'NELSON'
+                return n
+            
+            df['SUPERVISOR_CLEAN'] = df['SUPERVISOR'].apply(padronizar_supervisor)
+            # ---------------------------------------------
             
             # --- MOTOR DE JANELAS CUMULATIVAS (TEC1) ---
             col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
@@ -118,6 +130,7 @@ with conteudo.container():
                 script_voz = "<script>"
                 
                 for i, sup_full in enumerate(SUPERVISORES):
+                    # Graças ao padronizador, agora o filtro exato funcionará perfeitamente
                     qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
                     nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
                     
