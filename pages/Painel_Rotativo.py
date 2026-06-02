@@ -95,11 +95,10 @@ function anunciar(texto, delay) {
 }
 """
 
-# APAGADOR DE TELA
-conteudo = st.empty()
-conteudo.empty()
+# Limpeza total forçada da tela
+placeholder = st.empty()
 
-with conteudo.container():
+with placeholder.container():
     if st.session_state.idx == 0: titulo_topo = "RESUMO POR SUPERVISOR"
     elif st.session_state.idx == 1: titulo_topo = "RESUMO POR BASE REGIONAL"
     else: titulo_topo = "PAUSA"
