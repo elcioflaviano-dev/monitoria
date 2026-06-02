@@ -4,37 +4,6 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# 1. Configuração da página garantindo que a barra inicie colapsada
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
-
-# 2. O CSS Mágico e Indestrutível para sumir com o menu e o botão de expandir
-st.markdown("""
-    <style>
-        /* Esconde a barra lateral inteira */
-        [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        /* Esconde o botão/setinha que abre a barra lateral */
-        [data-testid="collapsedControl"] {
-            display: none !important;
-        }
-        /* (Mantenha o resto do seu CSS aqui embaixo, como a .topo-container e .card-c) */
-        
-        .topo-container { 
-            background: #003366; 
-            color: white; 
-            padding: 25px; 
-            border-radius: 0 0 15px 15px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            margin-bottom: 20px;
-        }
-        .nome-sup { font-size: 45px; font-weight: 900; }
-        .card-c { background:#f9f9f9; padding:10px; border-radius:4px; font-size:14px; font-weight:bold; border-left:4px solid #cc6600; border:1px solid #ddd; margin-bottom: 10px; }
-    </style>
-""", unsafe_allow_html=True)
-
 # 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
