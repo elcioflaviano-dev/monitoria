@@ -28,11 +28,11 @@ st.markdown("""<style>
     .box-nome { font-size: 18px; font-weight: 900; color: #003366; text-transform: uppercase;}
     .box-num { font-size: 65px; font-weight: 900; color: #cc6600; line-height: 1; }
     
-    /* CLASSE MÁGICA: Aplicada via JavaScript para o efeito de Zoom */
+    /* CLASSE MÁGICA: Aumentamos a escala para 1.35 para o efeito de Zoom ser bem mais agressivo */
     .destaque-ativo {
-        transform: scale(1.15) !important;
-        box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.4) !important;
-        border-left: 15px solid #ff8800 !important;
+        transform: scale(1.35) !important;
+        box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important;
+        border-left: 20px solid #ff8800 !important;
         background: #fff8e1 !important;
         z-index: 100;
         position: relative;
@@ -119,7 +119,7 @@ function anunciar(texto, delay) {
     }, delay);
 }
 
-// NOVO: Função para limpar o destaque de todos os supervisores
+// Limpar o destaque de todos os supervisores
 function limparDestaques(total) {
     for(let j=0; j<total; j++) {
         let el = window.parent.document.getElementById('sup-box-' + j);
@@ -127,7 +127,7 @@ function limparDestaques(total) {
     }
 }
 
-// NOVO: Função que foca na caixa do supervisor e aciona a voz
+// Focar na caixa do supervisor e acionar a voz
 function anunciarSupervisor(texto, delay, index, totalSup) {
     setTimeout(() => {
         limparDestaques(totalSup);
@@ -240,7 +240,7 @@ if st.session_state.idx == 0:
         cols_sup = st.columns(len(SUPERVISORES))
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
         
-        # Falas das Bases (Início) - Sem Zoom
+        # Falas das Bases (Início)
         script_cenario += f"anunciar('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
         script_cenario += f"anunciar('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
         
@@ -249,20 +249,20 @@ if st.session_state.idx == 0:
             nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
             
             with cols_sup[i]:
-                # NOVO: Adicionado um ID dinâmico (sup-box-0, sup-box-1, etc.) para o JS conseguir encontrar
                 st.markdown(f'''<div id="sup-box-{i}" class="box-contagem">
                     <div class="box-nome">{nome_visual}</div>
                     <div class="box-num">{qtd_pendentes}</div>
                 </div>''', unsafe_allow_html=True)
             
             texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
-            # Chama a nova função que ativa o Zoom usando o index(i) do supervisor
+            # A fala dos supervisores começa depois das bases (14000ms iniciais + 7000ms por supervisor)
             script_cenario += f"anunciarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
         
         # Desliga o Zoom da última caixa quando o painel terminar de falar
         script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
         
-        script_cenario += "</script>"
+        # 🔥 AQUI ESTÁ O SEGREDO DA REPETIÇÃO GARANTIDA (Timestamp único para cada ciclo)
+        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
         
         if st.session_state.falar:
             st.components.v1.html(script_cenario, height=0)
@@ -288,7 +288,7 @@ elif st.session_state.idx == 1:
     if st.session_state.falar:
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
         script_cenario += f"anunciar('Atenção. Hora certa: {hora_fala}.', 0);\n"
-        script_cenario += "</script>"
+        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
         
         st.components.v1.html(script_cenario, height=0)
         st.session_state.falar = False
