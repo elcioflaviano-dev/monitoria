@@ -122,7 +122,11 @@ def carregar_dados_sistema():
                 if 'NOME' in df_final.columns:
                     df_final['Recurso'] = df_final['NOME'].fillna(df_final['Recurso'])
                 
+                # ---> AQUI ESTÁ A CORREÇÃO CRÍTICA PARA A TV <---
+                # Limpamos o nome do supervisor rigorosamente antes de salvar
                 df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('#N/A').astype(str).str.strip().str.upper()
+                df_final['SUPERVISOR'] = df_final['SUPERVISOR'].replace(['NAN', 'N/A', 'NULL', ''], 'NÃO IDENTIFICADO')
+                
                 df_final['REGIAO_BASE'] = df_final['BASE'].fillna('N/A').astype(str).str.strip().str.upper()
                 
                 df_final = df_final.drop(columns=['Login_Match_Clean', 'LOGIN_SHEETS_CLEAN', 'NOME', 'BASE'], errors='ignore')
@@ -156,7 +160,7 @@ if df_master is not None and not df_master.empty:
                     {len(df_master)} contratos integrados e salvos em disco no sistema.
                 </p>
                 <div style="display: inline-block; background-color: #e8f5e9; color: #1b5e20; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 14px;">
-                    🎯 Dados Prontas e Sincronizados com a TV da Monitoria
+                    🎯 Dados Prontos e Sincronizados com a TV da Monitoria
                 </div>
             </div>
             """, 
