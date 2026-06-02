@@ -34,21 +34,21 @@ if "idx" not in st.session_state: st.session_state.idx = 0
 if "last_time" not in st.session_state: st.session_state.last_time = time.time()
 if "falar" not in st.session_state: st.session_state.falar = True
 
-# Tempos de tela
-if st.session_state.idx == 0: espera = 38 # Tela Supervisores
-elif st.session_state.idx == 1: espera = 18 # Tela Bases
+# Tempos de ecrã
+if st.session_state.idx == 0: espera = 38 # Ecrã Supervisores
+elif st.session_state.idx == 1: espera = 18 # Ecrã Bases
 else: espera = 20 # Relógio
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# Transição de telas
+# Transição de ecrãs
 if tempo_passado > espera:
     st.session_state.idx = (st.session_state.idx + 1) % 3 
     st.session_state.last_time = time.time()
     st.session_state.falar = True
     st.rerun()
 
-# --- SCRIPT JAVASCRIPT: ALERTA E VOZ LUCIANA (Forçada) ---
+# --- SCRIPT JAVASCRIPT: ALERTA E VOZ FEMININA (Forçada) ---
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -74,19 +74,25 @@ function anunciar(texto, delay) {
             m.lang = 'pt-BR';
             m.rate = 1.0;
             
-            // Função que garante a busca correta da Luciana
             function setVoiceAndSpeak() {
                 let voices = window.speechSynthesis.getVoices();
-                let vozLuciana = voices.find(v => v.name.toLowerCase().includes('luciana'));
-                let vozAlternativa = voices.find(v => v.lang.includes('pt-BR'));
+                
+                // Procura focada nas vozes femininas de diferentes sistemas operativos
+                let vozLuciana = voices.find(v => v.name.includes('Luciana'));
+                let vozMaria = voices.find(v => v.name.includes('Maria'));
+                let vozFrancisca = voices.find(v => v.name.includes('Francisca'));
+                let vozGoogleFeminina = voices.find(v => v.lang.includes('pt-BR') && v.name.includes('Feminino'));
+                let vozPtBrQualquer = voices.find(v => v.lang.includes('pt-BR'));
                 
                 if(vozLuciana) { m.voice = vozLuciana; } 
-                else if(vozAlternativa) { m.voice = vozAlternativa; }
+                else if(vozMaria) { m.voice = vozMaria; }
+                else if(vozFrancisca) { m.voice = vozFrancisca; }
+                else if(vozGoogleFeminina) { m.voice = vozGoogleFeminina; }
+                else if(vozPtBrQualquer) { m.voice = vozPtBrQualquer; }
                 
                 window.speechSynthesis.speak(m);
             }
 
-            // Garante que o navegador carregou as vozes antes de tentar falar
             if (window.speechSynthesis.getVoices().length === 0) {
                 window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
             } else {
@@ -97,7 +103,7 @@ function anunciar(texto, delay) {
 }
 """
 
-# === RENDERIZAÇÃO LIMPA E DIRETA (Sem st.empty para evitar fantasmas) ===
+# === RENDERIZAÇÃO LIMPA E DIRETA ===
 
 if st.session_state.idx == 0: titulo_topo = "RESUMO POR SUPERVISOR"
 elif st.session_state.idx == 1: titulo_topo = "RESUMO POR BASE REGIONAL"
@@ -221,7 +227,7 @@ if st.session_state.idx in [0, 1]:
                 st.session_state.falar = False
 
     else:
-        st.error("Arquivo rota_sincronizada.csv não encontrado.")
+        st.error("Ficheiro rota_sincronizada.csv não encontrado.")
         
 # --- TELA 2: PAUSA / HORA ---
 elif st.session_state.idx == 2:
