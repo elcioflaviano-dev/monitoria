@@ -9,12 +9,12 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""<style>
     [data-testid="stSidebar"] { display: none !important; }
-    .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;}
+    .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
     .nome-sup { font-size: 45px; font-weight: 900; }
     
     /* Estilos das Bases (Topo) */
-    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
-    .box-base-sp { background: #ffebee; border-left: 10px solid #c62828; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
+    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 20px; }
+    .box-base-sp { background: #ffebee; border-left: 10px solid #c62828; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 20px; }
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
     .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
     
@@ -22,7 +22,7 @@ st.markdown("""<style>
     .box-contagem { 
         background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; 
         text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); 
-        margin-top: 5px; margin-left: 5px; margin-right: 5px;
+        margin-top: 15px; margin-left: 10px; margin-right: 10px; margin-bottom: 15px;
         transition: transform 0.5s ease, box-shadow 0.5s ease, background 0.5s ease, border-left 0.5s ease, z-index 0.5s ease; 
         position: relative; z-index: 1; 
     }
@@ -31,7 +31,7 @@ st.markdown("""<style>
     
     /* CLASSE MÁGICA: Destaque com Z-index para não cortar */
     .destaque-ativo {
-        transform: scale(1.35) !important;
+        transform: scale(1.30) !important; /* Reduzi um pouco a escala de 1.35 para 1.30 para evitar colar nas margens */
         box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important;
         border-left: 20px solid #ff8800 !important;
         background: #fff8e1 !important;
@@ -149,11 +149,19 @@ function anunciarBase(texto, delay, comAudio) {
     }, delay);
 }
 
-// Limpar o destaque de todos os supervisores
+// Limpar o destaque de todos os supervisores - AGORA COM GARANTIA ABSOLUTA
 function limparDestaques(total) {
     for(let j=0; j<total; j++) {
         let el = window.parent.document.getElementById('sup-box-' + j);
-        if(el) { el.classList.remove('destaque-ativo'); }
+        if(el) { 
+            el.classList.remove('destaque-ativo'); 
+            // Força a remoção inline caso a classe falhe
+            el.style.transform = ''; 
+            el.style.boxShadow = '';
+            el.style.borderLeft = '';
+            el.style.background = '';
+            el.style.zIndex = '1';
+        }
     }
 }
 
@@ -275,6 +283,9 @@ with placeholder.container():
             # String Javascript que diz se deve tocar áudio ou não
             com_audio_str = "true" if st.session_state.falar_dados else "false"
             
+            # Garante que as animações estão limpas assim que a página carrega
+            script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
+            
             script_cenario += f"anunciarBase('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0, {com_audio_str});\n"
             script_cenario += f"anunciarBase('Base São Paulo: {qtd_sp} pendentes.', 7000, {com_audio_str});\n"
             
@@ -289,7 +300,7 @@ with placeholder.container():
                     </div>''', unsafe_allow_html=True)
                 
                 texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
-                # O comando animarSupervisor entra SEMPRE para garantir a animação visual (a variável com_audio_str bloqueia a fala se for preciso)
+                # O comando animarSupervisor entra SEMPRE para garantir a animação visual
                 script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)}, {com_audio_str});\n"
             
             # Desliga o Zoom do último
