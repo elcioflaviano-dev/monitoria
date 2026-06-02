@@ -48,7 +48,7 @@ if tempo_passado > espera:
     st.session_state.falar = True
     st.rerun()
 
-# --- SCRIPT JAVASCRIPT: ALERTA E VOZ FEMININA (Forçada) ---
+# --- SCRIPT JAVASCRIPT: ALERTA E VOZ FEMININA ---
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -74,30 +74,16 @@ function anunciar(texto, delay) {
             m.lang = 'pt-BR';
             m.rate = 1.0;
             
-            function setVoiceAndSpeak() {
-                let voices = window.speechSynthesis.getVoices();
-                
-                // Procura focada nas vozes femininas de diferentes sistemas operativos
-                let vozLuciana = voices.find(v => v.name.includes('Luciana'));
-                let vozMaria = voices.find(v => v.name.includes('Maria'));
-                let vozFrancisca = voices.find(v => v.name.includes('Francisca'));
-                let vozGoogleFeminina = voices.find(v => v.lang.includes('pt-BR') && v.name.includes('Feminino'));
-                let vozPtBrQualquer = voices.find(v => v.lang.includes('pt-BR'));
-                
-                if(vozLuciana) { m.voice = vozLuciana; } 
-                else if(vozMaria) { m.voice = vozMaria; }
-                else if(vozFrancisca) { m.voice = vozFrancisca; }
-                else if(vozGoogleFeminina) { m.voice = vozGoogleFeminina; }
-                else if(vozPtBrQualquer) { m.voice = vozPtBrQualquer; }
-                
-                window.speechSynthesis.speak(m);
-            }
-
-            if (window.speechSynthesis.getVoices().length === 0) {
-                window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
-            } else {
-                setVoiceAndSpeak();
-            }
+            // Procura a voz no exato momento de falar (sem travar o navegador)
+            let voices = window.speechSynthesis.getVoices();
+            let voz = voices.find(v => v.name.includes('Luciana')) || 
+                      voices.find(v => v.name.includes('Maria')) || 
+                      voices.find(v => v.name.includes('Francisca')) || 
+                      voices.find(v => v.lang.includes('pt-BR'));
+            
+            if(voz) { m.voice = voz; }
+            
+            window.speechSynthesis.speak(m);
         }, 1500); 
     }, delay);
 }
@@ -169,8 +155,7 @@ if st.session_state.idx in [0, 1]:
         else:
             df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
 
-        # 🔥 CORREÇÃO DO ERRO DE TYPEERROR AQUI 🔥
-        # Forçando o preenchimento de vazios antes de tentar separar a string
+        # Correção contra linhas vazias no Contrato
         if 'Contrato' in df_pendentes_geral.columns and not df_pendentes_geral.empty:
             df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
             df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
