@@ -3,6 +3,15 @@ import time
 import os
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="collapsedControl"] { display: none !important; }
+    </style>
+""", unsafe_allow_html=True)
+
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>[data-testid="stSidebar"] { display: none !important; }</style>""", unsafe_allow_html=True)
 
 # 1. MÁGICA: O Python olha a pasta 'pages' e pega o nome EXATO dos arquivos que estão lá
