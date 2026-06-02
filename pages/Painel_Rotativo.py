@@ -12,10 +12,16 @@ st.markdown("""<style>
     .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
     .nome-sup { font-size: 45px; font-weight: 900; }
     
-    /* Estilos das Contagens (Sem forçar altura para evitar fantasmas) */
-    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 25px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .box-nome { font-size: 22px; font-weight: 900; color: #003366; text-transform: uppercase;}
-    .box-num { font-size: 80px; font-weight: 900; color: #cc6600; margin-top: 15px; line-height: 1; }
+    /* Estilos das Bases (Topo) */
+    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 20px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
+    .box-base-sp { background: #ffebee; border-left: 10px solid #c62828; padding: 20px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
+    .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
+    .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
+    
+    /* Estilos dos Supervisores (Inferior) */
+    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
+    .box-nome { font-size: 18px; font-weight: 900; color: #003366; text-transform: uppercase;}
+    .box-num { font-size: 65px; font-weight: 900; color: #cc6600; line-height: 1; }
     
     .hora-gigante { font-size: 150px; text-align:center; margin-top: 100px; color: #333; }
 </style>""", unsafe_allow_html=True)
@@ -34,16 +40,17 @@ if "idx" not in st.session_state: st.session_state.idx = 0
 if "last_time" not in st.session_state: st.session_state.last_time = time.time()
 if "falar" not in st.session_state: st.session_state.falar = True
 
-# Tempos de ecrã
-if st.session_state.idx == 0: espera = 38 # Ecrã Supervisores
-elif st.session_state.idx == 1: espera = 18 # Ecrã Bases
-else: espera = 20 # Relógio
+# Lógica de Ecrãs: 0 = Visão Geral (Bases + Supervisores), 1 = Relógio
+if st.session_state.idx == 0: 
+    espera = 55 # Tempo total para a TV anunciar Bases e depois os Supervisores
+else: 
+    espera = 20 # Relógio
 
 tempo_passado = time.time() - st.session_state.last_time
 
 # Transição de ecrãs
 if tempo_passado > espera:
-    st.session_state.idx = (st.session_state.idx + 1) % 3 
+    st.session_state.idx = (st.session_state.idx + 1) % 2 
     st.session_state.last_time = time.time()
     st.session_state.falar = True
     st.rerun()
@@ -74,25 +81,34 @@ function anunciar(texto, delay) {
             m.lang = 'pt-BR';
             m.rate = 1.0;
             
-            // Procura a voz no exato momento de falar (sem travar o navegador)
-            let voices = window.speechSynthesis.getVoices();
-            let voz = voices.find(v => v.name.includes('Luciana')) || 
-                      voices.find(v => v.name.includes('Maria')) || 
-                      voices.find(v => v.name.includes('Francisca')) || 
-                      voices.find(v => v.lang.includes('pt-BR'));
-            
-            if(voz) { m.voice = voz; }
-            
-            window.speechSynthesis.speak(m);
+            function setVoiceAndSpeak() {
+                let voices = window.speechSynthesis.getVoices();
+                let vozLuciana = voices.find(v => v.name.includes('Luciana'));
+                let vozMaria = voices.find(v => v.name.includes('Maria'));
+                let vozFrancisca = voices.find(v => v.name.includes('Francisca'));
+                let vozGoogleFeminina = voices.find(v => v.lang.includes('pt-BR') && v.name.includes('Feminino'));
+                let vozPtBrQualquer = voices.find(v => v.lang.includes('pt-BR'));
+                
+                if(vozLuciana) { m.voice = vozLuciana; } 
+                else if(vozMaria) { m.voice = vozMaria; }
+                else if(vozFrancisca) { m.voice = vozFrancisca; }
+                else if(vozGoogleFeminina) { m.voice = vozGoogleFeminina; }
+                else if(vozPtBrQualquer) { m.voice = vozPtBrQualquer; }
+                
+                window.speechSynthesis.speak(m);
+            }
+
+            if (window.speechSynthesis.getVoices().length === 0) {
+                window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+            } else {
+                setVoiceAndSpeak();
+            }
         }, 1500); 
     }, delay);
 }
 """
 
-# === RENDERIZAÇÃO LIMPA E DIRETA ===
-
-if st.session_state.idx == 0: titulo_topo = "RESUMO POR SUPERVISOR"
-elif st.session_state.idx == 1: titulo_topo = "RESUMO POR BASE REGIONAL"
+if st.session_state.idx == 0: titulo_topo = "RESUMO GERAL DA OPERAÇÃO"
 else: titulo_topo = "PAUSA"
 
 st.markdown(f'''<div class="topo-container">
@@ -100,8 +116,8 @@ st.markdown(f'''<div class="topo-container">
     <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
 </div>''', unsafe_allow_html=True)
 
-# PROCESSAMENTO DE DADOS
-if st.session_state.idx in [0, 1]:
+
+if st.session_state.idx == 0:
     if os.path.exists("rota_sincronizada.csv"):
         df = pd.read_csv("rota_sincronizada.csv", dtype=str)
         df.columns = [str(c).strip() for c in df.columns]
@@ -155,69 +171,67 @@ if st.session_state.idx in [0, 1]:
         else:
             df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
 
-        # Correção contra linhas vazias no Contrato
         if 'Contrato' in df_pendentes_geral.columns and not df_pendentes_geral.empty:
             df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
             df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
 
-        # --- TELA 0: SUPERVISORES ---
-        if st.session_state.idx == 0:
-            cols = st.columns(len(SUPERVISORES))
-            script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-            
-            for i, sup_full in enumerate(SUPERVISORES):
-                qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
-                nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
-                
-                with cols[i]:
-                    st.markdown(f'''<div class="box-contagem">
-                        <div class="box-nome">{nome_visual}</div>
-                        <div class="box-num">{qtd_pendentes}</div>
-                    </div>''', unsafe_allow_html=True)
-                
-                texto_fala = f"Supervisor {nome_visual}, {qtd_pendentes} pendentes."
-                script_cenario += f"anunciar('{texto_fala}', {i * 7000});\n"
-            
-            script_cenario += "</script>"
-            
-            if st.session_state.falar:
-                st.components.v1.html(script_cenario, height=0)
-                st.session_state.falar = False
 
-        # --- TELA 1: BASES (ABC e SP) ---
-        elif st.session_state.idx == 1:
-            cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('FRANCISCO|ALAN', na=False)
-            qtd_sp = len(df_pendentes_geral[cond_sp])
-            qtd_abc = len(df_pendentes_geral[~cond_sp])
+        # === DESENHO DA TELA ÚNICA ===
+        
+        # 1. LINHA DE CIMA: BASES
+        cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('FRANCISCO|ALAN', na=False)
+        qtd_sp = len(df_pendentes_geral[cond_sp])
+        qtd_abc = len(df_pendentes_geral[~cond_sp])
 
-            c_abc, c_sp = st.columns(2)
+        c_abc, c_sp = st.columns(2)
+        
+        with c_abc:
+            st.markdown(f'''<div class="box-base">
+                <div class="nome-base" style="color: #2e7d32;">ABC PENDENTES</div>
+                <div class="num-base">{qtd_abc}</div>
+            </div>''', unsafe_allow_html=True)
             
-            with c_abc:
-                st.markdown(f'''<div class="box-contagem" style="border-left-color: #008080;">
-                    <div class="box-nome" style="color: #008080;">ABC PENDENTES</div>
-                    <div class="box-num">{qtd_abc}</div>
+        with c_sp:
+            st.markdown(f'''<div class="box-base-sp">
+                <div class="nome-base" style="color: #c62828;">SÃO PAULO PENDENTES</div>
+                <div class="num-base">{qtd_sp}</div>
+            </div>''', unsafe_allow_html=True)
+
+        st.markdown('<hr style="border: 1px dashed #ccc; margin-top: 5px; margin-bottom: 25px;">', unsafe_allow_html=True)
+
+        # 2. LINHA DE BAIXO: SUPERVISORES
+        cols_sup = st.columns(len(SUPERVISORES))
+        script_cenario = f"<script>{JS_MOTOR_AUDIO}"
+        
+        # Falas das Bases (Início)
+        script_cenario += f"anunciar('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
+        script_cenario += f"anunciar('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
+        
+        for i, sup_full in enumerate(SUPERVISORES):
+            qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
+            nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
+            
+            with cols_sup[i]:
+                st.markdown(f'''<div class="box-contagem">
+                    <div class="box-nome">{nome_visual}</div>
+                    <div class="box-num">{qtd_pendentes}</div>
                 </div>''', unsafe_allow_html=True)
-                
-            with c_sp:
-                st.markdown(f'''<div class="box-contagem" style="border-left-color: #b30000;">
-                    <div class="box-nome" style="color: #b30000;">SÃO PAULO PENDENTES</div>
-                    <div class="box-num">{qtd_sp}</div>
-                </div>''', unsafe_allow_html=True)
-
-            script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-            script_cenario += f"anunciar('Base A B C. Total, {qtd_abc} pendentes.', 0);\n"
-            script_cenario += f"anunciar('Base São Paulo. Total, {qtd_sp} pendentes.', 8000);\n"
-            script_cenario += "</script>"
-
-            if st.session_state.falar:
-                st.components.v1.html(script_cenario, height=0)
-                st.session_state.falar = False
+            
+            texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
+            # A fala dos supervisores começa depois das bases (14000ms iniciais + 7000ms por supervisor)
+            script_cenario += f"anunciar('{texto_fala}', 14000 + {i * 7000});\n"
+        
+        script_cenario += "</script>"
+        
+        if st.session_state.falar:
+            st.components.v1.html(script_cenario, height=0)
+            st.session_state.falar = False
 
     else:
         st.error("Ficheiro rota_sincronizada.csv não encontrado.")
         
-# --- TELA 2: PAUSA / HORA ---
-elif st.session_state.idx == 2:
+# --- TELA 1: PAUSA / HORA ---
+elif st.session_state.idx == 1:
     tempo_real = datetime.utcnow() - timedelta(hours=3)
     hora_str = tempo_real.strftime("%H:%M:%S")
     hora_fala = tempo_real.strftime("%H e %M") 
