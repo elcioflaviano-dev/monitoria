@@ -9,12 +9,12 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""<style>
     [data-testid="stSidebar"] { display: none !important; }
-    .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
+    .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;}
     .nome-sup { font-size: 45px; font-weight: 900; }
     
     /* Estilos das Bases (Topo) */
-    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 20px; }
-    .box-base-sp { background: #ffebee; border-left: 10px solid #c62828; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 20px; }
+    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
+    .box-base-sp { background: #ffebee; border-left: 10px solid #c62828; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
     .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
     
@@ -31,7 +31,7 @@ st.markdown("""<style>
     
     /* CLASSE MÁGICA: Destaque com Z-index para não cortar */
     .destaque-ativo {
-        transform: scale(1.30) !important; /* Reduzi um pouco a escala de 1.35 para 1.30 para evitar colar nas margens */
+        transform: scale(1.30) !important; 
         box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important;
         border-left: 20px solid #ff8800 !important;
         background: #fff8e1 !important;
@@ -77,42 +77,33 @@ if tempo_passado > espera:
     
     # Avaliação das Regras de Áudio ao entrar na Tela Principal (0)
     if st.session_state.idx == 0:
-        # Array com o fim das janelas em minutos do dia
         finais_janela_minutos = [11*60, 12*60, 14*60, 15*60, 17*60, 18*60]
         freq_segundos = None
         
-        # Encontra a janela atual/mais próxima
         for fim in finais_janela_minutos:
             dif = fim - minutos_agora
-            if 0 < dif <= 60: # Estamos na "Hora de Ouro" (últimos 60 min)
-                if dif <= 10:
-                    freq_segundos = 150 # Zona de Perigo (A cada 2.5 min)
-                else:
-                    freq_segundos = 600 # Modo Alerta (A cada 10 min)
+            if 0 < dif <= 60: 
+                if dif <= 10: freq_segundos = 150 # Zona de Perigo
+                else: freq_segundos = 600 # Modo Alerta 
                 break
         
-        # Se estivermos dentro de uma janela de alerta, verificamos o cronômetro
         if freq_segundos is not None:
             if time.time() - st.session_state.ultimo_aviso_dados >= (freq_segundos - 10):
                 st.session_state.falar_dados = True
                 st.session_state.ultimo_aviso_dados = time.time()
-            else:
-                st.session_state.falar_dados = False
-        else:
-            st.session_state.falar_dados = False # Silêncio total fora dos horários de pico
+            else: st.session_state.falar_dados = False
+        else: st.session_state.falar_dados = False 
             
     # Avaliação das Regras de Áudio ao entrar na Tela do Relógio (1)
     elif st.session_state.idx == 1:
-        # Falar a hora apenas aos 00 ou 30 minutos (Ex: 14:00, 14:30, 15:00)
         if agora_br.minute in [0, 30] and st.session_state.ultima_hora_falada != agora_br.minute:
             st.session_state.falar_hora = True
             st.session_state.ultima_hora_falada = agora_br.minute
-        else:
-            st.session_state.falar_hora = False
+        else: st.session_state.falar_hora = False
             
     st.rerun()
 
-# --- SCRIPT JAVASCRIPT: ALERTA, VOZ E ANIMAÇÃO ---
+# --- SCRIPT JAVASCRIPT: ALERTA E VOZ ---
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -131,7 +122,7 @@ function tocarAlertaChamaAtencao() {
 }
 
 function anunciarBase(texto, delay, comAudio) {
-    if(!comAudio) return; // Se o áudio estiver desligado, não faz nada nas bases
+    if(!comAudio) return; 
     setTimeout(() => {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
@@ -149,31 +140,22 @@ function anunciarBase(texto, delay, comAudio) {
     }, delay);
 }
 
-// Limpar o destaque de todos os supervisores - AGORA COM GARANTIA ABSOLUTA
 function limparDestaques(total) {
     for(let j=0; j<total; j++) {
         let el = window.parent.document.getElementById('sup-box-' + j);
         if(el) { 
             el.classList.remove('destaque-ativo'); 
-            // Força a remoção inline caso a classe falhe
-            el.style.transform = ''; 
-            el.style.boxShadow = '';
-            el.style.borderLeft = '';
-            el.style.background = '';
-            el.style.zIndex = '1';
+            el.style.transform = ''; el.style.boxShadow = ''; el.style.borderLeft = ''; el.style.background = ''; el.style.zIndex = '1';
         }
     }
 }
 
-// Focar na caixa do supervisor e acionar a voz (apenas se for hora de falar)
 function animarSupervisor(texto, delay, index, totalSup, comAudio) {
     setTimeout(() => {
-        // A animação visual acontece SEMPRE
         limparDestaques(totalSup);
         let elAtual = window.parent.document.getElementById('sup-box-' + index);
         if(elAtual) { elAtual.classList.add('destaque-ativo'); }
         
-        // A voz e o apito acontecem apenas se "comAudio" for verdadeiro
         if(comAudio) {
             tocarAlertaChamaAtencao();
             setTimeout(() => {
@@ -189,13 +171,10 @@ function animarSupervisor(texto, delay, index, totalSup, comAudio) {
 }
 """
 
-# Limpeza da tela antes de desenhar a nova versão
-placeholder = st.empty()
-
-with placeholder.container():
-
-    # === RENDERIZAÇÃO DA TELA 0: VISÃO GERAL ===
-    if st.session_state.idx == 0: 
+# === RENDERIZAÇÃO DA TELA 0: VISÃO GERAL ===
+if st.session_state.idx == 0: 
+    # Usar um container isolado para a tela 0
+    with st.container():
         st.markdown(f'''<div class="topo-container">
             <div class="nome-sup">RESUMO GERAL DA OPERAÇÃO</div>
             <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
@@ -258,7 +237,6 @@ with placeholder.container():
                 df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
                 df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
 
-            # 1. LINHA DE CIMA: BASES
             cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('FRANCISCO|ALAN', na=False)
             qtd_sp = len(df_pendentes_geral[cond_sp])
             qtd_abc = len(df_pendentes_geral[~cond_sp])
@@ -276,16 +254,11 @@ with placeholder.container():
                     <div class="num-base">{qtd_sp}</div>
                 </div>''', unsafe_allow_html=True)
 
-            # 2. LINHA DE BAIXO: SUPERVISORES
             cols_sup = st.columns(len(SUPERVISORES))
             script_cenario = f"<script>{JS_MOTOR_AUDIO}"
             
-            # String Javascript que diz se deve tocar áudio ou não
             com_audio_str = "true" if st.session_state.falar_dados else "false"
-            
-            # Garante que as animações estão limpas assim que a página carrega
             script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
-            
             script_cenario += f"anunciarBase('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0, {com_audio_str});\n"
             script_cenario += f"anunciarBase('Base São Paulo: {qtd_sp} pendentes.', 7000, {com_audio_str});\n"
             
@@ -300,24 +273,23 @@ with placeholder.container():
                     </div>''', unsafe_allow_html=True)
                 
                 texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
-                # O comando animarSupervisor entra SEMPRE para garantir a animação visual
                 script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)}, {com_audio_str});\n"
             
-            # Desliga o Zoom do último
             script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
             script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
             
             st.components.v1.html(script_cenario, height=0)
             
-            # Desativa o áudio para a próxima volta (se estava ativado)
             if st.session_state.falar_dados:
                 st.session_state.falar_dados = False 
 
         else:
             st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-            
-    # --- RENDERIZAÇÃO DA TELA 1: PAUSA / HORA ---
-    elif st.session_state.idx == 1:
+
+# --- RENDERIZAÇÃO DA TELA 1: PAUSA / HORA ---
+elif st.session_state.idx == 1:
+    # Usar um container isolado para a tela 1
+    with st.container():
         st.markdown(f'''<div class="topo-container">
             <div class="nome-sup">PAUSA</div>
             <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
