@@ -2,42 +2,41 @@ import streamlit as st
 import time
 import os
 
-# Configuração básica para esconder o menu
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>[data-testid="stSidebar"] { display: none !important; }</style>""", unsafe_allow_html=True)
 
-# Lista com os nomes dos arquivos EXATAMENTE como estão na pasta pages/ (SEM o .py)
-paginas = [
-    "Maicon", 
-    "Nelson", 
-    "Marcos", 
-    "Alan", 
-    "Francisco", 
-    "Hora"
-]
+# 1. MÁGICA: O Python olha a pasta 'pages' e pega o nome EXATO dos arquivos que estão lá
+try:
+    arquivos_na_pasta = os.listdir("pages")
+    
+    # Filtra para pegar apenas os arquivos .py e ignora o próprio Painel_Rotativo
+    paginas = [f for f in arquivos_na_pasta if f.endswith(".py") and f != "Painel_Rotativo.py"]
+    paginas.sort() # Organiza em ordem alfabética
+    
+except FileNotFoundError:
+    st.error("❌ A pasta 'pages' não foi encontrada pelo sistema.")
+    st.stop()
 
+# Se não achou nenhum arquivo .py
+if not paginas:
+    st.error("❌ A pasta 'pages' está vazia ou não contém os arquivos dos supervisores.")
+    st.write("Arquivos que o sistema está enxergando nesta pasta:", arquivos_na_pasta)
+    st.stop()
+
+# 2. Lógica de controle de tempo e alternância
 if "idx" not in st.session_state:
     st.session_state.idx = 0
 
-# Tempo de exibição
+# Tempo que cada supervisor fica na tela (ex: 5 segundos)
 time.sleep(5)
 
-# --- SISTEMA ANTI-TRAVAMENTO ---
-# Tenta encontrar a próxima página válida. Se o nome estiver errado, pula para o próximo.
-tentativas = 0
-while tentativas < len(paginas):
-    st.session_state.idx = (st.session_state.idx + 1) % len(paginas)
-    
-    nome_pagina = paginas[st.session_state.idx]
-    caminho_destino = f"pages/{nome_pagina}.py"
-    
-    # Só tenta mudar de página se o arquivo realmente existir no servidor
-    if os.path.exists(caminho_destino):
-        st.switch_page(caminho_destino)
-        st.stop() # Para a execução aqui
-    else:
-        # Se não existir, soma uma tentativa e o loop tenta o próximo nome
-        tentativas += 1
+# Avança para o próximo da lista que ele encontrou
+st.session_state.idx = (st.session_state.idx + 1) % len(paginas)
 
-# Se chegar aqui, nenhum arquivo da lista foi encontrado
-st.error("⚠️ ERRO: Nenhuma página da lista foi encontrada na pasta 'pages/'. Verifique se os nomes na lista 'paginas' estão idênticos aos arquivos.")
+# 3. Monta o caminho perfeito e troca a página
+arquivo_destino = f"pages/{paginas[st.session_state.idx]}"
+
+try:
+    st.switch_page(arquivo_destino)
+except Exception as e:
+    st.error(f"⚠️ Erro ao tentar abrir a página {arquivo_destino}. Detalhe: {e}")
