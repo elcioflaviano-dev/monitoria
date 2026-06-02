@@ -9,21 +9,24 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""<style>
     [data-testid="stSidebar"] { display: none !important; }
-    .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
+    .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;}
     .nome-sup { font-size: 45px; font-weight: 900; }
     
     /* Estilos das Bases (Topo) */
-    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 20px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
-    .box-base-sp { background: #ffebee; border-left: 10px solid #c62828; padding: 20px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
+    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
+    .box-base-sp { background: #ffebee; border-left: 10px solid #c62828; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
     .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
     
     /* Estilos dos Supervisores (Inferior) */
-    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
+    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-top: 5px; }
     .box-nome { font-size: 18px; font-weight: 900; color: #003366; text-transform: uppercase;}
     .box-num { font-size: 65px; font-weight: 900; color: #cc6600; line-height: 1; }
     
-    .hora-gigante { font-size: 150px; text-align:center; margin-top: 100px; color: #333; }
+    /* Estilos do Relógio Moderno */
+    .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; }
+    .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
+    .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
 </style>""", unsafe_allow_html=True)
 
 SUPERVISORES = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
@@ -109,7 +112,7 @@ function anunciar(texto, delay) {
 """
 
 if st.session_state.idx == 0: titulo_topo = "CONTRATOS PENDENTES"
-else: titulo_topo = "HORÁRIO"
+else: titulo_topo = "PAUSA"
 
 st.markdown(f'''<div class="topo-container">
     <div class="nome-sup">{titulo_topo}</div>
@@ -197,9 +200,7 @@ if st.session_state.idx == 0:
                 <div class="num-base">{qtd_sp}</div>
             </div>''', unsafe_allow_html=True)
 
-        st.markdown('<hr style="border: 1px dashed #ccc; margin-top: 5px; margin-bottom: 25px;">', unsafe_allow_html=True)
-
-        # 2. LINHA DE BAIXO: SUPERVISORES
+        # 2. LINHA DE BAIXO: SUPERVISORES (O hr com margens grandes foi removido)
         cols_sup = st.columns(len(SUPERVISORES))
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
         
@@ -234,9 +235,15 @@ if st.session_state.idx == 0:
 elif st.session_state.idx == 1:
     tempo_real = datetime.utcnow() - timedelta(hours=3)
     hora_str = tempo_real.strftime("%H:%M:%S")
+    data_str = tempo_real.strftime("%d/%m/%Y")
     hora_fala = tempo_real.strftime("%H e %M") 
     
-    st.markdown(f'<div class="hora-gigante">{hora_str}</div>', unsafe_allow_html=True)
+    st.markdown(f'''
+    <div class="relogio-container">
+        <div class="hora-gigante">{hora_str}</div>
+        <div class="data-media">{data_str}</div>
+    </div>
+    ''', unsafe_allow_html=True)
     
     if st.session_state.falar:
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
