@@ -112,7 +112,7 @@ function anunciar(texto, delay) {
 """
 
 if st.session_state.idx == 0: titulo_topo = "CONTRATOS PENDENTES"
-else: titulo_topo = "PAUSA"
+else: titulo_topo = "HORÁRIO"
 
 st.markdown(f'''<div class="topo-container">
     <div class="nome-sup">{titulo_topo}</div>
