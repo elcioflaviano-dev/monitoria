@@ -4,6 +4,15 @@ import os
 import time
 from datetime import datetime, timedelta
 
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="collapsedControl"] { display: none !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 # 1. Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
