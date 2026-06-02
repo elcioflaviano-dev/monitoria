@@ -16,21 +16,27 @@ st.markdown("""<style>
 
 SUPERVISORES = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
 
+# Inicialização das variáveis de controle
 if "idx" not in st.session_state: st.session_state.idx = 0
 if "last_time" not in st.session_state: st.session_state.last_time = time.time()
+if "falar" not in st.session_state: st.session_state.falar = True  # Controle da voz
 
-# Lógica de tempo (5 segundos por supervisor, 40 segundos na hora)
-espera = 5 if st.session_state.idx < len(SUPERVISORES) else 40
+# Lógica de tempo (10 segundos por supervisor, 40 segundos na hora)
+espera = 10 if st.session_state.idx < len(SUPERVISORES) else 40
 tempo_passado = time.time() - st.session_state.last_time
 
+# Transição de tela
 if tempo_passado > espera:
     st.session_state.idx = (st.session_state.idx + 1) % (len(SUPERVISORES) + 1)
     st.session_state.last_time = time.time()
+    st.session_state.falar = True  # Autoriza falar na nova tela
     st.rerun()
 
-tela = st.empty()
+# --- LIMPEZA FORÇADA ANTI-FANTASMA ---
+conteudo = st.empty()
+conteudo.empty() # Destrói qualquer resquício da tela anterior no navegador
 
-with tela.container():
+with conteudo.container():
     sup = SUPERVISORES[st.session_state.idx] if st.session_state.idx < len(SUPERVISORES) else "PAUSA"
 
     # Topo
@@ -50,7 +56,7 @@ with tela.container():
             # Filtro do supervisor atual
             df_sup = df[df['SUPERVISOR_CLEAN'] == sup.strip().upper()].copy()
             
-            # --- MOTOR DE JANELAS (Copiado do seu TEC1) ---
+            # --- MOTOR DE JANELAS (Lógica TEC1) ---
             if not df_sup.empty:
                 col_status_real = 'Status da Atividade' if 'Status da Atividade' in df_sup.columns else 'STATUS_ATIVIDADE'
                 df_sup['Status_Atividade_Upper'] = df_sup[col_status_real].fillna('').astype(str).str.upper().str.strip()
@@ -100,16 +106,26 @@ with tela.container():
                 pendentes = pd.DataFrame()
             # --- FIM DO MOTOR DE JANELAS ---
 
-            # Proteção contra duplicados visuais baseados no número do Contrato
+            # Proteção contra duplicados visuais
             if 'Contrato' in pendentes.columns and not pendentes.empty:
                 pendentes['Contrato'] = pendentes['Contrato'].astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x)
                 pendentes = pendentes.drop_duplicates(subset=['Contrato'])
 
             st.subheader(f"🔴 {len(pendentes)} PENDENTES")
+            
+            # Desenha os cards
             cols = st.columns(4)
             for i, (_, row) in enumerate(pendentes.iterrows()):
                 with cols[i % 4]:
                     st.markdown(f'<div class="card-c">📄 {row.get("Contrato", "")}<br>👤 {str(row.get("Recurso", "TÉC")).upper()}</div>', unsafe_allow_html=True)
+            
+            # --- LÓGICA DE VOZ ---
+            # Só fala se a trava estiver ativada, depois desativa para não repetir
+            if st.session_state.falar:
+                texto_fala = f"Supervisor {sup}, {len(pendentes)} pendentes."
+                st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('{texto_fala}'); window.speechSynthesis.speak(m);</script>", height=0)
+                st.session_state.falar = False # Trava a voz para os próximos reruns
+                
         else:
             st.error("Arquivo não encontrado.")
     else:
@@ -117,4 +133,5 @@ with tela.container():
         hora = (datetime.utcnow() - timedelta(hours=3)).strftime("%H:%M:%S")
         st.markdown(f'<div class="hora-gigante">{hora}</div>', unsafe_allow_html=True)
 
+# Loop de atualização da página a cada 1 segundo
 time.sleep(1); st.rerun()
