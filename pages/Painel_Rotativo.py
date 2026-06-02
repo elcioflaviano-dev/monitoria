@@ -112,7 +112,7 @@ if tempo_passado > espera:
             
     st.rerun()
 
-# --- SCRIPT JAVASCRIPT: ALERTA E VOZ FEMININA ---
+# --- SCRIPT JAVASCRIPT: ALERTA, VOZ E ANIMAÇÃO ---
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -130,7 +130,8 @@ function tocarAlertaChamaAtencao() {
     } catch(e) {}
 }
 
-function anunciar(texto, delay) {
+function anunciarBase(texto, delay, comAudio) {
+    if(!comAudio) return; // Se o áudio estiver desligado, não faz nada nas bases
     setTimeout(() => {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
@@ -156,22 +157,26 @@ function limparDestaques(total) {
     }
 }
 
-// Focar na caixa do supervisor e acionar a voz
-function anunciarSupervisor(texto, delay, index, totalSup) {
+// Focar na caixa do supervisor e acionar a voz (apenas se for hora de falar)
+function animarSupervisor(texto, delay, index, totalSup, comAudio) {
     setTimeout(() => {
+        // A animação visual acontece SEMPRE
         limparDestaques(totalSup);
         let elAtual = window.parent.document.getElementById('sup-box-' + index);
         if(elAtual) { elAtual.classList.add('destaque-ativo'); }
         
-        tocarAlertaChamaAtencao();
-        setTimeout(() => {
-            let m = new SpeechSynthesisUtterance(texto);
-            m.lang = 'pt-BR'; m.rate = 1.0;
-            let voices = window.speechSynthesis.getVoices();
-            let vozLuciana = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.lang.includes('pt-BR'));
-            if(vozLuciana) { m.voice = vozLuciana; }
-            window.speechSynthesis.speak(m);
-        }, 1500);
+        // A voz e o apito acontecem apenas se "comAudio" for verdadeiro
+        if(comAudio) {
+            tocarAlertaChamaAtencao();
+            setTimeout(() => {
+                let m = new SpeechSynthesisUtterance(texto);
+                m.lang = 'pt-BR'; m.rate = 1.0;
+                let voices = window.speechSynthesis.getVoices();
+                let vozLuciana = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.lang.includes('pt-BR'));
+                if(vozLuciana) { m.voice = vozLuciana; }
+                window.speechSynthesis.speak(m);
+            }, 1500);
+        }
     }, delay);
 }
 """
@@ -267,10 +272,11 @@ with placeholder.container():
             cols_sup = st.columns(len(SUPERVISORES))
             script_cenario = f"<script>{JS_MOTOR_AUDIO}"
             
-            # Só preenchemos o script de áudio se for a hora certa de falar (Agendamento)
-            if st.session_state.falar_dados:
-                script_cenario += f"anunciar('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
-                script_cenario += f"anunciar('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
+            # String Javascript que diz se deve tocar áudio ou não
+            com_audio_str = "true" if st.session_state.falar_dados else "false"
+            
+            script_cenario += f"anunciarBase('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0, {com_audio_str});\n"
+            script_cenario += f"anunciarBase('Base São Paulo: {qtd_sp} pendentes.', 7000, {com_audio_str});\n"
             
             for i, sup_full in enumerate(SUPERVISORES):
                 qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
@@ -282,19 +288,19 @@ with placeholder.container():
                         <div class="box-num">{qtd_pendentes}</div>
                     </div>''', unsafe_allow_html=True)
                 
-                # Só programa as falas e os zooms se o modo "Falar" estiver ativado nesta rodada
-                if st.session_state.falar_dados:
-                    texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
-                    script_cenario += f"anunciarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
+                texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
+                # O comando animarSupervisor entra SEMPRE para garantir a animação visual (a variável com_audio_str bloqueia a fala se for preciso)
+                script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)}, {com_audio_str});\n"
             
+            # Desliga o Zoom do último
+            script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
+            script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
+            
+            st.components.v1.html(script_cenario, height=0)
+            
+            # Desativa o áudio para a próxima volta (se estava ativado)
             if st.session_state.falar_dados:
-                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
-                script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-                st.components.v1.html(script_cenario, height=0)
-                st.session_state.falar_dados = False # Desliga o flag até o agendador reativá-lo
-            else:
-                # Mantém a tela totalmente muda
-                st.components.v1.html("<script>// Modo Silencioso Ativo</script>", height=0)
+                st.session_state.falar_dados = False 
 
         else:
             st.error("Ficheiro rota_sincronizada.csv não encontrado.")
@@ -320,7 +326,7 @@ with placeholder.container():
         
         if st.session_state.falar_hora:
             script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-            script_cenario += f"anunciar('Atenção. Hora certa: {hora_fala}.', 0);\n"
+            script_cenario += f"anunciarBase('Atenção. Hora certa: {hora_fala}.', 0, true);\n"
             script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
             st.components.v1.html(script_cenario, height=0)
             st.session_state.falar_hora = False
