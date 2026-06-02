@@ -38,12 +38,12 @@ if "falar" not in st.session_state: st.session_state.falar = True
 if st.session_state.idx == 0: 
     espera = 36 # 7 segundos x 5 supervisores = ~35s
 else: 
-    espera = 20 # Tempo do relógio na tela (reduzi um pouco para não ficar tão longo, ajuste se quiser)
+    espera = 20 # Tempo do relógio na tela
 
 tempo_passado = time.time() - st.session_state.last_time
 
 if tempo_passado > espera:
-    st.session_state.idx = (st.session_state.idx + 1) % 2 # Alterna apenas entre 0 e 1
+    st.session_state.idx = (st.session_state.idx + 1) % 2 
     st.session_state.last_time = time.time()
     st.session_state.falar = True
     st.rerun()
@@ -121,9 +121,44 @@ with conteudo.container():
                 df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x)
                 df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
 
-            # Renderiza APENAS OS NÚMEROS E VOZ (7s de intervalo)
             cols = st.columns(len(SUPERVISORES))
-            script_voz = "<script>"
+            
+            # === CÓDIGO JAVASCRIPT: SINO + VOZ PERSONALIZADA ===
+            script_voz = """<script>
+            function anunciarComSino(texto, delay) {
+                setTimeout(() => {
+                    // 1. Sintetiza um som de "Sino de Aeroporto"
+                    try {
+                        let ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        let osc = ctx.createOscillator();
+                        let gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.type = 'sine'; // Som suave e arredondado
+                        osc.frequency.setValueAtTime(880, ctx.currentTime); // Frequência do sino
+                        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                        osc.start(ctx.currentTime);
+                        osc.stop(ctx.currentTime + 1.2);
+                    } catch(e) { console.log(e); }
+
+                    // 2. Falar o texto 0.8 segundos após o sino tocar
+                    setTimeout(() => {
+                        let m = new SpeechSynthesisUtterance(texto);
+                        m.lang = 'pt-BR';
+                        m.rate = 1.0;  // VELOCIDADE DA VOZ: (0.5 lento, 1.0 normal, 1.5 rápido)
+                        m.pitch = 1.0; // TOM DA VOZ: (0 baixo, 1.0 normal, 2.0 agudo)
+                        
+                        // Busca uma voz feminina agradável (Google, Maria, Luciana) se disponível na TV
+                        let voices = window.speechSynthesis.getVoices();
+                        let ptVoice = voices.find(v => v.lang.includes('pt-BR') && (v.name.includes('Google') || v.name.includes('Maria') || v.name.includes('Luciana'))) || voices.find(v => v.lang.includes('pt-BR'));
+                        if(ptVoice) { m.voice = ptVoice; }
+                        
+                        window.speechSynthesis.speak(m);
+                    }, 800);
+                }, delay);
+            }
+            """
             
             for i, sup_full in enumerate(SUPERVISORES):
                 qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
@@ -136,7 +171,7 @@ with conteudo.container():
                     </div>''', unsafe_allow_html=True)
                 
                 texto_fala = f"Supervisor {nome_visual}, {qtd_pendentes} pendentes."
-                script_voz += f"setTimeout(() => {{ let m = new SpeechSynthesisUtterance('{texto_fala}'); window.speechSynthesis.speak(m); }}, {i * 7000});\n"
+                script_voz += f"anunciarComSino('{texto_fala}', {i * 7000});\n"
             
             script_voz += "</script>"
             
@@ -147,17 +182,43 @@ with conteudo.container():
         else:
             st.error("Arquivo rota_sincronizada.csv não encontrado.")
             
-    # --- TELA 2 (Antiga 3): PAUSA / HORA ---
+    # --- TELA 2: PAUSA / HORA (Com Sino e Voz) ---
     elif st.session_state.idx == 1:
         tempo_real = datetime.utcnow() - timedelta(hours=3)
         hora_str = tempo_real.strftime("%H:%M:%S")
-        hora_fala = tempo_real.strftime("%H e %M") # Formato melhor para a voz falar
+        hora_fala = tempo_real.strftime("%H e %M") 
         
         st.markdown(f'<div class="hora-gigante">{hora_str}</div>', unsafe_allow_html=True)
         
-        # Voz anunciando a hora
         if st.session_state.falar:
-            st.components.v1.html(f"<script>var m=new SpeechSynthesisUtterance('Atenção. Hora certa: {hora_fala}.'); window.speechSynthesis.speak(m);</script>", height=0)
+            script_hora = f"""<script>
+            // Sino para a hora certa
+            try {{
+                let ctx = new (window.AudioContext || window.webkitAudioContext)();
+                let osc = ctx.createOscillator();
+                let gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 1.2);
+            }} catch(e) {{}}
+
+            setTimeout(() => {{
+                let m = new SpeechSynthesisUtterance('Atenção. Hora certa: {hora_fala}.');
+                m.lang = 'pt-BR';
+                m.rate = 1.0; 
+                m.pitch = 1.0;
+                let voices = window.speechSynthesis.getVoices();
+                let ptVoice = voices.find(v => v.lang.includes('pt-BR') && (v.name.includes('Google') || v.name.includes('Maria') || v.name.includes('Luciana'))) || voices.find(v => v.lang.includes('pt-BR'));
+                if(ptVoice) {{ m.voice = ptVoice; }}
+                window.speechSynthesis.speak(m);
+            }}, 800);
+            </script>"""
+            st.components.v1.html(script_hora, height=0)
             st.session_state.falar = False
 
 time.sleep(1); st.rerun()
