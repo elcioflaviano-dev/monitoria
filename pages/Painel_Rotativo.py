@@ -22,23 +22,20 @@ st.markdown("""<style>
     .box-contagem { 
         background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; 
         text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); 
-        margin-top: 5px; 
-        margin-left: 5px; /* Adicionado um pouco de espaço para respirar */
-        margin-right: 5px;
+        margin-top: 5px; margin-left: 5px; margin-right: 5px;
         transition: transform 0.5s ease, box-shadow 0.5s ease, background 0.5s ease, border-left 0.5s ease, z-index 0.5s ease; 
-        position: relative; /* Necessário para o z-index funcionar na base */
-        z-index: 1; /* Padrão fica por baixo */
+        position: relative; z-index: 1; 
     }
     .box-nome { font-size: 18px; font-weight: 900; color: #003366; text-transform: uppercase;}
     .box-num { font-size: 65px; font-weight: 900; color: #cc6600; line-height: 1; }
     
-    /* CLASSE MÁGICA: A caixa em destaque tem de vir para a frente de todas as outras */
+    /* CLASSE MÁGICA: Destaque com Z-index para não cortar */
     .destaque-ativo {
         transform: scale(1.35) !important;
         box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important;
         border-left: 20px solid #ff8800 !important;
         background: #fff8e1 !important;
-        z-index: 9999 !important; /* Força a caixa a sobrepor tudo o que está à volta */
+        z-index: 9999 !important; 
     }
     
     /* Estilos do Relógio Moderno */
@@ -50,33 +47,72 @@ st.markdown("""<style>
 SUPERVISORES = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
 
 NOMES_VISUAIS = {
-    "MAICON": "MAICON", 
-    "NELSON": "NELSON", 
-    "MARCOS ROBERTO": "MARCOS ROBERTO", 
-    "ALAN": "ALAN", 
-    "FRANCISCO GERALDO CARVALHO JUNIOR": "FRANCISCO"
+    "MAICON": "MAICON", "NELSON": "NELSON", "MARCOS ROBERTO": "MARCOS ROBERTO", 
+    "ALAN": "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR": "FRANCISCO"
 }
 
+# Inicialização de Variáveis e Agendadores
 if "idx" not in st.session_state: st.session_state.idx = 0
 if "last_time" not in st.session_state: st.session_state.last_time = time.time()
-if "falar" not in st.session_state: st.session_state.falar = True
 
-# Lógica de Ecrãs: 0 = Visão Geral (Bases + Supervisores), 1 = Relógio
-if st.session_state.idx == 0: 
-    espera = 55 # Tempo total para a TV anunciar Bases e depois os Supervisores
-else: 
-    espera = 20 # Relógio
+# Controles de Frequência de Áudio
+if "falar_dados" not in st.session_state: st.session_state.falar_dados = False
+if "falar_hora" not in st.session_state: st.session_state.falar_hora = False
+if "ultimo_aviso_dados" not in st.session_state: st.session_state.ultimo_aviso_dados = 0
+if "ultima_hora_falada" not in st.session_state: st.session_state.ultima_hora_falada = -1
+
+# Tempos de ecrã (O ciclo completo leva cerca de 75 segundos)
+if st.session_state.idx == 0: espera = 55 
+else: espera = 20 
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# Transição de ecrãs
+# === MOTOR DE TRANSIÇÃO E AGENDAMENTO ===
 if tempo_passado > espera:
     st.session_state.idx = (st.session_state.idx + 1) % 2 
     st.session_state.last_time = time.time()
-    st.session_state.falar = True
+    
+    agora_br = datetime.utcnow() - timedelta(hours=3)
+    minutos_agora = agora_br.hour * 60 + agora_br.minute
+    
+    # Avaliação das Regras de Áudio ao entrar na Tela Principal (0)
+    if st.session_state.idx == 0:
+        # Array com o fim das janelas em minutos do dia
+        finais_janela_minutos = [11*60, 12*60, 14*60, 15*60, 17*60, 18*60]
+        freq_segundos = None
+        
+        # Encontra a janela atual/mais próxima
+        for fim in finais_janela_minutos:
+            dif = fim - minutos_agora
+            if 0 < dif <= 60: # Estamos na "Hora de Ouro" (últimos 60 min)
+                if dif <= 10:
+                    freq_segundos = 150 # Zona de Perigo (A cada 2.5 min)
+                else:
+                    freq_segundos = 600 # Modo Alerta (A cada 10 min)
+                break
+        
+        # Se estivermos dentro de uma janela de alerta, verificamos o cronômetro
+        if freq_segundos is not None:
+            if time.time() - st.session_state.ultimo_aviso_dados >= (freq_segundos - 10):
+                st.session_state.falar_dados = True
+                st.session_state.ultimo_aviso_dados = time.time()
+            else:
+                st.session_state.falar_dados = False
+        else:
+            st.session_state.falar_dados = False # Silêncio total fora dos horários de pico
+            
+    # Avaliação das Regras de Áudio ao entrar na Tela do Relógio (1)
+    elif st.session_state.idx == 1:
+        # Falar a hora apenas aos 00 ou 30 minutos (Ex: 14:00, 14:30, 15:00)
+        if agora_br.minute in [0, 30] and st.session_state.ultima_hora_falada != agora_br.minute:
+            st.session_state.falar_hora = True
+            st.session_state.ultima_hora_falada = agora_br.minute
+        else:
+            st.session_state.falar_hora = False
+            
     st.rerun()
 
-# --- SCRIPT JAVASCRIPT: ALERTA, VOZ E ANIMAÇÃO VISUAL ---
+# --- SCRIPT JAVASCRIPT: ALERTA E VOZ FEMININA ---
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -102,18 +138,8 @@ function anunciar(texto, delay) {
             m.lang = 'pt-BR'; m.rate = 1.0;
             function setVoiceAndSpeak() {
                 let voices = window.speechSynthesis.getVoices();
-                let vozLuciana = voices.find(v => v.name.includes('Luciana'));
-                let vozMaria = voices.find(v => v.name.includes('Maria'));
-                let vozFrancisca = voices.find(v => v.name.includes('Francisca'));
-                let vozGoogleFeminina = voices.find(v => v.lang.includes('pt-BR') && v.name.includes('Feminino'));
-                let vozPtBrQualquer = voices.find(v => v.lang.includes('pt-BR'));
-                
+                let vozLuciana = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.lang.includes('pt-BR'));
                 if(vozLuciana) { m.voice = vozLuciana; } 
-                else if(vozMaria) { m.voice = vozMaria; }
-                else if(vozFrancisca) { m.voice = vozFrancisca; }
-                else if(vozGoogleFeminina) { m.voice = vozGoogleFeminina; }
-                else if(vozPtBrQualquer) { m.voice = vozPtBrQualquer; }
-                
                 window.speechSynthesis.speak(m);
             }
             if (window.speechSynthesis.getVoices().length === 0) { window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak; } 
@@ -150,16 +176,13 @@ function anunciarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
-if st.session_state.idx == 0: titulo_topo = "RESUMO GERAL DA OPERAÇÃO"
-else: titulo_topo = "PAUSA"
+# === RENDERIZAÇÃO DA TELA 0: VISÃO GERAL ===
+if st.session_state.idx == 0: 
+    st.markdown(f'''<div class="topo-container">
+        <div class="nome-sup">RESUMO GERAL DA OPERAÇÃO</div>
+        <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
+    </div>''', unsafe_allow_html=True)
 
-st.markdown(f'''<div class="topo-container">
-    <div class="nome-sup">{titulo_topo}</div>
-    <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
-</div>''', unsafe_allow_html=True)
-
-
-if st.session_state.idx == 0:
     if os.path.exists("rota_sincronizada.csv"):
         df = pd.read_csv("rota_sincronizada.csv", dtype=str)
         df.columns = [str(c).strip() for c in df.columns]
@@ -217,16 +240,12 @@ if st.session_state.idx == 0:
             df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
             df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
 
-
-        # === DESENHO DA TELA ÚNICA ===
-        
         # 1. LINHA DE CIMA: BASES
         cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('FRANCISCO|ALAN', na=False)
         qtd_sp = len(df_pendentes_geral[cond_sp])
         qtd_abc = len(df_pendentes_geral[~cond_sp])
 
         c_abc, c_sp = st.columns(2)
-        
         with c_abc:
             st.markdown(f'''<div class="box-base">
                 <div class="nome-base" style="color: #2e7d32;">ABC PENDENTES</div>
@@ -243,9 +262,10 @@ if st.session_state.idx == 0:
         cols_sup = st.columns(len(SUPERVISORES))
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
         
-        # Falas das Bases (Início)
-        script_cenario += f"anunciar('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
-        script_cenario += f"anunciar('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
+        # Só preenchemos o script de áudio se for a hora certa de falar (Agendamento)
+        if st.session_state.falar_dados:
+            script_cenario += f"anunciar('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
+            script_cenario += f"anunciar('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
         
         for i, sup_full in enumerate(SUPERVISORES):
             qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
@@ -257,25 +277,30 @@ if st.session_state.idx == 0:
                     <div class="box-num">{qtd_pendentes}</div>
                 </div>''', unsafe_allow_html=True)
             
-            texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
-            # A fala dos supervisores começa depois das bases (14000ms iniciais + 7000ms por supervisor)
-            script_cenario += f"anunciarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
+            # Só programa as falas e os zooms se o modo "Falar" estiver ativado nesta rodada
+            if st.session_state.falar_dados:
+                texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
+                script_cenario += f"anunciarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
         
-        # Desliga o Zoom da última caixa quando o painel terminar de falar
-        script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
-        
-        # 🔥 AQUI ESTÁ O SEGREDO DA REPETIÇÃO GARANTIDA (Timestamp único para cada ciclo)
-        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-        
-        if st.session_state.falar:
+        if st.session_state.falar_dados:
+            script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
+            script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
             st.components.v1.html(script_cenario, height=0)
-            st.session_state.falar = False
+            st.session_state.falar_dados = False # Desliga o flag até o agendador reativá-lo
+        else:
+            # Mantém a tela totalmente muda
+            st.components.v1.html("<script>// Modo Silencioso Ativo</script>", height=0)
 
     else:
         st.error("Ficheiro rota_sincronizada.csv não encontrado.")
         
-# --- TELA 1: PAUSA / HORA ---
+# --- RENDERIZAÇÃO DA TELA 1: PAUSA / HORA ---
 elif st.session_state.idx == 1:
+    st.markdown(f'''<div class="topo-container">
+        <div class="nome-sup">PAUSA</div>
+        <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
+    </div>''', unsafe_allow_html=True)
+
     tempo_real = datetime.utcnow() - timedelta(hours=3)
     hora_str = tempo_real.strftime("%H:%M:%S")
     data_str = tempo_real.strftime("%d/%m/%Y")
@@ -288,12 +313,11 @@ elif st.session_state.idx == 1:
     </div>
     ''', unsafe_allow_html=True)
     
-    if st.session_state.falar:
+    if st.session_state.falar_hora:
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
         script_cenario += f"anunciar('Atenção. Hora certa: {hora_fala}.', 0);\n"
         script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-        
         st.components.v1.html(script_cenario, height=0)
-        st.session_state.falar = False
+        st.session_state.falar_hora = False
 
 time.sleep(1); st.rerun()
