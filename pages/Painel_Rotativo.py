@@ -169,8 +169,10 @@ if st.session_state.idx in [0, 1]:
         else:
             df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
 
+        # 🔥 CORREÇÃO DO ERRO DE TYPEERROR AQUI 🔥
+        # Forçando o preenchimento de vazios antes de tentar separar a string
         if 'Contrato' in df_pendentes_geral.columns and not df_pendentes_geral.empty:
-            df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x)
+            df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
             df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
 
         # --- TELA 0: SUPERVISORES ---
