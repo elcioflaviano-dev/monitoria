@@ -18,10 +18,25 @@ st.markdown("""<style>
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
     .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
     
-    /* Estilos dos Supervisores (Inferior) */
-    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-top: 5px; }
+    /* Estilos dos Supervisores (Inferior) com Animação Suave */
+    .box-contagem { 
+        background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; 
+        text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); 
+        margin-top: 5px; 
+        transition: transform 0.5s ease, box-shadow 0.5s ease, background 0.5s ease, border-left 0.5s ease; 
+    }
     .box-nome { font-size: 18px; font-weight: 900; color: #003366; text-transform: uppercase;}
     .box-num { font-size: 65px; font-weight: 900; color: #cc6600; line-height: 1; }
+    
+    /* CLASSE MÁGICA: Aplicada via JavaScript para o efeito de Zoom */
+    .destaque-ativo {
+        transform: scale(1.15) !important;
+        box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.4) !important;
+        border-left: 15px solid #ff8800 !important;
+        background: #fff8e1 !important;
+        z-index: 100;
+        position: relative;
+    }
     
     /* Estilos do Relógio Moderno */
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; }
@@ -58,7 +73,7 @@ if tempo_passado > espera:
     st.session_state.falar = True
     st.rerun()
 
-# --- SCRIPT JAVASCRIPT: ALERTA E VOZ FEMININA ---
+# --- SCRIPT JAVASCRIPT: ALERTA, VOZ E ANIMAÇÃO VISUAL ---
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -81,9 +96,7 @@ function anunciar(texto, delay) {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
             let m = new SpeechSynthesisUtterance(texto);
-            m.lang = 'pt-BR';
-            m.rate = 1.0;
-            
+            m.lang = 'pt-BR'; m.rate = 1.0;
             function setVoiceAndSpeak() {
                 let voices = window.speechSynthesis.getVoices();
                 let vozLuciana = voices.find(v => v.name.includes('Luciana'));
@@ -100,19 +113,42 @@ function anunciar(texto, delay) {
                 
                 window.speechSynthesis.speak(m);
             }
-
-            if (window.speechSynthesis.getVoices().length === 0) {
-                window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
-            } else {
-                setVoiceAndSpeak();
-            }
+            if (window.speechSynthesis.getVoices().length === 0) { window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak; } 
+            else { setVoiceAndSpeak(); }
         }, 1500); 
+    }, delay);
+}
+
+// NOVO: Função para limpar o destaque de todos os supervisores
+function limparDestaques(total) {
+    for(let j=0; j<total; j++) {
+        let el = window.parent.document.getElementById('sup-box-' + j);
+        if(el) { el.classList.remove('destaque-ativo'); }
+    }
+}
+
+// NOVO: Função que foca na caixa do supervisor e aciona a voz
+function anunciarSupervisor(texto, delay, index, totalSup) {
+    setTimeout(() => {
+        limparDestaques(totalSup);
+        let elAtual = window.parent.document.getElementById('sup-box-' + index);
+        if(elAtual) { elAtual.classList.add('destaque-ativo'); }
+        
+        tocarAlertaChamaAtencao();
+        setTimeout(() => {
+            let m = new SpeechSynthesisUtterance(texto);
+            m.lang = 'pt-BR'; m.rate = 1.0;
+            let voices = window.speechSynthesis.getVoices();
+            let vozLuciana = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.lang.includes('pt-BR'));
+            if(vozLuciana) { m.voice = vozLuciana; }
+            window.speechSynthesis.speak(m);
+        }, 1500);
     }, delay);
 }
 """
 
-if st.session_state.idx == 0: titulo_topo = "CONTRATOS PENDENTES"
-else: titulo_topo = "HORÁRIO"
+if st.session_state.idx == 0: titulo_topo = "RESUMO GERAL DA OPERAÇÃO"
+else: titulo_topo = "PAUSA"
 
 st.markdown(f'''<div class="topo-container">
     <div class="nome-sup">{titulo_topo}</div>
@@ -200,12 +236,12 @@ if st.session_state.idx == 0:
                 <div class="num-base">{qtd_sp}</div>
             </div>''', unsafe_allow_html=True)
 
-        # 2. LINHA DE BAIXO: SUPERVISORES (O hr com margens grandes foi removido)
+        # 2. LINHA DE BAIXO: SUPERVISORES
         cols_sup = st.columns(len(SUPERVISORES))
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
         
-        # Falas das Bases (Início)
-        script_cenario += f"anunciar('Contratos pendentes. Base A B C: {qtd_abc} pendentes.', 0);\n"
+        # Falas das Bases (Início) - Sem Zoom
+        script_cenario += f"anunciar('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
         script_cenario += f"anunciar('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
         
         for i, sup_full in enumerate(SUPERVISORES):
@@ -213,14 +249,18 @@ if st.session_state.idx == 0:
             nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
             
             with cols_sup[i]:
-                st.markdown(f'''<div class="box-contagem">
+                # NOVO: Adicionado um ID dinâmico (sup-box-0, sup-box-1, etc.) para o JS conseguir encontrar
+                st.markdown(f'''<div id="sup-box-{i}" class="box-contagem">
                     <div class="box-nome">{nome_visual}</div>
                     <div class="box-num">{qtd_pendentes}</div>
                 </div>''', unsafe_allow_html=True)
             
             texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
-            # A fala dos supervisores começa depois das bases (14000ms iniciais + 7000ms por supervisor)
-            script_cenario += f"anunciar('{texto_fala}', 14000 + {i * 7000});\n"
+            # Chama a nova função que ativa o Zoom usando o index(i) do supervisor
+            script_cenario += f"anunciarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
+        
+        # Desliga o Zoom da última caixa quando o painel terminar de falar
+        script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
         
         script_cenario += "</script>"
         
