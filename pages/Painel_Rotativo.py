@@ -108,8 +108,8 @@ function anunciar(texto, delay) {
 }
 """
 
-if st.session_state.idx == 0: titulo_topo = "RESUMO GERAL DA OPERAÇÃO"
-else: titulo_topo = "PAUSA"
+if st.session_state.idx == 0: titulo_topo = "CONTRATOS PENDENTES"
+else: titulo_topo = "HORÁRIO"
 
 st.markdown(f'''<div class="topo-container">
     <div class="nome-sup">{titulo_topo}</div>
@@ -204,7 +204,7 @@ if st.session_state.idx == 0:
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
         
         # Falas das Bases (Início)
-        script_cenario += f"anunciar('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
+        script_cenario += f"anunciar('Contratos pendentes. Base A B C: {qtd_abc} pendentes.', 0);\n"
         script_cenario += f"anunciar('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
         
         for i, sup_full in enumerate(SUPERVISORES):
