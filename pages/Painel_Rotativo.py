@@ -28,38 +28,47 @@ if tempo_passado > espera:
     st.session_state.last_time = time.time()
     st.rerun()
 
-# --- LIMPEZA RADICAL ---
-# Removemos o st.empty para simplificar o fluxo de renderização
-sup = SUPERVISORES[st.session_state.idx] if st.session_state.idx < len(SUPERVISORES) else "PAUSA"
+# --- PROTEÇÃO DE TELA COM st.empty() ---
+# O empty atua como um apagador de quadro-negro. Tudo o que estiver dentro dele
+# será destruído e redesenhado do zero a cada segundo, evitando o empilhamento.
+tela = st.empty()
 
-# Topo sempre renderizado
-st.markdown(f'''<div class="topo-container">
-    <div class="nome-sup">{sup}</div>
-    <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
-</div>''', unsafe_allow_html=True)
+with tela.container():
+    sup = SUPERVISORES[st.session_state.idx] if st.session_state.idx < len(SUPERVISORES) else "PAUSA"
 
-if st.session_state.idx < len(SUPERVISORES):
-    # LÓGICA DO SUPERVISOR
-    if os.path.exists("rota_sincronizada.csv"):
-        df = pd.read_csv("rota_sincronizada.csv", dtype=str)
-        df['SUPERVISOR_CLEAN'] = df['SUPERVISOR'].astype(str).str.strip().str.upper()
-        
-        # Filtro absoluto
-        pendentes = df[
-            (df['SUPERVISOR_CLEAN'] == sup.strip().upper()) & 
-            (df['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False))
-        ]
-        
-        st.subheader(f"🔴 {len(pendentes)} PENDENTES")
-        cols = st.columns(4)
-        for i, (_, row) in enumerate(pendentes.iterrows()):
-            with cols[i % 4]:
-                st.markdown(f'<div class="card-c">📄 {row["Contrato"]}<br>👤 {row.get("Recurso", "TÉC").upper()}</div>', unsafe_allow_html=True)
+    # Topo sempre renderizado
+    st.markdown(f'''<div class="topo-container">
+        <div class="nome-sup">{sup}</div>
+        <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
+    </div>''', unsafe_allow_html=True)
+
+    if st.session_state.idx < len(SUPERVISORES):
+        # LÓGICA DO SUPERVISOR
+        if os.path.exists("rota_sincronizada.csv"):
+            df = pd.read_csv("rota_sincronizada.csv", dtype=str)
+            df['SUPERVISOR_CLEAN'] = df['SUPERVISOR'].astype(str).str.strip().str.upper()
+            
+            # Filtro absoluto
+            pendentes = df[
+                (df['SUPERVISOR_CLEAN'] == sup.strip().upper()) & 
+                (df['Status da Atividade'].fillna('').str.contains('PENDENTE', case=False, na=False))
+            ]
+            
+            # --- PROTEÇÃO DE DADOS ---
+            # Remove contratos duplicados que possam ter vindo do arquivo CSV
+            if 'Contrato' in pendentes.columns:
+                pendentes = pendentes.drop_duplicates(subset=['Contrato'])
+            
+            st.subheader(f"🔴 {len(pendentes)} PENDENTES")
+            cols = st.columns(4)
+            for i, (_, row) in enumerate(pendentes.iterrows()):
+                with cols[i % 4]:
+                    st.markdown(f'<div class="card-c">📄 {row.get("Contrato", "")}<br>👤 {row.get("Recurso", "TÉC").upper()}</div>', unsafe_allow_html=True)
+        else:
+            st.error("Arquivo não encontrado.")
     else:
-        st.error("Arquivo não encontrado.")
-else:
-    # LÓGICA DA PAUSA (Totalmente separada)
-    hora = (datetime.utcnow() - timedelta(hours=3)).strftime("%H:%M:%S")
-    st.markdown(f'<div class="hora-gigante">{hora}</div>', unsafe_allow_html=True)
+        # LÓGICA DA PAUSA (Totalmente separada)
+        hora = (datetime.utcnow() - timedelta(hours=3)).strftime("%H:%M:%S")
+        st.markdown(f'<div class="hora-gigante">{hora}</div>', unsafe_allow_html=True)
 
 time.sleep(1); st.rerun()
