@@ -71,10 +71,55 @@ if df_master is not None and not df_master.empty:
     df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
     df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
     
-    df_tela = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+    df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+
+    # === MOTOR DE JANELAS PROGRESSIVO E CUMULATIVO (ALINHADO COM TEC1 PENDENTES E TV) ===
+    col_janela = None
+    for c in df_validos.columns:
+        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
+            col_janela = c
+            break
 
     hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
-    st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Ativa Sincronizada [Hora Local: {hora_atual:02d}h]</div>', unsafe_allow_html=True)
+    texto_status_janela = ""
+
+    if col_janela is not None and not df_validos.empty:
+        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
+        
+        def extrair_hora_limite(janela_str):
+            try:
+                partes = janela_str.replace(':', '').split('-')
+                return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
+            except: 
+                return 24
+
+        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
+        
+        # Define os tetos dinâmicos acumulativos baseados no relógio real
+        if hora_atual < 12:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
+            texto_status_janela = "Janelas até 12h"
+        elif 12 <= hora_atual < 15:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
+            texto_status_janela = "Acumulado até 15h"
+        else:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
+            texto_status_janela = "Acumulado Completo do Turno"
+
+        # Isola os registros da janela cumulativa (Pendentes só da janela, Rota e Iniciados sempre mostram)
+        df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
+        
+        if df_tela.empty: 
+            df_tela = df_validos.copy()
+    else:
+        df_tela = df_validos.copy()
+        texto_status_janela = "Todos os Contratos Ativos"
+
+    # Prevenção de duplicações no CSV para os números baterem exatos com a TV
+    if 'Contrato' in df_tela.columns and not df_tela.empty:
+        df_tela = df_tela.drop_duplicates(subset=['Contrato'])
+
+    st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Sincronizada [Hora Local: {hora_atual:02d}h] - Progressão: {texto_status_janela}</div>', unsafe_allow_html=True)
 
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
