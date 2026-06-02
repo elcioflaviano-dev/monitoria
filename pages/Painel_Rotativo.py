@@ -23,19 +23,22 @@ st.markdown("""<style>
         background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; 
         text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); 
         margin-top: 5px; 
-        transition: transform 0.5s ease, box-shadow 0.5s ease, background 0.5s ease, border-left 0.5s ease; 
+        margin-left: 5px; /* Adicionado um pouco de espaço para respirar */
+        margin-right: 5px;
+        transition: transform 0.5s ease, box-shadow 0.5s ease, background 0.5s ease, border-left 0.5s ease, z-index 0.5s ease; 
+        position: relative; /* Necessário para o z-index funcionar na base */
+        z-index: 1; /* Padrão fica por baixo */
     }
     .box-nome { font-size: 18px; font-weight: 900; color: #003366; text-transform: uppercase;}
     .box-num { font-size: 65px; font-weight: 900; color: #cc6600; line-height: 1; }
     
-    /* CLASSE MÁGICA: Aumentamos a escala para 1.35 para o efeito de Zoom ser bem mais agressivo */
+    /* CLASSE MÁGICA: A caixa em destaque tem de vir para a frente de todas as outras */
     .destaque-ativo {
         transform: scale(1.35) !important;
         box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important;
         border-left: 20px solid #ff8800 !important;
         background: #fff8e1 !important;
-        z-index: 100;
-        position: relative;
+        z-index: 9999 !important; /* Força a caixa a sobrepor tudo o que está à volta */
     }
     
     /* Estilos do Relógio Moderno */
