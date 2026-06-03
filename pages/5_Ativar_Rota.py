@@ -1,19 +1,17 @@
 import streamlit as st
 import pandas as pd
-import os
+
+# LINK DIRETO DA SUA PLANILHA GOOGLE
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv"
 
 st.set_page_config(layout="wide")
 
-# FORÇAR CAMINHO ABSOLUTO
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ARQUIVO_EQUIPE = os.path.join(BASE_DIR, "cadastro_equipe.csv")
-
-if os.path.exists(ARQUIVO_EQUIPE):
-    df_equipe = pd.read_csv(ARQUIVO_EQUIPE)
-    LISTA_SP_FIXA = df_equipe[(df_equipe["FUNCAO"] == "TECNICO") & (df_equipe["BASE"] == "SP")]["NOME"].tolist()
-    LISTA_ABC_FIXA = df_equipe[(df_equipe["FUNCAO"] == "TECNICO") & (df_equipe["BASE"] == "ABC")]["NOME"].tolist()
-else:
-    st.error("⚠️ Arquivo 'cadastro_equipe.csv' não encontrado.")
+try:
+    df_equipe = pd.read_csv(URL_PLANILHA)
+    LISTA_SP_FIXA = df_equipe[(df_equipe["FUNCAO"].str.strip().str.upper() == "TECNICO") & (df_equipe["BASE"].str.strip().str.upper() == "SP")]["NOME"].dropna().tolist()
+    LISTA_ABC_FIXA = df_equipe[(df_equipe["FUNCAO"].str.strip().str.upper() == "TECNICO") & (df_equipe["BASE"].str.strip().str.upper() == "ABC")]["NOME"].dropna().tolist()
+except:
+    st.error("⚠️ Erro ao carregar a lista de equipe centralizada vinda do Google Sheets.")
     LISTA_SP_FIXA, LISTA_ABC_FIXA = [], []
 
 if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
