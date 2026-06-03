@@ -7,24 +7,25 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-
-# LIGAÇÃO AO GOOGLE SHEETS
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
-
-SUPERVISORES = []
-try:
-    df_equipe = pd.read_csv(URL_PLANILHA)
-    if not df_equipe.empty and len(df_equipe.columns) >= 3:
-        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
-        SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
-except Exception:
-    pass
 
 if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
     try: 
         st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     except: 
         pass
+
+# MAPEAMENTO AO VIVO DO GOOGLE SHEETS
+mapa_base = {}
+mapa_sup = {}
+try:
+    df_equipe = pd.read_csv(URL_PLANILHA)
+    if not df_equipe.empty and len(df_equipe.columns) >= 3:
+        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
+        mapa_base = dict(zip(df_equipe['NOME'].astype(str).str.strip().str.upper(), df_equipe['BASE'].astype(str).str.strip().str.upper()))
+        mapa_sup = dict(zip(df_equipe['NOME'].astype(str).str.strip().str.upper(), df_equipe['SUPERVISOR'].astype(str).str.strip().str.upper()))
+except:
+    pass
 
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     if "last_refresh_pendentes" not in st.session_state: 
@@ -47,17 +48,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-def padronizar_supervisor_dinamico(nome_cru):
-    nome = str(nome_cru).upper().strip()
-    for sup in SUPERVISORES:
-        if sup in nome or nome in sup:
-            return sup
-    return nome
-
 df = st.session_state.get('df_rota_ativa', None)
 
 if df is not None and not df.empty:
-    
     col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_tecnico_check = 'Técnico' if 'Técnico' in df.columns else ('Recurso' if 'Recurso' in df.columns else None)
     
@@ -71,7 +64,6 @@ if df is not None and not df.empty:
             df_validos['Contrato'] = df_validos['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
             df_validos = df_validos.drop_duplicates(subset=['Contrato', col_tecnico_check])
 
-        # FILTRO DE JANELA DE HORÁRIO DINÂMICA E INTELIGENTE
         col_janela = None
         for col in df_validos.columns:
             if 'JANELA' in str(col).upper() or 'INTERVALO' in str(col).upper():
@@ -97,11 +89,20 @@ if df is not None and not df.empty:
         else:
             df_janela_atual = df_validos.copy()
 
-        df_janela_atual['SUPERVISOR_MOSTRAR'] = df_janela_atual['SUPERVISOR'].apply(padronizar_supervisor_dinamico)
+        # APLICA O MAPEAMENTO DINÂMICO
+        if mapa_sup:
+            df_janela_atual['SUPERVISOR_MOSTRAR'] = df_janela_atual[col_tecnico_check].map(mapa_sup).fillna('NÃO IDENTIFICADO')
+        else:
+            df_janela_atual['SUPERVISOR_MOSTRAR'] = df_janela_atual.get('SUPERVISOR', 'NÃO IDENTIFICADO').astype(str).str.upper().str.strip()
 
-        cond_sp = df_janela_atual['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
-        df_sp = df_janela_atual[cond_sp].copy()
-        df_abc = df_janela_atual[~cond_sp].copy()
+        if mapa_base:
+            df_janela_atual['BASE_LIVE'] = df_janela_atual[col_tecnico_check].map(mapa_base).fillna('GERAL')
+        else:
+            cond_sp = df_janela_atual['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+            df_janela_atual['BASE_LIVE'] = ['SP' if x else 'ABC' for x in cond_sp]
+
+        df_sp = df_janela_atual[df_janela_atual['BASE_LIVE'] == 'SP'].copy()
+        df_abc = df_janela_atual[df_janela_atual['BASE_LIVE'] == 'ABC'].copy()
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
 
