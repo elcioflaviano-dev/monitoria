@@ -42,13 +42,16 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
+SUPERVISORES_LIST = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
+NOMES_VISUAIS = {
+    "MAICON": "MAICON", "NELSON": "NELSON", "MARCOS ROBERTO": "MARCOS ROBERTO", 
+    "ALAN": "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR": "FRANCISCO"
+}
 
-# =========================================================================
-# LÓGICA MÁGICA DO CSV: AUTO-CRIAÇÃO E LEITURA DE DADOS
-# =========================================================================
-ARQUIVO_EQUIPE = "cadastro_equipe.csv"
+# FORÇAR CAMINHO ABSOLUTO PARA GARANTIR QUE SALVA NA PASTA CORRETA
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ARQUIVO_EQUIPE = os.path.join(BASE_DIR, "cadastro_equipe.csv")
 
-# Se o CSV não existir, o sistema cria ele usando estas listas base:
 if not os.path.exists(ARQUIVO_EQUIPE):
     SUP_ORIGINAIS = ["MAICON", "NELSON", "MARCOS ROBERTO", "ALAN", "FRANCISCO GERALDO CARVALHO JUNIOR"]
     SP_ORIGINAIS = [
@@ -57,31 +60,25 @@ if not os.path.exists(ARQUIVO_EQUIPE):
     ABC_ORIGINAIS = [
         "ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA", "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS", "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "ANTONIO WESLEY HOLANDA DA SILVA", "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS", "CARLOS EDUARDO DA SILVA CONCEICAO", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA", "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDER SALES MONTEIRO", "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES", "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES", "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA", "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA", "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRANDAO BASTOS", "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME", "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS", "LUCAS SILVA DE LIMA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS HENRIQUE GOMES DA SILVA", "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA", "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO", "PABLO WILLIAM DA SILVA", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA", "RAFAEL DOS ANJOS BAPTISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS", "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO", "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "ALESSANDRO RAMOS DA SILVA", "ALICE EULINA SILVA", "BRUNO PINHEIRO MAGALHAES", "KAUE BARBEIRO SOARES", "ENZO RUBENS ARAUJO MACIEL", "HAMILTON RICARDO INACIO", "WILLIAM BORGES DOS SANTOS", "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "DANIEL AUGUSTO PEREIRA", "JULIO CESAR SILVA DOS SANTOS", "MATHEUS DA SILVA NASCIMENTO"
     ]
-    
     dados_iniciais = [{"NOME": n, "FUNCAO": "SUPERVISOR", "BASE": "GERAL"} for n in SUP_ORIGINAIS]
     dados_iniciais += [{"NOME": n, "FUNCAO": "TECNICO", "BASE": "SP"} for n in SP_ORIGINAIS]
     dados_iniciais += [{"NOME": n, "FUNCAO": "TECNICO", "BASE": "ABC"} for n in ABC_ORIGINAIS]
-    
-    pd.DataFrame(dados_iniciais).to_csv(ARQUIVO_EQUIPE, index=False)
+    pd.DataFrame(dados_iniciais).to_csv(ARQUIVO_EQUIPE, index=False, sep=',')
 
-# Carrega os dados DINAMICAMENTE do CSV
 df_equipe = pd.read_csv(ARQUIVO_EQUIPE)
 SUPERVISORES = df_equipe[df_equipe["FUNCAO"] == "SUPERVISOR"]["NOME"].tolist()
 LISTA_SP_FIXA = df_equipe[(df_equipe["FUNCAO"] == "TECNICO") & (df_equipe["BASE"] == "SP")]["NOME"].tolist()
 LISTA_ABC_FIXA = df_equipe[(df_equipe["FUNCAO"] == "TECNICO") & (df_equipe["BASE"] == "ABC")]["NOME"].tolist()
 
-# Função auxiliar para não precisar atualizar o NOMES_VISUAIS manualmente se adicionar um supervisor
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
-    return n.split()[0] # Devolve o primeiro nome por defeito
-# =========================================================================
+    return n.split()[0]
 
 if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
 if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
 
-# Inicialização de Variáveis de Controle
 if "idx" not in st.session_state: 
     st.session_state.idx = 0
     st.session_state.last_time = time.time()
@@ -89,33 +86,24 @@ if "idx" not in st.session_state:
     st.session_state.script_audio_atual = ""
 
 agora_br = datetime.utcnow() - timedelta(hours=3)
-# REGRA DE TEMPO: É antes de 08:25?
 antes_0825 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 25)
 
-# Tempos de ecrã dinâmicos
-if st.session_state.idx == 0: espera = 40  # Tela: Técnicos na Base
-elif st.session_state.idx == 1: espera = 55 # Tela: Resumo Operação
-else: espera = 20 # Tela: Relógio
+if st.session_state.idx == 0: espera = 40  
+elif st.session_state.idx == 1: espera = 55 
+else: espera = 20 
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# === MOTOR DE TRANSIÇÃO INTELIGENTE ===
 if tempo_passado > espera:
     prox_idx = st.session_state.idx + 1
     if prox_idx > 2: prox_idx = 0
-    
-    # Lógica de "Salto de Telas" consoante a hora
-    if antes_0825 and prox_idx == 1:
-        prox_idx = 2 # Antes das 8:25: Pula a tela de Resumo
-    elif not antes_0825 and prox_idx == 0:
-        prox_idx = 1 # Depois das 8:25: Pula a tela de Técnicos na Base
-
+    if antes_0825 and prox_idx == 1: prox_idx = 2 
+    elif not antes_0825 and prox_idx == 0: prox_idx = 1 
     st.session_state.idx = prox_idx 
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.rerun()
 
-# --- SCRIPT JAVASCRIPT: ALERTA E VOZ ---
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -125,14 +113,12 @@ function tocarAlertaChamaAtencao() {
         osc1.type = 'triangle'; osc1.frequency.setValueAtTime(880, tempo);
         gain1.gain.setValueAtTime(0, tempo); gain1.gain.linearRampToValueAtTime(0.4, tempo + 0.05); gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
         osc1.connect(gain1); gain1.connect(ctx.destination); osc1.start(tempo); osc1.stop(tempo + 0.6);
-        
         let osc2 = ctx.createOscillator(); let gain2 = ctx.createGain();
         osc2.type = 'triangle'; osc2.frequency.setValueAtTime(659.25, tempo + 0.4);
         gain2.gain.setValueAtTime(0, tempo + 0.4); gain2.gain.linearRampToValueAtTime(0.4, tempo + 0.45); gain2.gain.exponentialRampToValueAtTime(0.01, tempo + 1.5);
         osc2.connect(gain2); gain2.connect(ctx.destination); osc2.start(tempo + 0.4); osc2.stop(tempo + 1.5);
     } catch(e) {}
 }
-
 function anunciarBase(texto, delay) {
     setTimeout(() => {
         tocarAlertaChamaAtencao();
@@ -150,20 +136,17 @@ function anunciarBase(texto, delay) {
         }, 1500); 
     }, delay);
 }
-
 function limparDestaques(total) {
     for(let j=0; j<total; j++) {
         let el = window.parent.document.getElementById('sup-box-' + j);
         if(el) { el.classList.remove('destaque-ativo'); }
     }
 }
-
 function animarSupervisor(texto, delay, index, totalSup) {
     setTimeout(() => {
         limparDestaques(totalSup);
         let elAtual = window.parent.document.getElementById('sup-box-' + index);
         if(elAtual) { elAtual.classList.add('destaque-ativo'); }
-        
         tocarAlertaChamaAtencao();
         setTimeout(() => {
             let m = new SpeechSynthesisUtterance(texto);
@@ -181,10 +164,6 @@ tela_placeholder = st.empty()
 tela_placeholder.empty()
 
 with tela_placeholder.container():
-
-    # =========================================================================
-    # TELA 0: TÉCNICOS NA BASE (Aparece apenas antes das 08:25)
-    # =========================================================================
     if st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="nome-sup">🚀 TÉCNICOS EM BASE</div>
@@ -194,21 +173,14 @@ with tela_placeholder.container():
         if os.path.exists("rota_sincronizada.csv"):
             df = pd.read_csv("rota_sincronizada.csv", dtype=str)
             df.columns = [str(c).strip() for c in df.columns]
-            
             col_tipo = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else ('Tipo de Atividade' if 'Tipo de Atividade' in df.columns else None)
             col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
             
             if col_tipo and col_status:
-                df_tela = df[
-                    (df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & 
-                    (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))
-                ].copy()
-
+                df_tela = df[(df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))].copy()
                 nomes_na_base = sorted(df_tela['Recurso'].dropna().unique().tolist())
-                
                 lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
                 lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
-
                 nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
                 nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
 
@@ -240,27 +212,17 @@ with tela_placeholder.container():
                             else: st.session_state["novos_abc"].append(nome_i)
                             st.rerun()
 
-                # Voz para Técnicos na Base
                 if st.session_state.novo_ciclo:
                     script_cenario = f"<script>{JS_MOTOR_AUDIO}"
                     texto_fala = f"Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo."
                     script_cenario += f"anunciarBase('{texto_fala}', 0);\n"
                     script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-                    
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
-                    
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            else: st.error("Colunas não encontradas.")
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
-            else:
-                st.error("Colunas 'Tipo de Atividade' ou 'Status' não encontradas no arquivo.")
-        else:
-            st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-
-
-    # =========================================================================
-    # TELA 1: RESUMO DA OPERAÇÃO (Aparece apenas depois das 08:25)
-    # =========================================================================
     elif st.session_state.idx == 1: 
         st.markdown(f'''<div class="topo-container">
             <div class="nome-sup">CONTRATOS PENDENTES</div>
@@ -273,21 +235,17 @@ with tela_placeholder.container():
             
             def padronizar_supervisor(nome):
                 n = str(nome).upper().strip()
-                # Usa a lista dinâmica para tentar encaixar o nome
                 for s in SUPERVISORES:
                     if s in n or n in s: return s
                 return n
             
             df['SUPERVISOR_CLEAN'] = df['SUPERVISOR'].apply(padronizar_supervisor)
-            
             col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
             df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
             df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
-            
             df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
             df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
             df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
-            
             df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
             
             col_janela = None
@@ -305,25 +263,19 @@ with tela_placeholder.container():
                     try: return int(janela_str.replace(':', '').split('-')[1].strip()[:2])
                     except: return 24
                 df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
-                
                 if hora_atual < 12: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
                 elif 12 <= hora_atual < 15: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
                 else: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
-
                 df_base_janela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
                 df_pendentes_geral = df_base_janela[df_base_janela['P_COUNT'] > 0].copy()
-                
-                if df_pendentes_geral.empty and df_base_janela.empty: 
-                    df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
-            else:
-                df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
+                if df_pendentes_geral.empty and df_base_janela.empty: df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
+            else: df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
 
             if 'Contrato' in df_pendentes_geral.columns and not df_pendentes_geral.empty:
                 df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
                 df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
 
-            # Lógica para contar SP e ABC (baseado nos técnicos que estão na lista)
-            cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('FRANCISCO|ALAN', na=False) # Mantido para compatibilidade, ou você pode alterar depois
+            cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('FRANCISCO|ALAN', na=False) 
             qtd_sp = len(df_pendentes_geral[cond_sp])
             qtd_abc = len(df_pendentes_geral[~cond_sp])
 
@@ -333,7 +285,6 @@ with tela_placeholder.container():
                     <div class="nome-base" style="color: #2e7d32;">ABC PENDENTES</div>
                     <div class="num-base">{qtd_abc}</div>
                 </div>''', unsafe_allow_html=True)
-                
             with c_sp:
                 st.markdown(f'''<div class="box-base-sp">
                     <div class="nome-base" style="color: #c62828;">SÃO PAULO PENDENTES</div>
@@ -347,18 +298,13 @@ with tela_placeholder.container():
                 script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
                 script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', 0);\n"
                 script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', 7000);\n"
-                
                 for i, sup_full in enumerate(SUPERVISORES):
                     qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
                     nome_visual = obter_nome_visual(sup_full)
-                    # AGORA FALA SÓ O NOME E OS PENDENTES
                     texto_fala = f"{nome_visual}: {qtd_pendentes} pendentes."
-                    
                     script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
-                
                 script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
                 script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-                
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
                 
@@ -370,15 +316,9 @@ with tela_placeholder.container():
                         <div class="box-nome">{nome_visual}</div>
                         <div class="box-num">{qtd_pendentes}</div>
                     </div>''', unsafe_allow_html=True)
-                    
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
-        else:
-            st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-
-    # =========================================================================
-    # TELA 2: PAUSA / HORA (Aparece sempre, alternando com a ativa)
-    # =========================================================================
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
             <div class="nome-sup">HORÁRIO</div>
@@ -389,22 +329,18 @@ with tela_placeholder.container():
         hora_str = tempo_real.strftime("%H:%M:%S")
         data_str = tempo_real.strftime("%d/%m/%Y")
         hora_fala = tempo_real.strftime("%H e %M") 
-        
         st.markdown(f'''
         <div class="relogio-container">
             <div class="hora-gigante">{hora_str}</div>
             <div class="data-media">{data_str}</div>
         </div>
         ''', unsafe_allow_html=True)
-        
         if st.session_state.novo_ciclo:
             script_cenario = f"<script>{JS_MOTOR_AUDIO}"
             script_cenario += f"anunciarBase('Atenção. Hora certa: {hora_fala}.', 0);\n"
             script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-            
             st.session_state.script_audio_atual = script_cenario
             st.session_state.novo_ciclo = False
-
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 time.sleep(1); st.rerun()
