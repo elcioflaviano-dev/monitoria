@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# LINK DIRETO DA SUA PLANILHA GOOGLE
+# LINK DA SUA PLANILHA GOOGLE
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv"
 
 # Configuração da Página
@@ -45,17 +45,20 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# Leitura Dinâmica do Google Sheets
+# LÓGICA DE LEITURA ADAPTADA ÀS SUAS COLUNAS REAIS
 try:
     df_equipe = pd.read_csv(URL_PLANILHA)
-    SUPERVISORES = df_equipe[df_equipe["FUNCAO"].str.strip().str.upper() == "SUPERVISOR"]["NOME"].dropna().tolist()
-    LISTA_SP_FIXA = df_equipe[(df_equipe["FUNCAO"].str.strip().str.upper() == "TECNICO") & (df_equipe["BASE"].str.strip().str.upper() == "SP")]["NOME"].dropna().tolist()
-    LISTA_ABC_FIXA = df_equipe[(df_equipe["FUNCAO"].str.strip().str.upper() == "TECNICO") & (df_equipe["BASE"].str.strip().str.upper() == "ABC")]["NOME"].dropna().tolist()
+    df_equipe.columns = df_equipe.columns.str.strip().str.upper()
+    
+    # Descobre os supervisores únicos e separa os técnicos por base
+    SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
+    LISTA_SP_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "SP"]["NOME"].dropna().tolist()
+    LISTA_ABC_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "ABC"]["NOME"].dropna().tolist()
 except Exception as e:
     st.error(f"Erro ao conectar com o Google Sheets: {e}")
     SUPERVISORES, LISTA_SP_FIXA, LISTA_ABC_FIXA = [], [], []
 
-def obter_nome_visual(nome_completo):
+def obtener_nome_visual(nome_completo):
     n = str(nome_completo).upper()
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
