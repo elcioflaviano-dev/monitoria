@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import time
 
 st.set_page_config(page_title="Gestão de Equipe", layout="centered")
 
@@ -11,7 +12,13 @@ st.divider()
 ARQUIVO_EQUIPE = "cadastro_equipe.csv"
 
 if os.path.exists(ARQUIVO_EQUIPE):
-    df_equipe = pd.read_csv(ARQUIVO_EQUIPE)
+    # O Python tenta ler o arquivo tentando os dois separadores mais comuns (, ou ;)
+    try:
+        df_equipe = pd.read_csv(ARQUIVO_EQUIPE, sep=',')
+        if len(df_equipe.columns) < 3: # Se não encontrou as colunas, o Excel estragou o separador
+             df_equipe = pd.read_csv(ARQUIVO_EQUIPE, sep=';')
+    except:
+        df_equipe = pd.read_csv(ARQUIVO_EQUIPE, sep=';')
     
     col1, col2 = st.columns(2)
     
@@ -19,8 +26,8 @@ if os.path.exists(ARQUIVO_EQUIPE):
         st.markdown('### 📥 1. Baixar Lista Atual')
         st.write("Baixe o arquivo, abra no Excel, adicione/remova os nomes (MANTENHA os nomes das colunas intactos) e salve novamente.")
         
-        # Converte o DataFrame para CSV para o botão de download
-        csv = df_equipe.to_csv(index=False).encode('utf-8')
+        # Converte o DataFrame para CSV FORÇANDO o separador ponto e vírgula para não desconfigurar no Excel PT-BR
+        csv = df_equipe.to_csv(index=False, sep=';', encoding='utf-8-sig').encode('utf-8')
         st.download_button(
             label="⬇️ Download do Arquivo Atual",
             data=csv,
@@ -35,16 +42,27 @@ if os.path.exists(ARQUIVO_EQUIPE):
         
         if arquivo_up is not None:
             try:
-                df_novo = pd.read_csv(arquivo_up)
-                # Verifica se o arquivo tem as colunas exatas que precisamos
+                # O Python tenta ler o arquivo que você subiu tentando os dois separadores
+                try:
+                    df_novo = pd.read_csv(arquivo_up, sep=';', encoding='utf-8-sig')
+                    if len(df_novo.columns) < 3:
+                        arquivo_up.seek(0)
+                        df_novo = pd.read_csv(arquivo_up, sep=',', encoding='utf-8-sig')
+                except:
+                    arquivo_up.seek(0)
+                    df_novo = pd.read_csv(arquivo_up, sep=',', encoding='utf-8-sig')
+                    
+                # Verifica se o arquivo tem as colunas exatas que precisamos (limpando espaços em branco)
+                df_novo.columns = df_novo.columns.str.strip().str.upper()
+                
                 if all(col in df_novo.columns for col in ["NOME", "FUNCAO", "BASE"]):
-                    # Sobrescreve o arquivo antigo pelo novo
-                    df_novo.to_csv(ARQUIVO_EQUIPE, index=False)
+                    # Sobrescreve o arquivo antigo pelo novo (salvando sempre com vírgula para o painel principal ler limpo)
+                    df_novo.to_csv(ARQUIVO_EQUIPE, index=False, sep=',')
                     st.success("✅ Equipe atualizada com sucesso! O Painel Rotativo já está usando a nova lista.")
                     time.sleep(2)
                     st.rerun()
                 else:
-                    st.error("⚠️ O arquivo enviado está inválido. Certifique-se de que tem as colunas: NOME, FUNCAO, BASE.")
+                    st.error(f"⚠️ O arquivo enviado está inválido. Colunas encontradas: {list(df_novo.columns)}. Certifique-se de que tem as colunas: NOME, FUNCAO, BASE.")
             except Exception as e:
                 st.error(f"Erro ao processar o arquivo: {e}")
 
