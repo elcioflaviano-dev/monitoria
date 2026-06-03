@@ -1,28 +1,35 @@
 import streamlit as st
 import pandas as pd
 
-# LINK DA SUA PLANILHA GOOGLE
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv"
+# LINK CONFIGURADO DIRETO PARA A SUA ABA SUPERVISORES (gid=0)
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
 st.set_page_config(layout="wide")
 
+LISTA_SP_FIXA, LISTA_ABC_FIXA = [], []
+planilha_ok = False
+
 try:
     df_equipe = pd.read_csv(URL_PLANILHA)
-    df_equipe.columns = df_equipe.columns.str.strip().str.upper()
-    
-    # Separação automática usando os dados reais das colunas da sua planilha
-    LISTA_SP_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "SP"]["NOME"].dropna().tolist()
-    LISTA_ABC_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "ABC"]["NOME"].dropna().tolist()
+    if not df_equipe.empty and len(df_equipe.columns) >= 3:
+        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
+        
+        # Leitura das colunas reais do seu arquivo
+        LISTA_SP_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "SP"]["NOME"].dropna().tolist()
+        LISTA_ABC_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "ABC"]["NOME"].dropna().tolist()
+        planilha_ok = True
 except:
-    st.error("⚠️ Erro ao carregar a lista vinda do Google Sheets.")
-    LISTA_SP_FIXA, LISTA_ABC_FIXA = [], []
+    pass
 
 if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
 if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
 
 st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
-if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
+if not planilha_ok:
+    st.warning("⚠️ Aguardando conexão estável ou dados válidos vindos do Google Sheets.")
+
+elif 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     df = st.session_state['df_rota_ativa']
     col_tipo = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else ('Tipo de Atividade' if 'Tipo de Atividade' in df.columns else None)
     col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
