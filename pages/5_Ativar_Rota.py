@@ -4,22 +4,18 @@ import os
 
 st.set_page_config(layout="wide")
 
-# =========================================================================
-# LEITURA DINÂMICA DO ARQUIVO CENTRAL DE EQUIPE
-# =========================================================================
-ARQUIVO_EQUIPE = "cadastro_equipe.csv"
+# FORÇAR CAMINHO ABSOLUTO
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ARQUIVO_EQUIPE = os.path.join(BASE_DIR, "cadastro_equipe.csv")
 
 if os.path.exists(ARQUIVO_EQUIPE):
     df_equipe = pd.read_csv(ARQUIVO_EQUIPE)
-    # Puxa as listas fixas direto do CSV atualizado
     LISTA_SP_FIXA = df_equipe[(df_equipe["FUNCAO"] == "TECNICO") & (df_equipe["BASE"] == "SP")]["NOME"].tolist()
     LISTA_ABC_FIXA = df_equipe[(df_equipe["FUNCAO"] == "TECNICO") & (df_equipe["BASE"] == "ABC")]["NOME"].tolist()
 else:
-    st.error("⚠️ Arquivo 'cadastro_equipe.csv' não encontrado. Abra o Painel Rotativo primeiro para gerar o arquivo base.")
-    LISTA_SP_FIXA = []
-    LISTA_ABC_FIXA = []
+    st.error("⚠️ Arquivo 'cadastro_equipe.csv' não encontrado.")
+    LISTA_SP_FIXA, LISTA_ABC_FIXA = [], []
 
-# Inicializa session_state para novos técnicos temporários (só para o dia)
 if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
 if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
 
@@ -27,28 +23,19 @@ st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM B
 
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     df = st.session_state['df_rota_ativa']
-    
-    # Ajuste para identificar as colunas corretas de forma flexível
     col_tipo = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else ('Tipo de Atividade' if 'Tipo de Atividade' in df.columns else None)
     col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
 
     if col_tipo and col_status:
-        df_tela = df[
-            (df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & 
-            (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))
-        ].copy()
-
+        df_tela = df[(df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))].copy()
         nomes_na_base = sorted(df_tela['Recurso'].dropna().unique().tolist())
         
-        # Consolida as listas usando o CSV + os temporários digitados na tela
         lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
         lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
 
-        # Distribuição regional
         nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
         nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
 
-        # Divisão em 4 colunas na tela
         c1, c2, c3, c4 = st.columns(4)
         mid_abc = len(nomes_abc) // 2
         mid_sp = len(nomes_sp) // 2
@@ -76,7 +63,5 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
                     if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
                     else: st.session_state["novos_abc"].append(nome_i)
                     st.rerun()
-    else:
-        st.error("⚠️ Colunas de 'Tipo de Atividade' ou 'Status' não foram identificadas na planilha de rota.")
-else:
-    st.error("⚠️ Nenhum dado carregado na rota ativa.")
+    else: st.error("⚠️ Colunas não encontradas.")
+else: st.error("⚠️ Nenhum dado carregado na rota ativa.")
