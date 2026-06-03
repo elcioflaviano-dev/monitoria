@@ -200,9 +200,13 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
-placeholder = st.empty()
+# Criação de placeholders independentes para forçar a limpeza da tela
+tela_placeholder = st.empty()
 
-with placeholder.container():
+# Limpa o placeholder antes de desenhar
+tela_placeholder.empty()
+
+with tela_placeholder.container():
 
     # =========================================================================
     # TELA 0: TÉCNICOS NA BASE (Aparece apenas antes das 08:25)
@@ -375,6 +379,7 @@ with placeholder.container():
                 for i, sup_full in enumerate(SUPERVISORES):
                     qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
                     nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
+                    # AQUÍ: A fala foi corrigida para dizer apenas o nome, sem "Supervisor"
                     texto_fala = f"{nome_visual}: {qtd_pendentes} pendentes."
                     
                     script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
