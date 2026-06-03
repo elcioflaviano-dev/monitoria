@@ -200,13 +200,9 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
-# Criação de placeholders independentes para forçar a limpeza da tela
-tela_placeholder = st.empty()
+placeholder = st.empty()
 
-# Limpa o placeholder antes de desenhar
-tela_placeholder.empty()
-
-with tela_placeholder.container():
+with placeholder.container():
 
     # =========================================================================
     # TELA 0: TÉCNICOS NA BASE (Aparece apenas antes das 08:25)
