@@ -8,76 +8,164 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
 if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
-    try: st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
-    except: pass
+    try: 
+        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except: 
+        pass
 
-mapa_sup_base = {}
-try:
-    df_equipe = pd.read_csv(URL_PLANILHA)
-    if not df_equipe.empty and len(df_equipe.columns) >= 3:
-        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
-        mapa_sup_base = dict(zip(df_equipe['SUPERVISOR'].astype(str).str.strip().str.upper(), df_equipe['BASE'].astype(str).str.strip().str.upper()))
-except:
-    pass
-
+# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (Otimizado para 30 Segundos nesta tela)
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
-    if "last_refresh_tec1" not in st.session_state: st.session_state["last_refresh_tec1"] = time.time()
+    if "last_refresh_tec1" not in st.session_state: 
+        st.session_state["last_refresh_tec1"] = time.time()
     if time.time() - st.session_state["last_refresh_tec1"] > 30:
         st.session_state["last_refresh_tec1"] = time.time()
         st.rerun()
 
+# 2. Abre e injeta o arquivo style.css externo
 try:
-    with open("style.css", "r") as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-except: pass
+    with open("style.css", "r") as f: 
+        st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
+except: 
+    pass
 
-st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 5px;">TEC1</h1>', unsafe_allow_html=True)
+# Título TEC1 Centralizado
+st.markdown(
+    '<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 5px;">TEC1</h1>', 
+    unsafe_allow_html=True
+)
 
-df = st.session_state.get('df_rota_ativa', None)
+df_master = st.session_state.get('df_rota_ativa', None)
 
-if df is not None and not df.empty:
-    df = df.copy()
-    col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
-    col_tecnico = 'Técnico' if 'Técnico' in df.columns else ('Recurso' if 'Recurso' in df.columns else None)
+if df_master is not None and not df_master.empty:
+    df = df_master.copy()
+    df.columns = [str(c).strip() for c in df.columns]
     
-    if col_status and col_tecnico:
-        df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
-        df[col_tecnico] = df[col_tecnico].fillna('').astype(str).str.upper().str.strip()
+    # Identifica a coluna correta de técnicos
+    col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else (df.columns[0] if len(df.columns) > 0 else 'Recurso')
+    col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
+    col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
+
+    # Força a limpeza das linhas de técnicos vazias
+    df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+    
+    # Localiza e limpa a coluna de Contrato tirando o ".0" de float
+    if 'Contrato' in df.columns:
+        df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+        df = df[df['Contrato'] != ''].copy()
+
+    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
+    df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
+    
+    # FILTRAGEM: Remove status suspensos
+    df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
+    
+    # Remove as marcações operacionais de almoço (Refeicao)
+    df_limpo['Tipo_Activity_Str'] = df_limpo[col_tipo_real].fillna('').astype(str)
+    df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
         
-        df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
-        df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
-        df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
-        df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
+    # === PASSO 2: FILTRAGEM PRÉVIA DE STATUS ATIVOS EM CAMPO ===
+    df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
+    df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
+    df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
+    
+    df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+
+    # === MOTOR DE JANELAS PROGRESSIVO E CUMULATIVO (ALINHADO COM TEC1 PENDENTES E TV) ===
+    col_janela = None
+    for c in df_validos.columns:
+        if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
+            col_janela = c
+            break
+
+    hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+    texto_status_janela = ""
+
+    if col_janela is not None and not df_validos.empty:
+        df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
         
-        df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
+        def extrair_hora_limite(janela_str):
+            try:
+                partes = janela_str.replace(':', '').split('-')
+                return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
+            except: 
+                return 24
+
+        df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        if 'Contrato' in df_validos.columns:
-            df_validos['Contrato'] = df_validos['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
-            df_validos = df_validos.drop_duplicates(subset=['Contrato', col_tecnico])
+        # Define os tetos dinâmicos acumulativos baseados no relógio real
+        if hora_atual < 12:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
+            texto_status_janela = "Janelas até 12h"
+        elif 12 <= hora_atual < 15:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
+            texto_status_janela = "Acumulado até 15h"
+        else:
+            condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
+            texto_status_janela = "Acumulado Completo do Turno"
 
-        df_validos['SUPERVISOR_MOSTRAR'] = df_validos.get('SUPERVISOR', 'NÃO IDENTIFICADO').astype(str).str.upper().str.strip()
+        # Isola os registros da janela cumulativa (Pendentes só da janela, Rota e Iniciados sempre mostram)
+        df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
+        
+        if df_tela.empty: 
+            df_tela = df_validos.copy()
+    else:
+        df_tela = df_validos.copy()
+        texto_status_janela = "Todos os Contratos Ativos"
 
-        def get_base_tec1(row):
-            if 'REGIAO_BASE' in row and pd.notna(row['REGIAO_BASE']) and str(row['REGIAO_BASE']).strip() != '':
-                return str(row['REGIAO_BASE']).upper().strip()
-            sup = str(row['SUPERVISOR_MOSTRAR'])
-            if sup in mapa_sup_base: return mapa_sup_base[sup]
-            if 'FRANCISCO' in sup or 'ALAN' in sup: return 'SP'
-            return 'ABC'
+    # Prevenção de duplicações no CSV para os números baterem exatos com a TV
+    if 'Contrato' in df_tela.columns and not df_tela.empty:
+        df_tela = df_tela.drop_duplicates(subset=['Contrato'])
 
-        df_validos['BASE_LIVE'] = df_validos.apply(get_base_tec1, axis=1)
-        cond_sp = df_validos['BASE_LIVE'].str.contains('SP|SÃO PAULO|SAO PAULO', na=False)
+    st.markdown(f'<div style="text-align: center; color: #008080; font-size: 14px; font-weight: bold; margin-bottom: 15px;">🔄 Fila Dinâmica Sincronizada [Hora Local: {hora_atual:02d}h] - Progressão: {texto_status_janela}</div>', unsafe_allow_html=True)
 
-        df_sp = df_validos[cond_sp].copy()
-        df_abc = df_validos[~cond_sp].copy()
+    if df_tela.empty:
+        st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
+    else:
+        # Puxa o supervisor original se ele existir e for válido
+        if 'SUPERVISOR' in df_tela.columns:
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip()
+        else:
+            df_tela['SUPERVISOR_MOSTRAR'] = ''
+
+        # 🔥 NOVO MOTOR DE DISTRIBUIÇÃO CORRIGIDO E EXPANDIDO 🔥
+        # Varre pelo primeiro nome do técnico para linkar o supervisor correto sem engolir ninguém
+        def vincular_supervisor_tecnico(row):
+            nome_u = str(row[col_tecnico_check]).upper().strip()
+            sup_orig = str(row['SUPERVISOR_MOSTRAR'])
+            
+            # Se a linha já trouxer o supervisor correto do Excel, mantém
+            if "FRANCISCO" in sup_orig: return "FRANCISCO"
+            if "ALAN" in sup_orig: return "ALAN"
+            if "MAICON" in sup_orig: return "MAICON"
+            if "NELSON" in sup_orig: return "NELSON"
+            if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
+
+            # Fallback inteligente por primeiro nome do técnico (PROCV interno por substring)
+            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
+                return "ALAN"
+            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
+                return "FRANCISCO"
+            if "MARCOS" in nome_u: 
+                return "MARCOS ROBERTO"
+            if "NELSON" in nome_u: 
+                return "NELSON"
+                
+            return "MAICON"
+
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
+
+        # Divisão Regional utilizando os supervisores como âncora
+        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+        df_sp = df_tela[cond_sp].copy()
+        df_abc = df_tela[~cond_sp].copy()
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
         with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC PAULISTA</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp" style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #008080; text-align: center;">ABC</div>', unsafe_allow_html=True)
             if not df_abc.empty:
                 matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
@@ -86,15 +174,16 @@ if df is not None and not df.empty:
                     total_real = pendentes + em_rota + iniciados
                     
                     with st.container(border=True):
-                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#e8f5e9; padding:2px 8px; border-radius:4px; color:#2e7d32;">Total Contratos: {total_real}</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: {total_real}</span></div>', unsafe_allow_html=True)
                         m1, m2, m3 = st.columns(3)
                         with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{pendentes}</div></div>', unsafe_allow_html=True)
                         with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
-                        with m3: st.metric(label="🟢 INICIADOS", value=iniciados)
-            else: st.info("Nenhum dado produtivo no ABC.")
-                
+                        with m3: st.metric(label="🟢 INICIADO", value=iniciados)
+            else:
+                st.info("Nenhum contrato ativo para o ABC nesta janela.")
+
         with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #b30000; text-align: center;">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             if not df_sp.empty:
                 matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
@@ -107,7 +196,9 @@ if df is not None and not df.empty:
                         m1, m2, m3 = st.columns(3)
                         with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{pendentes}</div></div>', unsafe_allow_html=True)
                         with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
-                        with m3: st.metric(label="🟢 INICIADOS", value=iniciados)
-            else: st.info("Nenhum dado produtivo em SP.")
-    else: st.warning("Colunas 'Status da Atividade' ou 'Técnico' não encontradas.")
-else: st.info("Aguardando upload na página inicial...")
+                        with m3: st.metric(label="🟢 INICIADO", value=iniciados)
+            else:
+                st.info("Nenhum contrato ativo para SP nesta janela.")
+
+else:
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro.")
