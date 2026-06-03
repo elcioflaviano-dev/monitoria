@@ -7,28 +7,29 @@ from datetime import datetime, timedelta
 # 1. Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# LIGAÇÃO AO GOOGLE SHEETS
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
-SUPERVISORES = []
-try:
-    df_equipe = pd.read_csv(URL_PLANILHA)
-    if not df_equipe.empty and len(df_equipe.columns) >= 3:
-        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
-        SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
-except Exception:
-    pass
-
-ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
+# 🔄 HERANÇA INTELIGENTE
 if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
     try: 
         st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     except: 
         pass
 
-# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (Otimizado para 30 Segundos nesta tela)
+# 🚀 MAPEAMENTO AO VIVO DO GOOGLE SHEETS (INVISÍVEL NO VISUAL)
+mapa_base = {}
+mapa_sup = {}
+try:
+    df_equipe = pd.read_csv(URL_PLANILHA)
+    if not df_equipe.empty and len(df_equipe.columns) >= 3:
+        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
+        mapa_base = dict(zip(df_equipe['NOME'].astype(str).str.strip().str.upper(), df_equipe['BASE'].astype(str).str.strip().str.upper()))
+        mapa_sup = dict(zip(df_equipe['NOME'].astype(str).str.strip().str.upper(), df_equipe['SUPERVISOR'].astype(str).str.strip().str.upper()))
+except:
+    pass
+
+# 🚀 REFRESH (30s)
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     if "last_refresh_tec1" not in st.session_state: 
         st.session_state["last_refresh_tec1"] = time.time()
@@ -36,24 +37,18 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         st.session_state["last_refresh_tec1"] = time.time()
         st.rerun()
 
-# 2. Tenta carregar o CSS (opcional)
 try:
     with open("style.css", "r") as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 except:
     pass
 
-# Função padronizada para identificar o supervisor
-def padronizar_supervisor_dinamico(nome_cru):
-    nome = str(nome_cru).upper().strip()
-    for sup in SUPERVISORES:
-        if sup in nome or nome in sup:
-            return sup
-    return nome
+st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 5px;">TEC1</h1>', unsafe_allow_html=True)
 
 df = st.session_state.get('df_rota_ativa', None)
 
 if df is not None and not df.empty:
+    df = df.copy()
     
     col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_tecnico = 'Técnico' if 'Técnico' in df.columns else ('Recurso' if 'Recurso' in df.columns else None)
@@ -74,12 +69,20 @@ if df is not None and not df.empty:
             df_validos['Contrato'] = df_validos['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
             df_validos = df_validos.drop_duplicates(subset=['Contrato', col_tecnico])
 
-        df_validos['SUPERVISOR_MOSTRAR'] = df_validos['SUPERVISOR'].apply(padronizar_supervisor_dinamico)
+        # APLICA O MAPEAMENTO DINÂMICO
+        if mapa_sup:
+            df_validos['SUPERVISOR_MOSTRAR'] = df_validos[col_tecnico].map(mapa_sup).fillna('NÃO IDENTIFICADO')
+        else:
+            df_validos['SUPERVISOR_MOSTRAR'] = df_validos.get('SUPERVISOR', 'NÃO IDENTIFICADO').astype(str).str.upper().str.strip()
 
-        # Regra hardcoded original de alocação de bases para compatibilidade visual desta aba (se quiser, podemos deixar igual à da Aba 1 no futuro)
-        cond_sp = df_validos['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
-        df_sp = df_validos[cond_sp].copy()
-        df_abc = df_validos[~cond_sp].copy()
+        if mapa_base:
+            df_validos['BASE_LIVE'] = df_validos[col_tecnico].map(mapa_base).fillna('GERAL')
+        else:
+            cond_sp = df_validos['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+            df_validos['BASE_LIVE'] = ['SP' if x else 'ABC' for x in cond_sp]
+
+        df_sp = df_validos[df_validos['BASE_LIVE'] == 'SP'].copy()
+        df_abc = df_validos[df_validos['BASE_LIVE'] == 'ABC'].copy()
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
