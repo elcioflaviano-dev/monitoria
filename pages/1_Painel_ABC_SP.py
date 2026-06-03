@@ -8,27 +8,13 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
 if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
         st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     except:
         pass
-
-# 🚀 MAPEAMENTO AO VIVO DO GOOGLE SHEETS (SEM QUEBRAR O VISUAL)
-mapa_base = {}
-mapa_sup = {}
-try:
-    df_equipe = pd.read_csv(URL_PLANILHA)
-    if not df_equipe.empty and len(df_equipe.columns) >= 3:
-        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
-        # Cria dicionários para atualizar a base e supervisor do técnico na hora
-        mapa_base = dict(zip(df_equipe['NOME'].astype(str).str.strip().str.upper(), df_equipe['BASE'].astype(str).str.strip().str.upper()))
-        mapa_sup = dict(zip(df_equipe['NOME'].astype(str).str.strip().str.upper(), df_equipe['SUPERVISOR'].astype(str).str.strip().str.upper()))
-except:
-    pass
 
 # 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (60 Segundos)
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
@@ -46,7 +32,7 @@ try:
 except:
     pass
 
-# Customização CSS Original de Alta Performance para os Cards e Grid de 6 Colunas
+# Customização CSS de Alta Performance para os Cards e Grid de 6 Colunas
 st.markdown("""
     <style>
     .block-container { padding-top: 1.5rem !important; }
@@ -128,20 +114,14 @@ def calcular_media_horarios(lista_horas):
 
 if df_dash is not None and not df_dash.empty:
     
+    # Identificação das colunas estruturais na planilha bruta
     col_recurso = 'Recurso' if 'Recurso' in df_dash.columns else df_dash.columns[0]
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_dash.columns else 'Status da Atividade'
     status_upper_bruto = df_dash[col_status].fillna('').astype(str).str.upper().str.strip()
     contrato_limpo_bruto = df_dash['Contrato'].fillna('').astype(str).str.strip()
-    
-    # ATUALIZA A BASE AO VIVO USANDO O GOOGLE SHEETS
-    if mapa_base:
-        df_dash['REGIAO_BASE_LIVE'] = df_dash[col_recurso].fillna('').astype(str).str.upper().str.strip().map(mapa_base)
-        df_dash['REGIAO_BASE_LIVE'] = df_dash['REGIAO_BASE_LIVE'].fillna(df_dash.get('REGIAO_BASE', 'GERAL'))
-    else:
-        df_dash['REGIAO_BASE_LIVE'] = df_dash.get('REGIAO_BASE', 'GERAL')
 
     # =========================================================================
-    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CARDS FIXOS DO TOPO)
+    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CALDS FIXOS DO TOPO COM LINK GLOBAL)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     
@@ -163,17 +143,20 @@ if df_dash is not None and not df_dash.empty:
     
     if not df_atend_isolado.empty:
         df_primeiros_horarios = df_atend_isolado.sort_values('Hora_Inicio_Time').groupby(col_recurso).first().reset_index()
+        col_supervisor_check = 'SUPERVISOR' if 'SUPERVISOR' in df_primeiros_horarios.columns else df_primeiros_horarios.columns[0]
+        cond_sp_atend = df_primeiros_horarios[col_supervisor_check].fillna('').astype(str).str.upper().str.contains("FRANCISCO|ALAN", na=False)
         
-        # Filtra ABC e SP baseado no nosso mapa ao vivo
-        horas_abc = df_primeiros_horarios[df_primeiros_horarios['REGIAO_BASE_LIVE'].str.contains("ABC", na=False)]['Hora_Inicio_Time'].tolist()
-        horas_sp = df_primeiros_horarios[df_primeiros_horarios['REGIAO_BASE_LIVE'].str.contains("SP", na=False)]['Hora_Inicio_Time'].tolist()
+        horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio_Time'].tolist()
+        horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio_Time'].tolist()
         
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
 
+    # 🔥 SALVA NA MEMÓRIA GLOBAL DO SISTEMA PARA A OUTRA PÁGINA PEGAR IDÊNTICO 🔥
     st.session_state['media_global_abc'] = media_abc
     st.session_state['media_global_sp'] = media_sp
 
+    # Renderização HTML dos Cards do Topo
     st.markdown(f'''
         <div class="kpi-container-atend">
             <div class="kpi-card-atend abc">
@@ -194,11 +177,13 @@ if df_dash is not None and not df_dash.empty:
     df_working['Contrato_Limpo'] = contrato_limpo_bruto
     df_working['Status_Atividade_Upper'] = status_upper_bruto
     
+    # Consolida as colunas duplicadas de atividade para capturar os Retornos
     df_working['Mestre_Tipo_Atividade_Upper'] = ""
     for c in df_working.columns:
         if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper():
             df_working['Mestre_Tipo_Atividade_Upper'] += " " + df_working[c].fillna('').astype(str).str.upper().str.strip()
             
+    # Filtro base saudável
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
@@ -208,25 +193,33 @@ if df_dash is not None and not df_dash.empty:
     )
     df_working = df_working[cond_saudavel].copy()
 
+    # Identificação da coluna de Regional / Base
+    col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_working.columns else ('Cidade' if 'Cidade' in df_working.columns else 'GERAL')
+    if col_base_operacional not in df_working.columns:
+        df_working['REGIAO_BASE'] = 'BASE GERAL'
+        col_base_operacional = 'REGIAO_BASE'
+    else:
+        df_working[col_base_operacional] = df_working[col_base_operacional].fillna('NÃO DEFINIDA').astype(str).str.upper().str.strip()
+        df_working[col_base_operacional] = df_working[col_base_operacional].replace({'NAN': 'NÃO DEFINIDA', '': 'NÃO DEFINIDA', '#N/A': 'NÃO DEFINIDA'})
+
+    # Campo numérico de OS
     col_tarefas = 'QTD_OS_COL' if 'QTD_OS_COL' in df_working.columns else 'Total de tarefas'
     df_working['Total_OS_Num'] = pd.to_numeric(df_working[col_tarefas], errors='coerce').fillna(0).astype(int) if col_tarefas in df_working.columns else 1
 
     # Filtro Lateral de Supervisor
-    if mapa_sup:
-        df_working['SUPERVISOR_LIVE'] = df_working[col_recurso].fillna('').astype(str).str.upper().str.strip().map(mapa_sup).fillna('NÃO IDENTIFICADO')
-        lista_supervisores = ["TODOS"] + sorted(df_working['SUPERVISOR_LIVE'].unique())
+    if 'SUPERVISOR' in df_working.columns:
+        lista_supervisores = ["TODOS"] + sorted(df_working['SUPERVISOR'].dropna().unique())
         supervisor_sel = st.sidebar.selectbox("Filtrar por Supervisor:", lista_supervisores)
         if supervisor_sel != "TODOS":
-            df_working = df_working[df_working['SUPERVISOR_LIVE'] == supervisor_sel]
+            df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # 📊 LAÇO DE COMPILAÇÃO DAS BASES: O SEU GRID DE 6 COLUNAS ORIGINAL
+    # 📊 LAÇO DE COMPILAÇÃO DAS BASES: APENAS OS 6 CARDS EM UMA LINHA
     # =========================================================================
-    df_working['REGIAO_BASE_LIVE'] = df_working['REGIAO_BASE_LIVE'].fillna('NÃO DEFINIDA').astype(str).str.upper().str.strip()
-    bases_disponiveis = sorted(df_working['REGIAO_BASE_LIVE'].unique())
+    bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
-        df_base_atual = df_working[df_working['REGIAO_BASE_LIVE'] == base]
+        df_base_atual = df_working[df_working[col_base_operacional] == base]
         
         # Totais Brutos
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique()
@@ -247,8 +240,10 @@ if df_dash is not None and not df_dash.empty:
         media_contratos_por_tec = base_contratos_liquido / divisor_tecnicos
         media_os_por_tec = base_total_os_liquido / divisor_tecnicos
         
+        # Título da Base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
+        # Renderização dos 6 Cards organizados na mesma linha
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         
         with c1:
