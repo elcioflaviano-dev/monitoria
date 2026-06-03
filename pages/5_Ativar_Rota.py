@@ -1,58 +1,25 @@
 import streamlit as st
 import pandas as pd
+import os
 
 st.set_page_config(layout="wide")
 
-# 1. LISTAS FIXAS (DECLARADAS DENTRO DA PÁGINA PARA SEGURANÇA)
-LISTA_SP_FIXA = [
-    "ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE",
-    "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS",
-    "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "EDCARLOS PEREIRA DE JESUS",
-    "GETULIO DOS SANTOS CAFE", "GLEMERSON LIMA DE SOUZA", "GUILHERME DE OLIVEIRA DANTAS",
-    "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS",
-    "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS",
-    "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA",
-    "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS",
-    "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "TAILSON JUAN SANTOS DA CONCEICAO",
-    "ALAN CESAR CARDOSO", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO",
-    "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA",
-    "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA",
-    "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA",
-    "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON",
-    "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA",
-    "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA",
-    "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA",
-    "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "DIEGO FRAGOSO DE BRITO"
-]
+# =========================================================================
+# LEITURA DINÂMICA DO ARQUIVO CENTRAL DE EQUIPE
+# =========================================================================
+ARQUIVO_EQUIPE = "cadastro_equipe.csv"
 
-LISTA_ABC_FIXA = [
-    "ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA",
-    "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS",
-    "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "ANTONIO WESLEY HOLANDA DA SILVA",
-    "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS",
-    "CARLOS EDUARDO DA SILVA CONCEICAO", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA",
-    "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDER SALES MONTEIRO",
-    "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES",
-    "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES",
-    "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA",
-    "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA",
-    "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRANDAO BASTOS",
-    "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME",
-    "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS",
-    "LUCAS SILVA DE LIMA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS HENRIQUE GOMES DA SILVA",
-    "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA",
-    "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO",
-    "PABLO WILLIAM DA SILVA", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA",
-    "RAFAEL DOS ANJOS BAPTISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS",
-    "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO",
-    "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "ALESSANDRO RAMOS DA SILVA",
-    "ALICE EULINA SILVA", "BRUNO PINHEIRO MAGALHAES", "KAUE BARBEIRO SOARES",
-    "ENZO RUBENS ARAUJO MACIEL", "HAMILTON RICARDO INACIO", "WILLIAM BORGES DOS SANTOS",
-    "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "DANIEL AUGUSTO PEREIRA",
-    "JULIO CESAR SILVA DOS SANTOS", "MATHEUS DA SILVA NASCIMENTO"
-]
+if os.path.exists(ARQUIVO_EQUIPE):
+    df_equipe = pd.read_csv(ARQUIVO_EQUIPE)
+    # Puxa as listas fixas direto do CSV atualizado
+    LISTA_SP_FIXA = df_equipe[(df_equipe["FUNCAO"] == "TECNICO") & (df_equipe["BASE"] == "SP")]["NOME"].tolist()
+    LISTA_ABC_FIXA = df_equipe[(df_equipe["FUNCAO"] == "TECNICO") & (df_equipe["BASE"] == "ABC")]["NOME"].tolist()
+else:
+    st.error("⚠️ Arquivo 'cadastro_equipe.csv' não encontrado. Abra o Painel Rotativo primeiro para gerar o arquivo base.")
+    LISTA_SP_FIXA = []
+    LISTA_ABC_FIXA = []
 
-# Inicializa session_state
+# Inicializa session_state para novos técnicos temporários (só para o dia)
 if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
 if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
 
@@ -60,47 +27,56 @@ st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM B
 
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
     df = st.session_state['df_rota_ativa']
-    df_tela = df[
-        (df['Tipo de Atividade.1'].astype(str).str.contains('NA BASE', na=False, case=False)) & 
-        (df['Status da Atividade'].astype(str).str.contains('PENDENTE', na=False, case=False))
-    ].copy()
-
-    nomes_na_base = sorted(df_tela['Recurso'].unique().tolist())
     
-    # Consolida listas usando a variável definida acima
-    lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
-    lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
+    # Ajuste para identificar as colunas corretas de forma flexível
+    col_tipo = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else ('Tipo de Atividade' if 'Tipo de Atividade' in df.columns else None)
+    col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
 
-    # Distribuição em 4 colunas
-    nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
-    nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
+    if col_tipo and col_status:
+        df_tela = df[
+            (df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & 
+            (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))
+        ].copy()
 
-    c1, c2, c3, c4 = st.columns(4)
-    mid_abc = len(nomes_abc) // 2
-    mid_sp = len(nomes_sp) // 2
-    
-    with c1:
-        st.markdown('### 🏢 ABC (1/2)')
-        for n in nomes_abc[:mid_abc]: st.markdown(f'🏃‍♂️ {n}')
-    with c2:
-        st.markdown('### 🏢 ABC (2/2)')
-        for n in nomes_abc[mid_abc:]: st.markdown(f'🏃‍♂️ {n}')
-    with c3:
-        st.markdown('### 🏙️ SP (1/2)')
-        for n in nomes_sp[:mid_sp]: st.markdown(f'🏃‍♂️ {n}')
-    with c4:
-        st.markdown('### 🏙️ SP (2/2)')
-        for n in nomes_sp[mid_sp:]: st.markdown(f'🏃‍♂️ {n}')
+        nomes_na_base = sorted(df_tela['Recurso'].dropna().unique().tolist())
+        
+        # Consolida as listas usando o CSV + os temporários digitados na tela
+        lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
+        lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
 
-    st.divider()
-    with st.expander("➕ Incluir Novo Técnico"):
-        c_a, c_b, c_c = st.columns([2, 1, 1])
-        nome_i = c_a.text_input("Nome:").upper()
-        base_i = c_b.selectbox("Base:", ["SP", "ABC"])
-        if c_c.button("Adicionar"):
-            if nome_i:
-                if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
-                else: st.session_state["novos_abc"].append(nome_i)
-                st.rerun()
+        # Distribuição regional
+        nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
+        nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
+
+        # Divisão em 4 colunas na tela
+        c1, c2, c3, c4 = st.columns(4)
+        mid_abc = len(nomes_abc) // 2
+        mid_sp = len(nomes_sp) // 2
+        
+        with c1:
+            st.markdown('### 🏢 ABC (1/2)')
+            for n in nomes_abc[:mid_abc]: st.markdown(f'🏃‍♂️ {n}')
+        with c2:
+            st.markdown('### 🏢 ABC (2/2)')
+            for n in nomes_abc[mid_abc:]: st.markdown(f'🏃‍♂️ {n}')
+        with c3:
+            st.markdown('### 🏙️ SP (1/2)')
+            for n in nomes_sp[:mid_sp]: st.markdown(f'🏃‍♂️ {n}')
+        with c4:
+            st.markdown('### 🏙️ SP (2/2)')
+            for n in nomes_sp[mid_sp:]: st.markdown(f'🏃‍♂️ {n}')
+
+        st.divider()
+        with st.expander("➕ Incluir Novo Técnico Temporário (Só para hoje)"):
+            c_a, c_b, c_c = st.columns([2, 1, 1])
+            nome_i = c_a.text_input("Nome:").upper()
+            base_i = c_b.selectbox("Base:", ["SP", "ABC"])
+            if c_c.button("Adicionar"):
+                if nome_i:
+                    if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
+                    else: st.session_state["novos_abc"].append(nome_i)
+                    st.rerun()
+    else:
+        st.error("⚠️ Colunas de 'Tipo de Atividade' ou 'Status' não foram identificadas na planilha de rota.")
 else:
-    st.error("⚠️ Nenhum dado carregado.")
+    st.error("⚠️ Nenhum dado carregado na rota ativa.")
