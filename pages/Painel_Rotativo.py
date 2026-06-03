@@ -375,7 +375,7 @@ with placeholder.container():
                 for i, sup_full in enumerate(SUPERVISORES):
                     qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
                     nome_visual = NOMES_VISUAIS.get(sup_full, sup_full)
-                    texto_fala = f"Supervisor {nome_visual}: {qtd_pendentes} pendentes."
+                    texto_fala = f"{nome_visual}: {qtd_pendentes} pendentes."
                     
                     script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
                 
@@ -404,7 +404,7 @@ with placeholder.container():
     # =========================================================================
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
-            <div class="nome-sup">PAUSA</div>
+            <div class="nome-sup">HORÁRIO</div>
             <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
         </div>''', unsafe_allow_html=True)
 
