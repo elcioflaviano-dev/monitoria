@@ -290,7 +290,7 @@ with tela_placeholder.container():
     # =========================================================================
     elif st.session_state.idx == 1: 
         st.markdown(f'''<div class="topo-container">
-            <div class="nome-sup">RESUMO GERAL DA OPERAÇÃO</div>
+            <div class="nome-sup">CONTRATOS PENDENTES</div>
             <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
         </div>''', unsafe_allow_html=True)
 
@@ -373,8 +373,8 @@ with tela_placeholder.container():
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
                 script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
-                script_cenario += f"anunciarBase('Resumo geral da operação. Base A B C: {qtd_abc} pendentes.', 0);\n"
-                script_cenario += f"anunciarBase('Base São Paulo: {qtd_sp} pendentes.', 7000);\n"
+                script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', 0);\n"
+                script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', 7000);\n"
                 
                 for i, sup_full in enumerate(SUPERVISORES):
                     qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
