@@ -4,8 +4,9 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# LINK DA SUA PLANILHA GOOGLE
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv"
+# LINK CONFIGURADO DIRETO PARA A SUA ABA SUPERVISORES (gid=0)
+# Se o número do gid na sua barra de endereço for diferente de 0, mude o final para &gid=SEU_NUMERO
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
 # Configuração da Página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -45,20 +46,24 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# LÓGICA DE LEITURA ADAPTADA ÀS SUAS COLUNAS REAIS
+# Leitura Segura do Google Sheets
+SUPERVISORES, LISTA_SP_FIXA, LISTA_ABC_FIXA = [], [], []
+planilha_carregada = False
+
 try:
     df_equipe = pd.read_csv(URL_PLANILHA)
-    df_equipe.columns = df_equipe.columns.str.strip().str.upper()
-    
-    # Descobre os supervisores únicos e separa os técnicos por base
-    SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
-    LISTA_SP_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "SP"]["NOME"].dropna().tolist()
-    LISTA_ABC_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "ABC"]["NOME"].dropna().tolist()
+    if not df_equipe.empty and len(df_equipe.columns) >= 3:
+        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
+        
+        # Mapeamento automático usando suas colunas reais: LOGIN, NOME, SUPERVISOR, BASE
+        SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
+        LISTA_SP_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "SP"]["NOME"].dropna().tolist()
+        LISTA_ABC_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "ABC"]["NOME"].dropna().tolist()
+        planilha_carregada = True
 except Exception as e:
-    st.error(f"Erro ao conectar com o Google Sheets: {e}")
-    SUPERVISORES, LISTA_SP_FIXA, LISTA_ABC_FIXA = [], [], []
+    st.error(f"Aguardando conexão estável com o Google Sheets...")
 
-def obtener_nome_visual(nome_completo):
+def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
@@ -152,7 +157,10 @@ tela_placeholder = st.empty()
 tela_placeholder.empty()
 
 with tela_placeholder.container():
-    if st.session_state.idx == 0:
+    if not planilha_carregada:
+        st.warning("⚠️ Alerta: A planilha do Google Sheets retornou vazia ou está inacessível. Verifique se os dados estão na primeira aba e se o link contém o 'gid' correto da aba.")
+    
+    elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="nome-sup">🚀 TÉCNICOS EM BASE</div>
             <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
