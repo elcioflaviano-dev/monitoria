@@ -116,7 +116,7 @@ if df_master is not None and not df_master.empty:
     status_upper_bruto = df_temp[col_status].fillna('').astype(str).str.upper().str.strip()
     contrato_limpo_bruto = df_temp['Contrato'].fillna('').astype(str).str.strip()
 
-    # Filtra os dados produtivos exatamente como o painel principal faz
+    # Filtra os dados produtivos exatamente como o painel principal faz (AGORA COM 'SUSP')
     df_atend_isolado = df_temp[
         (status_upper_bruto.str.contains('CONCL|INIC|SUSP', na=False)) &
         (contrato_limpo_bruto != '') &
