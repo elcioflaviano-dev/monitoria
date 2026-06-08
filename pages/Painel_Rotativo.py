@@ -126,9 +126,18 @@ if "idx" not in st.session_state:
 agora_br = datetime.utcnow() - timedelta(hours=3)
 antes_0825 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 25)
 
-if st.session_state.idx == 0: espera = 40  
-elif st.session_state.idx == 1: espera = 55 
-else: espera = 20 
+# Cria a trava de tempo para as 10:40
+antes_1040 = (agora_br.hour < 10) or (agora_br.hour == 10 and agora_br.minute < 40)
+
+if st.session_state.idx == 0: 
+    espera = 40  
+elif st.session_state.idx == 1: 
+    espera = 55 
+else: # idx == 2 (Tela do Relógio)
+    if antes_1040:
+        espera = 900 # Fica 15 minutos (900 segundos) na tela
+    else:
+        espera = 20  # Volta ao normal de 20 segundos após 10:40
 
 tempo_passado = time.time() - st.session_state.last_time
 
