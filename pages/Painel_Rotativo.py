@@ -5,7 +5,6 @@ import time
 from datetime import datetime, timedelta
 
 # LINK CONFIGURADO DIRETO PARA A SUA ABA SUPERVISORES (gid=0)
-# Se o número do gid na sua barra de endereço for diferente de 0, mude o final para &gid=SEU_NUMERO
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
 # Configuração da Página
@@ -46,19 +45,65 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# Leitura Segura do Google Sheets
-SUPERVISORES, LISTA_SP_FIXA, LISTA_ABC_FIXA = [], [], []
+# 1. LISTAS FIXAS IDÊNTICAS AO "ATIVAR ROTA"
+LISTA_SP_FIXA = [
+    "ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE",
+    "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS",
+    "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "EDCARLOS PEREIRA DE JESUS",
+    "GETULIO DOS SANTOS CAFE", "GLEMERSON LIMA DE SOUZA", "GUILHERME DE OLIVEIRA DANTAS",
+    "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS",
+    "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS",
+    "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA",
+    "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS",
+    "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "TAILSON JUAN SANTOS DA CONCEICAO",
+    "ALAN CESAR CARDOSO", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO",
+    "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA",
+    "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA",
+    "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA",
+    "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON",
+    "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA",
+    "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA",
+    "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA",
+    "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "DIEGO FRAGOSO DE BRITO"
+]
+
+LISTA_ABC_FIXA = [
+    "ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA",
+    "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS",
+    "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "ANTONIO WESLEY HOLANDA DA SILVA",
+    "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS",
+    "CARLOS EDUARDO DA SILVA CONCEICAO", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA",
+    "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDER SALES MONTEIRO",
+    "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES",
+    "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES",
+    "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA",
+    "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA",
+    "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRANDAO BASTOS",
+    "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME",
+    "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS",
+    "LUCAS SILVA DE LIMA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS HENRIQUE GOMES DA SILVA",
+    "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA",
+    "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO",
+    "PABLO WILLIAM DA SILVA", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA",
+    "RAFAEL DOS ANJOS BAPTISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS",
+    "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO",
+    "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "ALESSANDRO RAMOS DA SILVA",
+    "ALICE EULINA SILVA", "BRUNO PINHEIRO MAGALHAES", "KAUE BARBEIRO SOARES",
+    "ENZO RUBENS ARAUJO MACIEL", "HAMILTON RICARDO INACIO", "WILLIAM BORGES DOS SANTOS",
+    "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "DANIEL AUGUSTO PEREIRA",
+    "JULIO CESAR SILVA DOS SANTOS", "MATHEUS DA SILVA NASCIMENTO"
+]
+
+# Leitura Segura do Google Sheets (Agora focada apenas nos supervisores)
+SUPERVISORES = []
 planilha_carregada = False
 
 try:
     df_equipe = pd.read_csv(URL_PLANILHA)
     if not df_equipe.empty and len(df_equipe.columns) >= 3:
         df_equipe.columns = df_equipe.columns.str.strip().str.upper()
-        
-        # Mapeamento automático usando suas colunas reais: LOGIN, NOME, SUPERVISOR, BASE
+        # Puxa apenas a listagem de supervisores dinamicamente
         SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
-        LISTA_SP_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "SP"]["NOME"].dropna().tolist()
-        LISTA_ABC_FIXA = df_equipe[df_equipe["BASE"].str.strip().str.upper() == "ABC"]["NOME"].dropna().tolist()
         planilha_carregada = True
 except Exception as e:
     st.error(f"Aguardando conexão estável com o Google Sheets...")
@@ -174,11 +219,14 @@ with tela_placeholder.container():
             
             if col_tipo and col_status:
                 df_tela = df[(df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))].copy()
-                nomes_na_base = sorted(df_tela['Recurso'].dropna().unique().tolist())
-                lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
-                lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
-                nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
-                nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
+                
+                # Tratamento com .strip() garante a remoção de espaços invisíveis dos nomes
+                nomes_na_base = sorted(df_tela['Recurso'].dropna().astype(str).str.strip().unique().tolist())
+                lista_sp = [str(n).strip().upper() for n in LISTA_SP_FIXA] + [str(n).strip().upper() for n in st.session_state["novos_sp"]]
+                lista_abc = [str(n).strip().upper() for n in LISTA_ABC_FIXA] + [str(n).strip().upper() for n in st.session_state["novos_abc"]]
+                
+                nomes_abc = [n for n in nomes_na_base if str(n).strip().upper() in lista_abc or str(n).strip().upper() not in lista_sp]
+                nomes_sp = [n for n in nomes_na_base if str(n).strip().upper() in lista_sp]
 
                 c1, c2, c3, c4 = st.columns(4)
                 mid_abc = len(nomes_abc) // 2
@@ -300,7 +348,7 @@ with tela_placeholder.container():
                         nome_visual = obter_nome_visual(sup_full)
                         texto_fala = f"{nome_visual}: {qtd_pendentes} pendentes."
                         script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
-                    script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}), {14000 + len(SUPERVISORES) * 7000});\n"
+                    script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}) , {14000 + len(SUPERVISORES) * 7000});\n"
                     script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
