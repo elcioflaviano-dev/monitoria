@@ -140,16 +140,15 @@ if df_master is not None and not df_master.empty:
         else:
             df_tela['SUPERVISOR_MOSTRAR'] = ''
 
-        # 🔥 NOVO MOTOR DE DISTRIBUIÇÃO CORRIGIDO E EXPANDIDO 🔥
-        # Varre pelo primeiro nome do técnico para linkar o supervisor correto sem engolir ninguém
+        # 🔥 MOTOR DE DISTRIBUIÇÃO ATUALIZADO PARA EDSON MARCO 🔥
         def vincular_supervisor_tecnico(row):
             nome_u = str(row[col_tecnico_check]).upper().strip()
-            sup_orig = str(row['SUPERVISOR_MOSTRAR'])
+            sup_orig = str(row['SUPERVISOR_MOSTRAR']).upper().strip()
             
-            # Se a linha já trouxer o supervisor correto do Excel, mantém
+            # Se a linha já trouxer o supervisor correto do Excel/Sheets, mantém
             if "FRANCISCO" in sup_orig: return "FRANCISCO"
             if "ALAN" in sup_orig: return "ALAN"
-            if "MAICON" in sup_orig: return "MAICON"
+            if "EDSON" in sup_orig or "MARCO" in sup_orig: return "EDSON MARCO"
             if "NELSON" in sup_orig: return "NELSON"
             if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
 
@@ -163,7 +162,7 @@ if df_master is not None and not df_master.empty:
             if "NELSON" in nome_u: 
                 return "NELSON"
                 
-            return "MAICON"
+            return "EDSON MARCO"
 
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
