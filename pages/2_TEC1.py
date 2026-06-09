@@ -7,6 +7,16 @@ from datetime import datetime, timedelta
 # 1. Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
+# CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT)
+st.markdown("""
+    <style>
+    [data-testid="stHeader"] { visibility: hidden !important; }
+    .stDeployButton { display: none !important; }
+    footer { visibility: hidden !important; }
+    #MainMenu { visibility: hidden !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
 # 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
