@@ -3,6 +3,16 @@ import pandas as pd
 
 st.set_page_config(layout="wide")
 
+# CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT)
+st.markdown("""
+    <style>
+    [data-testid="stHeader"] { visibility: hidden !important; }
+    .stDeployButton { display: none !important; }
+    footer { visibility: hidden !important; }
+    #MainMenu { visibility: hidden !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 # 1. LISTAS FIXAS (DECLARADAS DENTRO DA PÁGINA PARA SEGURANÇA)
 LISTA_SP_FIXA = [
     "ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE",
