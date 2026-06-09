@@ -21,10 +21,15 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         st.session_state["last_refresh_pendentes"] = time.time()
         st.rerun()
 
+# CSS ATUALIZADO: INCLUI AS REGRAS PARA ESCONDER OS ATALHOS DO STREAMLIT
 st.markdown("""
     <style>
+        [data-testid="stHeader"] { visibility: hidden !important; }
+        .stDeployButton { display: none !important; }
+        footer { visibility: hidden !important; }
+        #MainMenu { visibility: hidden !important; }
+        
         .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
-        .stDeployButton { display:none; }
         .title-abc-sp { font-size: 24px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
         .super-bar { background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #333; margin-top: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #cc6600; }
         .super-total { background-color: #ffebee; color: #c62828; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 900; }
