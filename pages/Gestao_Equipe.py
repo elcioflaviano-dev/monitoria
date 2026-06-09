@@ -6,6 +6,16 @@ URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0i
 
 st.set_page_config(page_title="Gestão de Equipe", layout="centered")
 
+# CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT)
+st.markdown("""
+    <style>
+    [data-testid="stHeader"] { visibility: hidden !important; }
+    .stDeployButton { display: none !important; }
+    footer { visibility: hidden !important; }
+    #MainMenu { visibility: hidden !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 st.markdown('<h1 style="color: #008080; text-align: center;">⚙️ Conexão de Funcionários</h1>', unsafe_allow_html=True)
 st.write("A sua lista está perfeitamente integrada com o **Google Sheets** na nuvem!")
 st.divider()
