@@ -34,9 +34,15 @@ try:
 except:
     pass
 
-# Customização CSS de Alta Performance Visual
+# Customização CSS de Alta Performance Visual e Limpeza da Interface
 st.markdown("""
     <style>
+    /* CSS PARA ESCONDER OS ATALHOS DO STREAMLIT */
+    [data-testid="stHeader"] { visibility: hidden !important; }
+    .stDeployButton { display: none !important; }
+    footer { visibility: hidden !important; }
+    #MainMenu { visibility: hidden !important; }
+    
     .block-container { padding-top: 1.5rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 16px !important; }
     
