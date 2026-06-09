@@ -140,17 +140,17 @@ if df_master is not None and not df_master.empty:
         else:
             df_tela['SUPERVISOR_MOSTRAR'] = ''
 
-        # 🔥 MOTOR DE DISTRIBUIÇÃO ATUALIZADO PARA EDSON MARCO 🔥
+        # 🔥 MOTOR DE DISTRIBUIÇÃO ATUALIZADO E CORRIGIDO 🔥
         def vincular_supervisor_tecnico(row):
             nome_u = str(row[col_tecnico_check]).upper().strip()
             sup_orig = str(row['SUPERVISOR_MOSTRAR']).upper().strip()
             
-            # Se a linha já trouxer o supervisor correto do Excel/Sheets, mantém
+            # A ordem importa para evitar conflito de nomes parecidos (MARCOS x MARCO)
             if "FRANCISCO" in sup_orig: return "FRANCISCO"
             if "ALAN" in sup_orig: return "ALAN"
-            if "EDSON" in sup_orig or "MARCO" in sup_orig: return "EDSON MARCO"
-            if "NELSON" in sup_orig: return "NELSON"
             if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
+            if "EDSON" in sup_orig: return "EDSON MARCO"
+            if "NELSON" in sup_orig: return "NELSON"
 
             # Fallback inteligente por primeiro nome do técnico (PROCV interno por substring)
             if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
