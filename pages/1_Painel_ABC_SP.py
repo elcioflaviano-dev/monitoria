@@ -32,9 +32,15 @@ try:
 except:
     pass
 
-# Customização CSS de Alta Performance para os Cards e Grid de 6 Colunas
+# Customização CSS de Alta Performance para os Cards, Grid de 6 Colunas e remoção de marcas Streamlit
 st.markdown("""
     <style>
+    /* Esconde os atalhos, menu e marcas d'água do Streamlit */
+    [data-testid="stHeader"] { visibility: hidden !important; }
+    .stDeployButton { display: none !important; }
+    footer { visibility: hidden !important; }
+    #MainMenu { visibility: hidden !important; }
+
     .block-container { padding-top: 1.5rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 10px !important; }
     
@@ -121,7 +127,7 @@ if df_dash is not None and not df_dash.empty:
     contrato_limpo_bruto = df_dash['Contrato'].fillna('').astype(str).str.strip()
 
     # =========================================================================
-    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CALDS FIXOS DO TOPO COM LINK GLOBAL)
+    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CALCS FIXOS DO TOPO COM LINK GLOBAL)
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     
@@ -187,8 +193,8 @@ if df_dash is not None and not df_dash.empty:
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
-        (~df_working['Contrato_Limpo'].str.contains('#N/A', na=False)) &
-        (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) &
+        (~df_working['Contrato_Limpo'].str.contains('#N/A', na=False)) & 
+        (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) & 
         (~df_working['Mestre_Tipo_Atividade_Upper'].str.contains('REFEI', na=False))
     )
     df_working = df_working[cond_saudavel].copy()
@@ -256,7 +262,7 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#333;">{base_total_os_bruto}</div>', unsafe_allow_html=True)
         with c3:
             with st.container(border=True):
-                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">🏃\u200d♂️ Técnicos em Rota</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:11px; font-weight:bold; color:#777; text-transform:uppercase;">🏃‍♂️ Técnicos em Rota</div>', unsafe_allow_html=True)
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#005088;">{base_qtd_tecnicos}</div>', unsafe_allow_html=True)
         with c4:
             with st.container(border=True):
@@ -272,4 +278,4 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
 
 else:
-    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro para gerar o painel.")
+    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro para gerar o painel.")
