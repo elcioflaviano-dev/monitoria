@@ -28,25 +28,7 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
 # 2. Carregar Estilos Globais
 try:
     with open("style.css", "r") as f:
-        st.markdown("<style>" + str(f.read()) + "</style>",/* Esconde o menu superior inteiro (Fork, GitHub, 3 pontinhos e a linha decorativa) */
-[data-testid="stHeader"] {
-    visibility: hidden !important;
-}
-
-/* Esconde o botão flutuante vermelho (Deploy/Manage App) */
-.stDeployButton {
-    display: none !important;
-}
-
-/* Esconde o rodapé padrão (Made with Streamlit) e avatares inferiores */
-footer {
-    visibility: hidden !important;
-}
-
-/* Garante que o menu principal nativo não apareça */
-#MainMenu {
-    visibility: hidden !important;
-} unsafe_allow_html=True)
+        st.markdown("<style>" + str(f.read()) + "</style>",unsafe_allow_html=True)
 except:
     pass
 
