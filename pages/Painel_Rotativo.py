@@ -11,6 +11,12 @@ URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0i
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""<style>
+    /* CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT) */
+    [data-testid="stHeader"] { visibility: hidden !important; }
+    .stDeployButton { display: none !important; }
+    footer { visibility: hidden !important; }
+    #MainMenu { visibility: hidden !important; }
+
     [data-testid="stSidebar"] { display: none !important; }
     .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;}
     .nome-sup { font-size: 45px; font-weight: 900; }
