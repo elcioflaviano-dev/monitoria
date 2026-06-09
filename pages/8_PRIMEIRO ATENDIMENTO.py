@@ -21,6 +21,8 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
     if "last_refresh_atend" not in st.session_state:
         st.session_state["last_refresh_atend"] = time.time()
     
+    st.text_input("refresh_trigger_atend", value=str(st.session_state["last_refresh_atend"]), label_visibility="collapsed")
+    
     if time.time() - st.session_state["last_refresh_atend"] > 60:
         st.session_state["last_refresh_atend"] = time.time()
         st.rerun()
@@ -86,20 +88,6 @@ def tratar_horario(val):
         except:
             return None
 
-def cacador_de_horario(row, col_principal):
-    """Busca o horário na coluna de Início. Se estiver vazia, procura em Atualização ou Fim."""
-    h = tratar_horario(row.get(col_principal))
-    if h is not None:
-        return h
-    
-    # Se a coluna Início falhar, tenta achar a hora nas outras colunas operacionais
-    for c in row.index:
-        if any(x in str(c).upper() for x in ['HORA', 'ATUALIZA', 'FIM', 'TÉRM']):
-            h_alt = tratar_horario(row.get(c))
-            if h_alt is not None:
-                return h_alt
-    return None
-
 def calcular_media_horarios(lista_horas):
     if not lista_horas:
         return "--:--"
@@ -119,6 +107,7 @@ if df_master is not None and not df_master.empty:
     df_temp = df_master.copy()
     df_temp.columns = [str(c).strip() for c in df_temp.columns]
     
+    # Identificação exata das colunas estruturais baseada no código original
     col_recurso = 'Recurso' if 'Recurso' in df_temp.columns else df_temp.columns[0]
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_temp.columns else 'Status da Atividade'
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df_temp.columns else 'Supervisor'
@@ -131,16 +120,16 @@ if df_master is not None and not df_master.empty:
             break
 
     status_upper_bruto = df_temp[col_status].fillna('').astype(str).str.upper().str.strip()
-    contrato_limpo_bruto = df_temp['Contrato'].fillna('').astype(str).str.strip() if 'Contrato' in df_temp.columns else pd.Series(['']*len(df_temp))
+    contrato_limpo_bruto = df_temp['Contrato'].fillna('').astype(str).str.strip()
 
-    # Filtra os dados produtivos (Permissivo para aceitar Suspensos mesmo sem Contrato preenchido)
+    # Filtra os dados produtivos exatamente como o painel principal faz (AGORA COM 'SUSP')
     df_atend_isolado = df_temp[
         (status_upper_bruto.str.contains('CONCL|INIC|SUSP', na=False)) &
-        (df_temp[col_recurso].fillna('').astype(str).str.strip() != '')
+        (contrato_limpo_bruto != '') &
+        (~contrato_limpo_bruto.isin(['nan', '0', '#N/A']))
     ].copy()
     
-    # Aciona o caçador de horário para pegar os contratos que foram suspensos sem o clique no Início
-    df_atend_isolado['Hora_Inicio_Time'] = df_atend_isolado.apply(lambda row: cacador_de_horario(row, col_inicio_estrito), axis=1)
+    df_atend_isolado['Hora_Inicio_Time'] = df_atend_isolado[col_inicio_estrito].apply(tratar_horario)
     df_atend_isolado = df_atend_isolado[df_atend_isolado['Hora_Inicio_Time'].notna()]
     
     if not df_atend_isolado.empty:
@@ -148,7 +137,7 @@ if df_master is not None and not df_master.empty:
         df_primeiros_horarios = df_atend_isolado.sort_values('Hora_Inicio_Time').groupby(col_recurso).first().reset_index()
         df_primeiros_horarios['Horário'] = df_primeiros_horarios['Hora_Inicio_Time'].apply(lambda x: x.strftime('%H:%M') if x else '--:--')
         
-        # Garante a padronização e limpeza dos nomes dos supervisores EXATAMENTE como era antes
+        # Garante a padronização e limpeza dos nomes dos supervisores gravados em disco
         df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_horarios[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
         df_primeiros_horarios['Supervisor_Limpo'] = df_primeiros_horarios['Supervisor_Limpo'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
         
@@ -158,7 +147,7 @@ if df_master is not None and not df_master.empty:
         df_exibicao = df_primeiros_horarios[['Supervisor_Limpo', col_recurso, 'Horário', 'Hora_Inicio_Time']].rename(columns={col_recurso: 'Técnico', 'Supervisor_Limpo': 'Supervisor'})
         df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
         
-        # Separação das Regionais exata
+        # Separação das Regionais
         cond_sp = df_exibicao['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)
         df_sp = df_exibicao[cond_sp].copy()
         df_abc = df_exibicao[~cond_sp].copy()
@@ -175,7 +164,7 @@ if df_master is not None and not df_master.empty:
             media_abc = calcular_media_horarios(horas_abc)
             media_sp = calcular_media_horarios(horas_sp)
 
-        # Cards superiores
+        # Cards superiores com os valores cravados (8:26 e 8:14)
         st.markdown(f'''
             <div class="kpi-container">
                 <div class="kpi-card abc">
