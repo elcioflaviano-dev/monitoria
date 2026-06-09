@@ -21,7 +21,6 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
     if "last_refresh_atend" not in st.session_state:
         st.session_state["last_refresh_atend"] = time.time()
     
-    st.text_input("refresh_trigger_atend", value=str(st.session_state["last_refresh_atend"]), label_visibility="collapsed")
     
     if time.time() - st.session_state["last_refresh_atend"] > 60:
         st.session_state["last_refresh_atend"] = time.time()
