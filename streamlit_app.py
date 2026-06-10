@@ -12,10 +12,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT)
+# CSS PARA LIMPEZA DA INTERFACE (MANTÉM A SETA DO MENU LATERAL VISÍVEL)
 st.markdown("""
     <style>
-    [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
     #MainMenu { visibility: hidden !important; }
@@ -167,7 +166,7 @@ if df_master is not None and not df_master.empty:
             <div style="text-align: center; padding: 25px 10px;">
                 <h2 style="color: #2e7d32; font-size: 28px; margin-bottom: 10px;">🚀 UPLOAD CONCLUÍDO COM SUCESSO!</h2>
                 <p style="color: #444; font-size: 16px; margin-bottom: 20px;">
-                    {len(df_master)} contratos integrados e salvos em disco no sistema.
+                    {len(df_master)} contratos integrados e salvos em disco no systema.
                 </p>
                 <div style="display: inline-block; background-color: #e8f5e9; color: #1b5e20; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 14px;">
                     🎯 Dados Prontos e Sincronizados com a TV da Monitoria
