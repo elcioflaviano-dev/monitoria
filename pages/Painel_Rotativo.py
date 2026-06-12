@@ -22,7 +22,7 @@ def carregar_logo_html(caminho_imagem):
             with open(caminho_imagem, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
             # Ajustado para a altura total de 100px da barra azul
-            return f'<img src="data:image/png;base64,{encoded_string}" style="height: 100px; width: auto; object-fit: contain; display: block;">'
+            return f'<img src="data:image/png;base64,{encoded_string}" style="height: 150px; width: auto; object-fit: contain; display: block;">'
         except:
             return '<div></div>'
     return '<div></div>'
