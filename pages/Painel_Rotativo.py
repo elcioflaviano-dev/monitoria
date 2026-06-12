@@ -5,9 +5,12 @@ import time
 import base64
 from datetime import datetime, timedelta
 
-# CONFIGURAÇÕES DE CAMINHOS E LINKS
+# LINK CONFIGURADO DIRETO PARA A SUA ABA SUPERVISORES (gid=0)
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
-ARQUIVO_LOGO = "logo.png"
+
+# FORÇAR CAMINHO ABSOLUTO PARA O LOGO NÃO SUMIR NA NUVEM
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ARQUIVO_LOGO = os.path.join(BASE_DIR, "logo.png")
 
 # Configuração da Página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
