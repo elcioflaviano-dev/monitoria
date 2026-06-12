@@ -13,11 +13,11 @@ ROOT_DIR = os.getcwd()
 ARQUIVO_INDICADORES = os.path.join(ROOT_DIR, "indicadores_data.csv")
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 
+# Procura o logo de forma flexível (raiz ou pages)
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
     ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
-# Configuração da Página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 def carregar_logo_html(caminho_imagem):
@@ -71,7 +71,6 @@ st.markdown("""<style>
     .card-ind-valor { font-size:36px; font-weight:900; color:#005088; line-height:1; }
 </style>""", unsafe_allow_html=True)
 
-# LISTAS FIXAS
 LISTA_SP_FIXA = ["ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE", "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS", "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "Edcarlos Pereira de Jesus", "GETULIO DOS SANTOS CAFE", "Glemerson Lima De Souza", "GUILHERME DE OLIVEIRA DANTAS", "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS", "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS", "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA", "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS", "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "Alan Cesar Cardoso", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO", "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA", "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA", "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA", "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON", "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA", "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA", "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA", "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "TAILSON JUAN SANTOS DA CONCEICAO", "DIEGO FRAGOSO DE BRITO", "ALYSON ALBERTO MARTINS", "AUGUSTO MOREIRA DA SILVA", "ENDERSON CLEITON SOUZA CRUZ", "CARLOS SEBASTIAO MORAIS", "EZIEL DE OLIVEIRA BARROS", "VICTOR BORGES ALVES", "MATHEUS CARDOSO DE OLIVEIRA", "ROGERIO AFONSO DA SILVA", "KAIO NASCIMENTO ALVES DOS SANTOS", "KELVIN RIBEIRO BENTO DA COSTA", "MARCELO BUENO SEGURA", "MAYKON RIBEIRO GUIMARAES", "THIAGO JOSE ASSUNCAO", "GUSTAVO SANTOS SANT ANA"]
 LISTA_ABC_FIXA = ["ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA", "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS", "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA", "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES", "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES", "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA", "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA", "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRADAO BASTOS", "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME", "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS", "LUCAS SILVA DE LIMA", "LUIS HENRIQUE GOMES DA SILVA", "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA", "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA", "RAFAEL DOS ANJOS BATISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS", "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO", "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "DANIEL AUGUSTO PEREIRA", "JULIO CESAR SILVA DOS SANTOS", "EDER SALES MONTEIRO", "ANTONIO WESLEY HOLANDA DA SILVA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "ALEX DE JESUS FREIRE", "ANTHONY HULLY PEREIRA DIAS", "ANTONIO CHARLES MARINHO", "ARLAN DUARTE NASCIMENTO", "EVERTON ALVES", "IGOR DAVID DE MARCHI", "JAZIEL DOS SANTOS SILVA", "KAUAN PASCHOAL", "LUCAS SILVA SOBRINHO", "NICOLAS CALEGARI STARCHARVSKI", "RENATO ESPERANÇA", "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", "VITOR MATOS DE ALMEIDA"]
 
@@ -112,19 +111,22 @@ janela_13 = (agora_br.hour == 13 and agora_br.minute >= 30)
 janela_16 = (agora_br.hour == 16 and agora_br.minute >= 30)
 mostrar_indicadores = janela_13 or janela_16
 
-# TEMPO DE CADA TELA
+# O ACELERADOR DE JANELA (11:40+, 14:40+, 17:40+)
+alerta_fim_janela = (agora_br.hour in [11, 14, 17]) and (agora_br.minute >= 40)
+
+# TEMPO DINÂMICO DE CADA TELA
 if st.session_state.idx == 0: 
-    espera = 60 # Atualiza de 1 em 1 min
+    espera = 60 # Técnicos na Base
 elif st.session_state.idx == 1: 
-    espera = 55 
+    espera = 30 if alerta_fim_janela else 60 # Contratos Pendentes
 elif st.session_state.idx == 3: 
-    espera = 30
+    espera = 30 # Indicadores
 elif st.session_state.idx == 2:
-    espera = 10 # Relógio rápido (Limpa Rastro)
+    espera = 30 if alerta_fim_janela else 180 # Relógio: 3 minutos normal, 30s no Rush
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# ROTADOR DE TELAS
+# ROTADOR DE TELAS (SANDUÍCHE COM RELÓGIO NEUTRO)
 if tempo_passado > espera:
     if antes_0830:
         prox_idx = 0 # Fica travado na tela 0 até 08:30
@@ -146,6 +148,7 @@ if tempo_passado > espera:
                     prox_idx = 1
             else:
                 prox_idx = 1
+                st.session_state.last_main = 1
                 
     st.session_state.idx = prox_idx
     st.session_state.last_time = time.time()
@@ -208,8 +211,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
-# Destrói a tela anterior completamente para não haver sobreposição
-st.empty()
+st.empty() # Limpeza absoluta
 
 # =========================================================================
 # TELA 0: TÉCNICOS NA BASE (ATÉ 08:30)
@@ -382,6 +384,7 @@ elif st.session_state.idx == 2:
     tempo_real = datetime.utcnow() - timedelta(hours=3)
     hora_str = tempo_real.strftime("%H:%M:%S")
     data_str = tempo_real.strftime("%d/%m/%Y")
+    hora_fala = tempo_real.strftime("%H e %M") 
     
     st.markdown(f'''
     <div class="relogio-container">
@@ -390,7 +393,20 @@ elif st.session_state.idx == 2:
     </div>
     ''', unsafe_allow_html=True)
     
-    # Nenhuma voz no buffer para não sobrepor áudios
+    # VOZ RESTAURADA E DINÂMICA
+    if st.session_state.novo_ciclo:
+        script_cenario = f"<script>{JS_MOTOR_AUDIO}"
+        if alerta_fim_janela:
+            texto_hora = f"Atenção equipe. Fim da janela se aproximando. Hora certa: {hora_fala}."
+        else:
+            texto_hora = f"Hora certa: {hora_fala}."
+        script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
+        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
+        st.session_state.script_audio_atual = script_cenario
+        st.session_state.novo_ciclo = False
+        
+    with st.container():
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # =========================================================================
 # TELA 3: INDICADORES DA EQUIPE
@@ -404,13 +420,14 @@ elif st.session_state.idx == 3:
 
     if st.session_state.novo_ciclo:
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-        texto_fala = "Atenção equipe. Quadro de indicadores atualizado na tela."
+        texto_fala = "Atenção equipe. Quadro de indicadores operacionais atualizado na tela."
         script_cenario += f"anunciarBase('{texto_fala}', 0);\n"
         script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
         st.session_state.script_audio_atual = script_cenario
         st.session_state.novo_ciclo = False
         
-    st.components.v1.html(st.session_state.script_audio_atual, height=0)
+    with st.container():
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     df_ind = pd.DataFrame(columns=["INDICADOR", "BASE", "SUPERVISOR", "VALOR"])
     if os.path.exists(ARQUIVO_INDICADORES):
