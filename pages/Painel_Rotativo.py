@@ -62,11 +62,10 @@ st.markdown("""<style>
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
     
-    /* ESTILO PARA A NOVA TABELA DE INDICADORES NA TV */
-    .tabela-indicadores { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 20px; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); }
-    .tabela-indicadores th { background-color: #003366; color: white; padding: 15px; text-align: center; border: 1px solid #ddd; }
-    .tabela-indicadores td { padding: 15px; text-align: center; border: 1px solid #ddd; font-weight: bold; color: #333; }
-    .tabela-indicadores td:first-child { text-align: left; background-color: #f0f2f6; color: #003366; font-size: 22px; }
+    /* ESTILOS PARA OS CARDS DOS INDICADORES */
+    .card-indicador { background:#f0f2f6; border-radius:6px; padding:15px; text-align:center; border: 1px solid #ddd; }
+    .card-ind-titulo { font-size:14px; font-weight:800; color:#555; margin-bottom:5px; text-transform:uppercase; }
+    .card-ind-valor { font-size:36px; font-weight:900; color:#005088; line-height:1; }
 </style>""", unsafe_allow_html=True)
 
 # LISTAS FIXAS IDÊNTICAS AO "ATIVAR ROTA"
@@ -379,7 +378,7 @@ with tela_placeholder.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # =========================================================================
-    # NOVA TELA 3: INDICADORES (NR35, CERTIDÃO E BAND STEERING)
+    # NOVA TELA 3: INDICADORES ESTILO "TEC1"
     # =========================================================================
     elif st.session_state.idx == 3:
         st.markdown(f'''<div class="topo-container">
@@ -396,31 +395,46 @@ with tela_placeholder.container():
         if not df_ind.empty:
             c_abc, c_sp = st.columns(2)
             
-            def gerar_tabela_html(df_base):
+            def renderizar_cards_indicadores(df_base):
                 pivot = df_base.pivot(index="SUPERVISOR", columns="INDICADOR", values="VALOR").fillna(0).astype(int)
                 for col in ["NR35", "Certidão de Atendimento", "Band Steering"]:
                     if col not in pivot.columns:
                         pivot[col] = 0
                 
-                html = '<table class="tabela-indicadores"><tr><th>Supervisor</th><th>NR35</th><th>Certidão</th><th>Band Steering</th></tr>'
-                for index, row in pivot.iterrows():
-                    html += f'<tr><td>{index}</td><td>{row["NR35"]}</td><td>{row["Certidão de Atendimento"]}</td><td>{row["Band Steering"]}</td></tr>'
-                html += '</table>'
-                return html
+                for supervisor in sorted(pivot.index):
+                    row = pivot.loc[supervisor]
+                    with st.container(border=True):
+                        st.markdown(f'<div style="font-size:22px; font-weight:900; margin-bottom:12px; color:#111;">📋 {supervisor}</div>', unsafe_allow_html=True)
+                        m1, m2, m3 = st.columns(3)
+                        with m1:
+                            st.markdown(f'''<div class="card-indicador">
+                                <div class="card-ind-titulo">👷 NR35</div>
+                                <div class="card-ind-valor">{int(row["NR35"])}</div>
+                            </div>''', unsafe_allow_html=True)
+                        with m2:
+                            st.markdown(f'''<div class="card-indicador">
+                                <div class="card-ind-titulo">📄 CERTIDÃO</div>
+                                <div class="card-ind-valor">{int(row["Certidão de Atendimento"])}</div>
+                            </div>''', unsafe_allow_html=True)
+                        with m3:
+                            st.markdown(f'''<div class="card-indicador">
+                                <div class="card-ind-titulo">📡 BAND STEERING</div>
+                                <div class="card-ind-valor">{int(row["Band Steering"])}</div>
+                            </div>''', unsafe_allow_html=True)
 
             with c_abc:
-                st.markdown('<div class="nome-base" style="color: #2e7d32; text-align:center; margin-bottom:10px;">ABC PAULISTA</div>', unsafe_allow_html=True)
+                st.markdown('<div class="nome-base" style="color: #2e7d32; text-align:center; margin-bottom:15px; border-bottom: 3px solid #2e7d32; padding-bottom: 5px;">ABC PAULISTA</div>', unsafe_allow_html=True)
                 df_abc = df_ind[df_ind["BASE"] == "ABC"]
                 if not df_abc.empty:
-                    st.markdown(gerar_tabela_html(df_abc), unsafe_allow_html=True)
+                    renderizar_cards_indicadores(df_abc)
                 else:
                     st.info("Nenhum indicador lançado para o ABC hoje.")
 
             with c_sp:
-                st.markdown('<div class="nome-base" style="color: #03a398; text-align:center; margin-bottom:10px;">SÃO PAULO</div>', unsafe_allow_html=True)
+                st.markdown('<div class="nome-base" style="color: #03a398; text-align:center; margin-bottom:15px; border-bottom: 3px solid #03a398; padding-bottom: 5px;">SÃO PAULO</div>', unsafe_allow_html=True)
                 df_sp = df_ind[df_ind["BASE"] == "SP"]
                 if not df_sp.empty:
-                    st.markdown(gerar_tabela_html(df_sp), unsafe_allow_html=True)
+                    renderizar_cards_indicadores(df_sp)
                 else:
                     st.info("Nenhum indicador lançado para SP hoje.")
         else:
