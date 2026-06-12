@@ -2,13 +2,28 @@ import streamlit as st
 import pandas as pd
 import os
 import time
+import base64
 from datetime import datetime, timedelta
 
-# LINK CONFIGURADO DIRETO PARA A SUA ABA SUPERVISORES (gid=0)
+# CONFIGURAÇÕES DE CAMINHOS E LINKS
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
+ARQUIVO_LOGO = "logo.png"
 
 # Configuração da Página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+# Função Inteligente para injetar a imagem diretamente no HTML via Base64
+def carregar_logo_html(caminho_imagem):
+    if os.path.exists(caminho_imagem):
+        try:
+            with open(caminho_imagem, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+            return f'<img src="data:image/png;base64,{encoded_string}" style="max-height: 55px; width: auto; display: block;">'
+        except:
+            return '<div></div>'
+    return '<div></div>'
+
+logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 st.markdown("""<style>
     /* CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT) */
@@ -16,11 +31,35 @@ st.markdown("""<style>
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
     #MainMenu { visibility: hidden !important; }
-
     [data-testid="stSidebar"] { display: none !important; }
-    .topo-container { background: #003366; color: white; padding: 25px; border-radius: 0 0 15px 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;}
-    .nome-sup { font-size: 45px; font-weight: 900; }
+
+    /* MOTOR DE ALINHAMENTO DO TOPO AZUL (3 COLUNAS COM CENTRO ABSOLUTO) */
+    .topo-container { 
+        background: #003366; 
+        color: white; 
+        padding: 15px 30px; 
+        border-radius: 0 0 15px 15px; 
+        display: grid; 
+        grid-template-columns: 1fr auto 1fr; 
+        align-items: center; 
+        margin-bottom: 10px;
+    }
+    .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; }
+    .topo-centro { font-size: 45px; font-weight: 900; text-align: center; white-space: nowrap; }
+    .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     
+    .botao-home { 
+        color: #fff; 
+        font-size: 18px; 
+        font-weight: bold; 
+        border: 2px solid #fff; 
+        padding: 8px 15px; 
+        border-radius: 5px; 
+        text-decoration: none; 
+    }
+    .botao-home:hover { background-color: rgba(255,255,255,0.1); color: white; }
+    
+    /* BLOCOS REGIONAIS E GRIDS */
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .box-base-sp { background: #dcf7f5; border-left: 10px solid #03a398; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
@@ -54,7 +93,6 @@ st.markdown("""<style>
 # 1. LISTAS FIXAS IDÊNTICAS AO "ATIVAR ROTA"
 LISTA_SP_FIXA = [
     "ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE", "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS", "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "Edcarlos Pereira de Jesus", "GETULIO DOS SANTOS CAFE", "Glemerson Lima De Souza", "GUILHERME DE OLIVEIRA DANTAS", "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS", "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS", "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA", "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS", "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "Alan Cesar Cardoso", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO", "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA", "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA", "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA", "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON", "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA", "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA", "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA", "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "TAILSON JUAN SANTOS DA CONCEICAO", "DIEGO FRAGOSO DE BRITO", "ALYSON ALBERTO MARTINS", "AUGUSTO MOREIRA DA SILVA", "ENDERSON CLEITON SOUZA CRUZ", "CARLOS SEBASTIAO MORAIS", "EZIEL DE OLIVEIRA BARROS", "VICTOR BORGES ALVES", "MATHEUS CARDOSO DE OLIVEIRA", "ROGERIO AFONSO DA SILVA", "KAIO NASCIMENTO ALVES DOS SANTOS", "KELVIN RIBEIRO BENTO DA COSTA", "MARCELO BUENO SEGURA", "MAYKON RIBEIRO GUIMARAES", "THIAGO JOSE ASSUNCAO", "GUSTAVO SANTOS SANT ANA"
-    
 ]
 
 LISTA_ABC_FIXA = [
@@ -75,7 +113,6 @@ LISTA_ABC_FIXA = [
     "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", "VITOR MATOS DE ALMEIDA"
 ]
 
-# Leitura Segura do Google Sheets (Agora focada apenas nos supervisores)
 SUPERVISORES = []
 planilha_carregada = False
 
@@ -83,7 +120,6 @@ try:
     df_equipe = pd.read_csv(URL_PLANILHA)
     if not df_equipe.empty and len(df_equipe.columns) >= 3:
         df_equipe.columns = df_equipe.columns.str.strip().str.upper()
-        # Puxa apenas a listagem de supervisores dinamicamente
         SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
         planilha_carregada = True
 except Exception as e:
@@ -106,19 +142,15 @@ if "idx" not in st.session_state:
 
 agora_br = datetime.utcnow() - timedelta(hours=3)
 antes_0825 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 25)
-
-# Cria a trava de tempo para as 10:40
 antes_1040 = (agora_br.hour < 10) or (agora_br.hour == 10 and agora_br.minute < 40)
 
 if st.session_state.idx == 0: 
     espera = 40  
 elif st.session_state.idx == 1: 
     espera = 55 
-else: # idx == 2 (Tela do Relógio)
-    if antes_1040:
-        espera = 900 # Fica 15 minutos (900 segundos) na tela
-    else:
-        espera = 20  # Volta ao normal de 20 segundos após 10:40
+else:
+    if antes_1040: espera = 900 
+    else: espera = 20  
 
 tempo_passado = time.time() - st.session_state.last_time
 
@@ -197,8 +229,9 @@ with tela_placeholder.container():
     
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
-            <div class="nome-sup">🚀 TÉCNICOS EM BASE</div>
-            <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">🚀 TÉCNICOS EM BASE</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
         if os.path.exists("rota_sincronizada.csv"):
@@ -210,7 +243,6 @@ with tela_placeholder.container():
             if col_tipo and col_status:
                 df_tela = df[(df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))].copy()
                 
-                # Tratamento com .strip() garante a remoção de espaços invisíveis dos nomes
                 nomes_na_base = sorted(df_tela['Recurso'].dropna().astype(str).str.strip().unique().tolist())
                 lista_sp = [str(n).strip().upper() for n in LISTA_SP_FIXA] + [str(n).strip().upper() for n in st.session_state["novos_sp"]]
                 lista_abc = [str(n).strip().upper() for n in LISTA_ABC_FIXA] + [str(n).strip().upper() for n in st.session_state["novos_abc"]]
@@ -259,8 +291,9 @@ with tela_placeholder.container():
 
     elif st.session_state.idx == 1: 
         st.markdown(f'''<div class="topo-container">
-            <div class="nome-sup">CONTRATOS PENDENTES</div>
-            <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">CONTRATOS PENDENTES</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
         if os.path.exists("rota_sincronizada.csv"):
@@ -356,8 +389,9 @@ with tela_placeholder.container():
 
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
-            <div class="nome-sup">HORÁRIO</div>
-            <a href="/" style="color:#fff; font-size:18px; font-weight:bold; border:2px solid #fff; padding:8px 15px; border-radius:5px; text-decoration:none;">🏠 HOME</a>
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">HORÁRIO</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
         tempo_real = datetime.utcnow() - timedelta(hours=3)
