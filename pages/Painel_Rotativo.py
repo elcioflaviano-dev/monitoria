@@ -5,10 +5,13 @@ import time
 import base64
 from datetime import datetime, timedelta
 
-# CONFIGURAÇÕES DE CAMINHOS E LINKS
+# CONFIGURAÇÕES DE CAMINHOS E LINKS (COM CAMINHO ABSOLUTO PARA A NUVEM)
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
-ARQUIVO_LOGO = "logo.png"
-ARQUIVO_INDICADORES = "indicadores_data.csv"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ARQUIVO_LOGO = os.path.join(BASE_DIR, "logo.png")
+ARQUIVO_INDICADORES = os.path.join(BASE_DIR, "indicadores_data.csv")
+ARQUIVO_ROTA_DISCO = os.path.join(BASE_DIR, "rota_sincronizada.csv")
 
 # Configuração da Página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -106,9 +109,9 @@ if st.session_state.idx == 0:
     espera = 40  
 elif st.session_state.idx == 1: 
     espera = 55 
-elif st.session_state.idx == 3: # NOVA TELA DOS INDICADORES
+elif st.session_state.idx == 3: 
     espera = 30
-else: # TELA DO RELÓGIO (idx == 2)
+else:
     if antes_1040: espera = 900 
     else: espera = 20  
 
@@ -117,7 +120,7 @@ tempo_passado = time.time() - st.session_state.last_time
 # LÓGICA DE ROTAÇÃO DAS 4 TELAS
 if tempo_passado > espera:
     prox_idx = st.session_state.idx + 1
-    if prox_idx > 3: prox_idx = 0 # Agora rotaciona entre 0, 1, 2 e 3
+    if prox_idx > 3: prox_idx = 0 
     
     if antes_0825 and prox_idx == 1: prox_idx = 2 
     elif not antes_0825 and prox_idx == 0: prox_idx = 1 
@@ -197,8 +200,8 @@ with tela_placeholder.container():
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
-        if os.path.exists("rota_sincronizada.csv"):
-            df = pd.read_csv("rota_sincronizada.csv", dtype=str)
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
             df.columns = [str(c).strip() for c in df.columns]
             col_tipo = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else ('Tipo de Atividade' if 'Tipo de Atividade' in df.columns else None)
             col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
@@ -259,8 +262,8 @@ with tela_placeholder.container():
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
-        if os.path.exists("rota_sincronizada.csv"):
-            df = pd.read_csv("rota_sincronizada.csv", dtype=str)
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
             df.columns = [str(c).strip() for c in df.columns]
             
             def padronizar_supervisor(nome):
