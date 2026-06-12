@@ -8,12 +8,11 @@ from datetime import datetime, timedelta
 # CONFIGURAÇÕES DE CAMINHOS E LINKS
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
-# GARANTIA DE CAMINHO ABSOLUTO NA RAIZ (Sem erros de ficheiros perdidos na Nuvem)
+# GARANTIA DE CAMINHO ABSOLUTO NA RAIZ
 ROOT_DIR = os.getcwd()
 ARQUIVO_INDICADORES = os.path.join(ROOT_DIR, "indicadores_data.csv")
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 
-# Procura o logo de forma flexível (raiz ou pages)
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
     ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
@@ -34,14 +33,12 @@ def carregar_logo_html(caminho_imagem):
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 st.markdown("""<style>
-    /* CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT) */
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
     #MainMenu { visibility: hidden !important; }
     [data-testid="stSidebar"] { display: none !important; }
 
-    /* MOTOR DE ALINHAMENTO DO TOPO AZUL */
     .topo-container { 
         background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; 
         display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 100px;
@@ -53,7 +50,6 @@ st.markdown("""<style>
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     .botao-home:hover { background-color: rgba(255,255,255,0.1); color: white; }
     
-    /* BLOCOS REGIONAIS E GRIDS */
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .box-base-sp { background: #dcf7f5; border-left: 10px solid #03a398; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
@@ -70,7 +66,6 @@ st.markdown("""<style>
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
     
-    /* ESTILOS PARA OS CARDS DOS INDICADORES */
     .card-indicador { background:#f0f2f6; border-radius:6px; padding:15px; text-align:center; border: 1px solid #ddd; }
     .card-ind-titulo { font-size:14px; font-weight:800; color:#555; margin-bottom:5px; text-transform:uppercase; }
     .card-ind-valor { font-size:36px; font-weight:900; color:#005088; line-height:1; }
@@ -98,57 +93,61 @@ def obter_nome_visual(nome_completo):
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     return n.split()[0]
 
-if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
-if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
-
 # =========================================================================
-# ⚙️ MÁQUINA DE ESTADO: LÓGICA DE TRANSIÇÃO COM RELÓGIO NEUTRO (BUFFER)
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS INTELIGENTE
 # =========================================================================
 if "idx" not in st.session_state: 
-    st.session_state.idx = 0         # Tela atual (0, 1, 2, 3)
-    st.session_state.last_main = 0   # Guarda a última tela principal exibida (0, 1, 3)
+    st.session_state.idx = 0         
+    st.session_state.last_main = 0   
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.session_state.script_audio_atual = ""
 
 agora_br = datetime.utcnow() - timedelta(hours=3)
-antes_0825 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 25)
-antes_1040 = (agora_br.hour < 10) or (agora_br.hour == 10 and agora_br.minute < 40)
 
-# DEFINIÇÃO DOS TEMPOS
+# REGRAS DE HORÁRIO
+antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
+
+janela_13 = (agora_br.hour == 13 and agora_br.minute >= 30)
+janela_16 = (agora_br.hour == 16 and agora_br.minute >= 30)
+mostrar_indicadores = janela_13 or janela_16
+
+# TEMPO DE CADA TELA
 if st.session_state.idx == 0: 
-    espera = 40  
+    espera = 60 # Atualiza de 1 em 1 min
 elif st.session_state.idx == 1: 
     espera = 55 
 elif st.session_state.idx == 3: 
     espera = 30
 elif st.session_state.idx == 2:
-    if antes_1040: 
-        espera = 900 # Mantém no relógio de manhã
-    else: 
-        espera = 10  # BUFFER LIMPADOR: Fica 10 segs no relógio antes da próxima tela
+    espera = 10 # Relógio rápido (Limpa Rastro)
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# LÓGICA DO SANDUÍCHE (Sempre passa pelo Relógio - idx 2)
+# ROTADOR DE TELAS
 if tempo_passado > espera:
-    if st.session_state.idx != 2:
-        # Se não está no relógio, a PRÓXIMA TELA será obrigatoriamente o Relógio para limpar
-        st.session_state.last_main = st.session_state.idx
-        st.session_state.idx = 2
+    if antes_0830:
+        prox_idx = 0 # Fica travado na tela 0 até 08:30
     else:
-        # Se ESTAVA no relógio, vai para a PRÓXIMA tela principal
-        prox_main = st.session_state.last_main + 1
-        if prox_main == 2: prox_main = 3 # Pula o número 2, pois 2 é o próprio relógio
-        if prox_main > 3: prox_main = 0
-        
-        # Regra matinal para pular a tela de Técnicos em base
-        if antes_0825 and prox_main == 0: 
-            prox_main = 1
-            
-        st.session_state.idx = prox_main
-        st.session_state.last_main = prox_main
-
+        if st.session_state.idx == 0:
+            prox_idx = 1
+            st.session_state.last_main = 1
+        elif st.session_state.idx == 1:
+            prox_idx = 2
+            st.session_state.last_main = 1
+        elif st.session_state.idx == 3:
+            prox_idx = 2
+            st.session_state.last_main = 3
+        elif st.session_state.idx == 2:
+            if mostrar_indicadores:
+                if st.session_state.last_main == 1:
+                    prox_idx = 3
+                else:
+                    prox_idx = 1
+            else:
+                prox_idx = 1
+                
+    st.session_state.idx = prox_idx
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.rerun()
@@ -209,11 +208,11 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
-# Limpeza absoluta da tela antes de desenhar a próxima
+# Destrói a tela anterior completamente para não haver sobreposição
 st.empty()
 
 # =========================================================================
-# TELA 0: TÉCNICOS NA BASE
+# TELA 0: TÉCNICOS NA BASE (ATÉ 08:30)
 # =========================================================================
 if st.session_state.idx == 0:
     st.markdown(f'''<div class="topo-container">
@@ -232,8 +231,8 @@ if st.session_state.idx == 0:
             df_tela = df[(df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))].copy()
             
             nomes_na_base = sorted(df_tela['Recurso'].dropna().astype(str).str.strip().unique().tolist())
-            lista_sp = [str(n).strip().upper() for n in LISTA_SP_FIXA] + [str(n).strip().upper() for n in st.session_state["novos_sp"]]
-            lista_abc = [str(n).strip().upper() for n in LISTA_ABC_FIXA] + [str(n).strip().upper() for n in st.session_state["novos_abc"]]
+            lista_sp = [str(n).strip().upper() for n in LISTA_SP_FIXA]
+            lista_abc = [str(n).strip().upper() for n in LISTA_ABC_FIXA]
             
             nomes_abc = [n for n in nomes_na_base if str(n).strip().upper() in lista_abc or str(n).strip().upper() not in lista_sp]
             nomes_sp = [n for n in nomes_na_base if str(n).strip().upper() in lista_sp]
@@ -255,17 +254,6 @@ if st.session_state.idx == 0:
                 st.markdown('<h3 style="color:#c62828;">🏙️ SP (2/2)</h3>', unsafe_allow_html=True)
                 for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
-            st.divider()
-            with st.expander("➕ Incluir Novo Técnico Temporário (Só para hoje)"):
-                c_a, c_b, c_c = st.columns([2, 1, 1])
-                nome_i = c_a.text_input("Nome:").upper()
-                base_i = c_b.selectbox("Base:", ["SP", "ABC"])
-                if c_c.button("Adicionar"):
-                    if nome_i:
-                        if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
-                        else: st.session_state["novos_abc"].append(nome_i)
-                        st.rerun()
-
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
                 texto_fala = f"Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo."
@@ -274,7 +262,8 @@ if st.session_state.idx == 0:
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
             
-            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            with st.container():
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Colunas não encontradas.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -376,11 +365,12 @@ elif st.session_state.idx == 1:
                         <div class="box-nome">{nome_visual}</div>
                         <div class="box-num">{qtd_pendentes}</div>
                     </div>''', unsafe_allow_html=True)
-            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            with st.container():
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # =========================================================================
-# TELA 2: HORÁRIO (O BUFFER LIMPADOR)
+# TELA 2: HORÁRIO (BUFFER LIMPADOR)
 # =========================================================================
 elif st.session_state.idx == 2:
     st.markdown(f'''<div class="topo-container">
@@ -392,24 +382,18 @@ elif st.session_state.idx == 2:
     tempo_real = datetime.utcnow() - timedelta(hours=3)
     hora_str = tempo_real.strftime("%H:%M:%S")
     data_str = tempo_real.strftime("%d/%m/%Y")
-    hora_fala = tempo_real.strftime("%H e %M") 
+    
     st.markdown(f'''
     <div class="relogio-container">
         <div class="hora-gigante">{hora_str}</div>
         <div class="data-media">{data_str}</div>
     </div>
     ''', unsafe_allow_html=True)
-    if st.session_state.novo_ciclo:
-        script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-        script_cenario += f"anunciarBase('Atenção. Hora certa: {hora_fala}.', 0);\n"
-        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-        st.session_state.script_audio_atual = script_cenario
-        st.session_state.novo_ciclo = False
     
-    st.components.v1.html(st.session_state.script_audio_atual, height=0)
+    # Nenhuma voz no buffer para não sobrepor áudios
 
 # =========================================================================
-# TELA 3: INDICADORES
+# TELA 3: INDICADORES DA EQUIPE
 # =========================================================================
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
@@ -418,7 +402,6 @@ elif st.session_state.idx == 3:
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
-    # VOZ SINTÉTICA DOS INDICADORES
     if st.session_state.novo_ciclo:
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
         texto_fala = "Atenção equipe. Quadro de indicadores atualizado na tela."
