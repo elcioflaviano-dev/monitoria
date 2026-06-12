@@ -22,7 +22,7 @@ st.markdown("""<style>
     .nome-sup { font-size: 45px; font-weight: 900; }
     
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
-    .box-base-sp { background: #dcf7f5; border-left: 10px solid #64ede3; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
+    .box-base-sp { background: #dcf7f5; border-left: 10px solid #02dbcb; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
     .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
     
@@ -321,7 +321,7 @@ with tela_placeholder.container():
                 </div>''', unsafe_allow_html=True)
             with c_sp:
                 st.markdown(f'''<div class="box-base-sp">
-                    <div class="nome-base" style="color: #c62828;">SÃO PAULO PENDENTES</div>
+                    <div class="nome-base" style="color: #02dbcb;">SÃO PAULO PENDENTES</div>
                     <div class="num-base">{qtd_sp}</div>
                 </div>''', unsafe_allow_html=True)
 
