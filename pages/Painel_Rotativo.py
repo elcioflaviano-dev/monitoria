@@ -5,13 +5,18 @@ import time
 import base64
 from datetime import datetime, timedelta
 
-# CONFIGURAÇÕES DE CAMINHOS E LINKS (COM CAMINHO ABSOLUTO PARA A NUVEM)
+# CONFIGURAÇÕES DE CAMINHOS E LINKS
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ARQUIVO_LOGO = os.path.join(BASE_DIR, "logo.png")
-ARQUIVO_INDICADORES = os.path.join(BASE_DIR, "indicadores_data.csv")
-ARQUIVO_ROTA_DISCO = os.path.join(BASE_DIR, "rota_sincronizada.csv")
+# GARANTIA DE CAMINHO ABSOLUTO NA RAIZ (Evita o erro FileNotFoundError)
+ROOT_DIR = os.getcwd()
+ARQUIVO_INDICADORES = os.path.join(ROOT_DIR, "indicadores_data.csv")
+ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
+
+# Procura o logo na raiz ou na pasta pages
+ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
+if not os.path.exists(ARQUIVO_LOGO):
+    ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
 # Configuração da Página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -378,7 +383,7 @@ with tela_placeholder.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # =========================================================================
-    # NOVA TELA 3: INDICADORES ESTILO "TEC1"
+    # NOVA TELA 3: INDICADORES ESTILO "TEC1" COM TRATAMENTO DE ERROS
     # =========================================================================
     elif st.session_state.idx == 3:
         st.markdown(f'''<div class="topo-container">
@@ -387,10 +392,12 @@ with tela_placeholder.container():
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
+        df_ind = pd.DataFrame(columns=["INDICADOR", "BASE", "SUPERVISOR", "VALOR"])
         if os.path.exists(ARQUIVO_INDICADORES):
-            df_ind = pd.read_csv(ARQUIVO_INDICADORES)
-        else:
-            df_ind = pd.DataFrame(columns=["INDICADOR", "BASE", "SUPERVISOR", "VALOR"])
+            try:
+                df_ind = pd.read_csv(ARQUIVO_INDICADORES)
+            except Exception:
+                pass # Caso o ficheiro esteja a ser escrito naquele milissegundo
 
         if not df_ind.empty:
             c_abc, c_sp = st.columns(2)
