@@ -13,6 +13,7 @@ ROOT_DIR = os.getcwd()
 ARQUIVO_INDICADORES = os.path.join(ROOT_DIR, "indicadores_data.csv")
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 
+# Procura o logo de forma flexível (raiz ou pages)
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
     ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
@@ -32,12 +33,15 @@ def carregar_logo_html(caminho_imagem):
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 st.markdown("""<style>
+    /* CSS PARA LIMPEZA DA INTERFACE E ELIMINAÇÃO DE RASTROS */
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
     #MainMenu { visibility: hidden !important; }
     [data-testid="stSidebar"] { display: none !important; }
+    .stApp { background-color: #ffffff; }
 
+    /* MOTOR DE ALINHAMENTO DO TOPO AZUL */
     .topo-container { 
         background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; 
         display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 100px;
@@ -49,6 +53,7 @@ st.markdown("""<style>
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     .botao-home:hover { background-color: rgba(255,255,255,0.1); color: white; }
     
+    /* BLOCOS REGIONAIS E GRIDS */
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .box-base-sp { background: #dcf7f5; border-left: 10px solid #03a398; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
@@ -60,7 +65,8 @@ st.markdown("""<style>
     
     .destaque-ativo { transform: scale(1.30) !important; box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important; border-left: 20px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; }
+    /* APAGADOR DE QUADRO - RELÓGIO COM FUNDO SÓLIDO E ALTURA MÁXIMA */
+    .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 75vh; width: 100%; background-color: #ffffff; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
@@ -211,10 +217,12 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
-# CONTÊINER DE SEGURANÇA: LIMPA TUDO E IMPEDE RASTROS (GHOSTING)
-tela_placeholder = st.empty()
+# =========================================================================
+# CONTÊINER MESTRE: A CAIXA FORTE QUE ELIMINA O RASTRO (GHOSTING)
+# =========================================================================
+area_painel = st.empty()
 
-with tela_placeholder.container():
+with area_painel.container():
     
     # =========================================================================
     # TELA 0: TÉCNICOS NA BASE (ATÉ 08:30)
@@ -477,8 +485,9 @@ with tela_placeholder.container():
 
 
 # =========================================================================
-# ⚙️ MÁQUINA DE ÁUDIO INQUEBRÁVEL (FICA FORA DO PLACEHOLDER DE TELA)
+# O MOTOR DE ÁUDIO FICA PROTEGIDO NO FINAL (Sempre carrega silenciosamente)
 # =========================================================================
 st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
 time.sleep(1)
 st.rerun()
