@@ -101,8 +101,12 @@ def obter_nome_visual(nome_completo):
 if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
 if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
 
+# =========================================================================
+# ⚙️ MÁQUINA DE ESTADO: LÓGICA DE TRANSIÇÃO COM RELÓGIO NEUTRO (BUFFER)
+# =========================================================================
 if "idx" not in st.session_state: 
-    st.session_state.idx = 0
+    st.session_state.idx = 0         # Tela atual (0, 1, 2, 3)
+    st.session_state.last_main = 0   # Guarda a última tela principal exibida (0, 1, 3)
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.session_state.script_audio_atual = ""
@@ -111,28 +115,40 @@ agora_br = datetime.utcnow() - timedelta(hours=3)
 antes_0825 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 25)
 antes_1040 = (agora_br.hour < 10) or (agora_br.hour == 10 and agora_br.minute < 40)
 
-# DEFINIÇÃO DO TEMPO DE CADA TELA
+# DEFINIÇÃO DOS TEMPOS
 if st.session_state.idx == 0: 
     espera = 40  
 elif st.session_state.idx == 1: 
     espera = 55 
 elif st.session_state.idx == 3: 
     espera = 30
-else:
-    if antes_1040: espera = 900 
-    else: espera = 20  
+elif st.session_state.idx == 2:
+    if antes_1040: 
+        espera = 900 # Mantém no relógio de manhã
+    else: 
+        espera = 10  # BUFFER LIMPADOR: Fica 10 segs no relógio antes da próxima tela
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# LÓGICA DE ROTAÇÃO DAS 4 TELAS
+# LÓGICA DO SANDUÍCHE (Sempre passa pelo Relógio - idx 2)
 if tempo_passado > espera:
-    prox_idx = st.session_state.idx + 1
-    if prox_idx > 3: prox_idx = 0 
-    
-    if antes_0825 and prox_idx == 1: prox_idx = 2 
-    elif not antes_0825 and prox_idx == 0: prox_idx = 1 
-    
-    st.session_state.idx = prox_idx 
+    if st.session_state.idx != 2:
+        # Se não está no relógio, a PRÓXIMA TELA será obrigatoriamente o Relógio para limpar
+        st.session_state.last_main = st.session_state.idx
+        st.session_state.idx = 2
+    else:
+        # Se ESTAVA no relógio, vai para a PRÓXIMA tela principal
+        prox_main = st.session_state.last_main + 1
+        if prox_main == 2: prox_main = 3 # Pula o número 2, pois 2 é o próprio relógio
+        if prox_main > 3: prox_main = 0
+        
+        # Regra matinal para pular a tela de Técnicos em base
+        if antes_0825 and prox_main == 0: 
+            prox_main = 1
+            
+        st.session_state.idx = prox_main
+        st.session_state.last_main = prox_main
+
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.rerun()
@@ -193,13 +209,13 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
+# Limpeza absoluta da tela antes de desenhar a próxima
+st.empty()
+
 # =========================================================================
 # TELA 0: TÉCNICOS NA BASE
 # =========================================================================
-if not planilha_carregada:
-    st.warning("⚠️ Aguardando conexão com o Google Sheets ou Planilha Inacessível.")
-
-elif st.session_state.idx == 0:
+if st.session_state.idx == 0:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
         <div class="topo-centro">🚀 TÉCNICOS EM BASE</div>
@@ -258,8 +274,7 @@ elif st.session_state.idx == 0:
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
             
-            with st.container():
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Colunas não encontradas.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -361,12 +376,11 @@ elif st.session_state.idx == 1:
                         <div class="box-nome">{nome_visual}</div>
                         <div class="box-num">{qtd_pendentes}</div>
                     </div>''', unsafe_allow_html=True)
-            with st.container():
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # =========================================================================
-# TELA 2: HORÁRIO
+# TELA 2: HORÁRIO (O BUFFER LIMPADOR)
 # =========================================================================
 elif st.session_state.idx == 2:
     st.markdown(f'''<div class="topo-container">
@@ -392,8 +406,7 @@ elif st.session_state.idx == 2:
         st.session_state.script_audio_atual = script_cenario
         st.session_state.novo_ciclo = False
     
-    with st.container():
-        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+    st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # =========================================================================
 # TELA 3: INDICADORES
@@ -404,6 +417,17 @@ elif st.session_state.idx == 3:
         <div class="topo-centro">📈 INDICADORES DA EQUIPE</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
+
+    # VOZ SINTÉTICA DOS INDICADORES
+    if st.session_state.novo_ciclo:
+        script_cenario = f"<script>{JS_MOTOR_AUDIO}"
+        texto_fala = "Atenção equipe. Quadro de indicadores atualizado na tela."
+        script_cenario += f"anunciarBase('{texto_fala}', 0);\n"
+        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
+        st.session_state.script_audio_atual = script_cenario
+        st.session_state.novo_ciclo = False
+        
+    st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     df_ind = pd.DataFrame(columns=["INDICADOR", "BASE", "SUPERVISOR", "VALOR"])
     if os.path.exists(ARQUIVO_INDICADORES):
