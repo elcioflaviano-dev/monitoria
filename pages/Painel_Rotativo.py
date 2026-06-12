@@ -7,21 +7,17 @@ from datetime import datetime, timedelta
 
 # CONFIGURAÇÕES DE CAMINHOS E LINKS
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
-
-# FORÇAR CAMINHO ABSOLUTO PARA O LOGO NÃO SUMIR NA NUVEM
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ARQUIVO_LOGO = os.path.join(BASE_DIR, "logo.png")
+ARQUIVO_LOGO = "logo.png"
+ARQUIVO_INDICADORES = "indicadores_data.csv"
 
 # Configuração da Página
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Função Inteligente para injetar a imagem diretamente no HTML via Base64
 def carregar_logo_html(caminho_imagem):
     if os.path.exists(caminho_imagem):
         try:
             with open(caminho_imagem, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-            # Ajustado para a altura total de 100px da barra azul
             return f'<img src="data:image/png;base64,{encoded_string}" style="height: 100px; width: auto; object-fit: contain; display: block;">'
         except:
             return '<div></div>'
@@ -30,93 +26,49 @@ def carregar_logo_html(caminho_imagem):
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 st.markdown("""<style>
-    /* CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT) */
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
     #MainMenu { visibility: hidden !important; }
     [data-testid="stSidebar"] { display: none !important; }
 
-    /* MOTOR DE ALINHAMENTO DO TOPO AZUL (ALTURA FIXA PARA PREENCHIMENTO DO LOGO) */
     .topo-container { 
-        background: #003366; 
-        color: white; 
-        padding: 0px 30px; 
-        border-radius: 0 0 15px 15px; 
-        display: grid; 
-        grid-template-columns: 1fr auto 1fr; 
-        align-items: center; 
-        margin-bottom: 10px;
-        height: 100px; /* Altura fixa para controlar o preenchimento vertical */
+        background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; 
+        display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 100px;
     }
     .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; height: 100%; }
     .topo-centro { font-size: 45px; font-weight: 900; text-align: center; white-space: nowrap; }
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     
-    .botao-home { 
-        color: #fff; 
-        font-size: 18px; 
-        font-weight: bold; 
-        border: 2px solid #fff; 
-        padding: 8px 15px; 
-        border-radius: 5px; 
-        text-decoration: none; 
-    }
+    .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     .botao-home:hover { background-color: rgba(255,255,255,0.1); color: white; }
     
-    /* BLOCOS REGIONAIS E GRIDS */
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .box-base-sp { background: #dcf7f5; border-left: 10px solid #03a398; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
     .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
     .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
     
-    .box-contagem { 
-        background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; 
-        text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); 
-        margin-top: 15px; margin-left: 10px; margin-right: 10px; margin-bottom: 15px;
-        transition: transform 0.5s ease, box-shadow 0.5s ease, background 0.5s ease, border-left 0.5s ease, z-index 0.5s ease; 
-        position: relative; z-index: 1; 
-    }
+    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-top: 15px; margin-left: 10px; margin-right: 10px; margin-bottom: 15px; position: relative; z-index: 1; }
     .box-nome { font-size: 18px; font-weight: 900; color: #003366; text-transform: uppercase;}
     .box-num { font-size: 65px; font-weight: 900; color: #cc6600; line-height: 1; }
     
-    .destaque-ativo {
-        transform: scale(1.30) !important; 
-        box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important;
-        border-left: 20px solid #ff8800 !important;
-        background: #fff8e1 !important;
-        z-index: 9999 !important; 
-    }
+    .destaque-ativo { transform: scale(1.30) !important; box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important; border-left: 20px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
-    
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
+    
+    /* ESTILO PARA A NOVA TABELA DE INDICADORES NA TV */
+    .tabela-indicadores { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 20px; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); }
+    .tabela-indicadores th { background-color: #003366; color: white; padding: 15px; text-align: center; border: 1px solid #ddd; }
+    .tabela-indicadores td { padding: 15px; text-align: center; border: 1px solid #ddd; font-weight: bold; color: #333; }
+    .tabela-indicadores td:first-child { text-align: left; background-color: #f0f2f6; color: #003366; font-size: 22px; }
 </style>""", unsafe_allow_html=True)
 
-# 1. LISTAS FIXAS IDÊNTICAS AO "ATIVAR ROTA"
-LISTA_SP_FIXA = [
-    "ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE", "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS", "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "Edcarlos Pereira de Jesus", "GETULIO DOS SANTOS CAFE", "Glemerson Lima De Souza", "GUILHERME DE OLIVEIRA DANTAS", "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS", "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS", "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA", "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS", "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "Alan Cesar Cardoso", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO", "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA", "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA", "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA", "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON", "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA", "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA", "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA", "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "TAILSON JUAN SANTOS DA CONCEICAO", "DIEGO FRAGOSO DE BRITO", "ALYSON ALBERTO MARTINS", "AUGUSTO MOREIRA DA SILVA", "ENDERSON CLEITON SOUZA CRUZ", "CARLOS SEBASTIAO MORAIS", "EZIEL DE OLIVEIRA BARROS", "VICTOR BORGES ALVES", "MATHEUS CARDOSO DE OLIVEIRA", "ROGERIO AFONSO DA SILVA", "KAIO NASCIMENTO ALVES DOS SANTOS", "KELVIN RIBEIRO BENTO DA COSTA", "MARCELO BUENO SEGURA", "MAYKON RIBEIRO GUIMARAES", "THIAGO JOSE ASSUNCAO", "GUSTAVO SANTOS SANT ANA"
-]
-
-LISTA_ABC_FIXA = [
-    "ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA", "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", 
-    "AMANDA CAROLINE DOS SANTOS", "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", 
-    "CARLOS ALBERTO LIMA REBOUÇAS", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA", "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", 
-    "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES", "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", 
-    "ERIK CASSIMIRO DA SILVA GOMES", "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA", "FRANCISCO IGOR SOARES DA SILVA", 
-    "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA", "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRADAO BASTOS", 
-    "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME", "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", 
-    "LEONARDO BESERRA DOS SANTOS", "LUCAS SILVA DE LIMA", "LUIS HENRIQUE GOMES DA SILVA", "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", 
-    "MATHEUS BOAVENTURA DA SILVA", "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO", "RENATO FUTRO ROSSI", 
-    "PAULO CESAR BATISTA DE SOUSA", "RAFAEL DOS ANJOS BATISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS", "RODRIGO FEITOZA DA SILVA", 
-    "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO", "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "DANIEL AUGUSTO PEREIRA", 
-    "JULIO CESAR SILVA DOS SANTOS", "EDER SALES MONTEIRO", "ANTONIO WESLEY HOLANDA DA SILVA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS GUSTAVO CECCONELLO", 
-    "CLEBER FERREIRA SANTOS", "ALEX DE JESUS FREIRE", "ANTHONY HULLY PEREIRA DIAS", "ANTONIO CHARLES MARINHO", "ARLAN DUARTE NASCIMENTO", "EVERTON ALVES", 
-    "IGOR DAVID DE MARCHI", "JAZIEL DOS SANTOS SILVA", "KAUAN PASCHOAL", "LUCAS SILVA SOBRINHO", "NICOLAS CALEGARI STARCHARVSKI", "RENATO ESPERANÇA", 
-    "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", "VITOR MATOS DE ALMEIDA"
-]
+# LISTAS FIXAS IDÊNTICAS AO "ATIVAR ROTA"
+LISTA_SP_FIXA = ["ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE", "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS", "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "Edcarlos Pereira de Jesus", "GETULIO DOS SANTOS CAFE", "Glemerson Lima De Souza", "GUILHERME DE OLIVEIRA DANTAS", "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS", "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS", "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA", "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS", "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "Alan Cesar Cardoso", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO", "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA", "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA", "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA", "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON", "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA", "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA", "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA", "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "TAILSON JUAN SANTOS DA CONCEICAO", "DIEGO FRAGOSO DE BRITO", "ALYSON ALBERTO MARTINS", "AUGUSTO MOREIRA DA SILVA", "ENDERSON CLEITON SOUZA CRUZ", "CARLOS SEBASTIAO MORAIS", "EZIEL DE OLIVEIRA BARROS", "VICTOR BORGES ALVES", "MATHEUS CARDOSO DE OLIVEIRA", "ROGERIO AFONSO DA SILVA", "KAIO NASCIMENTO ALVES DOS SANTOS", "KELVIN RIBEIRO BENTO DA COSTA", "MARCELO BUENO SEGURA", "MAYKON RIBEIRO GUIMARAES", "THIAGO JOSE ASSUNCAO", "GUSTAVO SANTOS SANT ANA"]
+LISTA_ABC_FIXA = ["ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA", "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS", "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA", "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES", "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES", "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA", "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA", "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRADAO BASTOS", "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME", "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS", "LUCAS SILVA DE LIMA", "LUIS HENRIQUE GOMES DA SILVA", "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA", "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA", "RAFAEL DOS ANJOS BATISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS", "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO", "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "DANIEL AUGUSTO PEREIRA", "JULIO CESAR SILVA DOS SANTOS", "EDER SALES MONTEIRO", "ANTONIO WESLEY HOLANDA DA SILVA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "ALEX DE JESUS FREIRE", "ANTHONY HULLY PEREIRA DIAS", "ANTONIO CHARLES MARINHO", "ARLAN DUARTE NASCIMENTO", "EVERTON ALVES", "IGOR DAVID DE MARCHI", "JAZIEL DOS SANTOS SILVA", "KAUAN PASCHOAL", "LUCAS SILVA SOBRINHO", "NICOLAS CALEGARI STARCHARVSKI", "RENATO ESPERANÇA", "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", "VITOR MATOS DE ALMEIDA"]
 
 SUPERVISORES = []
 planilha_carregada = False
@@ -149,21 +101,27 @@ agora_br = datetime.utcnow() - timedelta(hours=3)
 antes_0825 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 25)
 antes_1040 = (agora_br.hour < 10) or (agora_br.hour == 10 and agora_br.minute < 40)
 
+# DEFINIÇÃO DO TEMPO DE CADA TELA
 if st.session_state.idx == 0: 
     espera = 40  
 elif st.session_state.idx == 1: 
     espera = 55 
-else:
+elif st.session_state.idx == 3: # NOVA TELA DOS INDICADORES
+    espera = 30
+else: # TELA DO RELÓGIO (idx == 2)
     if antes_1040: espera = 900 
     else: espera = 20  
 
 tempo_passado = time.time() - st.session_state.last_time
 
+# LÓGICA DE ROTAÇÃO DAS 4 TELAS
 if tempo_passado > espera:
     prox_idx = st.session_state.idx + 1
-    if prox_idx > 2: prox_idx = 0
+    if prox_idx > 3: prox_idx = 0 # Agora rotaciona entre 0, 1, 2 e 3
+    
     if antes_0825 and prox_idx == 1: prox_idx = 2 
     elif not antes_0825 and prox_idx == 0: prox_idx = 1 
+    
     st.session_state.idx = prox_idx 
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
@@ -416,5 +374,53 @@ with tela_placeholder.container():
             st.session_state.script_audio_atual = script_cenario
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+    # =========================================================================
+    # NOVA TELA 3: INDICADORES (NR35, CERTIDÃO E BAND STEERING)
+    # =========================================================================
+    elif st.session_state.idx == 3:
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">📈 INDICADORES DA EQUIPE</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>''', unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_INDICADORES):
+            df_ind = pd.read_csv(ARQUIVO_INDICADORES)
+        else:
+            df_ind = pd.DataFrame(columns=["INDICADOR", "BASE", "SUPERVISOR", "VALOR"])
+
+        if not df_ind.empty:
+            c_abc, c_sp = st.columns(2)
+            
+            def gerar_tabela_html(df_base):
+                pivot = df_base.pivot(index="SUPERVISOR", columns="INDICADOR", values="VALOR").fillna(0).astype(int)
+                for col in ["NR35", "Certidão de Atendimento", "Band Steering"]:
+                    if col not in pivot.columns:
+                        pivot[col] = 0
+                
+                html = '<table class="tabela-indicadores"><tr><th>Supervisor</th><th>NR35</th><th>Certidão</th><th>Band Steering</th></tr>'
+                for index, row in pivot.iterrows():
+                    html += f'<tr><td>{index}</td><td>{row["NR35"]}</td><td>{row["Certidão de Atendimento"]}</td><td>{row["Band Steering"]}</td></tr>'
+                html += '</table>'
+                return html
+
+            with c_abc:
+                st.markdown('<div class="nome-base" style="color: #2e7d32; text-align:center; margin-bottom:10px;">ABC PAULISTA</div>', unsafe_allow_html=True)
+                df_abc = df_ind[df_ind["BASE"] == "ABC"]
+                if not df_abc.empty:
+                    st.markdown(gerar_tabela_html(df_abc), unsafe_allow_html=True)
+                else:
+                    st.info("Nenhum indicador lançado para o ABC hoje.")
+
+            with c_sp:
+                st.markdown('<div class="nome-base" style="color: #03a398; text-align:center; margin-bottom:10px;">SÃO PAULO</div>', unsafe_allow_html=True)
+                df_sp = df_ind[df_ind["BASE"] == "SP"]
+                if not df_sp.empty:
+                    st.markdown(gerar_tabela_html(df_sp), unsafe_allow_html=True)
+                else:
+                    st.info("Nenhum indicador lançado para SP hoje.")
+        else:
+            st.info("Nenhum indicador lançado hoje. Utilize a página 'Lançamento de Indicadores' para alimentar o painel.")
 
 time.sleep(1); st.rerun()
