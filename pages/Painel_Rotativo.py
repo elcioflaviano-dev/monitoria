@@ -321,7 +321,7 @@ with tela_placeholder.container():
                 </div>''', unsafe_allow_html=True)
             with c_sp:
                 st.markdown(f'''<div class="box-base-sp">
-                    <div class="nome-base" style="color: #02dbcb;">SÃO PAULO PENDENTES</div>
+                    <div class="nome-base" style="color: #03a398;">SÃO PAULO PENDENTES</div>
                     <div class="num-base">{qtd_sp}</div>
                 </div>''', unsafe_allow_html=True)
 
