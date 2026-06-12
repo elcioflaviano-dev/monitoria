@@ -21,7 +21,7 @@ def carregar_logo_html(caminho_imagem):
         try:
             with open(caminho_imagem, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-            return f'<img src="data:image/png;base64,{encoded_string}" style="max-height: 95px; width: auto; display: block;">'
+            return f'<img src="data:image/png;base64,{encoded_string}" style="max-height: 55px; width: auto; display: block;">'
         except:
             return '<div></div>'
     return '<div></div>'
