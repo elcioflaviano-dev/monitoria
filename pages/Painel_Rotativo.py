@@ -131,7 +131,14 @@ tempo_passado = time.time() - st.session_state.last_time
 # 🔄 ROTADOR COM TELA BRANCA DE TRANSIÇÃO (O Efeito "Apagador")
 if tempo_passado > espera:
     if antes_0830:
-        prox_idx = 0 # Fica travado na tela 0 até 08:30
+        # === SOLUÇÃO DO GHOSTING AQUI ===
+        # Se estiver na tela dos Técnicos, manda pra tela Branca (Apagador)
+        if st.session_state.idx == 0:
+            st.session_state.last_main = 0
+            prox_idx = 4
+        # Se estiver na tela Branca, volta para os Técnicos limpo
+        else:
+            prox_idx = 0
     else:
         if st.session_state.idx in [0, 1, 3]:
             # Guarda a tela de onde viemos e joga para a Tela Branca (4)
