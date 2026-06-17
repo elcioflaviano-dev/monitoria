@@ -151,7 +151,7 @@ if df_master is not None and not df_master.empty:
                 st.info("Nenhum contrato ativo para o ABC nesta janela.")
 
         with col_coluna_sp:
-            st.markdown('<div style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #b30000; text-align: center;">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #b30000; text-align: center;">SÃO PAULO</div>', unsafe_allow_html=True)
             if not df_sp.empty:
                 matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
                 for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
