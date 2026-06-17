@@ -336,7 +336,7 @@ elif st.session_state.idx == 1:
             df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
             df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
 
-        cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('FRANCISCO|ALAN', na=False) 
+        cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('ALAN|FRANCISCO|JOAO', na=False) 
         qtd_sp = len(df_pendentes_geral[cond_sp])
         qtd_abc = len(df_pendentes_geral[~cond_sp])
 
