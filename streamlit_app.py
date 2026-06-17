@@ -23,17 +23,41 @@ st.markdown("""
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
-# 🔴 COLOQUE AQUI O LINK DIRETO PARA O SEU EXCEL (.XLSM) NA NUVEM
-URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?e=PzMuDc&download=1"
+# 🔴 URL LIMPA: Removido o parâmetro "?e=..." para forçar o download direto no SharePoint
+URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
 
 def carregar_dados_nuvem():
     st.sidebar.markdown("### 🔄 SINCRONIZAÇÃO AUTOMÁTICA")
     st.sidebar.info("A procurar dados em tempo real na nuvem...")
     
     try:
-        # Lê especificamente a aba "rota" do seu ficheiro Excel
-        # Se o nome da aba for diferente, altere 'rota' para o nome exato.
-        df_bruto = pd.read_excel(URL_PLANILHA_MASTER, sheet_name='rota', engine='openpyxl')
+        # MÁSCARA TOTAL DE NAVEGADOR
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1'
+        }
+        
+        # O SEGRED0: Criar uma "Sessão" para reter os cookies de segurança da Microsoft durante o redirecionamento
+        sessao = requests.Session()
+        resposta = sessao.get(URL_PLANILHA_MASTER, headers=headers, allow_redirects=True, timeout=20)
+        
+        if resposta.status_code != 200:
+            st.sidebar.error(f"O SharePoint recusou o acesso. Erro HTTP: {resposta.status_code}")
+            return None
+
+        # Converte os dados descarregados para um formato que o Pandas consegue ler
+        ficheiro_excel = io.BytesIO(resposta.content)
+        
+        # Lê a aba 'rota'
+        df_bruto = pd.read_excel(ficheiro_excel, sheet_name='rota', engine='openpyxl')
         
         if df_bruto.empty:
             st.sidebar.error("A aba 'rota' da planilha mestre está vazia.")
