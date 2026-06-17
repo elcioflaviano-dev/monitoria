@@ -28,7 +28,8 @@ st.markdown("""
         .block-container { padding-top: 10px !important; padding-bottom: 5px !important; }
         .title-abc-sp { font-size: 24px !important; font-weight: 800 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
         .super-bar { background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #333; margin-top: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #cc6600; }
-        .super-total { background-color: #ffebee; color: #c62828; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 900; }
+        .super-bar-erro { border-left: 5px solid #b30000; background-color: #ffebee; color: #b30000; }
+        .super-total { background-color: #ffffff; color: #c62828; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 900; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .item-linha { font-size: 16px; padding: 5px 12px; border-bottom: 1px solid #eee; color: #222; }
         .item-contrato { font-weight: 900; color: #cc6600; font-size: 17px; }
         .divisor-item { color: #bbb; margin: 0 8px; }
@@ -107,9 +108,7 @@ if df_master is not None and not df_master.empty:
         else:
             df_tela['SUPERVISOR_MOSTRAR'] = ''
 
-        # 🔥 MESMO MOTOR DE INTELIGÊNCIA EXATO DO TEC1 🔥
         def vincular_supervisor_tecnico(row):
-            nome_u = str(row.get(col_tecnico_check, '')).upper().strip()
             sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
             if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
@@ -117,17 +116,10 @@ if df_master is not None and not df_master.empty:
                 if "EDSON" in sup_orig and "MARCO" not in sup_orig: return "EDSON MARCO"
                 return sup_orig
 
-            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
-            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
-            if "MARCOS" in nome_u: return "MARCOS ROBERTO"
-            if "NELSON" in nome_u: return "NELSON"
-            if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
-                
-            return "EDSON MARCO"
+            return "⚠️ SEM SUPERVISOR (VERIFICAR EXCEL)"
 
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
-        # Regra de divisão regional IDÊNTICA
         cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
@@ -135,11 +127,12 @@ if df_master is not None and not df_master.empty:
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
         with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp">ABC / ALERTAS</div>', unsafe_allow_html=True)
             if not df_abc.empty:
                 for supervisor in sorted(df_abc['SUPERVISOR_MOSTRAR'].unique()):
                     df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
-                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
+                    classe_css = "super-bar super-bar-erro" if "⚠️" in supervisor else "super-bar"
+                    st.markdown(f'<div class="{classe_css}">👤 {supervisor} <span class="super-total">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
                     for _, linha in df_super.iterrows():
                         st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
             else: 
