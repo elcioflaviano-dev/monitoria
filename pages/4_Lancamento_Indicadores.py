@@ -57,13 +57,60 @@ if df_master is not None and not df_master.empty:
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
 
     # =========================================================================
-    # 1. FILTRAR APENAS CONTRATOS PRODUTIVOS / CONCLUÍDOS
+    # 1. FILTRAR APENAS CONTRATOS PRODUTIVOS E ÚNICOS (CORREÇÃO DE DUPLICAÇÕES)
     # =========================================================================
     df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
     df_produtivo = df[df['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
 
+    # 🔥 LIMPEZA: OBRIGA A CONTAR CADA CONTRATO APENAS 1 VEZ 🔥
+    if 'Contrato' in df_produtivo.columns and not df_produtivo.empty:
+        df_produtivo = df_produtivo[df_produtivo['Contrato'] != '']
+        df_produtivo = df_produtivo.drop_duplicates(subset=['Contrato'])
+
     # =========================================================================
-    # 2. MOTOR DE PENDÊNCIAS (LAYOUT TEC1 - BLOCOS TOTAIS)
+    # 2. CARDS DE KPI DE SUCESSO (Cálculo sobre técnicos em campo)
+    # =========================================================================
+    df_tec = df_produtivo.drop_duplicates(subset=[col_tecnico]).copy()
+    total_tecnicos = len(df_tec) if len(df_tec) > 0 else 1
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        with st.container(border=True):
+            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">🪜 NR35 (ESCADA)</p>', unsafe_allow_html=True)
+            if col_nr35:
+                df_tec[col_nr35] = df_tec[col_nr35].fillna('-').astype(str).str.upper().str.strip()
+                aptos = len(df_tec[df_tec[col_nr35] == 'SIM'])
+                pct = (aptos / total_tecnicos) * 100
+                st.markdown(f'<h2 style="font-size:46px; font-weight:900; color:#008080; text-align:center; margin:5px 0;">{pct:.0f}%</h2>', unsafe_allow_html=True)
+            else:
+                st.error("Coluna NR35 não detetada")
+                
+    with c2:
+        with st.container(border=True):
+            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">📜 CERTIDÃO DE ATENDIMENTO</p>', unsafe_allow_html=True)
+            if col_cert:
+                df_tec[col_cert] = df_tec[col_cert].fillna('-').astype(str).str.upper().str.strip()
+                aptos = len(df_tec[df_tec[col_cert] == 'SIM'])
+                pct = (aptos / total_tecnicos) * 100
+                st.markdown(f'<h2 style="font-size:46px; font-weight:900; color:#005088; text-align:center; margin:5px 0;">{pct:.0f}%</h2>', unsafe_allow_html=True)
+            else:
+                st.error("Coluna Certidão não detetada")
+                
+    with c3:
+        with st.container(border=True):
+            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">📶 BAND STEERING ATIVO</p>', unsafe_allow_html=True)
+            if col_bst:
+                df_tec[col_bst] = df_tec[col_bst].fillna('-').astype(str).str.upper().str.strip()
+                aptos = len(df_tec[df_tec[col_bst] == 'SIM'])
+                pct = (aptos / total_tecnicos) * 100
+                st.markdown(f'<h2 style="font-size:46px; font-weight:900; color:#b30000; text-align:center; margin:5px 0;">{pct:.0f}%</h2>', unsafe_allow_html=True)
+            else:
+                st.error("Coluna BST não detetada")
+
+    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+
+    # =========================================================================
+    # 3. MOTOR DE PENDÊNCIAS (LAYOUT TEC1 - BLOCOS TOTAIS)
     # =========================================================================
     # Criação de colunas numéricas (0 ou 1) para somar as faltas facilmente
     df_produtivo['FALTA_NR35'] = 0
