@@ -57,14 +57,15 @@ def carregar_dados_nuvem():
             st.sidebar.error("A aba 'ROTA' da planilha mestre está vazia.")
             return None
 
-        # Limpeza inicial de colunas duplicadas e espaços em branco nos nomes
-        df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated()]
+        # PRESERVA A ÚLTIMA COLUNA DUPLICADA (A SUA) CASO AINDA EXISTAM NOMES IGUAIS
+        df_bruto = df_bruto.loc[:, ~df_bruto.columns.duplicated(keep='last')]
         df_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_bruto.columns]
         
-        # Mapeamento inteligente para unificar as colunas vindas do seu Excel
+        # MAPEAMENTO BLINDADO: PRIORIZA AS SUAS COLUNAS '_REAL'
         colunas_mapeadas = {}
         for col in list(df_bruto.columns):
             col_upper = str(col).upper().strip()
+            
             if col_upper in ['LOGIN DO TÉCNICO', 'LOGIN DO TECNICO', 'LOGIN']:
                 colunas_mapeadas[col] = 'Login do Técnico'
             elif col_upper in ['STATUS DA ATIVIDADE', 'STATUS_ATIVIDADE', 'STATUS']:
@@ -75,28 +76,30 @@ def carregar_dados_nuvem():
                 colunas_mapeadas[col] = 'Recurso'
             elif 'TOTAL DE TAREFAS' in col_upper:
                 colunas_mapeadas[col] = 'QTD_OS_COL'
-            elif col_upper in ['SUPERVISOR', 'SUPERVISORES', 'SUPERV']:
-                colunas_mapeadas[col] = 'SUPERVISOR'
-            elif col_upper in ['BASE', 'REGIAO_BASE', 'REGIAO', 'REGIONAL']:
-                colunas_mapeadas[col] = 'REGIAO_BASE'
+            
+            # As suas colunas exclusivas com as fórmulas do Excel
+            elif col_upper in ['SUPERVISOR_REAL', 'SUPERVISOR', 'SUPERVISORES', 'SUPERV']:
+                colunas_mapeadas[col] = 'SUPERVISOR_CALCULADO'
+            elif col_upper in ['BASE_REAL', 'BASE', 'REGIAO_BASE', 'REGIAO', 'REGIONAL']:
+                colunas_mapeadas[col] = 'REGIAO_BASE_CALCULADA'
         
         df_final = df_bruto.rename(columns=colunas_mapeadas)
-        df_final = df_final.loc[:, ~df_final.columns.duplicated()] # Garante proteção pós-renomeio
+        df_final = df_final.loc[:, ~df_final.columns.duplicated(keep='last')]
 
-        # 3. TRATAMENTO E HIGIENIZAÇÃO DOS DADOS DO EXCEL
-        if 'SUPERVISOR' in df_final.columns:
-            df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('NÃO IDENTIFICADO').astype(str).str.strip().str.upper()
-            df_final['SUPERVISOR'] = df_final['SUPERVISOR'].replace(['NAN', 'N/A', 'NULL', ''], 'NÃO IDENTIFICADO')
+        # 3. TRATAMENTO FINAL (Evitando o bloco vermelho)
+        if 'SUPERVISOR_CALCULADO' in df_final.columns:
+            df_final['SUPERVISOR'] = df_final['SUPERVISOR_CALCULADO'].fillna('NÃO IDENTIFICADO').astype(str).str.strip().str.upper()
+            df_final['SUPERVISOR'] = df_final['SUPERVISOR'].replace(['NAN', 'N/A', 'NULL', '', '-'], 'NÃO IDENTIFICADO')
         else:
             df_final['SUPERVISOR'] = 'NÃO IDENTIFICADO'
 
-        if 'REGIAO_BASE' in df_final.columns:
-            df_final['REGIAO_BASE'] = df_final['REGIAO_BASE'].fillna('NÃO DEFINIDA').astype(str).str.strip().str.upper()
-            df_final['REGIAO_BASE'] = df_final['REGIAO_BASE'].replace(['NAN', 'N/A', 'NULL', ''], 'NÃO DEFINIDA')
+        if 'REGIAO_BASE_CALCULADA' in df_final.columns:
+            df_final['REGIAO_BASE'] = df_final['REGIAO_BASE_CALCULADA'].fillna('NÃO DEFINIDA').astype(str).str.strip().str.upper()
+            df_final['REGIAO_BASE'] = df_final['REGIAO_BASE'].replace(['NAN', 'N/A', 'NULL', '', '-'], 'NÃO DEFINIDA')
         else:
             df_final['REGIAO_BASE'] = 'GERAL'
 
-        # Garante que a coluna Recurso está preenchida para evitar quebras
+        # Garante que a coluna Recurso está preenchida para evitar quebras nas páginas satélites
         if 'Recurso' not in df_final.columns and 'Login do Técnico' in df_final.columns:
             df_final['Recurso'] = df_final['Login do Técnico']
 
