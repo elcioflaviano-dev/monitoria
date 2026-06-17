@@ -90,7 +90,7 @@ if df_master is not None and not df_master.empty:
                 
     with c3:
         with st.container(border=True):
-            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">📶 BAND STEERING ATIVO</p>', unsafe_allow_html=True)
+            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">📶 BAND STEERING</p>', unsafe_allow_html=True)
             if col_bst:
                 df_tec[col_bst] = df_tec[col_bst].fillna('-').astype(str).str.upper().str.strip()
                 aptos = len(df_tec[df_tec[col_bst] == 'SIM'])
