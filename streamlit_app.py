@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import time
 import os
+import requests
+import io
 
 st.set_page_config(
     page_title="Painel de Produtividade",
