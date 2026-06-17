@@ -216,7 +216,6 @@ function animarSupervisor(texto, delay, index, totalSup) {
         }, 1500);
     }, delay);
 }
-"""
 
 # =========================================================================
 # TELA 4: A TELA BRANCA DE LIMPEZA (GHOSTING KILLER)
@@ -415,81 +414,6 @@ elif st.session_state.idx == 2:
         st.session_state.novo_ciclo = False
         
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
-"""
-# =========================================================================
-# TELA 3: INDICADORES DA EQUIPE
-# =========================================================================
-    elif st.session_state.idx == 3:
-    st.markdown(f'''<div class="topo-container">
-        <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">📈 INDICADORES DA EQUIPE</div>
-        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-    </div>''', unsafe_allow_html=True)
 
-    if st.session_state.novo_ciclo:
-        script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-        texto_fala = "Atenção equipe. Quadro de indicadores operacionais atualizado na tela."
-        script_cenario += f"anunciarBase('{texto_fala}', 0);\n"
-        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-        st.session_state.script_audio_atual = script_cenario
-        st.session_state.novo_ciclo = False
-        
-    st.components.v1.html(st.session_state.script_audio_atual, height=0)
-
-    df_ind = pd.DataFrame(columns=["INDICADOR", "BASE", "SUPERVISOR", "VALOR"])
-    if os.path.exists(ARQUIVO_INDICADORES):
-        try:
-            df_ind = pd.read_csv(ARQUIVO_INDICADORES)
-        except Exception:
-            pass 
-
-    if not df_ind.empty:
-        c_abc, c_sp = st.columns(2)
-        
-        def renderizar_cards_indicadores(df_base):
-            pivot = df_base.pivot(index="SUPERVISOR", columns="INDICADOR", values="VALOR").fillna(0).astype(int)
-            for col in ["NR35", "Certidão de Atendimento", "Band Steering"]:
-                if col not in pivot.columns:
-                    pivot[col] = 0
-            
-            for supervisor in sorted(pivot.index):
-                row = pivot.loc[supervisor]
-                with st.container(border=True):
-                    st.markdown(f'<div style="font-size:22px; font-weight:900; margin-bottom:12px; color:#111;">📋 {supervisor}</div>', unsafe_allow_html=True)
-                    m1, m2, m3 = st.columns(3)
-                    with m1:
-                        st.markdown(f'''<div class="card-indicador">
-                            <div class="card-ind-titulo">👷 NR35</div>
-                            <div class="card-ind-valor">{int(row["NR35"])}</div>
-                        </div>''', unsafe_allow_html=True)
-                    with m2:
-                        st.markdown(f'''<div class="card-indicador">
-                            <div class="card-ind-titulo">📄 CERTIDÃO</div>
-                            <div class="card-ind-valor">{int(row["Certidão de Atendimento"])}</div>
-                        </div>''', unsafe_allow_html=True)
-                    with m3:
-                        st.markdown(f'''<div class="card-indicador">
-                            <div class="card-ind-titulo">📡 BAND STEERING</div>
-                            <div class="card-ind-valor">{int(row["Band Steering"])}</div>
-                        </div>''', unsafe_allow_html=True)
-        """
-        with c_abc:
-            st.markdown('<div class="nome-base" style="color: #2e7d32; text-align:center; margin-bottom:15px; border-bottom: 3px solid #2e7d32; padding-bottom: 5px;">ABC PAULISTA</div>', unsafe_allow_html=True)
-            df_abc = df_ind[df_ind["BASE"] == "ABC"]
-            if not df_abc.empty:
-                renderizar_cards_indicadores(df_abc)
-            else:
-                st.info("Nenhum indicador lançado para o ABC hoje.")
-
-        with c_sp:
-            st.markdown('<div class="nome-base" style="color: #03a398; text-align:center; margin-bottom:15px; border-bottom: 3px solid #03a398; padding-bottom: 5px;">SÃO PAULO</div>', unsafe_allow_html=True)
-            df_sp = df_ind[df_ind["BASE"] == "SP"]
-            if not df_sp.empty:
-                renderizar_cards_indicadores(df_sp)
-            else:
-                st.info("Nenhum indicador lançado para SP hoje.")
-    else:
-        st.info("Nenhum indicador lançado hoje. Utilize a página 'Lançamento de Indicadores' para alimentar o painel.")
-
-time.sleep(1)
-st.rerun()
+    time.sleep(1)
+    st.rerun()
