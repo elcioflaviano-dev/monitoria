@@ -146,8 +146,9 @@ if df_master is not None and not df_master.empty:
             sup_orig = str(row['SUPERVISOR_MOSTRAR']).upper().strip()
             
             # A ordem importa para evitar conflito de nomes parecidos (MARCOS x MARCO)
-            if "FRANCISCO" in sup_orig: return "FRANCISCO"
             if "ALAN" in sup_orig: return "ALAN"
+            if "FRANCISCO" in sup_orig: return "FRANCISCO"
+            if "JOAO" in sup_orig: return "JOAO"
             if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
             if "EDSON" in sup_orig: return "EDSON MARCO"
             if "NELSON" in sup_orig: return "NELSON"
@@ -167,7 +168,7 @@ if df_master is not None and not df_master.empty:
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
         # Divisão Regional utilizando os supervisores como âncora
-        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('ALAN|FRANCISCO|JOAO', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
 
