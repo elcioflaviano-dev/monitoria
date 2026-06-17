@@ -73,7 +73,6 @@ if df_master is not None and not df_master.empty:
 
     if col_janela is not None and not df_validos.empty:
         df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
-        
         def extrair_hora_limite(janela_str):
             try:
                 partes = janela_str.replace(':', '').split('-')
@@ -111,32 +110,24 @@ if df_master is not None and not df_master.empty:
         else:
             df_tela['SUPERVISOR_MOSTRAR'] = ''
 
-        # 🔥 AQUI ESTÁ A CORREÇÃO MESTRA 🔥
+        # 🔥 NOVO RAIO-X DE SUPERVISORES 🔥
         def vincular_supervisor_tecnico(row):
-            nome_u = str(row.get(col_tecnico_check, '')).upper().strip()
             sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
-            # 1. Se a planilha mandou o supervisor preenchido, nós confiamos 100% no Excel! (Isso salva o João Carlos)
+            # Se veio válido do Excel, assumimos!
             if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
                 if "MARCOS" in sup_orig and "ROBERTO" not in sup_orig: return "MARCOS ROBERTO"
                 if "EDSON" in sup_orig and "MARCO" not in sup_orig: return "EDSON MARCO"
                 return sup_orig
 
-            # 2. Só usamos o "chute" de emergência se a coluna do Excel estiver VAZIA
-            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
-            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
-            if "MARCOS" in nome_u: return "MARCOS ROBERTO"
-            if "NELSON" in nome_u: return "NELSON"
-            if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
-                
-            return "EDSON MARCO"
+            # Se o Excel mandou vazio, não escondemos mais no Edson Marco. Mostramos a verdade!
+            return "⚠️ SEM SUPERVISOR (VERIFICAR EXCEL)"
 
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
-        # Regra corrigida de SP: agora abraça o João e o Miron!
         cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
         df_sp = df_tela[cond_sp].copy()
-        df_abc = df_tela[~cond_sp].copy()
+        df_abc = df_tela[~cond_sp].copy() # Os que têm falha no Excel vão aparecer aqui temporariamente
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
@@ -149,8 +140,9 @@ if df_master is not None and not df_master.empty:
                     pendentes, em_rota, iniciados = int(dados_super['P_COUNT']), int(dados_super['R_COUNT']), int(dados_super['I_COUNT'])
                     total_real = pendentes + em_rota + iniciados
                     
+                    cor_borda = "#b30000" if "⚠️" in supervisor else "#008080"
                     with st.container(border=True):
-                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: {total_real}</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px; border-left: 5px solid {cor_borda}; padding-left: 10px;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: {total_real}</span></div>', unsafe_allow_html=True)
                         m1, m2, m3 = st.columns(3)
                         with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{pendentes}</div></div>', unsafe_allow_html=True)
                         with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
@@ -168,7 +160,7 @@ if df_master is not None and not df_master.empty:
                     total_real = pendentes + em_rota + iniciados
                     
                     with st.container(border=True):
-                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: {total_real}</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px; border-left: 5px solid #b30000; padding-left: 10px;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: {total_real}</span></div>', unsafe_allow_html=True)
                         m1, m2, m3 = st.columns(3)
                         with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{pendentes}</div></div>', unsafe_allow_html=True)
                         with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
