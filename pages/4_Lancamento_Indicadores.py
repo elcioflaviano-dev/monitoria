@@ -150,7 +150,7 @@ if df_master is not None and not df_master.empty:
 
         # --- RENDERIZAÇÃO LADO SÃO PAULO ---
         with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp title-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp title-sp">SÃO PAULO</div>', unsafe_allow_html=True)
             if not df_sp.empty:
                 matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['FALTA_NR35', 'FALTA_CERT', 'FALTA_BST']].sum().reset_index()
                 for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
