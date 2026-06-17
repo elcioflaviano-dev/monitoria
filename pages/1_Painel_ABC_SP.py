@@ -25,14 +25,7 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         st.session_state["last_refresh_dash"] = time.time()
         st.rerun()
 
-# 2. Carregar Estilos Globais
-try:
-    with open("style.css", "r") as f:
-        st.markdown("<style>" + str(f.read()) + "</style>",unsafe_allow_html=True)
-except:
-    pass
-
-# Customização CSS de Alta Performance para os Cards, Grid de 6 Colunas e remoção de marcas Streamlit
+# Customização CSS de Alta Performance para os Cards
 st.markdown("""
     <style>
     /* Esconde os atalhos, menu e marcas d'água do Streamlit */
@@ -45,43 +38,25 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] { gap: 10px !important; }
     
     /* Grid dos Cards de KPI do 1º Contrato (Topo) */
-    .kpi-container-atend {
-        display: flex;
-        justify-content: center;
-        gap: 25px;
-        margin-bottom: 15px;
-    }
-    .kpi-card-atend {
-        background-color: #ffffff;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        padding: 10px 25px;
-        text-align: center;
-        min-width: 280px;
-        border-top: 5px solid #006677;
-    }
+    .kpi-container-atend { display: flex; justify-content: center; gap: 25px; margin-bottom: 15px; }
+    .kpi-card-atend { background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 10px 25px; text-align: center; min-width: 280px; border-top: 5px solid #006677; }
     .kpi-card-atend.abc { border-top-color: #008080; }
     .kpi-card-atend.sp { border-top-color: #b30000; }
     .kpi-title-atend { font-size: 13px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
     .kpi-value-atend { font-size: 26px; color: #111; font-weight: 900; }
     
-    /* Faixa de Título das Bases Operacionais */
-    .section-base-title {
-        background-color: #005088;
-        color: white;
-        padding: 8px 15px;
-        border-radius: 4px;
-        font-size: 16px;
-        font-weight: bold;
-        margin-top: 20px;
-        margin-bottom: 12px;
-        text-transform: uppercase;
-    }
+    /* CSS DOS MINICARDS DE INDICADORES NO PAINEL */
+    .kpi-container-ind { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+    .kpi-card-ind { background-color: #f8f9fa; border-radius: 6px; padding: 8px 15px; text-align: center; min-width: 180px; border: 1px solid #e0e0e0; }
+    .kpi-card-ind.nr35 { border-bottom: 4px solid #008080; }
+    .kpi-card-ind.cert { border-bottom: 4px solid #005088; }
+    .kpi-card-ind.bst { border-bottom: 4px solid #b30000; }
+    .ind-title { font-size: 11px; color: #555; font-weight: bold; text-transform: uppercase; }
+    .ind-value { font-size: 20px; font-weight: 900; color: #111; margin-top: 2px; }
     
-    /* Ajuste de espaçamento para os 6 cards laterais */
-    div[data-testid="stKPIBlock"] {
-        padding: 6px 10px !important;
-    }
+    /* Faixa de Título das Bases Operacionais */
+    .section-base-title { background-color: #005088; color: white; padding: 8px 15px; border-radius: 4px; font-size: 16px; font-weight: bold; margin-top: 20px; margin-bottom: 12px; text-transform: uppercase; }
+    div[data-testid="stKPIBlock"] { padding: 6px 10px !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -119,15 +94,16 @@ def calcular_media_horarios(lista_horas):
     return ":".join(media_time.split(":")[:2])
 
 if df_dash is not None and not df_dash.empty:
+    df_dash.columns = [str(c).strip() for c in df_dash.columns]
     
-    # Identificação das colunas estruturais na planilha bruta
+    # Identificação das colunas estruturais
     col_recurso = 'Recurso' if 'Recurso' in df_dash.columns else df_dash.columns[0]
     col_status = 'STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df_dash.columns else 'Status da Atividade'
     status_upper_bruto = df_dash[col_status].fillna('').astype(str).str.upper().str.strip()
-    contrato_limpo_bruto = df_dash['Contrato'].fillna('').astype(str).str.strip()
+    contrato_limpo_bruto = df_dash['Contrato'].fillna('').astype(str).str.strip() if 'Contrato' in df_dash.columns else pd.Series(['']*len(df_dash))
 
     # =========================================================================
-    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL (CALCS FIXOS DO TOPO COM LINK GLOBAL)
+    # ⏱️ MOTOR: 1º ATENDIMENTO OPERACIONAL
     # =========================================================================
     media_abc, media_sp = "--:--", "--:--"
     
@@ -150,7 +126,9 @@ if df_dash is not None and not df_dash.empty:
     if not df_atend_isolado.empty:
         df_primeiros_horarios = df_atend_isolado.sort_values('Hora_Inicio_Time').groupby(col_recurso).first().reset_index()
         col_supervisor_check = 'SUPERVISOR' if 'SUPERVISOR' in df_primeiros_horarios.columns else df_primeiros_horarios.columns[0]
-        cond_sp_atend = df_primeiros_horarios[col_supervisor_check].fillna('').astype(str).str.upper().str.contains("FRANCISCO|ALAN", na=False)
+        
+        # 🔥 JOÃO MIRON BLINDADO NO SP 🔥
+        cond_sp_atend = df_primeiros_horarios[col_supervisor_check].fillna('').astype(str).str.upper().str.contains("FRANCISCO|ALAN|JOAO|MIRON", na=False)
         
         horas_abc = df_primeiros_horarios[~cond_sp_atend]['Hora_Inicio_Time'].tolist()
         horas_sp = df_primeiros_horarios[cond_sp_atend]['Hora_Inicio_Time'].tolist()
@@ -158,11 +136,9 @@ if df_dash is not None and not df_dash.empty:
         media_abc = calcular_media_horarios(horas_abc)
         media_sp = calcular_media_horarios(horas_sp)
 
-    # 🔥 SALVA NA MEMÓRIA GLOBAL DO SISTEMA PARA A OUTRA PÁGINA PEGAR IDÊNTICO 🔥
     st.session_state['media_global_abc'] = media_abc
     st.session_state['media_global_sp'] = media_sp
 
-    # Renderização HTML dos Cards do Topo
     st.markdown(f'''
         <div class="kpi-container-atend">
             <div class="kpi-card-atend abc">
@@ -172,6 +148,44 @@ if df_dash is not None and not df_dash.empty:
             <div class="kpi-card-atend sp">
                 <div class="kpi-title-atend">⏱️ Média 1º Contrato - SÃO PAULO</div>
                 <div class="kpi-value-atend">{media_sp}</div>
+            </div>
+        </div>
+    ''', unsafe_allow_html=True)
+
+    # =========================================================================
+    # 🎯 INDICADORES DE CONFORMIDADE (INJEÇÃO NO PAINEL DA TV)
+    # =========================================================================
+    col_nr35 = next((c for c in reversed(df_dash.columns) if 'NR35' in c.upper() or 'NR-35' in c.upper()), None)
+    col_cert = next((c for c in reversed(df_dash.columns) if 'CERTID' in c.upper() or 'ELEGIVEL' in c.upper() or 'ELEGÍVEL' in c.upper()), None)
+    col_bst  = next((c for c in reversed(df_dash.columns) if 'BST' in c.upper() or 'STEERING' in c.upper() or 'BAND' in c.upper()), None)
+
+    df_prod_ind = df_dash[status_upper_bruto.str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
+    if 'Contrato' in df_prod_ind.columns:
+        df_prod_ind['Contrato_Limpo'] = df_prod_ind['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+        df_prod_ind = df_prod_ind[df_prod_ind['Contrato_Limpo'] != '']
+        df_prod_ind = df_prod_ind.drop_duplicates(subset=['Contrato_Limpo'])
+
+    df_tec_ind = df_prod_ind.drop_duplicates(subset=[col_recurso]).copy()
+    total_tecnicos_ind = len(df_tec_ind) if len(df_tec_ind) > 0 else 1
+
+    pct_nr35, pct_cert, pct_bst = 0, 0, 0
+    if col_nr35: pct_nr35 = (len(df_tec_ind[df_tec_ind[col_nr35].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos_ind) * 100
+    if col_cert: pct_cert = (len(df_tec_ind[df_tec_ind[col_cert].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos_ind) * 100
+    if col_bst:  pct_bst = (len(df_tec_ind[df_tec_ind[col_bst].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos_ind) * 100
+
+    st.markdown(f'''
+        <div class="kpi-container-ind">
+            <div class="kpi-card-ind nr35">
+                <div class="ind-title">🪜 Conformidade NR35</div>
+                <div class="ind-value">{pct_nr35:.0f}%</div>
+            </div>
+            <div class="kpi-card-ind cert">
+                <div class="ind-title">📜 Conformidade Certidão</div>
+                <div class="ind-value">{pct_cert:.0f}%</div>
+            </div>
+            <div class="kpi-card-ind bst">
+                <div class="ind-title">📶 Conformidade BST</div>
+                <div class="ind-value">{pct_bst:.0f}%</div>
             </div>
         </div>
     ''', unsafe_allow_html=True)
@@ -189,19 +203,18 @@ if df_dash is not None and not df_dash.empty:
         if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper():
             df_working['Mestre_Tipo_Atividade_Upper'] += " " + df_working[c].fillna('').astype(str).str.upper().str.strip()
             
-    # 👇 FILTRO BASE SAUDÁVEL E BLINDADO 👇
+    # Filtro Base Saudável
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
         (df_working['Contrato_Limpo'] != '-') & 
         (~df_working['Contrato_Limpo'].str.contains('#N/A', na=False)) & 
-        (~df_working['Status_Atividade_Upper'].str.contains('SUSP', na=False)) & # Corta "SUSPENSO", "SUSPENSA", "SUSP"
-        (~df_working['Status_Atividade_Upper'].str.contains('CANCEL', na=False)) & # Corta "CANCELADO"
-        (~df_working['Mestre_Tipo_Atividade_Upper'].str.contains('REFEI|ALMO', na=False)) # Corta Almoço/Refeição
+        (~df_working['Status_Atividade_Upper'].str.contains('SUSP', na=False)) & 
+        (~df_working['Status_Atividade_Upper'].str.contains('CANCEL', na=False)) & 
+        (~df_working['Mestre_Tipo_Atividade_Upper'].str.contains('REFEI|ALMO', na=False))
     )
     df_working = df_working[cond_saudavel].copy()
 
-    # Identificação da coluna de Regional / Base
     col_base_operacional = 'REGIAO_BASE' if 'REGIAO_BASE' in df_working.columns else ('Cidade' if 'Cidade' in df_working.columns else 'GERAL')
     if col_base_operacional not in df_working.columns:
         df_working['REGIAO_BASE'] = 'BASE GERAL'
@@ -210,14 +223,11 @@ if df_dash is not None and not df_dash.empty:
         df_working[col_base_operacional] = df_working[col_base_operacional].fillna('NÃO DEFINIDA').astype(str).str.upper().str.strip()
         df_working[col_base_operacional] = df_working[col_base_operacional].replace({'NAN': 'NÃO DEFINIDA', '': 'NÃO DEFINIDA', '#N/A': 'NÃO DEFINIDA', '-': 'NÃO DEFINIDA'})
 
-    # 👇 FILTRA A BASE "FANTASMA" PARA NÃO POLUIR A TELA 👇
     df_working = df_working[~df_working[col_base_operacional].isin(['NÃO DEFINIDA', '-', '0', '.'])]
 
-    # Campo numérico de OS
     col_tarefas = 'QTD_OS_COL' if 'QTD_OS_COL' in df_working.columns else 'Total de tarefas'
     df_working['Total_OS_Num'] = pd.to_numeric(df_working[col_tarefas], errors='coerce').fillna(0).astype(int) if col_tarefas in df_working.columns else 1
 
-    # Filtro Lateral de Supervisor
     if 'SUPERVISOR' in df_working.columns:
         lista_supervisores = ["TODOS"] + sorted(df_working['SUPERVISOR'].dropna().unique())
         supervisor_sel = st.sidebar.selectbox("Filtrar por Supervisor:", lista_supervisores)
@@ -225,25 +235,22 @@ if df_dash is not None and not df_dash.empty:
             df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
 
     # =========================================================================
-    # 📊 LAÇO DE COMPILAÇÃO DAS BASES: APENAS OS 6 CARDS EM UMA LINHA
+    # 📊 LAÇO DE COMPILAÇÃO DAS BASES
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
     
     for base in bases_disponiveis:
         df_base_atual = df_working[df_working[col_base_operacional] == base]
         
-        # Totais Brutos
         base_qtd_tecnicos = df_base_atual[col_recurso].nunique()
         base_contratos_bruto = df_base_atual['Contrato_Limpo'].nunique()
         base_total_os_bruto = df_base_atual['Total_OS_Num'].sum()
         
-        # Filtro de Retornos
         cond_retorno_linha = df_base_atual['Mestre_Tipo_Atividade_Upper'].str.contains('RETORNO', na=False)
         df_retornos_base = df_base_atual[cond_retorno_linha]
         base_total_retornos = df_retornos_base['Contrato_Limpo'].nunique()
         base_total_os_retorno = df_retornos_base['Total_OS_Num'].sum()
         
-        # Engenharia Líquida Subtrativa
         base_contratos_liquido = base_contratos_bruto - base_total_retornos
         base_total_os_liquido = base_total_os_bruto - base_total_os_retorno
         
@@ -251,10 +258,8 @@ if df_dash is not None and not df_dash.empty:
         media_contratos_por_tec = base_contratos_liquido / divisor_tecnicos
         media_os_por_tec = base_total_os_liquido / divisor_tecnicos
         
-        # Título da Base
         st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
         
-        # Renderização dos 6 Cards organizados na mesma linha
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         
         with c1:
@@ -283,4 +288,4 @@ if df_dash is not None and not df_dash.empty:
                 st.markdown(f'<div style="font-size:24px; font-weight:900; color:#ff9800;">{media_os_por_tec:.2f}</div>', unsafe_allow_html=True)
 
 else:
-    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial primeiro para gerar o painel.")
+    st.warning("👈 Por favor, aguarde a sincronização automática com a nuvem.")
