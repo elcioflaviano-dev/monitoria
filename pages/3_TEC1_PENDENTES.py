@@ -9,19 +9,15 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
 if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
-    try: 
-        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
-    except: 
-        pass
+    try: st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except: pass
 
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
-    if "last_refresh_pendentes" not in st.session_state: 
-        st.session_state["last_refresh_pendentes"] = time.time()
+    if "last_refresh_pendentes" not in st.session_state: st.session_state["last_refresh_pendentes"] = time.time()
     if time.time() - st.session_state["last_refresh_pendentes"] > 30:
         st.session_state["last_refresh_pendentes"] = time.time()
         st.rerun()
 
-# CSS ATUALIZADO
 st.markdown("""
     <style>
         [data-testid="stHeader"] { visibility: hidden !important; }
@@ -51,8 +47,7 @@ if df_master is not None and not df_master.empty:
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
     
-    if col_tecnico_check:
-        df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
+    if col_tecnico_check: df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
     if 'Contrato' in df.columns:
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
@@ -82,8 +77,7 @@ if df_master is not None and not df_master.empty:
             try:
                 partes = janela_str.replace(':', '').split('-')
                 return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
-            except: 
-                return 24
+            except: return 24
 
         df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
@@ -100,9 +94,7 @@ if df_master is not None and not df_master.empty:
         df_base_janela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
         df_tela = df_base_janela[df_base_janela['P_COUNT'] > 0].copy()
         
-        if df_tela.empty and df_base_janela.empty: 
-            df_tela = df_validos[df_validos['P_COUNT'] > 0].copy()
-            
+        if df_tela.empty and df_base_janela.empty: df_tela = df_validos[df_validos['P_COUNT'] > 0].copy()
         st.markdown(f'<div style="text-align: center; color: #cc6600; font-size: 14px; font-weight: bold; margin-bottom: 15px;">⏰ Progressão: {texto_status_janela}</div>', unsafe_allow_html=True)
     else:
         df_tela = df_validos[df_validos['P_COUNT'] > 0].copy()
@@ -110,22 +102,32 @@ if df_master is not None and not df_master.empty:
     if df_tela.empty:
         st.success("🎉 Nenhum contrato pendente para esta janela!")
     else:
-        # 🔥 ALINHAMENTO DINÂMICO DOS SUPERVISORES PARA ACEITAR NOVOS NOMES DO EXCEL 🔥
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('EDSON MARCO').astype(str).str.upper().str.strip()
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'EDSON MARCO', 'NAN': 'EDSON MARCO', '': 'EDSON MARCO', 'NÃO IDENTIFICADO': 'EDSON MARCO'})
-        
-        def ajustar_nome_sup(x):
-            x_str = str(x).upper()
-            if 'ALAN' in x_str: return 'ALAN'
-            if 'FRANCISCO' in x_str: return 'FRANCISCO'
-            if 'MARCOS' in x_str: return 'MARCOS ROBERTO'
-            if 'EDSON' in x_str: return 'EDSON MARCO'
-            if 'NELSON' in x_str: return 'NELSON'
-            return x_str # Se for um supervisor novo (como JOAO CARLOS MIRON), mantém o nome original!
+        if col_supervisor in df_tela.columns:
+            df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('').astype(str).str.upper().str.strip()
+        else:
+            df_tela['SUPERVISOR_MOSTRAR'] = ''
 
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(ajustar_nome_sup)
+        # 🔥 MESMO MOTOR DE INTELIGÊNCIA EXATO DO TEC1 🔥
+        def vincular_supervisor_tecnico(row):
+            nome_u = str(row.get(col_tecnico_check, '')).upper().strip()
+            sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
+            
+            if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
+                if "MARCOS" in sup_orig and "ROBERTO" not in sup_orig: return "MARCOS ROBERTO"
+                if "EDSON" in sup_orig and "MARCO" not in sup_orig: return "EDSON MARCO"
+                return sup_orig
 
-        # Divisão regional estável por supervisor (Incluindo o João em SP)
+            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
+            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
+            if "MARCOS" in nome_u: return "MARCOS ROBERTO"
+            if "NELSON" in nome_u: return "NELSON"
+            if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
+                
+            return "EDSON MARCO"
+
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
+
+        # Regra de divisão regional IDÊNTICA
         cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
@@ -154,4 +156,4 @@ if df_master is not None and not df_master.empty:
             else: 
                 st.info("Nenhum pendente em SP para esta janela.")
 else: 
-    st.warning("🔄 Base de dados não encontrada. Por favor, aceda à página inicial para ativar a sincronização automática com a nuvem.")
+    st.warning("👈 Insira os arquivos na página inicial primeiro.")
