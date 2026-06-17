@@ -21,7 +21,7 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         st.session_state["last_refresh_pendentes"] = time.time()
         st.rerun()
 
-# CSS ATUALIZADO: INCLUI AS REGRAS PARA ESCONDER OS ATALHOS DO STREAMLIT
+# CSS ATUALIZADO
 st.markdown("""
     <style>
         [data-testid="stHeader"] { visibility: hidden !important; }
@@ -47,7 +47,6 @@ if df_master is not None and not df_master.empty:
     df = df_master.copy()
     df.columns = [str(c).strip() for c in df.columns]
     
-    # 🛠️ TRAVA DE COLUNAS IDÊNTICA AO TEC1 OPERACIONAL
     col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
@@ -59,18 +58,15 @@ if df_master is not None and not df_master.empty:
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
         df = df[df['Contrato'] != ''].copy()
 
-    # Cria a verificação exata dos status pendentes na coluna do seu Excel
     df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
-    # Conta os marcadores reais operacionais
     df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
     df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
     df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
     
     df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
 
-    # === MOTOR DE JANELAS PROGRESSIVO E CUMULATIVO ===
     col_janela = None
     for c in df_validos.columns:
         if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper(): 
@@ -91,7 +87,6 @@ if df_master is not None and not df_master.empty:
 
         df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        # Define os tetos dinâmicos acumulativos baseados no relógio real
         if hora_atual < 12:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
             texto_status_janela = "Pendentes da Manhã (Janelas até 11h e 12h)"
@@ -102,7 +97,6 @@ if df_master is not None and not df_master.empty:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
             texto_status_janela = "Todos os Pendentes do Turno (Acumulado Completo)"
 
-        # Isola os registros da janela cumulativa ou que continuem ativos em andamento de campo
         df_base_janela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
         df_tela = df_base_janela[df_base_janela['P_COUNT'] > 0].copy()
         
@@ -116,13 +110,23 @@ if df_master is not None and not df_master.empty:
     if df_tela.empty:
         st.success("🎉 Nenhum contrato pendente para esta janela!")
     else:
-        # 🔥 ALINHAMENTO COMPLETO DOS SUPERVISORES SEM PERDER MARCOS OU NELSON
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('MAICON').astype(str).str.upper().str.strip()
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'MAICON', 'NAN': 'MAICON', '': 'MAICON'})
-        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
+        # 🔥 ALINHAMENTO DINÂMICO DOS SUPERVISORES PARA ACEITAR NOVOS NOMES DO EXCEL 🔥
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('EDSON MARCO').astype(str).str.upper().str.strip()
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].replace({'#N/A': 'EDSON MARCO', 'NAN': 'EDSON MARCO', '': 'EDSON MARCO', 'NÃO IDENTIFICADO': 'EDSON MARCO'})
+        
+        def ajustar_nome_sup(x):
+            x_str = str(x).upper()
+            if 'ALAN' in x_str: return 'ALAN'
+            if 'FRANCISCO' in x_str: return 'FRANCISCO'
+            if 'MARCOS' in x_str: return 'MARCOS ROBERTO'
+            if 'EDSON' in x_str: return 'EDSON MARCO'
+            if 'NELSON' in x_str: return 'NELSON'
+            return x_str # Se for um supervisor novo (como JOAO CARLOS MIRON), mantém o nome original!
 
-        # Divisão regional estável por supervisor
-        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('ALAN|FRANCISCO|JOAO', na=False)
+        df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(ajustar_nome_sup)
+
+        # Divisão regional estável por supervisor (Incluindo o João em SP)
+        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
 
@@ -150,4 +154,4 @@ if df_master is not None and not df_master.empty:
             else: 
                 st.info("Nenhum pendente em SP para esta janela.")
 else: 
-    st.warning("👈 Insira os arquivos na página inicial primeiro.")
+    st.warning("🔄 Base de dados não encontrada. Por favor, aceda à página inicial para ativar a sincronização automática com a nuvem.")
