@@ -189,13 +189,15 @@ if df_dash is not None and not df_dash.empty:
         if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper():
             df_working['Mestre_Tipo_Atividade_Upper'] += " " + df_working[c].fillna('').astype(str).str.upper().str.strip()
             
-    # Filtro base saudável
+    # 👇 FILTRO BASE SAUDÁVEL E BLINDADO 👇
     cond_saudavel = (
         (df_working['Contrato_Limpo'] != '') & 
         (df_working['Contrato_Limpo'] != 'nan') & 
+        (df_working['Contrato_Limpo'] != '-') & 
         (~df_working['Contrato_Limpo'].str.contains('#N/A', na=False)) & 
-        (~df_working['Status_Atividade_Upper'].str.contains('SUSPENSO', na=False)) & 
-        (~df_working['Mestre_Tipo_Atividade_Upper'].str.contains('REFEI', na=False))
+        (~df_working['Status_Atividade_Upper'].str.contains('SUSP', na=False)) & # Corta "SUSPENSO", "SUSPENSA", "SUSP"
+        (~df_working['Status_Atividade_Upper'].str.contains('CANCEL', na=False)) & # Corta "CANCELADO"
+        (~df_working['Mestre_Tipo_Atividade_Upper'].str.contains('REFEI|ALMO', na=False)) # Corta Almoço/Refeição
     )
     df_working = df_working[cond_saudavel].copy()
 
@@ -206,7 +208,10 @@ if df_dash is not None and not df_dash.empty:
         col_base_operacional = 'REGIAO_BASE'
     else:
         df_working[col_base_operacional] = df_working[col_base_operacional].fillna('NÃO DEFINIDA').astype(str).str.upper().str.strip()
-        df_working[col_base_operacional] = df_working[col_base_operacional].replace({'NAN': 'NÃO DEFINIDA', '': 'NÃO DEFINIDA', '#N/A': 'NÃO DEFINIDA'})
+        df_working[col_base_operacional] = df_working[col_base_operacional].replace({'NAN': 'NÃO DEFINIDA', '': 'NÃO DEFINIDA', '#N/A': 'NÃO DEFINIDA', '-': 'NÃO DEFINIDA'})
+
+    # 👇 FILTRA A BASE "FANTASMA" PARA NÃO POLUIR A TELA 👇
+    df_working = df_working[~df_working[col_base_operacional].isin(['NÃO DEFINIDA', '-', '0', '.'])]
 
     # Campo numérico de OS
     col_tarefas = 'QTD_OS_COL' if 'QTD_OS_COL' in df_working.columns else 'Total de tarefas'
