@@ -37,11 +37,13 @@ if "idx" not in st.session_state:
     st.session_state.idx = 4 # Começa na tela branca
     st.session_state.last_time = time.time()
 
-# Gerenciador de Tempo e Telas
-esperas = {0: 30, 1: 30, 2: 30, 3: 30, 4: 1} # 1s de tela branca é suficiente para limpar o buffer da TV
+# --- AJUSTE NA LÓGICA DE TEMPO ---
+esperas = {0: 30, 1: 30, 2: 20, 3: 30, 4: 1} # 4: 1 = 1 segundo de tela branca
+
 if time.time() - st.session_state.last_time > esperas.get(st.session_state.idx, 10):
-    # Ciclo: 4 -> 0 -> 4 -> 1 -> 4 -> 3 -> 4 -> 2 (Repete)
-    fluxo = {4: 0, 0: 4, 4: 1, 1: 4, 4: 3, 3: 4, 4: 2, 2: 4}
+    # Ciclo limpo: 0 -> 4 -> 1 -> 4 -> 3 -> 4 -> 2 -> 4 (Repete)
+    fluxo = {0: 4, 4: 1, 1: 4, 4: 3, 3: 4, 4: 2, 2: 4} 
+    # Se o índice atual não estiver no fluxo, volta para 0
     st.session_state.idx = fluxo.get(st.session_state.idx, 0)
     st.session_state.last_time = time.time()
     st.rerun()
