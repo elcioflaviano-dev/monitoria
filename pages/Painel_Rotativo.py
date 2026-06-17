@@ -2,57 +2,100 @@ import streamlit as st
 import pandas as pd
 import os
 import time
+import base64
 from datetime import datetime, timedelta
 
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+# [MANTENHA TODAS AS SUAS CONFIGURAÇÕES DE CAMINHOS E CSS COMO ESTÃO]
+# ... (O cabeçalho e CSS que você já tem funcionam bem) ...
 
-ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+# ... [MANTENHA AS LISTAS FIXAS E A LÓGICA DE CARREGAMENTO] ...
 
-# [MANTENHA A LÓGICA DE HERANÇA E REFRESH QUE JÁ TEM FUNCIONANDO]
-# ... (O código de sincronização que já usamos permanece igual) ...
+# =========================================================================
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS (CONFIGURADA PARA O CICLO PEDIDO)
+# =========================================================================
+if "idx" not in st.session_state: 
+    st.session_state.idx = 0
+    st.session_state.last_time = time.time()
+    st.session_state.novo_ciclo = True
 
-# CSS DE ESTILIZAÇÃO DOS NOVOS BLOCOS DE INDICADORES
-st.markdown("""
-    <style>
-    .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 10px 5px; text-align: center; margin-bottom: 5px; }
-    .falta-label { font-size: 11px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 4px; }
-    .falta-value { font-size: 24px; font-weight: 900; color: #b30000; line-height: 1; }
-    .section-base-title { background-color: #005088; color: white; padding: 8px 15px; border-radius: 4px; font-size: 16px; font-weight: bold; margin-top: 20px; margin-bottom: 12px; }
-    </style>
-""", unsafe_allow_html=True)
+agora_br = datetime.utcnow() - timedelta(hours=3)
+antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
+depois_0900 = (agora_br.hour >= 9)
 
-# ... (Mantenha o resto da lógica do painel principal até chegar no fim das bases) ...
+# ⏳ TEMPOS DE EXIBIÇÃO (Relógio com 60s, outros com 30s)
+esperas = {0: 60, 1: 30, 2: 60, 3: 30, 4: 1}
 
-# --- INSERIR ESTE BLOCO ABAIXO, NO FINAL DO FICHEIRO ---
-st.markdown("<br><hr style='border: 2px solid #cc6600;'><br>", unsafe_allow_html=True)
-st.markdown('<h2 style="text-align:center; color:#cc6600;">🚨 TOTAL DE FALTAS DE INDICADORES (RESUMO)</h2>', unsafe_allow_html=True)
+tempo_passado = time.time() - st.session_state.last_time
 
-df_dash = st.session_state.get('df_rota_ativa', None)
-if df_dash is not None:
-    # 1. Identificar colunas
-    col_nr35 = next((c for c in reversed(df_dash.columns) if 'NR35' in c.upper()), None)
-    col_cert = next((c for c in reversed(df_dash.columns) if 'CERTID' in c.upper()), None)
-    col_bst  = next((c for c in reversed(df_dash.columns) if 'BST' in c.upper()), None)
+if tempo_passado > esperas.get(st.session_state.idx, 10):
+    if antes_0830:
+        st.session_state.idx = 0 # Fixo nos técnicos
+    else:
+        # CICLO: Relógio(2) -> Branca(4) -> TEC1(1) -> Branca(4) -> Relógio(2) -> Branca(4) -> Indicadores(3) -> Branca(4)
+        fluxo = {2: 4, 4: 1, 1: 4, 4: 2, 2: 4, 4: 3, 3: 4, 4: 2}
+        # Se for antes das 09:00, pula os indicadores (3)
+        if not depois_0900 and st.session_state.idx == 2:
+            st.session_state.idx = 1
+        else:
+            st.session_state.idx = fluxo.get(st.session_state.idx, 2)
+            
+    st.session_state.last_time = time.time()
+    st.session_state.novo_ciclo = True
+    st.rerun()
+
+# =========================================================================
+# TELA 4: TELA BRANCA (LIMPEZA)
+# =========================================================================
+if st.session_state.idx == 4:
+    st.markdown('<div style="height: 100vh; background-color: #ffffff;"></div>', unsafe_allow_html=True)
+
+# =========================================================================
+# TELA 0: TÉCNICOS NA BASE
+# =========================================================================
+elif st.session_state.idx == 0:
+    # ... [MANTER O CÓDIGO DA TELA 0 QUE VOCÊ JÁ TEM] ...
+
+# =========================================================================
+# TELA 1: CONTRATOS PENDENTES (TEC1)
+# =========================================================================
+elif st.session_state.idx == 1:
+    # ... [MANTER O CÓDIGO DA TELA 1 QUE VOCÊ JÁ TEM] ...
+
+# =========================================================================
+# TELA 2: RELÓGIO
+# =========================================================================
+elif st.session_state.idx == 2:
+    st.markdown('<div class="relogio-container"><div class="hora-gigante">{}</div></div>'.format(datetime.now().strftime("%H:%M:%S")), unsafe_allow_html=True)
+
+# =========================================================================
+# TELA 3: INDICADORES (NR35/CERT/BST)
+# =========================================================================
+elif st.session_state.idx == 3:
+    st.markdown('<h1 style="text-align:center;">📊 INDICADORES OPERACIONAIS</h1>', unsafe_allow_html=True)
+    df_ind = pd.read_csv(ARQUIVO_INDICADORES) if os.path.exists(ARQUIVO_INDICADORES) else pd.DataFrame()
     
-    # 2. Filtrar contratos produtivos únicos
-    df_prod = df_dash[df_dash['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC', na=False)].drop_duplicates(subset=['Contrato'])
-    
-    # 3. Calcular faltas
-    df_prod['FALTA_NR35'] = df_prod[col_nr35].fillna('').str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_nr35 else 0
-    df_prod['FALTA_CERT'] = df_prod[col_cert].fillna('').str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_cert else 0
-    df_prod['FALTA_BST'] = df_prod[col_bst].fillna('').str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_bst else 0
-    
-    # 4. Agrupar por Supervisor (usando a mesma lógica de normalização que já temos)
-    matriz = df_prod.groupby('SUPERVISOR')[['FALTA_NR35', 'FALTA_CERT', 'FALTA_BST']].sum().reset_index()
-    
-    # 5. Exibir
-    cols = st.columns(3) # Exibe 3 supervisores por linha
-    for i, supervisor in enumerate(sorted(matriz['SUPERVISOR'].unique())):
-        dados = matriz[matriz['SUPERVISOR'] == supervisor].iloc[0]
-        with cols[i % 3]:
-            with st.container(border=True):
-                st.markdown(f"**{supervisor}**")
-                m1, m2, m3 = st.columns(3)
-                m1.markdown(f'<div class="falta-box"><div class="falta-label">NR35</div><div class="falta-value">{int(dados["FALTA_NR35"])}</div></div>', unsafe_allow_html=True)
-                m2.markdown(f'<div class="falta-box"><div class="falta-label">CERT</div><div class="falta-value">{int(dados["FALTA_CERT"])}</div></div>', unsafe_allow_html=True)
-                m3.markdown(f'<div class="falta-box"><div class="falta-label">BST</div><div class="falta-value">{int(dados["FALTA_BST"])}</div></div>', unsafe_allow_html=True)
+    if not df_ind.empty:
+        c1, c2 = st.columns(2)
+        # --- FUNÇÃO DE RENDERIZAÇÃO DOS BLOCOS (IDÊNTICA AO TEC1) ---
+        def renderizar_bloco(base, col):
+            df_base = df_ind[df_ind["BASE"] == base]
+            for sup in sorted(df_base['SUPERVISOR'].unique()):
+                d = df_base[df_base['SUPERVISOR'] == sup]
+                f_nr = int(d[d["INDICADOR"]=="NR35"]["VALOR"].sum())
+                f_ct = int(d[d["INDICADOR"]=="Certidão"]["VALOR"].sum())
+                f_bt = int(d[d["INDICADOR"]=="BST"]["VALOR"].sum())
+                
+                with col:
+                    st.markdown(f'''
+                        <div class="box-contagem">
+                            <div class="box-nome">📋 {sup}</div>
+                            <div style="display:flex; justify-content:space-around;">
+                                <div class="falta-box"><div class="falta-label">NR35</div><div class="box-num">{f_nr}</div></div>
+                                <div class="falta-box"><div class="falta-label">CERT</div><div class="box-num">{f_ct}</div></div>
+                                <div class="falta-box"><div class="falta-label">BST</div><div class="box-num">{f_bt}</div></div>
+                            </div>
+                        </div>
+                    ''', unsafe_allow_html=True)
+
+        renderizar_bloco(df_ind[df_ind["BASE"] == "ABC"], c1)
+        renderizar_bloco(df_ind[df_ind["BASE"] == "SP"], c2)
