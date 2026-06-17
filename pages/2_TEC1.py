@@ -83,7 +83,7 @@ if df_master is not None and not df_master.empty:
     
     df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
 
-    # === MOTOR DE JANELAS PROGRESSIVO E CUMULATIVO (ALINHADO COM TEC1 PENDENTES E TV) ===
+    # === MOTOR DE JANELAS PROGRESSIVO E CUMULATIVO ===
     col_janela = None
     for c in df_validos.columns:
         if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
@@ -116,7 +116,7 @@ if df_master is not None and not df_master.empty:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
             texto_status_janela = "Acumulado Completo do Turno"
 
-        # Isola os registros da janela cumulativa (Pendentes só da janela, Rota e Iniciados sempre mostram)
+        # Isola os registros da janela cumulativa
         df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
         
         if df_tela.empty: 
@@ -125,7 +125,6 @@ if df_master is not None and not df_master.empty:
         df_tela = df_validos.copy()
         texto_status_janela = "Todos os Contratos Ativos"
 
-    # Prevenção de duplicações no CSV para os números baterem exatos com a TV
     if 'Contrato' in df_tela.columns and not df_tela.empty:
         df_tela = df_tela.drop_duplicates(subset=['Contrato'])
 
@@ -134,26 +133,21 @@ if df_master is not None and not df_master.empty:
     if df_tela.empty:
         st.warning("⚠️ Não existem dados correspondentes para os filtros aplicados nesta janela.")
     else:
-        # Puxa o supervisor original se ele existir e for válido
         if 'SUPERVISOR' in df_tela.columns:
             df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR'].fillna('').astype(str).str.upper().str.strip()
         else:
             df_tela['SUPERVISOR_MOSTRAR'] = ''
 
-        # 🔥 MOTOR DE DISTRIBUIÇÃO ATUALIZADO E CORRIGIDO 🔥
+        # 🔥 MOTOR DE DISTRIBUIÇÃO CORRIGIDO E 100% EXCEL DINÂMICO 🔥
         def vincular_supervisor_tecnico(row):
             nome_u = str(row[col_tecnico_check]).upper().strip()
             sup_orig = str(row['SUPERVISOR_MOSTRAR']).upper().strip()
             
-            # A ordem importa para evitar conflito de nomes parecidos (MARCOS x MARCO)
-            if "ALAN" in sup_orig: return "ALAN"
-            if "FRANCISCO" in sup_orig: return "FRANCISCO"
-            if "JOAO" in sup_orig: return "JOAO"
-            if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
-            if "EDSON" in sup_orig: return "EDSON MARCO"
-            if "NELSON" in sup_orig: return "NELSON"
+            # Se a planilha já trouxe um supervisor real e válido, mantém ele! (Ex: JOAO CARLOS MIRON)
+            if sup_orig and sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
+                return sup_orig
 
-            # Fallback inteligente por primeiro nome do técnico (PROCV interno por substring)
+            # Fallback inteligente por primeiro nome caso a célula venha em branco
             if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
                 return "ALAN"
             if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
@@ -167,8 +161,8 @@ if df_master is not None and not df_master.empty:
 
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
-        # Divisão Regional utilizando os supervisores como âncora
-        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('ALAN|FRANCISCO|JOAO', na=False)
+        # Divisão Regional utilizando os supervisores como âncora (João incluído em SP)
+        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
 
@@ -209,6 +203,5 @@ if df_master is not None and not df_master.empty:
                         with m3: st.metric(label="🟢 INICIADO", value=iniciados)
             else:
                 st.info("Nenhum contrato ativo para SP nesta janela.")
-
 else:
-    st.warning("👈 Por favor, faça o upload dos arquivos de rota na página inicial (streamlit_app.py) primeiro.")
+    st.warning("🔄 Base de dados não encontrada. Por favor, aceda à página inicial para ativar a sincronização automática com a nuvem.")
