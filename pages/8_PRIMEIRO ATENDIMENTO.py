@@ -147,8 +147,8 @@ if df_master is not None and not df_master.empty:
         df_exibicao = df_primeiros_horarios[['Supervisor_Limpo', col_recurso, 'Horário', 'Hora_Inicio_Time']].rename(columns={col_recurso: 'Técnico', 'Supervisor_Limpo': 'Supervisor'})
         df_exibicao = df_exibicao[(df_exibicao['Técnico'] != 'N/A') & (df_exibicao['Técnico'] != '')]
         
-        # Separação das Regionais
-        cond_sp = df_exibicao['Supervisor'].str.contains("FRANCISCO|ALAN", na=False)
+        # 🔥 SEPARAÇÃO DAS REGIONAIS (Com o João e Miron blindados em SP) 🔥
+        cond_sp = df_exibicao['Supervisor'].str.contains("FRANCISCO|ALAN|JOAO|MIRON", na=False)
         df_sp = df_exibicao[cond_sp].copy()
         df_abc = df_exibicao[~cond_sp].copy()
 
@@ -159,12 +159,12 @@ if df_master is not None and not df_master.empty:
             media_abc = st.session_state['media_global_abc']
             media_sp = st.session_state['media_global_sp']
         else:
-            horas_abc = df_primeiros_horarios[~df_primeiros_horarios['Supervisor_Limpo'].str.contains("FRANCISCO|ALAN", na=False)]['Hora_Inicio_Time'].tolist()
-            horas_sp = df_primeiros_horarios[df_primeiros_horarios['Supervisor_Limpo'].str.contains("FRANCISCO|ALAN", na=False)]['Hora_Inicio_Time'].tolist()
+            horas_abc = df_primeiros_horarios[~df_primeiros_horarios['Supervisor_Limpo'].str.contains("FRANCISCO|ALAN|JOAO|MIRON", na=False)]['Hora_Inicio_Time'].tolist()
+            horas_sp = df_primeiros_horarios[df_primeiros_horarios['Supervisor_Limpo'].str.contains("FRANCISCO|ALAN|JOAO|MIRON", na=False)]['Hora_Inicio_Time'].tolist()
             media_abc = calcular_media_horarios(horas_abc)
             media_sp = calcular_media_horarios(horas_sp)
 
-        # Cards superiores com os valores cravados (8:26 e 8:14)
+        # Cards superiores
         st.markdown(f'''
             <div class="kpi-container">
                 <div class="kpi-card abc">
