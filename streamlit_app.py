@@ -89,9 +89,6 @@ def carregar_dados_nuvem():
         
         # Garante que as colunas de supervisão e base existem e estão limpas
         if 'SUPERVISOR' in df_final.columns:
-        
-        # Garante que as colunas de supervisão e base existem e estão limpas
-        if 'SUPERVISOR' in df_final.columns:
             df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('#N/A').astype(str).str.strip().str.upper()
             df_final['SUPERVISOR'] = df_final['SUPERVISOR'].replace(['NAN', 'N/A', 'NULL', ''], 'NÃO IDENTIFICADO')
         else:
