@@ -4,10 +4,9 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# 1. Configura a página para ocupar toda a largura da tela
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT)
+# CSS PARA LIMPEZA DA INTERFACE
 st.markdown("""
     <style>
     [data-testid="stHeader"] { visibility: hidden !important; }
@@ -19,33 +18,21 @@ st.markdown("""
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS DE SESSÃO)
 if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
-    try: 
-        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
-    except: 
-        pass
+    try: st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except: pass
 
-# 🚀 SISTEMA DE REFRESH AUTOMÁTICO PARA A TV (Otimizado para 30 Segundos nesta tela)
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
-    if "last_refresh_tec1" not in st.session_state: 
-        st.session_state["last_refresh_tec1"] = time.time()
+    if "last_refresh_tec1" not in st.session_state: st.session_state["last_refresh_tec1"] = time.time()
     if time.time() - st.session_state["last_refresh_tec1"] > 30:
         st.session_state["last_refresh_tec1"] = time.time()
         st.rerun()
 
-# 2. Abre e injeta o arquivo style.css externo
 try:
-    with open("style.css", "r") as f: 
-        st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
-except: 
-    pass
+    with open("style.css", "r") as f: st.markdown("<style>" + str(f.read()) + "</style>", unsafe_allow_html=True)
+except: pass
 
-# Título TEC1 Centralizado
-st.markdown(
-    '<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 5px;">TEC1</h1>', 
-    unsafe_allow_html=True
-)
+st.markdown('<h1 style="font-size: 42px; font-weight: 900; color: #006677; text-align: center; margin-top: 25px; margin-bottom: 5px;">TEC1</h1>', unsafe_allow_html=True)
 
 df_master = st.session_state.get('df_rota_ativa', None)
 
@@ -53,37 +40,28 @@ if df_master is not None and not df_master.empty:
     df = df_master.copy()
     df.columns = [str(c).strip() for c in df.columns]
     
-    # Identifica a coluna correta de técnicos
     col_tecnico_check = 'Recurso' if 'Recurso' in df.columns else (df.columns[0] if len(df.columns) > 0 else 'Recurso')
     col_status_real = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     col_tipo_real = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else df.columns[-1]
 
-    # Força a limpeza das linhas de técnicos vazias
     df = df[df[col_tecnico_check].fillna('').astype(str).str.strip() != ''].copy()
     
-    # Localiza e limpa a coluna de Contrato tirando o ".0" de float
     if 'Contrato' in df.columns:
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
         df = df[df['Contrato'] != ''].copy()
 
-    # === ALINHAMENTO DE COLUNAS OPERACIONAIS ===
     df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
-    
-    # FILTRAGEM: Remove status suspensos
     df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
     
-    # Remove as marcações operacionais de almoço (Refeicao)
     df_limpo['Tipo_Activity_Str'] = df_limpo[col_tipo_real].fillna('').astype(str)
     df_limpo = df_limpo[~df_limpo['Tipo_Activity_Str'].str.contains('Refeicao', case=False, na=False)]
         
-    # === PASSO 2: FILTRAGEM PRÉVIA DE STATUS ATIVOS EM CAMPO ===
     df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
     df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
     df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
     
     df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
 
-    # === MOTOR DE JANELAS PROGRESSIVO E CUMULATIVO ===
     col_janela = None
     for c in df_validos.columns:
         if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
@@ -100,12 +78,10 @@ if df_master is not None and not df_master.empty:
             try:
                 partes = janela_str.replace(':', '').split('-')
                 return int(partes[1].strip()[:2]) if len(partes) == 2 else 24
-            except: 
-                return 24
+            except: return 24
 
         df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
         
-        # Define os tetos dinâmicos acumulativos baseados no relógio real
         if hora_atual < 12:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
             texto_status_janela = "Janelas até 12h"
@@ -116,11 +92,8 @@ if df_master is not None and not df_master.empty:
             condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
             texto_status_janela = "Acumulado Completo do Turno"
 
-        # Isola os registros da janela cumulativa
         df_tela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
-        
-        if df_tela.empty: 
-            df_tela = df_validos.copy()
+        if df_tela.empty: df_tela = df_validos.copy()
     else:
         df_tela = df_validos.copy()
         texto_status_janela = "Todos os Contratos Ativos"
@@ -138,30 +111,29 @@ if df_master is not None and not df_master.empty:
         else:
             df_tela['SUPERVISOR_MOSTRAR'] = ''
 
-        # 🔥 MOTOR DE DISTRIBUIÇÃO CORRIGIDO E 100% EXCEL DINÂMICO 🔥
+        # 🔥 AQUI ESTÁ A CORREÇÃO MESTRA 🔥
         def vincular_supervisor_tecnico(row):
-            nome_u = str(row[col_tecnico_check]).upper().strip()
-            sup_orig = str(row['SUPERVISOR_MOSTRAR']).upper().strip()
+            nome_u = str(row.get(col_tecnico_check, '')).upper().strip()
+            sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
-            # Se a planilha já trouxe um supervisor real e válido, mantém ele! (Ex: JOAO CARLOS MIRON)
-            if sup_orig and sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
+            # 1. Se a planilha mandou o supervisor preenchido, nós confiamos 100% no Excel! (Isso salva o João Carlos)
+            if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
+                if "MARCOS" in sup_orig and "ROBERTO" not in sup_orig: return "MARCOS ROBERTO"
+                if "EDSON" in sup_orig and "MARCO" not in sup_orig: return "EDSON MARCO"
                 return sup_orig
 
-            # Fallback inteligente por primeiro nome caso a célula venha em branco
-            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: 
-                return "ALAN"
-            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: 
-                return "FRANCISCO"
-            if "MARCOS" in nome_u: 
-                return "MARCOS ROBERTO"
-            if "NELSON" in nome_u: 
-                return "NELSON"
+            # 2. Só usamos o "chute" de emergência se a coluna do Excel estiver VAZIA
+            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
+            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
+            if "MARCOS" in nome_u: return "MARCOS ROBERTO"
+            if "NELSON" in nome_u: return "NELSON"
+            if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
                 
             return "EDSON MARCO"
 
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
-        # Divisão Regional utilizando os supervisores como âncora (João incluído em SP)
+        # Regra corrigida de SP: agora abraça o João e o Miron!
         cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
@@ -204,4 +176,4 @@ if df_master is not None and not df_master.empty:
             else:
                 st.info("Nenhum contrato ativo para SP nesta janela.")
 else:
-    st.warning("🔄 Base de dados não encontrada. Por favor, aceda à página inicial para ativar a sincronização automática com a nuvem.")
+    st.warning("👈 Por favor, aguarde a sincronização na página inicial primeiro.")
