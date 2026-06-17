@@ -45,9 +45,6 @@ def carregar_dados_nuvem():
         df_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_bruto.columns]
         
         # 🔥 O SEGREDO FINAL: BUSCAR SEMPRE AS ÚLTIMAS COLUNAS DO EXCEL 🔥
-        # O Pandas renomeia colunas duplicadas para "Supervisor.1", "Base.1", etc.
-        # Como as suas fórmulas estão sempre nas últimas colunas (DQ, DR), nós pegamos de trás para a frente!
-        
         colunas_mapeadas = {}
         
         # 1. Pega a última coluna da planilha que contém "SUPERVISOR"
@@ -75,6 +72,9 @@ def carregar_dados_nuvem():
                 colunas_mapeadas[col] = 'QTD_OS_COL'
         
         df_final = df_bruto.rename(columns=colunas_mapeadas)
+        
+        # 👇 A BLINDAGEM QUE FALTOU! REMOVE COLUNAS COM NOMES REPETIDOS APÓS O MAPEAMENTO 👇
+        df_final = df_final.loc[:, ~df_final.columns.duplicated(keep='first')]
         
         # Tratamento final para evitar falhas e "Fantasmas"
         if 'SUPERVISOR' in df_final.columns:
