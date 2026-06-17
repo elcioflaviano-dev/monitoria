@@ -44,39 +44,35 @@ def carregar_dados_nuvem():
 
         df_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_bruto.columns]
         
-        # 🔥 O SEGREDO FINAL: BUSCAR SEMPRE AS ÚLTIMAS COLUNAS DO EXCEL 🔥
-        colunas_mapeadas = {}
-        
-        # 1. Pega a última coluna da planilha que contém "SUPERVISOR"
+        # 🔥 PASSO 1: SALVA OS DADOS DAS SUAS FÓRMULAS ANTES DA LIMPEZA 🔥
         cols_sup = [c for c in df_bruto.columns if 'SUPERV' in c.upper()]
-        if cols_sup:
-            colunas_mapeadas[cols_sup[-1]] = 'SUPERVISOR'
-            
-        # 2. Pega a última coluna da planilha que contém "BASE"
+        serie_supervisor = df_bruto[cols_sup[-1]].copy() if cols_sup else None
+        
         cols_base = [c for c in df_bruto.columns if c.upper().split('.')[0] in ['BASE', 'REGIAO', 'REGIAO_BASE']]
-        if cols_base:
-            colunas_mapeadas[cols_base[-1]] = 'REGIAO_BASE'
+        serie_base = df_bruto[cols_base[-1]].copy() if cols_base else None
 
-        # 3. Mapeia o resto das colunas cruas
+        # PASSO 2: Mapeamento normal
+        colunas_mapeadas = {}
         for col in list(df_bruto.columns):
             col_upper = str(col).upper().strip()
-            if col_upper in ['LOGIN DO TÉCNICO', 'LOGIN DO TECNICO', 'LOGIN'] and col not in colunas_mapeadas:
-                colunas_mapeadas[col] = 'Login do Técnico'
-            elif 'STATUS' in col_upper and 'ATIVIDADE' in col_upper and col not in colunas_mapeadas:
-                colunas_mapeadas[col] = 'Status da Atividade'
-            elif 'TIPO' in col_upper and 'ATIVIDADE' in col_upper and col not in colunas_mapeadas:
-                colunas_mapeadas[col] = 'Tipo de Atividade'
-            elif col_upper in ['RECURSO', 'RECURS', 'TECNICO', 'NOME', 'TÉCNICO'] and col not in colunas_mapeadas:
-                colunas_mapeadas[col] = 'Recurso'
-            elif 'TOTAL DE TAREFAS' in col_upper and col not in colunas_mapeadas:
-                colunas_mapeadas[col] = 'QTD_OS_COL'
+            if col_upper in ['LOGIN DO TÉCNICO', 'LOGIN DO TECNICO', 'LOGIN']: colunas_mapeadas[col] = 'Login do Técnico'
+            elif 'STATUS' in col_upper and 'ATIVIDADE' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
+            elif 'TIPO' in col_upper and 'ATIVIDADE' in col_upper: colunas_mapeadas[col] = 'Tipo de Atividade'
+            elif col_upper in ['RECURSO', 'RECURS', 'TECNICO', 'NOME', 'TÉCNICO']: colunas_mapeadas[col] = 'Recurso'
+            elif 'TOTAL DE TAREFAS' in col_upper: colunas_mapeadas[col] = 'QTD_OS_COL'
         
         df_final = df_bruto.rename(columns=colunas_mapeadas)
         
-        # 👇 A BLINDAGEM QUE FALTOU! REMOVE COLUNAS COM NOMES REPETIDOS APÓS O MAPEAMENTO 👇
+        # Resolve o erro do Grouper apagando colunas repetidas com segurança
         df_final = df_final.loc[:, ~df_final.columns.duplicated(keep='first')]
         
-        # Tratamento final para evitar falhas e "Fantasmas"
+        # 🔥 PASSO 3: INJETA COM FORÇA AS FÓRMULAS NA TABELA LIMPA 🔥
+        if serie_supervisor is not None:
+            df_final['SUPERVISOR'] = serie_supervisor
+        if serie_base is not None:
+            df_final['REGIAO_BASE'] = serie_base
+
+        # Limpeza final dos vazios e "Fantasmas"
         if 'SUPERVISOR' in df_final.columns:
             df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('NÃO IDENTIFICADO').astype(str).str.strip().str.upper()
             df_final['SUPERVISOR'] = df_final['SUPERVISOR'].replace(['NAN', 'N/A', 'NULL', '', '-', '0'], 'NÃO IDENTIFICADO')
