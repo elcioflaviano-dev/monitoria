@@ -128,21 +128,28 @@ if df_master is not None and not df_master.empty:
     if df_pendentes.empty:
         st.success("🎉 Excelente! Todos os contratos produtivos estão com os indicadores preenchidos e enviados.")
     else:
-        # Mapeamento Inteligente de Supervisores (IDÊNTICO AO TEC1)
+        # Mapeamento Inteligente de Supervisores
         if col_supervisor in df_pendentes.columns:
             df_pendentes['SUPERVISOR_MOSTRAR'] = df_pendentes[col_supervisor].fillna('').astype(str).str.upper().str.strip()
         else:
             df_pendentes['SUPERVISOR_MOSTRAR'] = ''
 
+        # 🔥 CORREÇÃO DA DUPLICAÇÃO DE NOMES AQUI 🔥
         def vincular_supervisor_tecnico(row):
             nome_u = str(row.get(col_tecnico, '')).upper().strip()
             sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
+            # 1. Normaliza obrigatoriamente o nome vindo do Excel
             if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0']:
-                if "MARCOS" in sup_orig and "ROBERTO" not in sup_orig: return "MARCOS ROBERTO"
-                if "EDSON" in sup_orig and "MARCO" not in sup_orig: return "EDSON MARCO"
-                return sup_orig
+                if "ALAN" in sup_orig: return "ALAN"
+                if "FRANCISCO" in sup_orig: return "FRANCISCO"
+                if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
+                if "EDSON" in sup_orig: return "EDSON MARCO"
+                if "NELSON" in sup_orig: return "NELSON"
+                if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
+                return sup_orig # Mantém o nome se for alguém realmente novo
 
+            # 2. Regra de emergência caso a célula do Excel venha vazia
             if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
             if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
             if "MARCOS" in nome_u: return "MARCOS ROBERTO"
@@ -160,7 +167,7 @@ if df_master is not None and not df_master.empty:
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
-        # --- RENDERIZAÇÃO LADO ABC (IGUAL AO TEC1) ---
+        # --- RENDERIZAÇÃO LADO ABC ---
         with col_coluna_abc:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             if not df_abc.empty:
@@ -181,7 +188,7 @@ if df_master is not None and not df_master.empty:
             else: 
                 st.info("Nenhuma pendência de indicador no ABC.")
 
-        # --- RENDERIZAÇÃO LADO SÃO PAULO (IGUAL AO TEC1) ---
+        # --- RENDERIZAÇÃO LADO SÃO PAULO ---
         with col_coluna_sp:
             st.markdown('<div class="title-abc-sp title-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             if not df_sp.empty:
