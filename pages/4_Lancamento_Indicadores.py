@@ -31,7 +31,7 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         st.session_state["last_refresh_ind"] = time.time()
         st.rerun()
 
-st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #005088; text-align: center; margin-top: 5px; margin-bottom: 25px;">📊 CONFORMIDADE DE INDICADORES DA EQUIPE</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 36px; font-weight: 900; color: #005088; text-align: center; margin-top: 5px; margin-bottom: 25px;">📊 INDICADORES</h1>', unsafe_allow_html=True)
 
 df_master = st.session_state.get('df_rota_ativa', None)
 
@@ -66,7 +66,7 @@ if df_master is not None and not df_master.empty:
     
     with c1:
         with st.container(border=True):
-            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">🧗 APTIDÃO NR35 (ALTURA)</p>', unsafe_allow_html=True)
+            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">🪜 NR35 (ESCADA)</p>', unsafe_allow_html=True)
             if col_nr35:
                 df_tec[col_nr35] = df_tec[col_nr35].fillna('-').astype(str).str.upper().str.strip()
                 aptos = len(df_tec[df_tec[col_nr35] == 'SIM'])
@@ -78,7 +78,7 @@ if df_master is not None and not df_master.empty:
                 
     with c2:
         with st.container(border=True):
-            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">📜 CERTIDÃO DIGITAL ELETRÓNICA</p>', unsafe_allow_html=True)
+            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">📜 CERTIDÃO DE ATENDIMENTO</p>', unsafe_allow_html=True)
             if col_cert:
                 df_tec[col_cert] = df_tec[col_cert].fillna('-').astype(str).str.upper().str.strip()
                 aptos = len(df_tec[df_tec[col_cert] == 'SIM'])
@@ -103,7 +103,7 @@ if df_master is not None and not df_master.empty:
     st.markdown("<br><br>", unsafe_allow_html=True)
     
     # =========================================================================
-    # 📋 GRADE DETALHADA nominal
+    # 📋 GRADE DETALHADA NOMINAL
     # =========================================================================
     st.markdown('<div style="background-color:#555; padding:4px 15px; border-radius:4px; margin-bottom:10px;"><h3 style="color:white; margin:0px; font-size:15px; font-weight: bold; text-transform:uppercase;">📋 Relatório Nominal de Auditoria</h3></div>', unsafe_allow_html=True)
     
