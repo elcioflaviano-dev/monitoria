@@ -122,7 +122,7 @@ if df_master is not None and not df_master.empty:
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela['SUPERVISOR_MOSTRAR'].apply(lambda x: 'ALAN' if 'ALAN' in str(x) else ('MARCOS ROBERTO' if 'MARCOS' in str(x) else x))
 
         # Divisão regional estável por supervisor
-        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN', na=False)
+        cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('ALAN|FRANCISCO|JOAO', na=False)
         df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
 
