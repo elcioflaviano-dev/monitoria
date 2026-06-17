@@ -6,7 +6,7 @@ import time
 # Configuração da página ampla
 st.set_page_config(layout="wide", page_title="INDICADORES", initial_sidebar_state="collapsed")
 
-# CSS PARA LIMPEZA DA INTERFACE E ESTILIZAÇÃO DO TEC1
+# CSS PARA LIMPEZA DA INTERFACE E ESTILIZAÇÃO DOS BLOCOS
 st.markdown("""
     <style>
     [data-testid="stHeader"] { visibility: hidden !important; }
@@ -15,14 +15,12 @@ st.markdown("""
     #MainMenu { visibility: hidden !important; }
     .block-container { padding-top: 15px !important; }
     
-    .title-abc-sp { font-size: 24px !important; font-weight: 900 !important; margin-bottom: 10px !important; text-align: center; color: #005088; }
-    .super-bar { background-color: #f0f2f6; padding: 6px 12px; border-radius: 4px; font-size: 16px; font-weight: bold; color: #333; margin-top: 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #008080; }
-    .super-bar.sp { border-left: 5px solid #b30000; }
-    .super-total { background-color: #ffffff; color: #c62828; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 900; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .item-linha { font-size: 15px; padding: 6px 12px; border-bottom: 1px solid #eee; color: #222; display: flex; align-items: center; }
-    .item-contrato { font-weight: 900; color: #cc6600; font-size: 16px; width: 110px; }
-    .item-tecnico { font-weight: bold; color: #444; flex-grow: 1; }
-    .badge-falta { background-color: #ffebee; color: #c62828; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid #ffcdd2; }
+    .title-abc-sp { font-size: 24px !important; font-weight: 900 !important; margin-bottom: 15px !important; text-align: center; color: #008080; }
+    .title-sp { color: #b30000 !important; }
+    
+    .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; }
+    .falta-label { font-size: 12px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
+    .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -55,7 +53,6 @@ if df_master is not None and not df_master.empty:
     col_supervisor = 'SUPERVISOR' if 'SUPERVISOR' in df.columns else 'Supervisor'
     col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
     
-    # Limpeza de Contratos
     if 'Contrato' in df.columns:
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
 
@@ -66,7 +63,7 @@ if df_master is not None and not df_master.empty:
     df_produtivo = df[df['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
 
     # =========================================================================
-    # 2. CARDS DE KPI (Cálculo sobre técnicos em campo)
+    # 2. CARDS DE KPI DE SUCESSO (Cálculo sobre técnicos em campo)
     # =========================================================================
     df_tec = df_produtivo.drop_duplicates(subset=[col_tecnico]).copy()
     total_tecnicos = len(df_tec) if len(df_tec) > 0 else 1
@@ -108,25 +105,25 @@ if df_master is not None and not df_master.empty:
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
     # =========================================================================
-    # 3. MOTOR DE PENDÊNCIAS (Layout TEC1)
+    # 3. MOTOR DE PENDÊNCIAS (LAYOUT TEC1 - BLOCOS TOTAIS)
     # =========================================================================
-    st.markdown('<h2 style="font-size: 26px; font-weight: 900; color: #cc6600; text-align: center; margin-bottom: 20px;">🚨 COBRANÇA DE INDICADORES (NÃO ENVIADOS)</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-size: 26px; font-weight: 900; color: #cc6600; text-align: center; margin-bottom: 20px;">🚨 FALTAS DE INDICADORES POR SUPERVISOR</h2>', unsafe_allow_html=True)
 
-    # Função para descobrir o que falta em cada contrato
-    def verificar_faltas(row):
-        faltas = []
-        if col_nr35 and pd.Series(str(row.get(col_nr35, ''))).str.upper().str.contains('NÃO|NAO|FALTA').any():
-            faltas.append('NR35')
-        if col_cert and pd.Series(str(row.get(col_cert, ''))).str.upper().str.contains('NÃO|NAO|FALTA').any():
-            faltas.append('CERTIDÃO')
-        if col_bst and pd.Series(str(row.get(col_bst, ''))).str.upper().str.contains('NÃO|NAO|FALTA').any():
-            faltas.append('BST')
-        return " + ".join(faltas)
-
-    df_produtivo['Faltas_Indicadores'] = df_produtivo.apply(verificar_faltas, axis=1)
+    # Criação de colunas numéricas (0 ou 1) para somar as faltas facilmente
+    df_produtivo['FALTA_NR35'] = 0
+    if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
     
-    # Filtra APENAS quem tem faltas
-    df_pendentes = df_produtivo[df_produtivo['Faltas_Indicadores'] != ''].copy()
+    df_produtivo['FALTA_CERT'] = 0
+    if col_cert: df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+    
+    df_produtivo['FALTA_BST'] = 0
+    if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+
+    # Soma total de faltas na linha para ver se o contrato tem pendência
+    df_produtivo['TOTAL_FALTAS'] = df_produtivo['FALTA_NR35'] + df_produtivo['FALTA_CERT'] + df_produtivo['FALTA_BST']
+    
+    # Filtra APENAS quem tem falta
+    df_pendentes = df_produtivo[df_produtivo['TOTAL_FALTAS'] > 0].copy()
 
     if df_pendentes.empty:
         st.success("🎉 Excelente! Todos os contratos produtivos estão com os indicadores preenchidos e enviados.")
@@ -163,45 +160,45 @@ if df_master is not None and not df_master.empty:
 
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
-        # --- RENDERIZAÇÃO LADO ABC ---
+        # --- RENDERIZAÇÃO LADO ABC (IGUAL AO TEC1) ---
         with col_coluna_abc:
             st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             if not df_abc.empty:
-                for supervisor in sorted(df_abc['SUPERVISOR_MOSTRAR'].unique()):
-                    df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
-                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Faltas: {len(df_super)}</span></div>', unsafe_allow_html=True)
-                    for _, linha in df_super.iterrows():
-                        tec_nome = str(linha.get(col_tecnico, "TÉCNICO")).upper()
-                        contrato = linha.get("Contrato", "N/A")
-                        faltas = linha.get("Faltas_Indicadores")
-                        st.markdown(f'''
-                            <div class="item-linha">
-                                <span class="item-contrato">📄 {contrato}</span> 
-                                <span class="item-tecnico">👤 {tec_nome}</span>
-                                <span class="badge-falta">❌ Faltam: {faltas}</span>
-                            </div>
-                        ''', unsafe_allow_html=True)
+                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['FALTA_NR35', 'FALTA_CERT', 'FALTA_BST']].sum().reset_index()
+                for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
+                    dados_super = matriz_abc[matriz_abc['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
+                    f_nr35 = int(dados_super['FALTA_NR35'])
+                    f_cert = int(dados_super['FALTA_CERT'])
+                    f_bst = int(dados_super['FALTA_BST'])
+                    total_falhas = f_nr35 + f_cert + f_bst
+                    
+                    with st.container(border=True):
+                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px; color:#333;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#ffcdd2; padding:2px 8px; border-radius:4px; color:#b30000;">Total Faltas: {total_falhas}</span></div>', unsafe_allow_html=True)
+                        m1, m2, m3 = st.columns(3)
+                        with m1: st.markdown(f'<div class="falta-box"><div class="falta-label">🪜 Faltam NR35</div><div class="falta-value">{f_nr35}</div></div>', unsafe_allow_html=True)
+                        with m2: st.markdown(f'<div class="falta-box"><div class="falta-label">📜 Falta Certidão</div><div class="falta-value">{f_cert}</div></div>', unsafe_allow_html=True)
+                        with m3: st.markdown(f'<div class="falta-box"><div class="falta-label">📶 Falta BST</div><div class="falta-value">{f_bst}</div></div>', unsafe_allow_html=True)
             else: 
                 st.info("Nenhuma pendência de indicador no ABC.")
 
-        # --- RENDERIZAÇÃO LADO SÃO PAULO ---
+        # --- RENDERIZAÇÃO LADO SÃO PAULO (IGUAL AO TEC1) ---
         with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp" style="color:#b30000;">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp title-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
             if not df_sp.empty:
-                for supervisor in sorted(df_sp['SUPERVISOR_MOSTRAR'].unique()):
-                    df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
-                    st.markdown(f'<div class="super-bar sp">👤 {supervisor} <span class="super-total">Faltas: {len(df_super)}</span></div>', unsafe_allow_html=True)
-                    for _, linha in df_super.iterrows():
-                        tec_nome = str(linha.get(col_tecnico, "TÉCNICO")).upper()
-                        contrato = linha.get("Contrato", "N/A")
-                        faltas = linha.get("Faltas_Indicadores")
-                        st.markdown(f'''
-                            <div class="item-linha">
-                                <span class="item-contrato">📄 {contrato}</span> 
-                                <span class="item-tecnico">👤 {tec_nome}</span>
-                                <span class="badge-falta">❌ Faltam: {faltas}</span>
-                            </div>
-                        ''', unsafe_allow_html=True)
+                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['FALTA_NR35', 'FALTA_CERT', 'FALTA_BST']].sum().reset_index()
+                for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
+                    dados_super = matriz_sp[matriz_sp['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
+                    f_nr35 = int(dados_super['FALTA_NR35'])
+                    f_cert = int(dados_super['FALTA_CERT'])
+                    f_bst = int(dados_super['FALTA_BST'])
+                    total_falhas = f_nr35 + f_cert + f_bst
+                    
+                    with st.container(border=True):
+                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px; color:#333;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#ffcdd2; padding:2px 8px; border-radius:4px; color:#b30000;">Total Faltas: {total_falhas}</span></div>', unsafe_allow_html=True)
+                        m1, m2, m3 = st.columns(3)
+                        with m1: st.markdown(f'<div class="falta-box"><div class="falta-label">🪜 Faltam NR35</div><div class="falta-value">{f_nr35}</div></div>', unsafe_allow_html=True)
+                        with m2: st.markdown(f'<div class="falta-box"><div class="falta-label">📜 Falta Certidão</div><div class="falta-value">{f_cert}</div></div>', unsafe_allow_html=True)
+                        with m3: st.markdown(f'<div class="falta-box"><div class="falta-label">📶 Falta BST</div><div class="falta-value">{f_bst}</div></div>', unsafe_allow_html=True)
             else: 
                 st.info("Nenhuma pendência de indicador em SP.")
 
