@@ -84,6 +84,12 @@ def carregar_dados_nuvem():
         
         df_final = df_bruto.rename(columns=colunas_mapeadas)
         
+        # 👇 ADICIONE ESTA LINHA PARA BLINDAR AS COLUNAS DUPLICADAS 👇
+        df_final = df_final.loc[:, ~df_final.columns.duplicated()]
+        
+        # Garante que as colunas de supervisão e base existem e estão limpas
+        if 'SUPERVISOR' in df_final.columns:
+        
         # Garante que as colunas de supervisão e base existem e estão limpas
         if 'SUPERVISOR' in df_final.columns:
             df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('#N/A').astype(str).str.strip().str.upper()
