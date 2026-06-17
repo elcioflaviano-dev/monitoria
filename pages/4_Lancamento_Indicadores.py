@@ -63,52 +63,8 @@ if df_master is not None and not df_master.empty:
     df_produtivo = df[df['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
 
     # =========================================================================
-    # 2. CARDS DE KPI DE SUCESSO (Cálculo sobre técnicos em campo)
+    # 2. MOTOR DE PENDÊNCIAS (LAYOUT TEC1 - BLOCOS TOTAIS)
     # =========================================================================
-    df_tec = df_produtivo.drop_duplicates(subset=[col_tecnico]).copy()
-    total_tecnicos = len(df_tec) if len(df_tec) > 0 else 1
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        with st.container(border=True):
-            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">🪜 NR35 (ESCADA)</p>', unsafe_allow_html=True)
-            if col_nr35:
-                df_tec[col_nr35] = df_tec[col_nr35].fillna('-').astype(str).str.upper().str.strip()
-                aptos = len(df_tec[df_tec[col_nr35] == 'SIM'])
-                pct = (aptos / total_tecnicos) * 100
-                st.markdown(f'<h2 style="font-size:46px; font-weight:900; color:#008080; text-align:center; margin:5px 0;">{pct:.0f}%</h2>', unsafe_allow_html=True)
-            else:
-                st.error("Coluna NR35 não detetada")
-                
-    with c2:
-        with st.container(border=True):
-            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">📜 CERTIDÃO DE ATENDIMENTO</p>', unsafe_allow_html=True)
-            if col_cert:
-                df_tec[col_cert] = df_tec[col_cert].fillna('-').astype(str).str.upper().str.strip()
-                aptos = len(df_tec[df_tec[col_cert] == 'SIM'])
-                pct = (aptos / total_tecnicos) * 100
-                st.markdown(f'<h2 style="font-size:46px; font-weight:900; color:#005088; text-align:center; margin:5px 0;">{pct:.0f}%</h2>', unsafe_allow_html=True)
-            else:
-                st.error("Coluna Certidão não detetada")
-                
-    with c3:
-        with st.container(border=True):
-            st.markdown('<p style="font-size:14px; font-weight:bold; color:#555; text-align:center; text-transform:uppercase;">📶 BAND STEERING ATIVO</p>', unsafe_allow_html=True)
-            if col_bst:
-                df_tec[col_bst] = df_tec[col_bst].fillna('-').astype(str).str.upper().str.strip()
-                aptos = len(df_tec[df_tec[col_bst] == 'SIM'])
-                pct = (aptos / total_tecnicos) * 100
-                st.markdown(f'<h2 style="font-size:46px; font-weight:900; color:#b30000; text-align:center; margin:5px 0;">{pct:.0f}%</h2>', unsafe_allow_html=True)
-            else:
-                st.error("Coluna BST não detetada")
-
-    st.markdown("<br><hr><br>", unsafe_allow_html=True)
-
-    # =========================================================================
-    # 3. MOTOR DE PENDÊNCIAS (LAYOUT TEC1 - BLOCOS TOTAIS)
-    # =========================================================================
-    st.markdown('<h2 style="font-size: 26px; font-weight: 900; color: #cc6600; text-align: center; margin-bottom: 20px;">🚨 FALTAS DE INDICADORES POR SUPERVISOR</h2>', unsafe_allow_html=True)
-
     # Criação de colunas numéricas (0 ou 1) para somar as faltas facilmente
     df_produtivo['FALTA_NR35'] = 0
     if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
@@ -134,12 +90,11 @@ if df_master is not None and not df_master.empty:
         else:
             df_pendentes['SUPERVISOR_MOSTRAR'] = ''
 
-        # 🔥 CORREÇÃO DA DUPLICAÇÃO DE NOMES AQUI 🔥
         def vincular_supervisor_tecnico(row):
             nome_u = str(row.get(col_tecnico, '')).upper().strip()
             sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
-            # 1. Normaliza obrigatoriamente o nome vindo do Excel
+            # Normaliza o nome vindo do Excel
             if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0']:
                 if "ALAN" in sup_orig: return "ALAN"
                 if "FRANCISCO" in sup_orig: return "FRANCISCO"
@@ -147,9 +102,9 @@ if df_master is not None and not df_master.empty:
                 if "EDSON" in sup_orig: return "EDSON MARCO"
                 if "NELSON" in sup_orig: return "NELSON"
                 if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
-                return sup_orig # Mantém o nome se for alguém realmente novo
+                return sup_orig
 
-            # 2. Regra de emergência caso a célula do Excel venha vazia
+            # Regra de emergência caso a célula do Excel venha vazia
             if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
             if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
             if "MARCOS" in nome_u: return "MARCOS ROBERTO"
