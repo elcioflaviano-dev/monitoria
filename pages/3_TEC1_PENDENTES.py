@@ -127,7 +127,7 @@ if df_master is not None and not df_master.empty:
         col_coluna_abc, col_coluna_sp = st.columns(2)
         
         with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC / ALERTAS</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
             if not df_abc.empty:
                 for supervisor in sorted(df_abc['SUPERVISOR_MOSTRAR'].unique()):
                     df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
@@ -139,7 +139,7 @@ if df_master is not None and not df_master.empty:
                 st.info("Nenhum pendente no ABC para esta janela.")
 
         with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp">SÃO PAULO (SP)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title-abc-sp">SÃO PAULO</div>', unsafe_allow_html=True)
             if not df_sp.empty:
                 for supervisor in sorted(df_sp['SUPERVISOR_MOSTRAR'].unique()):
                     df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
