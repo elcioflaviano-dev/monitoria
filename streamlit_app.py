@@ -57,10 +57,10 @@ def carregar_dados_nuvem():
         ficheiro_excel = io.BytesIO(resposta.content)
         
         # Lê a aba 'rota'
-        df_bruto = pd.read_excel(ficheiro_excel, sheet_name='rota', engine='openpyxl')
+        df_bruto = pd.read_excel(ficheiro_excel, sheet_name='ROTA', engine='openpyxl')
         
         if df_bruto.empty:
-            st.sidebar.error("A aba 'rota' da planilha mestre está vazia.")
+            st.sidebar.error("A aba 'ROTA' da planilha mestre está vazia.")
             return None
 
         # Remove colunas duplicadas e limpa os nomes
