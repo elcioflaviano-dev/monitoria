@@ -22,7 +22,7 @@ st.markdown("""
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
 # 🔴 COLOQUE AQUI O LINK DIRETO PARA O SEU EXCEL (.XLSM) NA NUVEM
-URL_PLANILHA_MASTER = "URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/_layouts/15/Doc.aspx?sourcedoc=%7B0B7ACD4F-D856-44BC-94E0-50B8977FE9D0%7D&file=Indicadores_Online_Automatico.xlsm&action=download"
+URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/_layouts/15/Doc.aspx?sourcedoc=%7B0B7ACD4F-D856-44BC-94E0-50B8977FE9D0%7D&file=Indicadores_Online_Automatico.xlsm&action=download"
 
 def carregar_dados_nuvem():
     st.sidebar.markdown("### 🔄 SINCRONIZAÇÃO AUTOMÁTICA")
