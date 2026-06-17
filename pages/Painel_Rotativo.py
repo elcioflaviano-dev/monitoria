@@ -218,7 +218,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 
 # =========================================================================
-# TELA 4: A TELA BRANCA DE LIMPEZA (GHOSTING KILLER)
+# TELA 3: A TELA BRANCA DE LIMPEZA (GHOSTING KILLER)
 # =========================================================================
 if st.session_state.idx == 4:
     st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
