@@ -4,17 +4,16 @@ import os
 
 st.set_page_config(layout="wide")
 
-# CSS DO SEU BACKUP (MANTÉM O MENU LATERAL VISÍVEL)
+# CSS PARA LIMPEZA DA INTERFACE (MENU LATERAL MANTIDO VISÍVEL)
 st.markdown("""
     <style>
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
-    #MainMenu { visibility: hidden !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# 1. LISTAS FIXAS (DO SEU BACKUP)
+# 1. LISTAS FIXAS
 LISTA_SP_FIXA = [
     "ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE", "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS", "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "Edcarlos Pereira de Jesus", "GETULIO DOS SANTOS CAFE", "Glemerson Lima De Souza", "GUILHERME DE OLIVEIRA DANTAS", "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS", "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS", "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA", "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS", "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "Alan Cesar Cardoso", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO", "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA", "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA", "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA", "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON", "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA", "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA", "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA", "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "TAILSON JUAN SANTOS DA CONCEICAO", "DIEGO FRAGOSO DE BRITO", "ALYSON ALBERTO MARTINS", "AUGUSTO MOREIRA DA SILVA", "ENDERSON CLEITON SOUZA CRUZ", "CARLOS SEBASTIAO MORAIS", "EZIEL DE OLIVEIRA BARROS", "VICTOR BORGES ALVES", "MATHEUS CARDOSO DE OLIVEIRA", "ROGERIO AFONSO DA SILVA", "KAIO NASCIMENTO ALVES DOS SANTOS", "KELVIN RIBEIRO BENTO DA COSTA", "MARCELO BUENO SEGURA", "MAYKON RIBEIRO GUIMARAES", "THIAGO JOSE ASSUNCAO", "GUSTAVO SANTOS SANT ANA"
 ]
@@ -37,33 +36,30 @@ LISTA_ABC_FIXA = [
     "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", "VITOR MATOS DE ALMEIDA"
 ]
 
-# Inicializa session_state
-if "novos_sp" not in st.session_state: st.session_state["novos_sp"] = []
-if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
-
 st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
-# CORREÇÃO 1: Resgata o arquivo da nuvem/disco se a página perder a memória
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
-    try:
-        st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
-    except:
-        pass
 
-if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
-    df = st.session_state['df_rota_ativa'].copy()
-    
-    # CORREÇÃO 2: Limpa nomes de colunas ocultos (espaços em branco)
+if os.path.exists(ARQUIVO_ROTA_DISCO):
+    df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     df.columns = [str(c).strip() for c in df.columns]
     
-    # CORREÇÃO 3: Procura a coluna certa, não importa se tem ".1" ou não
-    col_tipo = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else ('Tipo de Atividade' if 'Tipo de Atividade' in df.columns else None)
+    # Filtro inteligente para encontrar a coluna correta (mesmo se o nome mudar ligeiramente)
+    col_tipo = None
+    for c in df.columns:
+        if 'TIPO' in c.upper() and 'ATIV' in c.upper():
+            if df[c].astype(str).str.contains('BASE', case=False, na=False).any():
+                col_tipo = c
+                break
+    
+    if not col_tipo:
+        col_tipo = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else ('Tipo de Atividade' if 'Tipo de Atividade' in df.columns else None)
+
     col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else None)
     col_recurso = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
 
     if col_tipo and col_status:
-        # Seu filtro original adaptado para colunas dinâmicas
+        # Filtro abrangente: 'BASE' na atividade e 'PEND' no status
         df_tela = df[
             (df[col_tipo].astype(str).str.contains('BASE', na=False, case=False)) & 
             (df[col_status].astype(str).str.contains('PEND', na=False, case=False))
@@ -71,11 +67,10 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
 
         nomes_na_base = sorted(df_tela[col_recurso].dropna().astype(str).str.strip().unique().tolist())
         
-        # Consolida listas usando a variável definida acima
-        lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
-        lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
+        lista_sp = [n.upper() for n in LISTA_SP_FIXA]
+        lista_abc = [n.upper() for n in LISTA_ABC_FIXA]
 
-        # Distribuição em 4 colunas
+        # Distribuição
         nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
         nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
 
@@ -95,18 +90,8 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         with c4:
             st.markdown('### 🏙️ SP (2/2)')
             for n in nomes_sp[mid_sp:]: st.markdown(f'🏃‍♂️ {n}')
-
-        st.divider()
-        with st.expander("➕ Incluir Novo Técnico"):
-            c_a, c_b, c_c = st.columns([2, 1, 1])
-            nome_i = c_a.text_input("Nome:").upper()
-            base_i = c_b.selectbox("Base:", ["SP", "ABC"])
-            if c_c.button("Adicionar"):
-                if nome_i:
-                    if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
-                    else: st.session_state["novos_abc"].append(nome_i)
-                    st.rerun()
+            
     else:
-        st.error("⚠️ As colunas 'Tipo de Atividade' ou 'Status da Atividade' não foram encontradas na planilha do Excel.")
+        st.warning("⚠️ Colunas 'Tipo de Atividade' ou 'Status da Atividade' não encontradas.")
 else:
     st.error("⚠️ Nenhum dado carregado. Volte à página inicial para sincronizar os dados.")
