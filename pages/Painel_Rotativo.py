@@ -65,10 +65,6 @@ st.markdown("""<style>
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
-    
-    .card-indicador { background:#f0f2f6; border-radius:6px; padding:15px; text-align:center; border: 1px solid #ddd; }
-    .card-ind-titulo { font-size:14px; font-weight:800; color:#555; margin-bottom:5px; text-transform:uppercase; }
-    .card-ind-valor { font-size:36px; font-weight:900; color:#005088; line-height:1; }
 </style>""", unsafe_allow_html=True)
 
 # LISTAS FIXAS
@@ -97,7 +93,7 @@ def obter_nome_visual(nome_completo):
 # ⚙️ MÁQUINA DE TEMPO E ESTADOS INTELIGENTE
 # =========================================================================
 if "idx" not in st.session_state: 
-    st.session_state.idx = 0         
+    st.session_state.idx = 0          
     st.session_state.last_main = 0   
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
@@ -107,7 +103,6 @@ agora_br = datetime.utcnow() - timedelta(hours=3)
 
 # REGRAS DE HORÁRIO
 antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
-mostrar_indicadores = (agora_br.hour == 13 and agora_br.minute >= 30) or (agora_br.hour == 16 and agora_br.minute >= 30)
 
 # ACELERADOR RUSH (11:40+, 14:40+, 17:40+)
 alerta_fim_janela = False
@@ -118,48 +113,38 @@ if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40:
 if st.session_state.idx == 0: 
     espera = 60 # Técnicos na Base
 elif st.session_state.idx == 1: 
-    espera = 30 if alerta_fim_janela else 60 # Pendentes: 60s normal, 30s no rush
-elif st.session_state.idx == 3: 
-    espera = 30 # Indicadores: 30s
+    espera = 30 if alerta_fim_janela else 60 # Pendentes
 elif st.session_state.idx == 2:
-    espera = 30 if alerta_fim_janela else 180 # Relógio: 3 minutos normal, 30s no rush
+    espera = 30 if alerta_fim_janela else 180 # Relógio
 elif st.session_state.idx == 4:
-    espera = 2 # TELA BRANCA DE LIMPEZA: Exatamente 2 Segundos
+    espera = 2 # TELA BRANCA DE LIMPEZA
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# 🔄 ROTADOR COM TELA BRANCA DE TRANSIÇÃO (O Efeito "Apagador")
+# 🔄 ROTADOR COM TELA BRANCA DE TRANSIÇÃO
 if tempo_passado > espera:
     if antes_0830:
-        # === SOLUÇÃO DO GHOSTING AQUI ===
-        # Se estiver na tela dos Técnicos, manda pra tela Branca (Apagador)
         if st.session_state.idx == 0:
             st.session_state.last_main = 0
             prox_idx = 4
-        # Se estiver na tela Branca, volta para os Técnicos limpo
         else:
             prox_idx = 0
     else:
-        if st.session_state.idx in [0, 1, 3]:
-            # Guarda a tela de onde viemos e joga para a Tela Branca (4)
+        if st.session_state.idx in [0, 1]:
             st.session_state.last_main = st.session_state.idx
             prox_idx = 4
         elif st.session_state.idx == 4:
-            # Da Tela Branca (4), vamos para o Relógio (2) para relaxar a memória de vídeo
             prox_idx = 2
         elif st.session_state.idx == 2:
-            # Do Relógio (2), decidimos qual será a próxima tela principal
-            if mostrar_indicadores:
-                prox_idx = 3 if st.session_state.last_main == 1 else 1
-            else:
-                prox_idx = 1
-                
+            # Alterna entre 0 (Base) e 1 (Pendentes)
+            prox_idx = 0 if st.session_state.last_main == 1 else 1
+            
     st.session_state.idx = prox_idx
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.rerun()
 
-# 🔊 MOTOR DE ÁUDIO REFORÇADO (Usa a janela Pai para o som nunca ser cortado)
+# 🔊 MOTOR DE ÁUDIO
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -219,15 +204,15 @@ function animarSupervisor(texto, delay, index, totalSup) {
 """
 
 # =========================================================================
-# TELA 4: A TELA BRANCA DE LIMPEZA (GHOSTING KILLER)
+# TELAS
 # =========================================================================
+
+# TELA 4: A TELA BRANCA DE LIMPEZA
 if st.session_state.idx == 4:
     st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
     st.components.v1.html("", height=0)
 
-# =========================================================================
-# TELA 0: TÉCNICOS NA BASE (ATÉ 08:30)
-# =========================================================================
+# TELA 0: TÉCNICOS NA BASE
 elif st.session_state.idx == 0:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
@@ -243,7 +228,6 @@ elif st.session_state.idx == 0:
         
         if col_tipo and col_status:
             df_tela = df[(df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))].copy()
-            
             nomes_na_base = sorted(df_tela['Recurso'].dropna().astype(str).str.strip().unique().tolist())
             lista_sp = [str(n).strip().upper() for n in LISTA_SP_FIXA]
             lista_abc = [str(n).strip().upper() for n in LISTA_ABC_FIXA]
@@ -280,9 +264,7 @@ elif st.session_state.idx == 0:
         else: st.error("Colunas não encontradas.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
-# =========================================================================
 # TELA 1: CONTRATOS PENDENTES
-# =========================================================================
 elif st.session_state.idx == 1: 
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
@@ -354,7 +336,6 @@ elif st.session_state.idx == 1:
 
         if SUPERVISORES:
             cols_sup = st.columns(len(SUPERVISORES))
-            
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
                 script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
@@ -381,9 +362,7 @@ elif st.session_state.idx == 1:
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
-# =========================================================================
-# TELA 2: HORÁRIO E ALERTAS
-# =========================================================================
+# TELA 2: HORÁRIO
 elif st.session_state.idx == 2:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
@@ -405,13 +384,13 @@ elif st.session_state.idx == 2:
     
     if st.session_state.novo_ciclo:
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-        if alerta_fim_janela:
-            texto_hora = f"Atenção equipe. Fim da janela se aproximando. Hora certa: {hora_fala}."
-        else:
-            texto_hora = f"Hora certa: {hora_fala}."
+        texto_hora = f"Hora certa: {hora_fala}."
         script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
         script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
         st.session_state.script_audio_atual = script_cenario
         st.session_state.novo_ciclo = False
         
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+time.sleep(1)
+st.rerun()
