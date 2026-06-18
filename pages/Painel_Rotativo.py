@@ -6,17 +6,17 @@ import base64
 from datetime import datetime, timedelta
 
 # =========================================================================
-# CONFIGURAÇÕES DE CAMINHOS E LINKS
+# CONFIGURAÇÕES DE CAMINHOS E LINKS (CORRIGIDO)
 # =========================================================================
 URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
-# Padronização dos arquivos para leitura direta (Resolve o problema da tela vazia)
-ARQUIVO_INDICADORES = "indicadores_data.csv"
-ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+ROOT_DIR = os.getcwd()
+ARQUIVO_INDICADORES = os.path.join(ROOT_DIR, "indicadores_data.csv")
+ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 
-ARQUIVO_LOGO = "logo.png"
+ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
-    ARQUIVO_LOGO = os.path.join("pages", "logo.png")
+    ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
@@ -76,7 +76,7 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 # =========================================================================
-# 🧠 INTELIGÊNCIA: BUSCA DINÂMICA DE SUPERVISORES E TÉCNICOS
+# 🧠 BUSCA DINÂMICA DE SUPERVISORES E TÉCNICOS
 # =========================================================================
 @st.cache_data(ttl=300)
 def carregar_dados_compilado():
@@ -86,7 +86,6 @@ def carregar_dados_compilado():
         df_comp = pd.read_csv(URL_PLANILHA, dtype=str)
         df_comp.columns = [str(c).strip().upper() for c in df_comp.columns]
         
-        # 1. Mapear Técnicos para as suas Bases (Substitui as listas fixas)
         col_nome = next((c for c in df_comp.columns if 'NOME' in c or 'RECURSO' in c or 'TÉCN' in c or 'TECN' in c), None)
         col_base = next((c for c in df_comp.columns if 'BASE' in c or 'POLO' in c or 'LOCAL' in c), None)
         if col_nome and col_base:
@@ -96,7 +95,6 @@ def carregar_dados_compilado():
                 if nome != 'NAN' and base != 'NAN':
                     mapa[nome] = base
                     
-        # 2. Mapear Supervisores
         col_sup = next((c for c in df_comp.columns if 'SUPERVISOR' in c), None)
         if col_sup:
             supervisores = [str(s).strip().upper() for s in df_comp[col_sup].dropna().unique().tolist() if str(s).strip().upper() != "NAN" and str(s).strip() != ""]
@@ -114,7 +112,7 @@ def obter_nome_visual(nome_completo):
     return n.split()[0]
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS (PLAYLIST)
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS (PLAYLIST DE REPRODUÇÃO)
 # =========================================================================
 if "idx" not in st.session_state: 
     st.session_state.idx = 2         
@@ -143,7 +141,7 @@ elif st.session_state.idx == 4: espera = 2
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# 🔄 ORDEM DE APRESENTAÇÃO
+# 🔄 SEQUÊNCIA DE CRONOGRAMA INTERCALADO
 if antes_0830: ordem_telas = [2, 0] 
 elif mostrar_indicadores: ordem_telas = [2, 1, 2, 3] 
 else: ordem_telas = [2, 1] 
@@ -161,23 +159,65 @@ if tempo_passado > espera:
     st.session_state.novo_ciclo = True
     st.rerun()
 
-# 🔊 MOTOR DE ÁUDIO JS (Reduzido para economizar linhas)
+# =========================================================================
+# 🔊 MOTOR DE ÁUDIO COMPLETO RESTAURADO (Toque Duplo + Voz Luciana)
+# =========================================================================
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
-        let ctx = new (window.parent.AudioContext || window.AudioContext)(); let tempo = ctx.currentTime;
+        let ctx = new (window.parent.AudioContext || window.AudioContext)();
+        let tempo = ctx.currentTime;
         let osc1 = ctx.createOscillator(); let gain1 = ctx.createGain();
         osc1.type = 'triangle'; osc1.frequency.setValueAtTime(880, tempo);
         gain1.gain.setValueAtTime(0, tempo); gain1.gain.linearRampToValueAtTime(0.4, tempo + 0.05); gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
         osc1.connect(gain1); gain1.connect(ctx.destination); osc1.start(tempo); osc1.stop(tempo + 0.6);
+        
+        let osc2 = ctx.createOscillator(); let gain2 = ctx.createGain();
+        osc2.type = 'triangle'; osc2.frequency.setValueAtTime(659.25, tempo + 0.4);
+        gain2.gain.setValueAtTime(0, tempo + 0.4); gain2.gain.linearRampToValueAtTime(0.4, tempo + 0.45); gain2.gain.exponentialRampToValueAtTime(0.01, tempo + 1.5);
+        osc2.connect(gain2); gain2.connect(ctx.destination); osc2.start(tempo + 0.4); osc2.stop(tempo + 1.5);
     } catch(e) {}
 }
 function anunciarBase(texto, delay) {
-    setTimeout(() => { tocarAlertaChamaAtencao(); setTimeout(() => { let synth = window.parent.speechSynthesis || window.speechSynthesis; let m = new SpeechSynthesisUtterance(texto); m.lang = 'pt-BR'; synth.speak(m); }, 1500); }, delay);
+    setTimeout(() => {
+        tocarAlertaChamaAtencao();
+        setTimeout(() => {
+            let synth = window.parent.speechSynthesis || window.speechSynthesis;
+            let m = new SpeechSynthesisUtterance(texto);
+            m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
+            function setVoiceAndSpeak() {
+                let voices = synth.getVoices();
+                let vozLuciana = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.lang.includes('pt-BR'));
+                if(vozLuciana) { m.voice = vozLuciana; } 
+                synth.speak(m);
+            }
+            if (synth.getVoices().length === 0) { synth.onvoiceschanged = setVoiceAndSpeak; } 
+            else { setVoiceAndSpeak(); }
+        }, 1500); 
+    }, delay);
 }
-function limparDestaques(total) { for(let j=0; j<total; j++) { let el = window.parent.document.getElementById('sup-box-' + j); if(el) { el.classList.remove('destaque-ativo'); } } }
+function limparDestaques(total) {
+    for(let j=0; j<total; j++) {
+        let el = window.parent.document.getElementById('sup-box-' + j);
+        if(el) { el.classList.remove('destaque-ativo'); }
+    }
+}
 function animarSupervisor(texto, delay, index, totalSup) {
-    setTimeout(() => { limparDestaques(totalSup); let elAtual = window.parent.document.getElementById('sup-box-' + index); if(elAtual) { elAtual.classList.add('destaque-ativo'); } tocarAlertaChamaAtencao(); setTimeout(() => { let synth = window.parent.speechSynthesis || window.speechSynthesis; let m = new SpeechSynthesisUtterance(texto); m.lang = 'pt-BR'; synth.speak(m); }, 1500); }, delay);
+    setTimeout(() => {
+        limparDestaques(totalSup);
+        let elAtual = window.parent.document.getElementById('sup-box-' + index);
+        if(elAtual) { elAtual.classList.add('destaque-ativo'); }
+        tocarAlertaChamaAtencao();
+        setTimeout(() => {
+            let synth = window.parent.speechSynthesis || window.speechSynthesis;
+            let m = new SpeechSynthesisUtterance(texto);
+            m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
+            let voices = synth.getVoices();
+            let vozLuciana = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.lang.includes('pt-BR'));
+            if(vozLuciana) { m.voice = vozLuciana; }
+            synth.speak(m);
+        }, 1500);
+    }, delay);
 }
 """
 
@@ -204,7 +244,6 @@ elif st.session_state.idx == 0:
             df_tela = df[(df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))].copy()
             nomes_na_base = sorted(df_tela['Recurso'].dropna().astype(str).str.strip().unique().tolist())
             
-            # Cruzamento Dinâmico Inteligente
             nomes_abc, nomes_sp = [], []
             for n in nomes_na_base:
                 n_upper = n.upper()
@@ -229,7 +268,7 @@ elif st.session_state.idx == 0:
                 for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO} anunciarBase('Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0); </script>"
+                script_cenario = f"<script>{JS_MOTOR_AUDIO}\nanunciarBase('Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -292,13 +331,11 @@ elif st.session_state.idx == 1:
         if SUPERVISORES:
             cols_sup = st.columns(len(SUPERVISORES))
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO} limparDestaques({len(SUPERVISORES)});\n"
-                script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', 0);\n"
-                script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', 7000);\n"
+                script_cenario = f"<script>{JS_MOTOR_AUDIO}\nlimparDestaques({len(SUPERVISORES)});\nanunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', 0);\nanunciarBase('São Paulo: {qtd_sp} pendentes.', 7000);\n"
                 for i, sup_full in enumerate(SUPERVISORES):
                     q = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
                     script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q} pendentes.', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
-                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}) , {14000 + len(SUPERVISORES) * 7000}); </script>"
+                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}) , {14000 + len(SUPERVISORES) * 7000});\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
                 
@@ -319,27 +356,28 @@ elif st.session_state.idx == 2:
     
     if st.session_state.novo_ciclo:
         msg = f"Atenção equipe. Fim da janela se aproximando. Hora certa: {tempo_real.strftime('%H e %M')}." if alerta_fim_janela else f"Hora certa: {tempo_real.strftime('%H e %M')}."
-        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO} anunciarBase('{msg}', 0); </script>"
+        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}\nanunciarBase('{msg}', 0);\n</script>"
         st.session_state.novo_ciclo = False
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # =========================================================================
-# TELA 3: INDICADORES DA EQUIPE
+# TELA 3: INDICADORES DA EQUIPE (CORRIGIDO CAMINHO ESTRUTURAL)
 # =========================================================================
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container"><div class="topo-esquerda">{logo_html}</div><div class="topo-centro">📈 INDICADORES DA EQUIPE</div><div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div></div>''', unsafe_allow_html=True)
 
     if st.session_state.novo_ciclo:
-        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO} anunciarBase('Atenção equipe. Quadro de indicadores atualizado.', 0); </script>"
+        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}\nanunciarBase('Atenção equipe. Quadro de indicadores atualizado.', 0);\n</script>"
         st.session_state.novo_ciclo = False
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     df_ind = pd.DataFrame()
     if os.path.exists(ARQUIVO_INDICADORES):
         try:
-            # Força a leitura das colunas em caixa alta para evitar conflitos de digitação
             df_ind = pd.read_csv(ARQUIVO_INDICADORES)
             df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
+            if "VALOR" in df_ind.columns:
+                df_ind["VALOR"] = pd.to_numeric(df_ind["VALOR"], errors="coerce").fillna(0).astype(int)
         except Exception:
             pass 
 
@@ -348,8 +386,12 @@ elif st.session_state.idx == 3:
         
         def renderizar_cards_indicadores(df_base):
             pivot = df_base.pivot_table(index="SUPERVISOR", columns="INDICADOR", values="VALOR", aggfunc="max").fillna(0).astype(int)
-            for col in ["NR35", "Certidão de Atendimento", "Band Steering"]:
-                if col.upper() not in [c.upper() for c in pivot.columns]: pivot[col.upper()] = 0
+            
+            # Padroniza colunas internas para mapeamento seguro
+            pivot.columns = [str(c).upper().strip() for c in pivot.columns]
+            
+            for col in ["NR35", "CERTIDÃO DE ATENDIMENTO", "BAND STEERING"]:
+                if col not in pivot.columns: pivot[col] = 0
             
             for supervisor in sorted(pivot.index):
                 row = pivot.loc[supervisor]
@@ -357,10 +399,9 @@ elif st.session_state.idx == 3:
                     st.markdown(f'<div style="font-size:24px; font-weight:900; margin-bottom:15px; color:#333;">📋 Supervisor: {supervisor}</div>', unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
                     
-                    # Recupera o valor usando tratamento de caixa para não dar erro
-                    val_nr35 = row.get("NR35", row.get("NR35".upper(), 0))
-                    val_cert = row.get("Certidão de Atendimento", row.get("CERTIDÃO DE ATENDIMENTO", 0))
-                    val_band = row.get("Band Steering", row.get("BAND STEERING", 0))
+                    val_nr35 = row.get("NR35", 0)
+                    val_cert = row.get("CERTIDÃO DE ATENDIMENTO", 0)
+                    val_band = row.get("BAND STEERING", 0)
 
                     with m1: st.markdown(f'<div class="card-indicador"><div class="card-ind-titulo">👷 NR35</div><div class="card-ind-valor">{int(val_nr35)}</div></div>', unsafe_allow_html=True)
                     with m2: st.markdown(f'<div class="card-indicador"><div class="card-ind-titulo">📄 CERTIDÃO</div><div class="card-ind-valor">{int(val_cert)}</div></div>', unsafe_allow_html=True)
