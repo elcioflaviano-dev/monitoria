@@ -1,15 +1,17 @@
 import streamlit as st
 import pandas as pd
+import os
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT)
+# CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT E MENU LATERAL)
 st.markdown("""
     <style>
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
     #MainMenu { visibility: hidden !important; }
+    [data-testid="stSidebar"] { display: none !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -42,54 +44,74 @@ if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
 
 st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
+# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS)
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
+    try: st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
+    except: pass
+
 if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
-    df = st.session_state['df_rota_ativa']
+    df = st.session_state['df_rota_ativa'].copy()
     
-    # Busca a coluna correta de Tipo e Status dinamicamente
-    col_tipo = 'Tipo de Atividade' if 'Tipo de Atividade' in df.columns else 'Tipo de Atividade.1'
-    col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else 'STATUS_ATIVIDADE'
-
-    df_tela = df[
-        (df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & 
-        (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))
-    ].copy()
-
-    nomes_na_base = sorted(df_tela['Recurso'].unique().tolist())
+    # Padroniza nomes das colunas removendo espaços extras
+    df.columns = [str(c).strip() for c in df.columns]
     
-    # Consolida listas usando a variável definida acima
-    lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
-    lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
+    # 🔍 RADAR AUTOMÁTICO DE COLUNAS (PRIORIZANDO A COLUNA .1 ONDE FICA A 'BASE')
+    if 'Tipo de Atividade.1' in df.columns:
+        col_tipo = 'Tipo de Atividade.1'
+    elif 'Tipo de Atividade' in df.columns:
+        col_tipo = 'Tipo de Atividade'
+    else:
+        col_tipo = next((c for c in reversed(df.columns) if 'TIPO' in c.upper() and 'ATIV' in c.upper()), None)
+        
+    col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else None)
+    col_recurso = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
 
-    # Distribuição em 4 colunas
-    nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
-    nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
+    if col_tipo and col_status:
+        # Busca técnicos na base e pendentes com uma pesquisa mais ampla (aceita 'BASE' e 'PEND')
+        df_tela = df[
+            (df[col_tipo].astype(str).str.contains('BASE', na=False, case=False)) & 
+            (df[col_status].astype(str).str.contains('PEND', na=False, case=False))
+        ].copy()
 
-    c1, c2, c3, c4 = st.columns(4)
-    mid_abc = len(nomes_abc) // 2
-    mid_sp = len(nomes_sp) // 2
-    
-    with c1:
-        st.markdown('### 🏢 ABC (1/2)')
-        for n in nomes_abc[:mid_abc]: st.markdown(f'🏃‍♂️ {n}')
-    with c2:
-        st.markdown('### 🏢 ABC (2/2)')
-        for n in nomes_abc[mid_abc:]: st.markdown(f'🏃‍♂️ {n}')
-    with c3:
-        st.markdown('### 🏙️ SP (1/2)')
-        for n in nomes_sp[:mid_sp]: st.markdown(f'🏃‍♂️ {n}')
-    with c4:
-        st.markdown('### 🏙️ SP (2/2)')
-        for n in nomes_sp[mid_sp:]: st.markdown(f'🏃‍♂️ {n}')
+        nomes_na_base = sorted(df_tela[col_recurso].dropna().astype(str).str.strip().unique().tolist())
+        
+        # Consolida listas usando a variável definida acima
+        lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
+        lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
 
-    st.divider()
-    with st.expander("➕ Incluir Novo Técnico"):
-        c_a, c_b, c_c = st.columns([2, 1, 1])
-        nome_i = c_a.text_input("Nome:").upper()
-        base_i = c_b.selectbox("Base:", ["SP", "ABC"])
-        if c_c.button("Adicionar"):
-            if nome_i:
-                if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
-                else: st.session_state["novos_abc"].append(nome_i)
-                st.rerun()
+        # Distribuição em 4 colunas
+        nomes_abc = [n for n in nomes_na_base if str(n).upper() in lista_abc or str(n).upper() not in lista_sp]
+        nomes_sp = [n for n in nomes_na_base if str(n).upper() in lista_sp]
+
+        c1, c2, c3, c4 = st.columns(4)
+        mid_abc = len(nomes_abc) // 2
+        mid_sp = len(nomes_sp) // 2
+        
+        with c1:
+            st.markdown('### 🏢 ABC (1/2)')
+            for n in nomes_abc[:mid_abc]: st.markdown(f'🏃‍♂️ {n}')
+        with c2:
+            st.markdown('### 🏢 ABC (2/2)')
+            for n in nomes_abc[mid_abc:]: st.markdown(f'🏃‍♂️ {n}')
+        with c3:
+            st.markdown('### 🏙️ SP (1/2)')
+            for n in nomes_sp[:mid_sp]: st.markdown(f'🏃‍♂️ {n}')
+        with c4:
+            st.markdown('### 🏙️ SP (2/2)')
+            for n in nomes_sp[mid_sp:]: st.markdown(f'🏃‍♂️ {n}')
+
+        st.divider()
+        with st.expander("➕ Incluir Novo Técnico"):
+            c_a, c_b, c_c = st.columns([2, 1, 1])
+            nome_i = c_a.text_input("Nome:").upper()
+            base_i = c_b.selectbox("Base:", ["SP", "ABC"])
+            if c_c.button("Adicionar"):
+                if nome_i:
+                    if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
+                    else: st.session_state["novos_abc"].append(nome_i)
+                    st.rerun()
+    else:
+        st.error("⚠️ Colunas 'Tipo de Atividade' ou 'Status da Atividade' não encontradas na planilha.")
 else:
-    st.error("⚠️ Nenhum dado carregado.")
+    st.error("⚠️ Nenhum dado carregado. Aguardando sincronização com a nuvem...")
