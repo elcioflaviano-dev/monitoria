@@ -415,6 +415,3 @@ elif st.session_state.idx == 2:
         st.session_state.novo_ciclo = False
         
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
-
-    time.sleep(1)
-    st.rerun()
