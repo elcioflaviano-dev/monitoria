@@ -5,8 +5,8 @@ import time
 import base64
 from datetime import datetime, timedelta
 
-# CONFIGURAÇÕES DE CAMINHOS E LINKS
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
+# CONFIGURAÇÕES DE CAMINHOS E LINKS (ATUALIZADO PARA O EXCEL)
+URL_PLANILHA = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
 
 ROOT_DIR = os.getcwd()
 ARQUIVO_INDICADORES = os.path.join(ROOT_DIR, "indicadores_data.csv")
@@ -79,7 +79,8 @@ SUPERVISORES = []
 planilha_carregada = False
 
 try:
-    df_equipe = pd.read_csv(URL_PLANILHA)
+    # AQUI ESTÁ A MUDANÇA: Lendo o Excel online em vez de CSV
+    df_equipe = pd.read_excel(URL_PLANILHA, engine='openpyxl')
     if not df_equipe.empty and len(df_equipe.columns) >= 3:
         df_equipe.columns = df_equipe.columns.str.strip().str.upper()
         SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
