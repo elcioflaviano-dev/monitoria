@@ -21,36 +21,51 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
     df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     df.columns = [str(c).strip() for c in df.columns]
     
-    # 🔍 BUSCA DINÂMICA DAS COLUNAS (Sem depender de nomes cravados)
-    col_tipo = next((c for c in df.columns if 'TIPO' in c.upper() and 'ATIV' in c.upper() and df[c].astype(str).str.contains('BASE', case=False, na=False).any()), None)
-    if not col_tipo:
-        col_tipo = 'Tipo de Atividade.1' if 'Tipo de Atividade.1' in df.columns else ('Tipo de Atividade' if 'Tipo de Atividade' in df.columns else None)
-
-    col_status = next((c for c in df.columns if 'STATUS' in c.upper()), None)
+    # 🔍 BUSCA DINÂMICA DAS COLUNAS (Lê todas as colunas de Tipo e Status)
+    col_tipos = [c for c in df.columns if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper()]
+    col_status = next((c for c in df.columns if 'STATUS' in str(c).upper()), None)
     col_recurso = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
 
-    if col_tipo and col_status and col_recurso:
+    if col_tipos and col_status and col_recurso:
         
-        # 🎯 FILTRO DIRETO NO EXCEL: "BASE" e "PENDENTE/ABERTO"
-        filtro_base = df[col_tipo].astype(str).str.contains('BASE', na=False, case=False)
-        filtro_pendente = df[col_status].astype(str).str.contains('PEND|ABERTO', na=False, case=False)
+        # Junta o texto de todas as colunas de "Tipo" (pega o Tipo_1, Tipo_2, etc)
+        df['BUSCA_TIPO'] = df[col_tipos].fillna('').astype(str).agg(' '.join, axis=1).str.upper()
+        df['BUSCA_STATUS'] = df[col_status].fillna('').astype(str).str.upper()
         
-        df_tela = df[filtro_base & filtro_pendente].copy()
+        # 🎯 FILTRO EXATO: Tem "BASE" e o status é "PENDENTE" ou "CONCLUÍDO"
+        filtro_base = df['BUSCA_TIPO'].str.contains('BASE', na=False)
+        filtro_status = df['BUSCA_STATUS'].str.contains('PEND|ABERTO|CONCLU', na=False)
+        
+        df_tela = df[filtro_base & filtro_status].copy()
 
-        # 👤 EXTRAÇÃO EXCLUSIVA DA COLUNA RECURSO (Sem listas fixas)
-        nomes_na_base = sorted(df_tela[col_recurso].dropna().astype(str).str.strip().unique().tolist())
-        total_tecnicos = len(nomes_na_base)
+        # 👤 EXTRAÇÃO COM AVISO VISUAL DE STATUS
+        tecnicos_display = []
+        for _, row in df_tela.iterrows():
+            nome = str(row[col_recurso]).strip().upper()
+            status_real = str(row[col_status]).strip().upper()
+            
+            # Adiciona uma tag visual ao lado do nome
+            if 'CONCLU' in status_real:
+                badge = "✅ CONCLUÍDO"
+            else:
+                badge = "⏳ PENDENTE"
+                
+            tecnicos_display.append(f"{nome} ({badge})")
+
+        # Remove duplicados e ordena alfabeticamente
+        tecnicos_display = sorted(list(set(tecnicos_display)))
+        total_tecnicos = len(tecnicos_display)
         
-        st.markdown(f"<h4 style='text-align: center; color: #555;'>Total de Pendências: {total_tecnicos}</h4>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align: center; color: #555;'>Total na Base: {total_tecnicos}</h4>", unsafe_allow_html=True)
         st.divider()
 
         if total_tecnicos > 0:
             c1, c2, c3, c4 = st.columns(4)
             
-            # Matemática para dividir a lista automaticamente em 4 colunas iguais
+            # Divide a lista em 4 blocos iguais
             tamanho_bloco = (total_tecnicos + 3) // 4
-            blocos = [nomes_na_base[i:i + tamanho_bloco] for i in range(0, total_tecnicos, tamanho_bloco)]
-            while len(blocos) < 4: blocos.append([]) # Garante que não dá erro se houver poucos técnicos
+            blocos = [tecnicos_display[i:i + tamanho_bloco] for i in range(0, total_tecnicos, tamanho_bloco)]
+            while len(blocos) < 4: blocos.append([]) 
 
             with c1:
                 for n in blocos[0]: st.markdown(f'🏃‍♂️ **{n}**')
@@ -61,9 +76,9 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
             with c4:
                 for n in blocos[3]: st.markdown(f'🏃‍♂️ **{n}**')
         else:
-            st.success("✅ Nenhum técnico pendente na base no momento!")
+            st.success("✅ Nenhum técnico pendente ou concluído na base no momento!")
             
     else:
-        st.warning("⚠️ Colunas 'Tipo de Atividade', 'Status' ou 'Recurso' não encontradas no Excel.")
+        st.warning("⚠️ Colunas 'Tipo de Atividade', 'Status da Atividade' ou 'Recurso' não encontradas no Excel.")
 else:
     st.error("⚠️ Ficheiro rota_sincronizada.csv não encontrado. Aguarde a sincronização.")
