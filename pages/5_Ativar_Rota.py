@@ -60,9 +60,9 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
         df['BUSCA_STATUS'] = ""
         for c in col_status: df['BUSCA_STATUS'] += df[c].fillna('').astype(str).str.upper() + " "
         
-        # Filtro: Base + Pendente/Concluído
+        # 🎯 CORREÇÃO: Filtra estritamente "PENDENTE" ou "ABERTO" (ignora os concluídos)
         filtro_base = df['BUSCA_TIPO'].str.contains('BASE', na=False)
-        filtro_status = df['BUSCA_STATUS'].str.contains('PEND|ABERTO|CONCLU', na=False)
+        filtro_status = df['BUSCA_STATUS'].str.contains('PEND|ABERTO', na=False)
         
         df_tela = df[filtro_base & filtro_status].copy()
 
@@ -72,10 +72,9 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
 
         for _, row in df_tela.iterrows():
             nome = str(row[col_recurso]).strip().upper()
-            status_texto = str(row['BUSCA_STATUS']).strip()
             
-            badge = "✅ CONCLUÍDO" if 'CONCLU' in status_texto else "⏳ PENDENTE"
-            display_text = f"{nome} ({badge})"
+            # Como filtramos só pendentes, a tag será sempre esta
+            display_text = f"{nome} (⏳ PENDENTE)"
             
             # Cruzamento Inteligente: Pergunta à planilha de qual base o técnico é
             base_do_tecnico = mapa_bases.get(nome, "SP") # Se não achar o nome, joga para SP por padrão
@@ -119,7 +118,7 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
                 st.markdown('<h3 style="color:#c62828;">🏙️ SP (2/2)</h3>', unsafe_allow_html=True)
                 for n in sp_col2: st.markdown(f'🏃‍♂️ **{n}**')
         else:
-            st.success("✅ Nenhum técnico pendente ou concluído na base no momento!")
+            st.success("✅ Nenhum técnico pendente na base no momento!")
             
     else:
         st.warning("⚠️ Colunas não encontradas.")
