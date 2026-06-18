@@ -6,17 +6,16 @@ import base64
 from datetime import datetime, timedelta
 
 # =========================================================================
-# CONFIGURAÇÕES DE CAMINHOS E LINKS (CORRIGIDO)
+# 🌐 CONFIGURAÇÕES DA PLANILHA ONLINE (ONEDRIVE / SHAREPOINT)
 # =========================================================================
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
+# O link foi ajustado com ?download=1 no final para o Python conseguir extrair os dados
+URL_PLANILHA = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
 
-ROOT_DIR = os.getcwd()
-ARQUIVO_INDICADORES = os.path.join(ROOT_DIR, "indicadores_data.csv")
-ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
+ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
-ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
+ARQUIVO_LOGO = "logo.png"
 if not os.path.exists(ARQUIVO_LOGO):
-    ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
+    ARQUIVO_LOGO = os.path.join("pages", "logo.png")
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
@@ -76,14 +75,15 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 # =========================================================================
-# 🧠 BUSCA DINÂMICA DE SUPERVISORES E TÉCNICOS
+# 🧠 BUSCA DINÂMICA (LÊ A PLANILHA DO ONEDRIVE)
 # =========================================================================
 @st.cache_data(ttl=300)
 def carregar_dados_compilado():
     mapa = {}
     supervisores = []
     try:
-        df_comp = pd.read_csv(URL_PLANILHA, dtype=str)
+        # Puxa o Excel do link SharePoint online
+        df_comp = pd.read_excel(URL_PLANILHA, engine='openpyxl')
         df_comp.columns = [str(c).strip().upper() for c in df_comp.columns]
         
         col_nome = next((c for c in df_comp.columns if 'NOME' in c or 'RECURSO' in c or 'TÉCN' in c or 'TECN' in c), None)
@@ -99,7 +99,8 @@ def carregar_dados_compilado():
         if col_sup:
             supervisores = [str(s).strip().upper() for s in df_comp[col_sup].dropna().unique().tolist() if str(s).strip().upper() != "NAN" and str(s).strip() != ""]
             
-    except Exception:
+    except Exception as e:
+        print(f"Erro ao ler a aba de Compilado: {e}")
         pass
     return mapa, supervisores
 
@@ -126,13 +127,11 @@ if "posicao_ordem" not in st.session_state:
 agora_br = datetime.utcnow() - timedelta(hours=3)
 
 antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
-mostrar_indicadores = True 
 
 alerta_fim_janela = False
 if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: 
     alerta_fim_janela = True
 
-# ⏳ TEMPO DE CADA TELA
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 3: espera = 45 
@@ -141,10 +140,9 @@ elif st.session_state.idx == 4: espera = 2
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# 🔄 SEQUÊNCIA DE CRONOGRAMA INTERCALADO
+# Cronograma de Exibição
 if antes_0830: ordem_telas = [2, 0] 
-elif mostrar_indicadores: ordem_telas = [2, 1, 2, 3] 
-else: ordem_telas = [2, 1] 
+else: ordem_telas = [2, 1, 2, 3] 
 
 if tempo_passado > espera:
     if st.session_state.idx != 4:
@@ -160,7 +158,7 @@ if tempo_passado > espera:
     st.rerun()
 
 # =========================================================================
-# 🔊 MOTOR DE ÁUDIO COMPLETO RESTAURADO (Toque Duplo + Voz Luciana)
+# 🔊 MOTOR DE ÁUDIO COMPLETO
 # =========================================================================
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
@@ -361,7 +359,7 @@ elif st.session_state.idx == 2:
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # =========================================================================
-# TELA 3: INDICADORES DA EQUIPE (CORRIGIDO CAMINHO ESTRUTURAL)
+# TELA 3: INDICADORES DA EQUIPE (PUXANDO DO EXCEL ONEDRIVE)
 # =========================================================================
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container"><div class="topo-esquerda">{logo_html}</div><div class="topo-centro">📈 INDICADORES DA EQUIPE</div><div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div></div>''', unsafe_allow_html=True)
@@ -372,22 +370,38 @@ elif st.session_state.idx == 3:
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     df_ind = pd.DataFrame()
-    if os.path.exists(ARQUIVO_INDICADORES):
+    try:
+        # Lê a aba com os indicadores. Ele tenta procurar uma aba com o nome 'Indicadores'
+        # Se a sua página salvar com outro nome, basta alterar o 'sheet_name'
         try:
-            df_ind = pd.read_csv(ARQUIVO_INDICADORES)
-            df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
-            if "VALOR" in df_ind.columns:
-                df_ind["VALOR"] = pd.to_numeric(df_ind["VALOR"], errors="coerce").fillna(0).astype(int)
-        except Exception:
-            pass 
+            df_ind = pd.read_excel(URL_PLANILHA, sheet_name='Indicadores', engine='openpyxl')
+        except:
+            # Caso não ache a aba chamada "Indicadores", ele puxa a primeira aba padrão do arquivo
+            df_ind = pd.read_excel(URL_PLANILHA, engine='openpyxl')
+            
+        df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
+    except Exception as e:
+        st.error(f"⚠️ Erro ao tentar baixar a planilha online do SharePoint. Detalhes: {e}")
 
-    if not df_ind.empty and "VALOR" in df_ind.columns:
+    if not df_ind.empty:
+        # Tenta descobrir de onde tirar a BASE se ela não estiver na planilha
+        if "BASE" not in df_ind.columns:
+            df_ind["BASE"] = "SP" # Fallback para não dar erro
+
         c_abc, c_sp = st.columns(2)
         
         def renderizar_cards_indicadores(df_base):
-            pivot = df_base.pivot_table(index="SUPERVISOR", columns="INDICADOR", values="VALOR", aggfunc="max").fillna(0).astype(int)
+            if "INDICADOR" in df_base.columns and "VALOR" in df_base.columns:
+                df_base["VALOR"] = pd.to_numeric(df_base["VALOR"], errors="coerce").fillna(0).astype(int)
+                pivot = df_base.pivot_table(index="SUPERVISOR", columns="INDICADOR", values="VALOR", aggfunc="max").fillna(0).astype(int)
+            else:
+                pivot = df_base.copy()
+                if "SUPERVISOR" in pivot.columns:
+                    pivot.set_index("SUPERVISOR", inplace=True)
+                for col in pivot.columns:
+                    if col != "BASE":
+                        pivot[col] = pd.to_numeric(pivot[col], errors="coerce").fillna(0).astype(int)
             
-            # Padroniza colunas internas para mapeamento seguro
             pivot.columns = [str(c).upper().strip() for c in pivot.columns]
             
             for col in ["NR35", "CERTIDÃO DE ATENDIMENTO", "BAND STEERING"]:
@@ -400,7 +414,7 @@ elif st.session_state.idx == 3:
                     m1, m2, m3 = st.columns(3)
                     
                     val_nr35 = row.get("NR35", 0)
-                    val_cert = row.get("CERTIDÃO DE ATENDIMENTO", 0)
+                    val_cert = row.get("CERTIDÃO DE ATENDIMENTO", row.get("CERTIDÃO", 0))
                     val_band = row.get("BAND STEERING", 0)
 
                     with m1: st.markdown(f'<div class="card-indicador"><div class="card-ind-titulo">👷 NR35</div><div class="card-ind-valor">{int(val_nr35)}</div></div>', unsafe_allow_html=True)
@@ -409,17 +423,17 @@ elif st.session_state.idx == 3:
 
         with c_abc:
             st.markdown('<div class="nome-base" style="color:#2e7d32; text-align:center; margin-bottom:15px; border-bottom:3px solid #2e7d32; padding-bottom:5px;">ABC PAULISTA</div>', unsafe_allow_html=True)
-            df_abc = df_ind[df_ind["BASE"].str.upper() == "ABC"]
+            df_abc = df_ind[df_ind["BASE"].astype(str).str.upper() == "ABC"]
             if not df_abc.empty: renderizar_cards_indicadores(df_abc)
-            else: st.info("Nenhum indicador lançado para o ABC hoje.")
+            else: st.info("Nenhum indicador encontrado para o ABC hoje.")
 
         with c_sp:
             st.markdown('<div class="nome-base" style="color:#03a398; text-align:center; margin-bottom:15px; border-bottom:3px solid #03a398; padding-bottom:5px;">SÃO PAULO</div>', unsafe_allow_html=True)
-            df_sp = df_ind[df_ind["BASE"].str.upper() == "SP"]
+            df_sp = df_ind[df_ind["BASE"].astype(str).str.upper() == "SP"]
             if not df_sp.empty: renderizar_cards_indicadores(df_sp)
-            else: st.info("Nenhum indicador lançado para SP hoje.")
+            else: st.info("Nenhum indicador encontrado para SP hoje.")
     else:
-        st.info("Nenhum indicador lançado hoje. Utilize a página 'Lançamento de Indicadores' para alimentar o painel.")
+        st.info("A planilha do OneDrive não foi preenchida ou não retornou dados.")
 
 time.sleep(1)
 st.rerun()
