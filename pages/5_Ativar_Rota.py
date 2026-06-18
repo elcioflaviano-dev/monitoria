@@ -2,16 +2,14 @@ import streamlit as st
 import pandas as pd
 import os
 
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide")
 
-# CSS PARA LIMPEZA DA INTERFACE (REMOVE ATALHOS DO STREAMLIT E MENU LATERAL)
+# CSS CORRIGIDO: O MENU LATERAL VOLTOU! (Removi a linha que o ocultava)
 st.markdown("""
     <style>
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
-    #MainMenu { visibility: hidden !important; }
-    [data-testid="stSidebar"] { display: none !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -44,36 +42,29 @@ if "novos_abc" not in st.session_state: st.session_state["novos_abc"] = []
 
 st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
-# 🔄 HERANÇA INTELIGENTE VIA DISCO RÍGIDO (À PROVA DE QUEDAS)
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-if ('df_rota_ativa' not in st.session_state or st.session_state['df_rota_ativa'] is None) and os.path.exists(ARQUIVO_ROTA_DISCO):
-    try: st.session_state['df_rota_ativa'] = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
-    except: pass
 
-if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is not None:
-    df = st.session_state['df_rota_ativa'].copy()
-    
-    # Padroniza nomes das colunas removendo espaços extras
+if os.path.exists(ARQUIVO_ROTA_DISCO):
+    df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
     df.columns = [str(c).strip() for c in df.columns]
     
-    # 🔍 RADAR AUTOMÁTICO DE COLUNAS (PRIORIZANDO A COLUNA .1 ONDE FICA A 'BASE')
-    if 'Tipo de Atividade.1' in df.columns:
-        col_tipo = 'Tipo de Atividade.1'
-    elif 'Tipo de Atividade' in df.columns:
-        col_tipo = 'Tipo de Atividade'
-    else:
-        col_tipo = next((c for c in reversed(df.columns) if 'TIPO' in c.upper() and 'ATIV' in c.upper()), None)
-        
-    col_status = 'Status da Atividade' if 'Status da Atividade' in df.columns else ('STATUS_ATIVIDADE' if 'STATUS_ATIVIDADE' in df.columns else None)
+    # 🔍 MOTOR DE BUSCA INDESTRUTÍVEL (Lê todas as colunas de Tipo e Status)
+    col_tipos = [c for c in df.columns if 'TIPO' in str(c).upper() and 'ATIV' in str(c).upper()]
+    col_status = [c for c in df.columns if 'STATUS' in str(c).upper()]
     col_recurso = 'Recurso' if 'Recurso' in df.columns else df.columns[0]
-
-    if col_tipo and col_status:
-        # Busca técnicos na base e pendentes com uma pesquisa mais ampla (aceita 'BASE' e 'PEND')
+    
+    if col_tipos and col_status:
+        # Junta todas as colunas de TIPO em uma só string para buscar a palavra BASE
+        df['BUSCA_TIPO'] = df[col_tipos].fillna('').astype(str).agg(' '.join, axis=1).str.upper()
+        # Junta todas as colunas de STATUS em uma só string para buscar a palavra PEND
+        df['BUSCA_STATUS'] = df[col_status].fillna('').astype(str).agg(' '.join, axis=1).str.upper()
+        
+        # O filtro agora é à prova de falhas:
         df_tela = df[
-            (df[col_tipo].astype(str).str.contains('BASE', na=False, case=False)) & 
-            (df[col_status].astype(str).str.contains('PEND', na=False, case=False))
+            (df['BUSCA_TIPO'].str.contains('BASE', na=False)) & 
+            (df['BUSCA_STATUS'].str.contains('PEND|ABERTO', na=False))
         ].copy()
-
+        
         nomes_na_base = sorted(df_tela[col_recurso].dropna().astype(str).str.strip().unique().tolist())
         
         # Consolida listas usando a variável definida acima
@@ -100,18 +91,19 @@ if 'df_rota_ativa' in st.session_state and st.session_state['df_rota_ativa'] is 
         with c4:
             st.markdown('### 🏙️ SP (2/2)')
             for n in nomes_sp[mid_sp:]: st.markdown(f'🏃‍♂️ {n}')
-
-        st.divider()
-        with st.expander("➕ Incluir Novo Técnico"):
-            c_a, c_b, c_c = st.columns([2, 1, 1])
-            nome_i = c_a.text_input("Nome:").upper()
-            base_i = c_b.selectbox("Base:", ["SP", "ABC"])
-            if c_c.button("Adicionar"):
-                if nome_i:
-                    if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
-                    else: st.session_state["novos_abc"].append(nome_i)
-                    st.rerun()
+            
     else:
-        st.error("⚠️ Colunas 'Tipo de Atividade' ou 'Status da Atividade' não encontradas na planilha.")
+        st.error("⚠️ Colunas 'Tipo de Atividade' ou 'Status da Atividade' não encontradas.")
+
+    st.divider()
+    with st.expander("➕ Incluir Novo Técnico"):
+        c_a, c_b, c_c = st.columns([2, 1, 1])
+        nome_i = c_a.text_input("Nome:").upper()
+        base_i = c_b.selectbox("Base:", ["SP", "ABC"])
+        if c_c.button("Adicionar"):
+            if nome_i:
+                if base_i == "SP": st.session_state["novos_sp"].append(nome_i)
+                else: st.session_state["novos_abc"].append(nome_i)
+                st.rerun()
 else:
-    st.error("⚠️ Nenhum dado carregado. Aguardando sincronização com a nuvem...")
+    st.error("⚠️ Ficheiro rota_sincronizada.csv não encontrado. Aguardando sincronização com a nuvem...")
