@@ -5,17 +5,16 @@ import time
 import base64
 from datetime import datetime, timedelta
 
-# =========================================================================
-# 🌐 CONFIGURAÇÕES DA PLANILHA ONLINE (ONEDRIVE / SHAREPOINT)
-# =========================================================================
-# O link foi ajustado com ?download=1 no final para o Python conseguir extrair os dados
-URL_PLANILHA = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
+# CONFIGURAÇÕES DE CAMINHOS E LINKS
+URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
 
-ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
+ROOT_DIR = os.getcwd()
+ARQUIVO_INDICADORES = os.path.join(ROOT_DIR, "indicadores_data.csv")
+ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 
-ARQUIVO_LOGO = "logo.png"
+ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
-    ARQUIVO_LOGO = os.path.join("pages", "logo.png")
+    ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
@@ -31,9 +30,6 @@ def carregar_logo_html(caminho_imagem):
 
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
-# =========================================================================
-# CSS E ESTILIZAÇÃO DO PAINEL
-# =========================================================================
 st.markdown("""<style>
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
@@ -41,6 +37,7 @@ st.markdown("""<style>
     #MainMenu { visibility: hidden !important; }
     [data-testid="stSidebar"] { display: none !important; }
     
+    /* FORÇA O FUNDO A FICAR BRANCO PARA ELIMINAR RASTROS */
     .stApp { background-color: #ffffff !important; }
 
     .topo-container { 
@@ -69,42 +66,26 @@ st.markdown("""<style>
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
     
-    .card-indicador { background:#ffffff; border-radius:8px; padding:15px; text-align:center; border: 2px solid #e0e0e0; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
-    .card-ind-titulo { font-size:16px; font-weight:800; color:#555; margin-bottom:8px; text-transform:uppercase; }
-    .card-ind-valor { font-size:42px; font-weight:900; color:#005088; line-height:1; }
+    .card-indicador { background:#f0f2f6; border-radius:6px; padding:15px; text-align:center; border: 1px solid #ddd; }
+    .card-ind-titulo { font-size:14px; font-weight:800; color:#555; margin-bottom:5px; text-transform:uppercase; }
+    .card-ind-valor { font-size:36px; font-weight:900; color:#005088; line-height:1; }
 </style>""", unsafe_allow_html=True)
 
-# =========================================================================
-# 🧠 BUSCA DINÂMICA (LÊ A PLANILHA DO ONEDRIVE)
-# =========================================================================
-@st.cache_data(ttl=300)
-def carregar_dados_compilado():
-    mapa = {}
-    supervisores = []
-    try:
-        # Puxa o Excel do link SharePoint online
-        df_comp = pd.read_excel(URL_PLANILHA, engine='openpyxl')
-        df_comp.columns = [str(c).strip().upper() for c in df_comp.columns]
-        
-        col_nome = next((c for c in df_comp.columns if 'NOME' in c or 'RECURSO' in c or 'TÉCN' in c or 'TECN' in c), None)
-        col_base = next((c for c in df_comp.columns if 'BASE' in c or 'POLO' in c or 'LOCAL' in c), None)
-        if col_nome and col_base:
-            for _, row in df_comp.iterrows():
-                nome = str(row[col_nome]).strip().upper()
-                base = str(row[col_base]).strip().upper()
-                if nome != 'NAN' and base != 'NAN':
-                    mapa[nome] = base
-                    
-        col_sup = next((c for c in df_comp.columns if 'SUPERVISOR' in c), None)
-        if col_sup:
-            supervisores = [str(s).strip().upper() for s in df_comp[col_sup].dropna().unique().tolist() if str(s).strip().upper() != "NAN" and str(s).strip() != ""]
-            
-    except Exception as e:
-        print(f"Erro ao ler a aba de Compilado: {e}")
-        pass
-    return mapa, supervisores
+# LISTAS FIXAS
+LISTA_SP_FIXA = ["ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE", "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS", "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "Edcarlos Pereira de Jesus", "GETULIO DOS SANTOS CAFE", "Glemerson Lima De Souza", "GUILHERME DE OLIVEIRA DANTAS", "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS", "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS", "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA", "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS", "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "Alan Cesar Cardoso", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO", "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA", "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA", "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA", "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON", "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA", "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA", "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA", "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "TAILSON JUAN SANTOS DA CONCEICAO", "DIEGO FRAGOSO DE BRITO", "ALYSON ALBERTO MARTINS", "AUGUSTO MOREIRA DA SILVA", "ENDERSON CLEITON SOUZA CRUZ", "CARLOS SEBASTIAO MORAIS", "EZIEL DE OLIVEIRA BARROS", "VICTOR BORGES ALVES", "MATHEUS CARDOSO DE OLIVEIRA", "ROGERIO AFONSO DA SILVA", "KAIO NASCIMENTO ALVES DOS SANTOS", "KELVIN RIBEIRO BENTO DA COSTA", "MARCELO BUENO SEGURA", "MAYKON RIBEIRO GUIMARAES", "THIAGO JOSE ASSUNCAO", "GUSTAVO SANTOS SANT ANA"]
+LISTA_ABC_FIXA = ["ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA", "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS", "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA", "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES", "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES", "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA", "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA", "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRADAO BASTOS", "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME", "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS", "LUCAS SILVA DE LIMA", "LUIS HENRIQUE GOMES DA SILVA", "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA", "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA", "RAFAEL DOS ANJOS BATISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS", "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO", "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "DANIEL AUGUSTO PEREIRA", "JULIO CESAR SILVA DOS SANTOS", "EDER SALES MONTEIRO", "ANTONIO WESLEY HOLANDA DA SILVA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "ALEX DE JESUS FREIRE", "ANTHONY HULLY PEREIRA DIAS", "ANTONIO CHARLES MARINHO", "ARLAN DUARTE NASCIMENTO", "EVERTON ALVES", "IGOR DAVID DE MARCHI", "JAZIEL DOS SANTOS SILVA", "KAUAN PASCHOAL", "LUCAS SILVA SOBRINHO", "NICOLAS CALEGARI STARCHARVSKI", "RENATO ESPERANÇA", "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", "VITOR MATOS DE ALMEIDA"]
 
-mapa_bases, SUPERVISORES = carregar_dados_compilado()
+SUPERVISORES = []
+planilha_carregada = False
+
+try:
+    df_equipe = pd.read_csv(URL_PLANILHA)
+    if not df_equipe.empty and len(df_equipe.columns) >= 3:
+        df_equipe.columns = df_equipe.columns.str.strip().str.upper()
+        SUPERVISORES = [str(s).strip().upper() for s in df_equipe["SUPERVISOR"].dropna().unique().tolist() if str(s).strip() != ""]
+        planilha_carregada = True
+except Exception:
+    pass
 
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
@@ -113,53 +94,72 @@ def obter_nome_visual(nome_completo):
     return n.split()[0]
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS (PLAYLIST DE REPRODUÇÃO)
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS INTELIGENTE
 # =========================================================================
 if "idx" not in st.session_state: 
-    st.session_state.idx = 2         
+    st.session_state.idx = 0         
+    st.session_state.last_main = 0   
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.session_state.script_audio_atual = ""
 
-if "posicao_ordem" not in st.session_state:
-    st.session_state.posicao_ordem = 0
-
 agora_br = datetime.utcnow() - timedelta(hours=3)
 
+# REGRAS DE HORÁRIO
 antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
+mostrar_indicadores = (agora_br.hour == 13 and agora_br.minute >= 30) or (agora_br.hour == 16 and agora_br.minute >= 30)
 
+# ACELERADOR RUSH (11:40+, 14:40+, 17:40+)
 alerta_fim_janela = False
 if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: 
     alerta_fim_janela = True
 
-if st.session_state.idx == 0: espera = 60 
-elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 4: espera = 2 
+# ⏳ TEMPO DE CADA TELA
+if st.session_state.idx == 0: 
+    espera = 60 # Técnicos na Base
+elif st.session_state.idx == 1: 
+    espera = 30 if alerta_fim_janela else 60 # Pendentes: 60s normal, 30s no rush
+elif st.session_state.idx == 3: 
+    espera = 30 # Indicadores: 30s
+elif st.session_state.idx == 2:
+    espera = 30 if alerta_fim_janela else 180 # Relógio: 3 minutos normal, 30s no rush
+elif st.session_state.idx == 4:
+    espera = 2 # TELA BRANCA DE LIMPEZA: Exatamente 2 Segundos
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# Cronograma de Exibição
-if antes_0830: ordem_telas = [2, 0] 
-else: ordem_telas = [2, 1, 2, 3] 
-
+# 🔄 ROTADOR COM TELA BRANCA DE TRANSIÇÃO (O Efeito "Apagador")
 if tempo_passado > espera:
-    if st.session_state.idx != 4:
-        st.session_state.idx = 4
+    if antes_0830:
+        # === SOLUÇÃO DO GHOSTING AQUI ===
+        # Se estiver na tela dos Técnicos, manda pra tela Branca (Apagador)
+        if st.session_state.idx == 0:
+            st.session_state.last_main = 0
+            prox_idx = 4
+        # Se estiver na tela Branca, volta para os Técnicos limpo
+        else:
+            prox_idx = 0
     else:
-        st.session_state.posicao_ordem += 1
-        if st.session_state.posicao_ordem >= len(ordem_telas):
-            st.session_state.posicao_ordem = 0
-        st.session_state.idx = ordem_telas[st.session_state.posicao_ordem]
-        
+        if st.session_state.idx in [0, 1, 3]:
+            # Guarda a tela de onde viemos e joga para a Tela Branca (4)
+            st.session_state.last_main = st.session_state.idx
+            prox_idx = 4
+        elif st.session_state.idx == 4:
+            # Da Tela Branca (4), vamos para o Relógio (2) para relaxar a memória de vídeo
+            prox_idx = 2
+        elif st.session_state.idx == 2:
+            # Do Relógio (2), decidimos qual será a próxima tela principal
+            if mostrar_indicadores:
+                prox_idx = 3 if st.session_state.last_main == 1 else 1
+            else:
+                prox_idx = 1
+                
+    st.session_state.idx = prox_idx
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.rerun()
 
-# =========================================================================
-# 🔊 MOTOR DE ÁUDIO COMPLETO
-# =========================================================================
+# 🔊 MOTOR DE ÁUDIO REFORÇADO (Usa a janela Pai para o som nunca ser cortado)
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -169,7 +169,6 @@ function tocarAlertaChamaAtencao() {
         osc1.type = 'triangle'; osc1.frequency.setValueAtTime(880, tempo);
         gain1.gain.setValueAtTime(0, tempo); gain1.gain.linearRampToValueAtTime(0.4, tempo + 0.05); gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
         osc1.connect(gain1); gain1.connect(ctx.destination); osc1.start(tempo); osc1.stop(tempo + 0.6);
-        
         let osc2 = ctx.createOscillator(); let gain2 = ctx.createGain();
         osc2.type = 'triangle'; osc2.frequency.setValueAtTime(659.25, tempo + 0.4);
         gain2.gain.setValueAtTime(0, tempo + 0.4); gain2.gain.linearRampToValueAtTime(0.4, tempo + 0.45); gain2.gain.exponentialRampToValueAtTime(0.01, tempo + 1.5);
@@ -220,17 +219,21 @@ function animarSupervisor(texto, delay, index, totalSup) {
 """
 
 # =========================================================================
-# TELA 4: TELA BRANCA DE LIMPEZA
+# TELA 4: A TELA BRANCA DE LIMPEZA (GHOSTING KILLER)
 # =========================================================================
 if st.session_state.idx == 4:
     st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
     st.components.v1.html("", height=0)
 
 # =========================================================================
-# TELA 0: TÉCNICOS NA BASE
+# TELA 0: TÉCNICOS NA BASE (ATÉ 08:30)
 # =========================================================================
 elif st.session_state.idx == 0:
-    st.markdown(f'''<div class="topo-container"><div class="topo-esquerda">{logo_html}</div><div class="topo-centro">🚀 TÉCNICOS EM BASE</div><div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div class="topo-container">
+        <div class="topo-esquerda">{logo_html}</div>
+        <div class="topo-centro">🚀 TÉCNICOS EM BASE</div>
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+    </div>''', unsafe_allow_html=True)
 
     if os.path.exists(ARQUIVO_ROTA_DISCO):
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
@@ -240,13 +243,13 @@ elif st.session_state.idx == 0:
         
         if col_tipo and col_status:
             df_tela = df[(df[col_tipo].astype(str).str.contains('NA BASE', na=False, case=False)) & (df[col_status].astype(str).str.contains('PENDENTE', na=False, case=False))].copy()
-            nomes_na_base = sorted(df_tela['Recurso'].dropna().astype(str).str.strip().unique().tolist())
             
-            nomes_abc, nomes_sp = [], []
-            for n in nomes_na_base:
-                n_upper = n.upper()
-                if "ABC" in mapa_bases.get(n_upper, "SP"): nomes_abc.append(n_upper)
-                else: nomes_sp.append(n_upper)
+            nomes_na_base = sorted(df_tela['Recurso'].dropna().astype(str).str.strip().unique().tolist())
+            lista_sp = [str(n).strip().upper() for n in LISTA_SP_FIXA]
+            lista_abc = [str(n).strip().upper() for n in LISTA_ABC_FIXA]
+            
+            nomes_abc = [n for n in nomes_na_base if str(n).strip().upper() in lista_abc or str(n).strip().upper() not in lista_sp]
+            nomes_sp = [n for n in nomes_na_base if str(n).strip().upper() in lista_sp]
 
             c1, c2, c3, c4 = st.columns(4)
             mid_abc = len(nomes_abc) // 2
@@ -266,17 +269,26 @@ elif st.session_state.idx == 0:
                 for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO}\nanunciarBase('Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);\n</script>"
+                script_cenario = f"<script>{JS_MOTOR_AUDIO}"
+                texto_fala = f"Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo."
+                script_cenario += f"anunciarBase('{texto_fala}', 0);\n"
+                script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
+            
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
-    else: st.error("Ficheiro de rota não encontrado.")
+        else: st.error("Colunas não encontradas.")
+    else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # =========================================================================
 # TELA 1: CONTRATOS PENDENTES
 # =========================================================================
 elif st.session_state.idx == 1: 
-    st.markdown(f'''<div class="topo-container"><div class="topo-esquerda">{logo_html}</div><div class="topo-centro">CONTRATOS PENDENTES</div><div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div class="topo-container">
+        <div class="topo-esquerda">{logo_html}</div>
+        <div class="topo-centro">CONTRATOS PENDENTES</div>
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+    </div>''', unsafe_allow_html=True)
 
     if os.path.exists(ARQUIVO_ROTA_DISCO):
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
@@ -297,8 +309,14 @@ elif st.session_state.idx == 1:
         df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
         df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
         
-        col_janela = next((c for c in df_validos.columns if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper()), None)
+        col_janela = None
+        for c in df_validos.columns:
+            if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
+                col_janela = c
+                break
+
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+        df_pendentes_geral = pd.DataFrame()
 
         if col_janela is not None and not df_validos.empty:
             df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
@@ -323,117 +341,155 @@ elif st.session_state.idx == 1:
         qtd_abc = len(df_pendentes_geral[~cond_sp])
 
         c_abc, c_sp = st.columns(2)
-        with c_abc: st.markdown(f'<div class="box-base"><div class="nome-base" style="color:#2e7d32;">ABC PENDENTES</div><div class="num-base">{qtd_abc}</div></div>', unsafe_allow_html=True)
-        with c_sp: st.markdown(f'<div class="box-base-sp"><div class="nome-base" style="color:#03a398;">SP PENDENTES</div><div class="num-base">{qtd_sp}</div></div>', unsafe_allow_html=True)
+        with c_abc:
+            st.markdown(f'''<div class="box-base">
+                <div class="nome-base" style="color: #2e7d32;">ABC PENDENTES</div>
+                <div class="num-base">{qtd_abc}</div>
+            </div>''', unsafe_allow_html=True)
+        with c_sp:
+            st.markdown(f'''<div class="box-base-sp">
+                <div class="nome-base" style="color: #03a398;">SÃO PAULO PENDENTES</div>
+                <div class="num-base">{qtd_sp}</div>
+            </div>''', unsafe_allow_html=True)
 
         if SUPERVISORES:
             cols_sup = st.columns(len(SUPERVISORES))
+            
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO}\nlimparDestaques({len(SUPERVISORES)});\nanunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', 0);\nanunciarBase('São Paulo: {qtd_sp} pendentes.', 7000);\n"
+                script_cenario = f"<script>{JS_MOTOR_AUDIO}"
+                script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
+                script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', 0);\n"
+                script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', 7000);\n"
                 for i, sup_full in enumerate(SUPERVISORES):
-                    q = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
-                    script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q} pendentes.', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
-                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}) , {14000 + len(SUPERVISORES) * 7000});\n</script>"
+                    qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
+                    nome_visual = obter_nome_visual(sup_full)
+                    texto_fala = f"{nome_visual}: {qtd_pendentes} pendentes."
+                    script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
+                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}) , {14000 + len(SUPERVISORES) * 7000});\n"
+                script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
                 
             for i, sup_full in enumerate(SUPERVISORES):
-                q = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
-                with cols_sup[i]: st.markdown(f'<div id="sup-box-{i}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup_full)}</div><div class="box-num">{q}</div></div>', unsafe_allow_html=True)
+                qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
+                nome_visual = obter_nome_visual(sup_full)
+                with cols_sup[i]:
+                    st.markdown(f'''<div id="sup-box-{i}" class="box-contagem">
+                        <div class="box-nome">{nome_visual}</div>
+                        <div class="box-num">{qtd_pendentes}</div>
+                    </div>''', unsafe_allow_html=True)
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
-    else: st.error("Ficheiro de rota não encontrado.")
+    else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # =========================================================================
 # TELA 2: HORÁRIO E ALERTAS
 # =========================================================================
 elif st.session_state.idx == 2:
-    st.markdown(f'''<div class="topo-container"><div class="topo-esquerda">{logo_html}</div><div class="topo-centro">HORÁRIO</div><div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div class="topo-container">
+        <div class="topo-esquerda">{logo_html}</div>
+        <div class="topo-centro">HORÁRIO</div>
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+    </div>''', unsafe_allow_html=True)
 
     tempo_real = datetime.utcnow() - timedelta(hours=3)
-    st.markdown(f'''<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>''', unsafe_allow_html=True)
+    hora_str = tempo_real.strftime("%H:%M:%S")
+    data_str = tempo_real.strftime("%d/%m/%Y")
+    hora_fala = tempo_real.strftime("%H e %M") 
+    
+    st.markdown(f'''
+    <div class="relogio-container">
+        <div class="hora-gigante">{hora_str}</div>
+        <div class="data-media">{data_str}</div>
+    </div>
+    ''', unsafe_allow_html=True)
     
     if st.session_state.novo_ciclo:
-        msg = f"Atenção equipe. Fim da janela se aproximando. Hora certa: {tempo_real.strftime('%H e %M')}." if alerta_fim_janela else f"Hora certa: {tempo_real.strftime('%H e %M')}."
-        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}\nanunciarBase('{msg}', 0);\n</script>"
+        script_cenario = f"<script>{JS_MOTOR_AUDIO}"
+        if alerta_fim_janela:
+            texto_hora = f"Atenção equipe. Fim da janela se aproximando. Hora certa: {hora_fala}."
+        else:
+            texto_hora = f"Hora certa: {hora_fala}."
+        script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
+        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
+        st.session_state.script_audio_atual = script_cenario
         st.session_state.novo_ciclo = False
+        
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # =========================================================================
-# TELA 3: INDICADORES DA EQUIPE (PUXANDO DO EXCEL ONEDRIVE)
+# TELA 3: INDICADORES DA EQUIPE
 # =========================================================================
 elif st.session_state.idx == 3:
-    st.markdown(f'''<div class="topo-container"><div class="topo-esquerda">{logo_html}</div><div class="topo-centro">📈 INDICADORES DA EQUIPE</div><div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div></div>''', unsafe_allow_html=True)
+    st.markdown(f'''<div class="topo-container">
+        <div class="topo-esquerda">{logo_html}</div>
+        <div class="topo-centro">📈 INDICADORES DA EQUIPE</div>
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+    </div>''', unsafe_allow_html=True)
 
     if st.session_state.novo_ciclo:
-        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}\nanunciarBase('Atenção equipe. Quadro de indicadores atualizado.', 0);\n</script>"
+        script_cenario = f"<script>{JS_MOTOR_AUDIO}"
+        texto_fala = "Atenção equipe. Quadro de indicadores operacionais atualizado na tela."
+        script_cenario += f"anunciarBase('{texto_fala}', 0);\n"
+        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
+        st.session_state.script_audio_atual = script_cenario
         st.session_state.novo_ciclo = False
+        
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
-    df_ind = pd.DataFrame()
-    try:
-        # Lê a aba com os indicadores. Ele tenta procurar uma aba com o nome 'Indicadores'
-        # Se a sua página salvar com outro nome, basta alterar o 'sheet_name'
+    df_ind = pd.DataFrame(columns=["INDICADOR", "BASE", "SUPERVISOR", "VALOR"])
+    if os.path.exists(ARQUIVO_INDICADORES):
         try:
-            df_ind = pd.read_excel(URL_PLANILHA, sheet_name='Indicadores', engine='openpyxl')
-        except:
-            # Caso não ache a aba chamada "Indicadores", ele puxa a primeira aba padrão do arquivo
-            df_ind = pd.read_excel(URL_PLANILHA, engine='openpyxl')
-            
-        df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
-    except Exception as e:
-        st.error(f"⚠️ Erro ao tentar baixar a planilha online do SharePoint. Detalhes: {e}")
+            df_ind = pd.read_csv(ARQUIVO_INDICADORES)
+        except Exception:
+            pass 
 
     if not df_ind.empty:
-        # Tenta descobrir de onde tirar a BASE se ela não estiver na planilha
-        if "BASE" not in df_ind.columns:
-            df_ind["BASE"] = "SP" # Fallback para não dar erro
-
         c_abc, c_sp = st.columns(2)
         
         def renderizar_cards_indicadores(df_base):
-            if "INDICADOR" in df_base.columns and "VALOR" in df_base.columns:
-                df_base["VALOR"] = pd.to_numeric(df_base["VALOR"], errors="coerce").fillna(0).astype(int)
-                pivot = df_base.pivot_table(index="SUPERVISOR", columns="INDICADOR", values="VALOR", aggfunc="max").fillna(0).astype(int)
-            else:
-                pivot = df_base.copy()
-                if "SUPERVISOR" in pivot.columns:
-                    pivot.set_index("SUPERVISOR", inplace=True)
-                for col in pivot.columns:
-                    if col != "BASE":
-                        pivot[col] = pd.to_numeric(pivot[col], errors="coerce").fillna(0).astype(int)
-            
-            pivot.columns = [str(c).upper().strip() for c in pivot.columns]
-            
-            for col in ["NR35", "CERTIDÃO DE ATENDIMENTO", "BAND STEERING"]:
-                if col not in pivot.columns: pivot[col] = 0
+            pivot = df_base.pivot(index="SUPERVISOR", columns="INDICADOR", values="VALOR").fillna(0).astype(int)
+            for col in ["NR35", "Certidão de Atendimento", "Band Steering"]:
+                if col not in pivot.columns:
+                    pivot[col] = 0
             
             for supervisor in sorted(pivot.index):
                 row = pivot.loc[supervisor]
                 with st.container(border=True):
-                    st.markdown(f'<div style="font-size:24px; font-weight:900; margin-bottom:15px; color:#333;">📋 Supervisor: {supervisor}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="font-size:22px; font-weight:900; margin-bottom:12px; color:#111;">📋 {supervisor}</div>', unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
-                    
-                    val_nr35 = row.get("NR35", 0)
-                    val_cert = row.get("CERTIDÃO DE ATENDIMENTO", row.get("CERTIDÃO", 0))
-                    val_band = row.get("BAND STEERING", 0)
-
-                    with m1: st.markdown(f'<div class="card-indicador"><div class="card-ind-titulo">👷 NR35</div><div class="card-ind-valor">{int(val_nr35)}</div></div>', unsafe_allow_html=True)
-                    with m2: st.markdown(f'<div class="card-indicador"><div class="card-ind-titulo">📄 CERTIDÃO</div><div class="card-ind-valor">{int(val_cert)}</div></div>', unsafe_allow_html=True)
-                    with m3: st.markdown(f'<div class="card-indicador"><div class="card-ind-titulo">📡 BAND STEERING</div><div class="card-ind-valor">{int(val_band)}</div></div>', unsafe_allow_html=True)
+                    with m1:
+                        st.markdown(f'''<div class="card-indicador">
+                            <div class="card-ind-titulo">👷 NR35</div>
+                            <div class="card-ind-valor">{int(row["NR35"])}</div>
+                        </div>''', unsafe_allow_html=True)
+                    with m2:
+                        st.markdown(f'''<div class="card-indicador">
+                            <div class="card-ind-titulo">📄 CERTIDÃO</div>
+                            <div class="card-ind-valor">{int(row["Certidão de Atendimento"])}</div>
+                        </div>''', unsafe_allow_html=True)
+                    with m3:
+                        st.markdown(f'''<div class="card-indicador">
+                            <div class="card-ind-titulo">📡 BAND STEERING</div>
+                            <div class="card-ind-valor">{int(row["Band Steering"])}</div>
+                        </div>''', unsafe_allow_html=True)
 
         with c_abc:
-            st.markdown('<div class="nome-base" style="color:#2e7d32; text-align:center; margin-bottom:15px; border-bottom:3px solid #2e7d32; padding-bottom:5px;">ABC PAULISTA</div>', unsafe_allow_html=True)
-            df_abc = df_ind[df_ind["BASE"].astype(str).str.upper() == "ABC"]
-            if not df_abc.empty: renderizar_cards_indicadores(df_abc)
-            else: st.info("Nenhum indicador encontrado para o ABC hoje.")
+            st.markdown('<div class="nome-base" style="color: #2e7d32; text-align:center; margin-bottom:15px; border-bottom: 3px solid #2e7d32; padding-bottom: 5px;">ABC PAULISTA</div>', unsafe_allow_html=True)
+            df_abc = df_ind[df_ind["BASE"] == "ABC"]
+            if not df_abc.empty:
+                renderizar_cards_indicadores(df_abc)
+            else:
+                st.info("Nenhum indicador lançado para o ABC hoje.")
 
         with c_sp:
-            st.markdown('<div class="nome-base" style="color:#03a398; text-align:center; margin-bottom:15px; border-bottom:3px solid #03a398; padding-bottom:5px;">SÃO PAULO</div>', unsafe_allow_html=True)
-            df_sp = df_ind[df_ind["BASE"].astype(str).str.upper() == "SP"]
-            if not df_sp.empty: renderizar_cards_indicadores(df_sp)
-            else: st.info("Nenhum indicador encontrado para SP hoje.")
+            st.markdown('<div class="nome-base" style="color: #03a398; text-align:center; margin-bottom:15px; border-bottom: 3px solid #03a398; padding-bottom: 5px;">SÃO PAULO</div>', unsafe_allow_html=True)
+            df_sp = df_ind[df_ind["BASE"] == "SP"]
+            if not df_sp.empty:
+                renderizar_cards_indicadores(df_sp)
+            else:
+                st.info("Nenhum indicador lançado para SP hoje.")
     else:
-        st.info("A planilha do OneDrive não foi preenchida ou não retornou dados.")
+        st.info("Nenhum indicador lançado hoje. Utilize a página 'Lançamento de Indicadores' para alimentar o painel.")
 
 time.sleep(1)
 st.rerun()
