@@ -66,9 +66,10 @@ st.markdown("""<style>
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
     
-    .card-indicador { background:#f0f2f6; border-radius:6px; padding:15px; text-align:center; border: 1px solid #ddd; }
-    .card-ind-titulo { font-size:14px; font-weight:800; color:#555; margin-bottom:5px; text-transform:uppercase; }
-    .card-ind-valor { font-size:36px; font-weight:900; color:#005088; line-height:1; }
+    /* ESTILOS DOS CARDS DE INDICADORES */
+    .card-indicador { background:#ffffff; border-radius:8px; padding:15px; text-align:center; border: 2px solid #e0e0e0; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
+    .card-ind-titulo { font-size:16px; font-weight:800; color:#555; margin-bottom:8px; text-transform:uppercase; }
+    .card-ind-valor { font-size:42px; font-weight:900; color:#005088; line-height:1; }
 </style>""", unsafe_allow_html=True)
 
 # LISTAS FIXAS
@@ -107,7 +108,12 @@ agora_br = datetime.utcnow() - timedelta(hours=3)
 
 # REGRAS DE HORÁRIO
 antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
-mostrar_indicadores = (agora_br.hour == 13 and agora_br.minute >= 30) or (agora_br.hour == 16 and agora_br.minute >= 30)
+
+# ==================================================================================
+# 💡 AJUSTE: Mudei para "True" para o painel de Indicadores rodar na TV o dia todo!
+# Se quiser voltar à regra antiga de horários específicos, desfaça essa linha.
+# ==================================================================================
+mostrar_indicadores = True 
 
 # ACELERADOR RUSH (11:40+, 14:40+, 17:40+)
 alerta_fim_janela = False
@@ -118,37 +124,31 @@ if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40:
 if st.session_state.idx == 0: 
     espera = 60 # Técnicos na Base
 elif st.session_state.idx == 1: 
-    espera = 30 if alerta_fim_janela else 60 # Pendentes: 60s normal, 30s no rush
+    espera = 30 if alerta_fim_janela else 60 # Pendentes
 elif st.session_state.idx == 3: 
-    espera = 30 # Indicadores: 30s
+    espera = 45 # Indicadores: aumentado para 45s para dar tempo de ler os cards
 elif st.session_state.idx == 2:
-    espera = 30 if alerta_fim_janela else 180 # Relógio: 3 minutos normal, 30s no rush
+    espera = 30 if alerta_fim_janela else 180 # Relógio
 elif st.session_state.idx == 4:
-    espera = 2 # TELA BRANCA DE LIMPEZA: Exatamente 2 Segundos
+    espera = 2 # TELA BRANCA DE LIMPEZA
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# 🔄 ROTADOR COM TELA BRANCA DE TRANSIÇÃO (O Efeito "Apagador")
+# 🔄 ROTADOR COM TELA BRANCA DE TRANSIÇÃO
 if tempo_passado > espera:
     if antes_0830:
-        # === SOLUÇÃO DO GHOSTING AQUI ===
-        # Se estiver na tela dos Técnicos, manda pra tela Branca (Apagador)
         if st.session_state.idx == 0:
             st.session_state.last_main = 0
             prox_idx = 4
-        # Se estiver na tela Branca, volta para os Técnicos limpo
         else:
             prox_idx = 0
     else:
         if st.session_state.idx in [0, 1, 3]:
-            # Guarda a tela de onde viemos e joga para a Tela Branca (4)
             st.session_state.last_main = st.session_state.idx
             prox_idx = 4
         elif st.session_state.idx == 4:
-            # Da Tela Branca (4), vamos para o Relógio (2) para relaxar a memória de vídeo
             prox_idx = 2
         elif st.session_state.idx == 2:
-            # Do Relógio (2), decidimos qual será a próxima tela principal
             if mostrar_indicadores:
                 prox_idx = 3 if st.session_state.last_main == 1 else 1
             else:
@@ -159,7 +159,7 @@ if tempo_passado > espera:
     st.session_state.novo_ciclo = True
     st.rerun()
 
-# 🔊 MOTOR DE ÁUDIO REFORÇADO (Usa a janela Pai para o som nunca ser cortado)
+# 🔊 MOTOR DE ÁUDIO
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -219,7 +219,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
 """
 
 # =========================================================================
-# TELA 4: A TELA BRANCA DE LIMPEZA (GHOSTING KILLER)
+# TELA 4: A TELA BRANCA DE LIMPEZA
 # =========================================================================
 if st.session_state.idx == 4:
     st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
@@ -446,8 +446,9 @@ elif st.session_state.idx == 3:
     if not df_ind.empty:
         c_abc, c_sp = st.columns(2)
         
+        # 💡 CORREÇÃO AQUI: Usando pivot_table em vez de pivot para não travar
         def renderizar_cards_indicadores(df_base):
-            pivot = df_base.pivot(index="SUPERVISOR", columns="INDICADOR", values="VALOR").fillna(0).astype(int)
+            pivot = df_base.pivot_table(index="SUPERVISOR", columns="INDICADOR", values="VALOR", aggfunc="max").fillna(0).astype(int)
             for col in ["NR35", "Certidão de Atendimento", "Band Steering"]:
                 if col not in pivot.columns:
                     pivot[col] = 0
@@ -455,7 +456,7 @@ elif st.session_state.idx == 3:
             for supervisor in sorted(pivot.index):
                 row = pivot.loc[supervisor]
                 with st.container(border=True):
-                    st.markdown(f'<div style="font-size:22px; font-weight:900; margin-bottom:12px; color:#111;">📋 {supervisor}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="font-size:24px; font-weight:900; margin-bottom:15px; color:#333; text-align:left;">📋 Supervisor: {supervisor}</div>', unsafe_allow_html=True)
                     m1, m2, m3 = st.columns(3)
                     with m1:
                         st.markdown(f'''<div class="card-indicador">
