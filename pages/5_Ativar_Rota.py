@@ -4,7 +4,7 @@ import os
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
-# CSS: Removemos o bloqueio da Sidebar para o MENU VOLTAR!
+# CSS DE LIMPEZA
 st.markdown("""
     <style>
     .stDeployButton { display: none !important; }
@@ -26,34 +26,29 @@ ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
-        # A magia da auto-deteção do ficheiro que resolveu o problema
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
         df.columns = [str(c).strip() for c in df.columns]
 
-        # Encontra as colunas dinamicamente
         col_recurso = next((c for c in df.columns if 'RECURSO' in c.upper() or 'NOME' in c.upper()), df.columns[0])
         col_status = next((c for c in df.columns if 'STATUS' in c.upper()), None)
         cols_tipo = [c for c in df.columns if 'TIPO' in c.upper()]
 
         if col_status and cols_tipo:
-            # Filtro Inteligente (Procura "BASE" em qualquer coluna do Tipo e "PEND" no Status)
-            mask_base = df[cols_tipo].apply(lambda row: row.astype(str).str.contains('BASE', case=False, na=False).any(), axis=1)
-            mask_status = df[col_status].fillna('').astype(str).str.contains('PEND', case=False, na=False)
+            # CORREÇÃO: Usando igualdade exata (== 'na base') em vez de '.str.contains()'
+            # Isso impede que "MUDANÇA DE BASE" ou afins acione o filtro
+            mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.strip().str.lower() == 'na base').any(axis=1)
+            mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend')
 
             df_tela = df[mask_base & mask_status].copy()
 
-            # Pega nos nomes que passaram no filtro e remove duplicados
             nomes_na_base = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
 
-            # Junta as listas fixas com eventuais inclusões manuais
             lista_sp = [n.upper() for n in LISTA_SP_FIXA] + [n.upper() for n in st.session_state["novos_sp"]]
             lista_abc = [n.upper() for n in LISTA_ABC_FIXA] + [n.upper() for n in st.session_state["novos_abc"]]
 
-            # Separa os técnicos pendentes na base por região
             nomes_abc = [n for n in nomes_na_base if n in lista_abc or n not in lista_sp]
             nomes_sp = [n for n in nomes_na_base if n in lista_sp]
 
-            # CONSTRUÇÃO DO VISUAL DA TELA
             st.markdown(f"<h4 style='text-align: center; color: #555;'>Total na Base: {len(nomes_na_base)}</h4>", unsafe_allow_html=True)
             st.divider()
 
@@ -80,7 +75,6 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
 
             st.divider()
             
-            # Opção manual caso a planilha não integre alguém
             with st.expander("➕ Incluir Novo Técnico (Manualmente)"):
                 c_a, c_b, c_c = st.columns([2, 1, 1])
                 nome_i = c_a.text_input("Nome:").upper()
