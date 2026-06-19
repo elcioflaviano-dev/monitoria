@@ -426,7 +426,7 @@ elif st.session_state.idx == 1:
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">PRINT DE INDICADORES</div>
+        <div class="topo-centro">INDICADORES OPERACIONAIS</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
@@ -516,7 +516,7 @@ elif st.session_state.idx == 3:
 
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                script_cenario += f"anunciarBase('Apresentando o total de faltas de conformidade por supervisor.', 0);\n"
+                script_cenario += f"anunciarBase('Apresentando faltas de PRINTS por supervisor.', 0);\n"
                 script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False
