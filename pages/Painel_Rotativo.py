@@ -131,13 +131,12 @@ antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30
 alerta_fim_janela = False
 if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = True
 
-# 🔕 FECHADURA DE ÁUDIO E FRASES INCISIVAS (Novos Horários de Cobrança)
 minutos_agora = agora_br.hour * 60 + agora_br.minute
-permitir_audio = False
-frase_incisiva = ""
 
-# Cada janela dura 15 minutos para garantir que o painel consiga rodar o áudio neste intervalo
-regras_audio = [
+# 🔕 1. FECHADURA DE ÁUDIO PARA ROTA (Telas 0, 1 e 2)
+permitir_audio_tec1 = False
+frase_incisiva = ""
+regras_audio_tec1 = [
     {"inicio": 11*60,      "fim": 11*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota. "},
     {"inicio": 12*60,      "fim": 12*60 + 15, "frase": "Atenção. Fechamento de janela. "},
     {"inicio": 12*60 + 30, "fim": 12*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela. "},
@@ -149,10 +148,21 @@ regras_audio = [
     {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela. "}
 ]
 
-for regra in regras_audio:
+for regra in regras_audio_tec1:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
-        permitir_audio = True
+        permitir_audio_tec1 = True
         frase_incisiva = regra["frase"]
+        break
+
+# 🔕 2. FECHADURA DE ÁUDIO EXCLUSIVA PARA INDICADORES (Tela 3)
+permitir_audio_ind = False
+regras_audio_ind = [
+    (13*60, 13*60 + 15), # 13:00 as 13:15
+    (16*60, 16*60 + 15)  # 16:00 as 16:15
+]
+for inicio, fim in regras_audio_ind:
+    if inicio <= minutos_agora <= fim:
+        permitir_audio_ind = True
         break
 
 if st.session_state.idx == 0: espera = 60 
@@ -308,7 +318,7 @@ elif st.session_state.idx == 0:
                 for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                if permitir_audio:
+                if permitir_audio_tec1:
                     script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva} Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
                 else:
                     script_cenario = ""
@@ -335,14 +345,17 @@ elif st.session_state.idx == 1:
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         if hora_atual < 12: 
             label_janela = "ATÉ 12:00"
+            fala_janela = "até as 12 horas"
         elif 12 <= hora_atual < 15: 
             label_janela = "ATÉ 15:00"
+            fala_janela = "até as 15 horas"
         else: 
             label_janela = "TURNO COMPLETO"
+            fala_janela = "do turno completo"
         
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">TEC 1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
+            <div class="topo-centro">CONTRATOS PENDENTES <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
         
@@ -403,10 +416,10 @@ elif st.session_state.idx == 1:
                         st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                if permitir_audio:
+                if permitir_audio_tec1:
                     script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual = 0
-                    script_cenario += f"anunciarBase('{frase_incisiva} Contratos pendentes. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
+                    script_cenario += f"anunciarBase('{frase_incisiva} Contratos pendentes {fala_janela}. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                     delay_atual += 7000
                     for i, sup_full in enumerate(SUPS_ABC):
                         qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
@@ -430,7 +443,7 @@ elif st.session_state.idx == 1:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 3: PRINT DOS INDICADORES
+# TELA 3: PRINT DOS INDICADORES 🔥 [FECHADURA E FRASE EXCLUSIVAS]
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
@@ -489,8 +502,8 @@ elif st.session_state.idx == 3:
                         <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                if permitir_audio:
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva} Atenção. Falta print dos indicadores.', 0);</script>"
+                if permitir_audio_ind:
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do NR35, BAND STEERING e certidão de atendimento.', 0);</script>"
                 else:
                     st.session_state.script_audio_atual = ""
                 st.session_state.novo_ciclo = False
@@ -512,7 +525,7 @@ elif st.session_state.idx == 2:
     st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
     
     if st.session_state.novo_ciclo:
-        if permitir_audio:
+        if permitir_audio_tec1:
             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva} Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
         else:
             st.session_state.script_audio_atual = ""
