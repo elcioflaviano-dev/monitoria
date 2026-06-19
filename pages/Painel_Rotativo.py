@@ -502,7 +502,7 @@ elif st.session_state.idx == 3:
 
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                texto_hora = f"Apresentando o total de faltas de conformidade por supervisor."
+                texto_hora = f"Apresentando o total de faltas de PRINTS por supervisor."
                 script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
                 script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
