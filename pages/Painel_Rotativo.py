@@ -43,31 +43,32 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* CSS DAS CAIXAS DE BASE E SUPERVISORES */
+    /* CSS DAS CAIXAS DE BASE E SUPERVISORES (TEC1) */
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
-    .box-base-sp { background: #dcf7f5; border-left: 10px solid #03a398; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
-    .nome-base { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase;}
+    .box-base-sp { background: #e0f2f1; border-left: 10px solid #00897b; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
+    .nome-base { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase;}
     .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
     
     .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 10px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; position: relative; z-index: 1; transition: 0.3s; }
-    .box-nome { font-size: 16px; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .box-nome { font-size: 15px; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .box-num { font-size: 50px; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 5px; }
     
-    /* CSS DOS INDICADORES GLOBAIS E POR SUPERVISOR */
-    .kpi-container-ind { display: flex; justify-content: center; gap: 30px; margin-top: 15px; margin-bottom: 25px; }
-    .kpi-card-ind { background-color: #f8f9fa; border-radius: 10px; padding: 15px 25px; text-align: center; min-width: 250px; border: 1px solid #e0e0e0; box-shadow: 2px 4px 10px rgba(0,0,0,0.05); }
-    .kpi-card-ind.nr35 { border-bottom: 6px solid #008080; }
-    .kpi-card-ind.cert { border-bottom: 6px solid #005088; }
-    .kpi-card-ind.bst { border-bottom: 6px solid #b30000; }
-    .ind-title { font-size: 18px; color: #555; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;}
-    .ind-value { font-size: 50px; font-weight: 900; color: #111; margin-top: 5px; }
-    
-    .sup-ind-box { background: #ffffff; border-top: 4px solid #005088; border-radius: 8px; padding: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee;}
-    .sup-ind-name { font-weight: 900; color: #333; font-size: 16px; margin-bottom: 10px; text-align: center; text-transform: uppercase; border-bottom: 1px solid #eee; padding-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .sup-ind-row { display: flex; justify-content: space-between; font-size: 15px; margin-bottom: 6px; font-weight: bold; }
-    .sup-ind-val { font-weight: 900; color: #111; }
-    
     .destaque-ativo { transform: scale(1.15) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.5) !important; border-left: 12px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
+    
+    /* CSS DOS INDICADORES DE FALTAS */
+    .ind-base-title { font-size: 24px; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
+    .ind-base-title.abc { color: #008080; }
+    .ind-base-title.sp { color: #b30000; }
+    
+    .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+    .sup-name { font-size: 17px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #ffcdd2; }
+    
+    .faltas-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .falta-box { background: #fff5f5; border: 1px solid #ffebee; border-radius: 6px; padding: 10px 5px; text-align: center; }
+    .falta-label { font-size: 11px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
+    .falta-value { font-size: 32px; font-weight: 900; color: #c62828; line-height: 1; }
     
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
@@ -75,7 +76,7 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# LEITURA DE SUPERVISORES E DADOS DINÂMICOS DIRETAMENTE DO CSV LOCAL
+# LEITURA DE SUPERVISORES (IGNORANDO O FANTASMA "-")
 SUPERVISORES = []
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
@@ -84,11 +85,13 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
         col_sup = next((c for c in df_temp.columns if 'SUPERVISOR' in c), None)
         if col_sup:
             supervisores_brutos = df_temp[col_sup].dropna().unique().tolist()
-            SUPERVISORES = sorted([str(s).strip().upper() for s in supervisores_brutos if str(s).strip().upper() not in ["", "NAN", "N/A", "NÃO IDENTIFICADO"]])
+            # O filtro mágico que remove '-', '', 'NAN', etc.
+            SUPERVISORES = sorted([str(s).strip().upper() for s in supervisores_brutos if str(s).strip().upper() not in ["", "NAN", "N/A", "NÃO IDENTIFICADO", "-"]])
     except Exception: pass
 
 def padronizar_supervisor(nome):
     n = str(nome).upper().strip()
+    if n in ["", "-", "NAN", "N/A", "NÃO IDENTIFICADO"]: return "NÃO IDENTIFICADO"
     for s in SUPERVISORES:
         if s in n or n in s: return s
     return n
@@ -277,7 +280,7 @@ elif st.session_state.idx == 0:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 1: CONTRATOS PENDENTES (SEPARADOS POR BASE) 🔥
+# TELA 1: CONTRATOS PENDENTES (TEC1) 🔥 ORDENADO POR BASE
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 1: 
     st.markdown(f'''<div class="topo-container">
@@ -331,17 +334,16 @@ elif st.session_state.idx == 1:
                 df_pendentes_geral[col_contrato] = df_pendentes_geral[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
                 df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
 
-            # SEPARAÇÃO DOS SUPERVISORES
+            # LISTAS ORDENADAS POR BASE
             sups_sp = [s for s in SUPERVISORES if 'ALAN' in s or 'FRANCISCO' in s or 'JOAO' in s]
             sups_abc = [s for s in SUPERVISORES if s not in sups_sp]
+            sups_ordenados = sups_abc + sups_sp # Ordem exata para o Áudio
 
             cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('ALAN|FRANCISCO|JOAO', na=False) 
             qtd_sp = len(df_pendentes_geral[cond_sp])
             qtd_abc = len(df_pendentes_geral[~cond_sp])
 
-            # CONSTRUÇÃO DO LAYOUT EM DUAS COLUNAS PRINCIPAIS
             c_abc, c_sp = st.columns(2)
-            
             with c_abc:
                 st.markdown(f'''<div class="box-base">
                     <div class="nome-base" style="color: #2e7d32;">ABC PENDENTES</div>
@@ -351,8 +353,7 @@ elif st.session_state.idx == 1:
                 if sups_abc:
                     cols_sub_abc = st.columns(len(sups_abc))
                     for k, sup in enumerate(sups_abc):
-                        # Pega o index global para o Javascript animar corretamente
-                        idx_global = SUPERVISORES.index(sup)
+                        idx_global = k # ID para o Javascript
                         qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
                         nome_vis = obter_nome_visual(sup)
                         with cols_sub_abc[k]:
@@ -363,14 +364,14 @@ elif st.session_state.idx == 1:
 
             with c_sp:
                 st.markdown(f'''<div class="box-base-sp">
-                    <div class="nome-base" style="color: #03a398;">SÃO PAULO PENDENTES</div>
+                    <div class="nome-base" style="color: #00695c;">SÃO PAULO PENDENTES</div>
                     <div class="num-base">{qtd_sp}</div>
                 </div>''', unsafe_allow_html=True)
                 
                 if sups_sp:
                     cols_sub_sp = st.columns(len(sups_sp))
                     for k, sup in enumerate(sups_sp):
-                        idx_global = SUPERVISORES.index(sup)
+                        idx_global = len(sups_abc) + k # Continuação do ID
                         qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
                         nome_vis = obter_nome_visual(sup)
                         with cols_sub_sp[k]:
@@ -379,18 +380,32 @@ elif st.session_state.idx == 1:
                                 <div class="box-num">{qtd}</div>
                             </div>''', unsafe_allow_html=True)
 
-            # ANIMAÇÃO DE ÁUDIO MANTIDA INTACTA
-            if SUPERVISORES and st.session_state.novo_ciclo:
+            # ÁUDIO FALANDO NA ORDEM: PRIMEIRO ABC, DEPOIS SP
+            if sups_ordenados and st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                script_cenario += f"limparDestaques({len(SUPERVISORES)});\n"
-                script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', 0);\n"
-                script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', 7000);\n"
-                for i, sup_full in enumerate(SUPERVISORES):
-                    qtd_pendentes = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
-                    nome_visual = obter_nome_visual(sup_full)
-                    texto_fala = f"{nome_visual}: {qtd_pendentes} pendentes."
-                    script_cenario += f"animarSupervisor('{texto_fala}', {14000 + i * 7000}, {i}, {len(SUPERVISORES)});\n"
-                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}) , {14000 + len(SUPERVISORES) * 7000});\n"
+                script_cenario += f"limparDestaques({len(sups_ordenados)});\n"
+                
+                delay_atual = 0
+                script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
+                delay_atual += 7000
+                
+                for i, sup_full in enumerate(sups_abc):
+                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
+                    texto_fala = f"{obter_nome_visual(sup_full)}: {qtd} pendentes."
+                    script_cenario += f"animarSupervisor('{texto_fala}', {delay_atual}, {i}, {len(sups_ordenados)});\n"
+                    delay_atual += 7000
+                
+                script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', {delay_atual});\n"
+                delay_atual += 7000
+                
+                for i, sup_full in enumerate(sups_sp):
+                    idx = len(sups_abc) + i
+                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
+                    texto_fala = f"{obter_nome_visual(sup_full)}: {qtd} pendentes."
+                    script_cenario += f"animarSupervisor('{texto_fala}', {delay_atual}, {idx}, {len(sups_ordenados)});\n"
+                    delay_atual += 7000
+
+                script_cenario += f"setTimeout(() => limparDestaques({len(sups_ordenados)}) , {delay_atual});\n"
                 script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
@@ -401,12 +416,12 @@ elif st.session_state.idx == 1:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 3: INDICADORES (AGORA POR SUPERVISOR!) 🔥
+# TELA 3: INDICADORES (FALTAS POR SUPERVISOR E BASE) 🔥
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">CONFORMIDADE POR SUPERVISOR</div>
+        <div class="topo-centro">INDICADORES OPERACIONAIS</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
@@ -429,60 +444,63 @@ elif st.session_state.idx == 3:
             if col_sup: df_prod['SUPERVISOR_CLEAN'] = df_prod[col_sup].apply(padronizar_supervisor)
             else: df_prod['SUPERVISOR_CLEAN'] = 'NÃO IDENTIFICADO'
             
-            # Base geral para os globais
             df_tec = df_prod.drop_duplicates(subset=[col_recurso]).copy()
-            total_tecnicos = len(df_tec) if len(df_tec) > 0 else 1
-
-            pct_nr35, pct_cert, pct_bst = 0, 0, 0
-            if col_nr35: pct_nr35 = (len(df_tec[df_tec[col_nr35].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos) * 100
-            if col_cert: pct_cert = (len(df_tec[df_tec[col_cert].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos) * 100
-            if col_bst:  pct_bst = (len(df_tec[df_tec[col_bst].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos) * 100
-
-            # INDICADORES GLOBAIS (MENORES NO TOPO)
-            st.markdown(f'''
-                <div class="kpi-container-ind">
-                    <div class="kpi-card-ind nr35">
-                        <div class="ind-title">🪜 GERAL NR35</div>
-                        <div class="ind-value">{pct_nr35:.0f}%</div>
-                    </div>
-                    <div class="kpi-card-ind cert">
-                        <div class="ind-title">📜 GERAL CERTIDÃO</div>
-                        <div class="ind-value">{pct_cert:.0f}%</div>
-                    </div>
-                    <div class="kpi-card-ind bst">
-                        <div class="ind-title">📶 GERAL BST</div>
-                        <div class="ind-value">{pct_bst:.0f}%</div>
-                    </div>
-                </div>
-            ''', unsafe_allow_html=True)
             
-            # GRELHA DE SUPERVISORES
-            if SUPERVISORES:
-                cols_sup_ind = st.columns(len(SUPERVISORES))
-                for i, sup in enumerate(SUPERVISORES):
+            sups_sp = [s for s in SUPERVISORES if 'ALAN' in s or 'FRANCISCO' in s or 'JOAO' in s]
+            sups_abc = [s for s in SUPERVISORES if s not in sups_sp]
+
+            c_abc, c_sp = st.columns(2)
+            
+            with c_abc:
+                st.markdown('<div class="ind-base-title abc">ABC</div>', unsafe_allow_html=True)
+                for sup in sups_abc:
                     df_sup_tec = df_tec[df_tec['SUPERVISOR_CLEAN'] == sup]
-                    total_sup = len(df_sup_tec) if len(df_sup_tec) > 0 else 1
+                    # Conta como "Falta" tudo o que não for SIM
+                    f_nr35 = len(df_sup_tec[df_sup_tec[col_nr35].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_nr35 else 0
+                    f_cert = len(df_sup_tec[df_sup_tec[col_cert].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_cert else 0
+                    f_bst = len(df_sup_tec[df_sup_tec[col_bst].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_bst else 0
+                    t_faltas = f_nr35 + f_cert + f_bst
                     
-                    p_nr35, p_cert, p_bst = 0, 0, 0
-                    if col_nr35: p_nr35 = (len(df_sup_tec[df_sup_tec[col_nr35].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_sup) * 100
-                    if col_cert: p_cert = (len(df_sup_tec[df_sup_tec[col_cert].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_sup) * 100
-                    if col_bst:  p_bst = (len(df_sup_tec[df_sup_tec[col_bst].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_sup) * 100
-                    
-                    nome_vis = obter_nome_visual(sup)
-                    
-                    with cols_sup_ind[i]:
-                        st.markdown(f'''
-                        <div class="sup-ind-box">
-                            <div class="sup-ind-name">{nome_vis}</div>
-                            <div class="sup-ind-row"><span style="color:#008080;">🪜 NR35:</span> <span class="sup-ind-val">{p_nr35:.0f}%</span></div>
-                            <div class="sup-ind-row"><span style="color:#005088;">📜 CERT:</span> <span class="sup-ind-val">{p_cert:.0f}%</span></div>
-                            <div class="sup-ind-row"><span style="color:#b30000;">📶 BST:</span> <span class="sup-ind-val">{p_bst:.0f}%</span></div>
+                    st.markdown(f'''
+                    <div class="sup-card">
+                        <div class="sup-header">
+                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                            <div class="badge-faltas">Total Faltas: {t_faltas}</div>
                         </div>
-                        ''', unsafe_allow_html=True)
+                        <div class="faltas-grid">
+                            <div class="falta-box"><div class="falta-label">🪜 FALTAM NR35</div><div class="falta-value">{f_nr35}</div></div>
+                            <div class="falta-box"><div class="falta-label">📜 FALTA CERTIDÃO</div><div class="falta-value">{f_cert}</div></div>
+                            <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bst}</div></div>
+                        </div>
+                    </div>
+                    ''', unsafe_allow_html=True)
+
+            with c_sp:
+                st.markdown('<div class="ind-base-title sp">SÃO PAULO</div>', unsafe_allow_html=True)
+                for sup in sups_sp:
+                    df_sup_tec = df_tec[df_tec['SUPERVISOR_CLEAN'] == sup]
+                    f_nr35 = len(df_sup_tec[df_sup_tec[col_nr35].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_nr35 else 0
+                    f_cert = len(df_sup_tec[df_sup_tec[col_cert].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_cert else 0
+                    f_bst = len(df_sup_tec[df_sup_tec[col_bst].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_bst else 0
+                    t_faltas = f_nr35 + f_cert + f_bst
+                    
+                    st.markdown(f'''
+                    <div class="sup-card">
+                        <div class="sup-header">
+                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                            <div class="badge-faltas">Total Faltas: {t_faltas}</div>
+                        </div>
+                        <div class="faltas-grid">
+                            <div class="falta-box"><div class="falta-label">🪜 FALTAM NR35</div><div class="falta-value">{f_nr35}</div></div>
+                            <div class="falta-box"><div class="falta-label">📜 FALTA CERTIDÃO</div><div class="falta-value">{f_cert}</div></div>
+                            <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bst}</div></div>
+                        </div>
+                    </div>
+                    ''', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                texto_hora = f"Apresentando conformidade geral e por supervisor."
+                texto_hora = f"Apresentando o total de faltas de conformidade por supervisor."
                 script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
                 script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
