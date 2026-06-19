@@ -78,7 +78,7 @@ st.markdown("""<style>
 
 # 🔥 ESTRUTURA BLINDADA DE SUPERVISORES DE EQUIPE
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
-SUPS_SP = ["ALAN", "FRANCISCO", "JOAO"]
+SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
 # =========================================================================
@@ -89,7 +89,7 @@ def obter_nome_visual(nome_completo):
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'EDSON' in n: return "EDSON MARCO"
-    if 'JOAO' in n or 'MIRON' in n: return "JOAO"
+    if 'JOAO' in n or 'MIRON' in n: return "JOAO CARLOS MIRON"
     if 'NELSON' in n: return "NELSON"
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
@@ -104,7 +104,7 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
         if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
         if "EDSON" in sup_orig: return "EDSON MARCO"
         if "NELSON" in sup_orig: return "NELSON"
-        if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO"
+        if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
         return sup_orig
 
     if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
@@ -115,7 +115,7 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
     return "EDSON MARCO"
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS (SEM TELA 5)
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS
 # =========================================================================
 # 0 = Técnicos na Base | 1 = Pendentes (TEC1) | 2 = Relógio | 3 = Print dos Indicadores | 4 = Tela Branca
 
@@ -289,9 +289,11 @@ elif st.session_state.idx == 0:
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
+        else: st.error("Coluna Status não encontrada.")
+    else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 1: CONTRATOS PENDENTES (TEC1 SUPERVISORES)
+# TELA 1: CONTRATOS PENDENTES (TEC1 SUPERVISORES) 🔥 [COM ÁUDIO DE JANELA]
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 1: 
 
@@ -304,10 +306,17 @@ elif st.session_state.idx == 1:
         df['SUPERVISOR_CLEAN'] = df.apply(lambda row: padronizar_supervisor_linha(row, col_tecnico, col_sup), axis=1)
         col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
         
+        # 📌 LÓGICA DE DEFINIÇÃO DA JANELA (VISUAL E ÁUDIO)
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
-        if hora_atual < 12: label_janela = "ATÉ 12:00"
-        elif 12 <= hora_atual < 15: label_janela = "ATÉ 15:00"
-        else: label_janela = "TURNO COMPLETO"
+        if hora_atual < 12: 
+            label_janela = "ATÉ 12:00"
+            fala_janela = "até as 12 horas"
+        elif 12 <= hora_atual < 15: 
+            label_janela = "ATÉ 15:00"
+            fala_janela = "até as 15 horas"
+        else: 
+            label_janela = "TURNO COMPLETO"
+            fala_janela = "do turno completo"
         
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
@@ -374,19 +383,25 @@ elif st.session_state.idx == 1:
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                 delay_atual = 0
-                script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
+                
+                # 🔥 ÁUDIO DIZENDO A JANELA AQUI 🔥
+                script_cenario += f"anunciarBase('Contratos pendentes {fala_janela}. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                 delay_atual += 7000
+                
                 for i, sup_full in enumerate(SUPS_ABC):
                     qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
                     script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual += 7000
+                
                 script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', {delay_atual});\n"
                 delay_atual += 7000
+                
                 for i, sup_full in enumerate(SUPS_SP):
                     idx = len(SUPS_ABC) + i
                     qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
                     script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {idx}, {len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual += 7000
+                    
                 script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
