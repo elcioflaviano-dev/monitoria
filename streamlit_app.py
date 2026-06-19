@@ -57,11 +57,20 @@ def carregar_dados_nuvem():
         colunas_mapeadas = {}
         for col in list(df_bruto.columns):
             col_upper = str(col).upper()
-            if col_upper in ['LOGIN DO TÉCNICO', 'LOGIN DO TECNICO', 'LOGIN']: colunas_mapeadas[col] = 'Login do Técnico'
-            elif 'STATUS' in col_upper and 'ATIVIDADE' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
-            elif 'TIPO' in col_upper and 'ATIVIDADE' in col_upper: colunas_mapeadas[col] = 'Tipo de Atividade'
-            elif col_upper in ['RECURSO', 'RECURS', 'TECNICO', 'NOME', 'TÉCNICO']: colunas_mapeadas[col] = 'Recurso'
-            elif 'TOTAL DE TAREFAS' in col_upper: colunas_mapeadas[col] = 'QTD_OS_COL'
+            if col_upper in ['LOGIN DO TÉCNICO', 'LOGIN DO TECNICO', 'LOGIN']: 
+                colunas_mapeadas[col] = 'Login do Técnico'
+            elif 'STATUS' in col_upper and 'ATIVIDADE' in col_upper: 
+                colunas_mapeadas[col] = 'Status da Atividade'
+            elif 'TIPO' in col_upper and 'ATIVIDADE' in col_upper:
+                # 🔥 CORREÇÃO: Salva a Tipo de Atividade3 separadamente! 🔥
+                if '3' in col_upper:
+                    colunas_mapeadas[col] = 'Tipo de Atividade3'
+                else:
+                    colunas_mapeadas[col] = 'Tipo de Atividade'
+            elif col_upper in ['RECURSO', 'RECURS', 'TECNICO', 'NOME', 'TÉCNICO']: 
+                colunas_mapeadas[col] = 'Recurso'
+            elif 'TOTAL DE TAREFAS' in col_upper: 
+                colunas_mapeadas[col] = 'QTD_OS_COL'
         
         df_final = df_bruto.rename(columns=colunas_mapeadas)
         df_final = df_final.loc[:, ~df_final.columns.duplicated(keep='first')]
