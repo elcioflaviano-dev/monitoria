@@ -62,8 +62,10 @@ st.markdown("""<style>
     
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-    .sup-name { font-size: 17px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .badge-faltas { background: #ffebee; color: #c62828; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #ffcdd2; }
+    
+    /* AQUI AUMENTAMOS A LETRA DO SUPERVISOR NOS INDICADORES (de 17px para 24px) */
+    .sup-name { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; border: 1px solid #ffcdd2; }
     
     .faltas-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .falta-box { background: #fff5f5; border: 1px solid #ffebee; border-radius: 6px; padding: 10px 5px; text-align: center; }
