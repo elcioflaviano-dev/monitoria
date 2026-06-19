@@ -78,7 +78,7 @@ st.markdown("""<style>
 
 # 🔥 ESTRUTURA BLINDADA DE SUPERVISORES DE EQUIPE
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
-SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
+SUPS_SP = ["ALAN", "FRANCISCO", "JOAO"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
 # =========================================================================
@@ -89,7 +89,7 @@ def obter_nome_visual(nome_completo):
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'EDSON' in n: return "EDSON MARCO"
-    if 'JOAO' in n or 'MIRON' in n: return "JOAO CARLOS MIRON"
+    if 'JOAO' in n or 'MIRON' in n: return "JOAO"
     if 'NELSON' in n: return "NELSON"
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
@@ -104,7 +104,7 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
         if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
         if "EDSON" in sup_orig: return "EDSON MARCO"
         if "NELSON" in sup_orig: return "NELSON"
-        if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
+        if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO"
         return sup_orig
 
     if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
