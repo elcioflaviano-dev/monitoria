@@ -70,11 +70,6 @@ st.markdown("""<style>
     .falta-label { font-size: 12px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
     
-    /* CSS DA NOVA TELA DE JANELAS CRÍTICAS */
-    .box-janela { background: #fff8e1; border-top: 10px solid #ff9800; padding: 30px 15px; text-align: center; border-radius: 12px; box-shadow: 2px 4px 12px rgba(0,0,0,0.1); margin-top: 40px; }
-    .title-janela { font-size: 20px; font-weight: 900; color: #e65100; text-transform: uppercase; }
-    .num-janela { font-size: 90px; font-weight: 900; color: #111; line-height: 1; margin-top: 15px; }
-    
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
@@ -120,9 +115,9 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
     return "EDSON MARCO"
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS (SEM TELA 5)
 # =========================================================================
-# 0 = Técnicos na Base | 1 = Pendentes (TEC1) | 2 = Relógio | 3 = Indicadores | 4 = Tela Branca | 5 = Janelas de Serviço
+# 0 = Técnicos na Base | 1 = Pendentes (TEC1) | 2 = Relógio | 3 = Print dos Indicadores | 4 = Tela Branca
 
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
@@ -141,7 +136,6 @@ if st.session_state.idx == 0: espera = 60
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 5: espera = 45
 elif st.session_state.idx == 4: espera = 2 
 
 tempo_passado = time.time() - st.session_state.last_time
@@ -154,14 +148,13 @@ if tempo_passado > espera:
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
-        if st.session_state.idx in [1, 3, 5]:
+        if st.session_state.idx in [1, 3]:
             st.session_state.last_main = st.session_state.idx
             prox_idx = 4
         elif st.session_state.idx == 4: 
             prox_idx = 2
         elif st.session_state.idx == 2:
             if st.session_state.last_main == 1: prox_idx = 3
-            elif st.session_state.last_main == 3: prox_idx = 5
             else: prox_idx = 1
         else: prox_idx = 1
             
@@ -316,7 +309,6 @@ elif st.session_state.idx == 1:
         elif 12 <= hora_atual < 15: label_janela = "ATÉ 15:00"
         else: label_janela = "TURNO COMPLETO"
         
-        # 🔥 TAMANHO DA LABEL AUMENTADO AQUI 🔥
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
             <div class="topo-centro">CONTRATOS PENDENTES <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
@@ -401,7 +393,7 @@ elif st.session_state.idx == 1:
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # -------------------------------------------------------------------------
-# TELA 3: PRINT DOS INDICADORES 🔥 [TÍTULO E ÁUDIO ATUALIZADOS]
+# TELA 3: PRINT DOS INDICADORES
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
@@ -463,63 +455,7 @@ elif st.session_state.idx == 3:
                 st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Falta print dos indicadores.', 0);</script>"
                 st.session_state.novo_ciclo = False
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
-
-# -------------------------------------------------------------------------
-# TELA 5: TELA DE CONTRATOS PENDENTES POR JANELA DE SERVIÇO
-# -------------------------------------------------------------------------
-elif st.session_state.idx == 5:
-    st.markdown(f'''<div class="topo-container">
-        <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">CONTRATOS POR JANELA</div>
-        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-    </div>''', unsafe_allow_html=True)
-
-    if os.path.exists(ARQUIVO_ROTA_DISCO):
-        df_j = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
-        df_j.columns = [str(c).strip().upper() for c in df_j.columns]
-        
-        col_status = next((c for c in df_j.columns if 'STATUS' in c), None)
-        col_janela = next((c for c in df_j.columns if 'JANELA' in c or 'INTERVALO' in c), None)
-        col_contrato = next((c for c in df_j.columns if 'CONTRATO' in c), None)
-
-        if col_status and col_janela:
-            df_j['Status_Atividade_Upper'] = df_j[col_status].fillna('').astype(str).str.upper().str.strip()
-            df_p = df_j[df_j['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False)].copy()
-            
-            if col_contrato and not df_p.empty:
-                df_p['CONTRATO_LIMPO'] = df_p[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
-                df_p = df_p.drop_duplicates(subset=['CONTRATO_LIMPO'])
-
-            def agrupar_janela(row):
-                text_j = str(row.get(col_janela, '')).upper().strip()
-                if '08' in text_j and '11' in text_j: return '08:00 - 11:00'
-                if '08' in text_j and '12' in text_j: return '08:00 - 12:00'
-                if '11' in text_j and '14' in text_j: return '11:00 - 14:00'
-                if '12' in text_j and '15' in text_j: return '12:00 - 15:00'
-                if '15' in text_j and '18' in text_j: return '15:00 - 18:00'
-                return 'OUTROS'
-
-            if not df_p.empty: df_p['JANELA_FINAL'] = df_p.apply(agrupar_janela, axis=1)
-            else: df_p['JANELA_FINAL'] = pd.Series(dtype=str)
-
-            tot_0811 = len(df_p[df_p['JANELA_FINAL'] == '08:00 - 11:00'])
-            tot_0812 = len(df_p[df_p['JANELA_FINAL'] == '08:00 - 12:00'])
-            tot_1114 = len(df_p[df_p['JANELA_FINAL'] == '11:00 - 14:00'])
-            tot_1215 = len(df_p[df_p['JANELA_FINAL'] == '12:00 - 15:00'])
-            tot_1518 = len(df_p[df_p['JANELA_FINAL'] == '15:00 - 18:00'])
-
-            j1, j2, j3, j4, j5 = st.columns(5)
-            with j1: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 08:00 - 11:00</div><div class="num-janela">{tot_0811}</div></div>', unsafe_allow_html=True)
-            with j2: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 08:00 - 12:00</div><div class="num-janela">{tot_0812}</div></div>', unsafe_allow_html=True)
-            with j3: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 11:00 - 14:00</div><div class="num-janela">{tot_1114}</div></div>', unsafe_allow_html=True)
-            with j4: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 12:00 - 15:00</div><div class="num-janela">{tot_1215}</div></div>', unsafe_allow_html=True)
-            with j5: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 15:00 - 18:00</div><div class="num-janela">{tot_1518}</div></div>', unsafe_allow_html=True)
-
-            if st.session_state.novo_ciclo:
-                st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Apresentando o balanço de contratos pendentes divididos por janela de atendimento.', 0);</script>"
-                st.session_state.novo_ciclo = False
-            st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        else: st.error("Colunas operacionais não encontradas.")
+        else: st.error("Coluna Status não encontrada.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
