@@ -62,6 +62,7 @@ st.markdown("""<style>
     
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+    
     .sup-name { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; border: 1px solid #ffcdd2; }
     
@@ -89,7 +90,7 @@ def obter_nome_visual(nome_completo):
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'EDSON' in n: return "EDSON MARCO"
-    if 'JOAO' in n or 'MIRON' in n: return "JOÃO CARLOS" # <--- ALTERADO AQUI
+    if 'JOAO' in n or 'MIRON' in n: return "JOÃO CARLOS"
     if 'NELSON' in n: return "NELSON"
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
@@ -115,7 +116,7 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
     return "EDSON MARCO"
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS (COM FECHADURAS INDEPENDENTES)
 # =========================================================================
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
@@ -132,19 +133,19 @@ if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = 
 
 minutos_agora = agora_br.hour * 60 + agora_br.minute
 
-# 🔕 1. FECHADURA DE ÁUDIO PARA ROTA (Telas 0 e 1) - O Relógio (Tela 2) fala sempre!
+# 🔕 1. FECHADURA DE ÁUDIO EXCLUSIVA PARA TEC1 (Telas 0 e 1)
 permitir_audio_tec1 = False
 frase_incisiva = ""
 regras_audio_tec1 = [
-    {"inicio": 11*60,      "fim": 11*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota. "},
-    {"inicio": 12*60,      "fim": 12*60 + 15, "frase": "Atenção. Fechamento de janela. "},
-    {"inicio": 12*60 + 30, "fim": 12*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela. "},
-    {"inicio": 14*60,      "fim": 14*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota. "},
-    {"inicio": 15*60,      "fim": 15*60 + 15, "frase": "Atenção. Fechamento de janela. "},
-    {"inicio": 15*60 + 30, "fim": 15*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela. "},
-    {"inicio": 16*60,      "fim": 16*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota. "},
-    {"inicio": 17*60,      "fim": 17*60 + 15, "frase": "Atenção. Fechamento de janela. "},
-    {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela. "}
+    {"inicio": 11*60,      "fim": 11*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
+    {"inicio": 12*60,      "fim": 12*60 + 15, "frase": "Atenção. Fechamento de janela."},
+    {"inicio": 12*60 + 30, "fim": 12*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."},
+    {"inicio": 14*60,      "fim": 14*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
+    {"inicio": 15*60,      "fim": 15*60 + 15, "frase": "Atenção. Fechamento de janela."},
+    {"inicio": 15*60 + 30, "fim": 15*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."},
+    {"inicio": 16*60,      "fim": 16*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
+    {"inicio": 17*60,      "fim": 17*60 + 15, "frase": "Atenção. Fechamento de janela."},
+    {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."}
 ]
 
 for regra in regras_audio_tec1:
@@ -163,6 +164,13 @@ for inicio, fim in regras_audio_ind:
     if inicio <= minutos_agora <= fim:
         permitir_audio_ind = True
         break
+
+# LABELS VISUAIS PARA AJUDAR NA COMPREENSÃO DE QUANDO O ÁUDIO ESTÁ ATIVO
+badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇 ÁUDIO EM ESPERA</span>'
+badge_ativo = '<span style="font-size: 14px; vertical-align: middle; background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔊 ÁUDIO ATIVO</span>'
+
+html_audio_tec1 = badge_ativo if permitir_audio_tec1 else badge_mudo
+html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
@@ -268,7 +276,7 @@ if st.session_state.idx == 4:
 elif st.session_state.idx == 0:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">🚀 TÉCNICOS EM BASE</div>
+        <div class="topo-centro">🚀 TÉCNICOS EM BASE {html_audio_tec1}</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
@@ -328,7 +336,7 @@ elif st.session_state.idx == 0:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 1: TEC1 (SUPERVISORES) 🔥 [TÍTULO ALTERADO]
+# TELA 1: TEC1 (SUPERVISORES)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 1: 
 
@@ -352,10 +360,9 @@ elif st.session_state.idx == 1:
             label_janela = "TURNO COMPLETO"
             fala_janela = "do turno completo"
         
-        # 🔥 TÍTULO ALTERADO PARA "TEC1"
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
+            <div class="topo-centro">TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span> {html_audio_tec1}</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
         
@@ -448,7 +455,7 @@ elif st.session_state.idx == 1:
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">PRINT DOS INDICADORES</div>
+        <div class="topo-centro">PRINT DOS INDICADORES {html_audio_ind}</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
@@ -503,7 +510,7 @@ elif st.session_state.idx == 3:
 
             if st.session_state.novo_ciclo:
                 if permitir_audio_ind:
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores enviem os prints pendentes do NR35, BAND STEERING e certidão de atendimento.', 0);</script>"
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
                 else:
                     st.session_state.script_audio_atual = ""
                 st.session_state.novo_ciclo = False
@@ -512,7 +519,7 @@ elif st.session_state.idx == 3:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 2: HORÁRIO 🔥 [RELÓGIO FALA SEMPRE]
+# TELA 2: HORÁRIO (RELÓGIO - ÁUDIO SEMPRE ATIVO)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 2:
     st.markdown(f'''<div class="topo-container">
@@ -525,10 +532,8 @@ elif st.session_state.idx == 2:
     st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
     
     if st.session_state.novo_ciclo:
-        # A TELA DO RELÓGIO IGNORA AS FECHADURAS E FALA SEMPRE A HORA!
         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
         st.session_state.novo_ciclo = False
-        
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 time.sleep(1)
