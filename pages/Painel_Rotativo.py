@@ -69,7 +69,7 @@ st.markdown("""<style>
     
     .faltas-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .falta-box { background: #fff5f5; border: 1px solid #ffebee; border-radius: 6px; padding: 10px 5px; text-align: center; }
-    .falta-label { font-size: 11px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
+    .falta-label { font-size: 17px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #c62828; line-height: 1; }
     
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
