@@ -63,13 +63,13 @@ st.markdown("""<style>
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
     
-    /* AQUI AUMENTAMOS A LETRA DO SUPERVISOR NOS INDICADORES (de 17px para 24px) */
+    /* TAMANHO AUMENTADO PARA O SUPERVISOR */
     .sup-name { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; border: 1px solid #ffcdd2; }
     
     .faltas-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .falta-box { background: #fff5f5; border: 1px solid #ffebee; border-radius: 6px; padding: 10px 5px; text-align: center; }
-    .falta-label { font-size: 17px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
+    .falta-label { font-size: 11px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #c62828; line-height: 1; }
     
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
@@ -282,7 +282,7 @@ elif st.session_state.idx == 0:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 1: CONTRATOS PENDENTES (TEC1) 🔥 ORDENADO POR BASE
+# TELA 1: CONTRATOS PENDENTES (TEC1)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 1: 
     st.markdown(f'''<div class="topo-container">
@@ -336,10 +336,9 @@ elif st.session_state.idx == 1:
                 df_pendentes_geral[col_contrato] = df_pendentes_geral[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
                 df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
 
-            # LISTAS ORDENADAS POR BASE
             sups_sp = [s for s in SUPERVISORES if 'ALAN' in s or 'FRANCISCO' in s or 'JOAO' in s]
             sups_abc = [s for s in SUPERVISORES if s not in sups_sp]
-            sups_ordenados = sups_abc + sups_sp # Ordem exata para o Áudio
+            sups_ordenados = sups_abc + sups_sp 
 
             cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('ALAN|FRANCISCO|JOAO', na=False) 
             qtd_sp = len(df_pendentes_geral[cond_sp])
@@ -355,7 +354,7 @@ elif st.session_state.idx == 1:
                 if sups_abc:
                     cols_sub_abc = st.columns(len(sups_abc))
                     for k, sup in enumerate(sups_abc):
-                        idx_global = k # ID para o Javascript
+                        idx_global = k 
                         qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
                         nome_vis = obter_nome_visual(sup)
                         with cols_sub_abc[k]:
@@ -373,7 +372,7 @@ elif st.session_state.idx == 1:
                 if sups_sp:
                     cols_sub_sp = st.columns(len(sups_sp))
                     for k, sup in enumerate(sups_sp):
-                        idx_global = len(sups_abc) + k # Continuação do ID
+                        idx_global = len(sups_abc) + k 
                         qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
                         nome_vis = obter_nome_visual(sup)
                         with cols_sub_sp[k]:
@@ -382,7 +381,6 @@ elif st.session_state.idx == 1:
                                 <div class="box-num">{qtd}</div>
                             </div>''', unsafe_allow_html=True)
 
-            # ÁUDIO FALANDO NA ORDEM: PRIMEIRO ABC, DEPOIS SP
             if sups_ordenados and st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
                 script_cenario += f"limparDestaques({len(sups_ordenados)});\n"
@@ -441,12 +439,16 @@ elif st.session_state.idx == 3:
 
         if col_status:
             status_upper = df_ind[col_status].fillna('').astype(str).str.upper()
-            df_prod = df_ind[status_upper.str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
+            
+            # FILTRO CORRIGIDO: Pega todo o efetivo, exceto os suspensos
+            df_prod = df_ind[status_upper != 'SUSPENSO'].copy()
             
             if col_sup: df_prod['SUPERVISOR_CLEAN'] = df_prod[col_sup].apply(padronizar_supervisor)
             else: df_prod['SUPERVISOR_CLEAN'] = 'NÃO IDENTIFICADO'
             
-            df_tec = df_prod.drop_duplicates(subset=[col_recurso]).copy()
+            # Limpa duplicados e valores em branco para não bugar a conta
+            df_tec = df_prod.dropna(subset=[col_recurso]).drop_duplicates(subset=[col_recurso]).copy()
+            df_tec = df_tec[df_tec[col_recurso].astype(str).str.strip() != '']
             
             sups_sp = [s for s in SUPERVISORES if 'ALAN' in s or 'FRANCISCO' in s or 'JOAO' in s]
             sups_abc = [s for s in SUPERVISORES if s not in sups_sp]
@@ -457,7 +459,6 @@ elif st.session_state.idx == 3:
                 st.markdown('<div class="ind-base-title abc">ABC</div>', unsafe_allow_html=True)
                 for sup in sups_abc:
                     df_sup_tec = df_tec[df_tec['SUPERVISOR_CLEAN'] == sup]
-                    # Conta como "Falta" tudo o que não for SIM
                     f_nr35 = len(df_sup_tec[df_sup_tec[col_nr35].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_nr35 else 0
                     f_cert = len(df_sup_tec[df_sup_tec[col_cert].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_cert else 0
                     f_bst = len(df_sup_tec[df_sup_tec[col_bst].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_bst else 0
@@ -502,7 +503,7 @@ elif st.session_state.idx == 3:
 
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                texto_hora = f"Apresentando o total de faltas de PRINTS por supervisor."
+                texto_hora = f"Apresentando o total de faltas de conformidade por supervisor."
                 script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
                 script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
