@@ -45,16 +45,7 @@ st.markdown("""
     .kpi-title-atend { font-size: 13px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
     .kpi-value-atend { font-size: 26px; color: #111; font-weight: 900; }
     
-    /* CSS DOS MINICARDS DE INDICADORES NO PAINEL */
-    .kpi-container-ind { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
-    .kpi-card-ind { background-color: #f8f9fa; border-radius: 6px; padding: 8px 15px; text-align: center; min-width: 180px; border: 1px solid #e0e0e0; }
-    .kpi-card-ind.nr35 { border-bottom: 4px solid #008080; }
-    .kpi-card-ind.cert { border-bottom: 4px solid #005088; }
-    .kpi-card-ind.bst { border-bottom: 4px solid #b30000; }
-    .ind-title { font-size: 11px; color: #555; font-weight: bold; text-transform: uppercase; }
-    .ind-value { font-size: 20px; font-weight: 900; color: #111; margin-top: 2px; }
-    
-    /* Faixa de Título das Bases Operacionais */
+    /* Faixa de Título das Bases Operacionais e Supervisor */
     .section-base-title { background-color: #005088; color: white; padding: 8px 15px; border-radius: 4px; font-size: 16px; font-weight: bold; margin-top: 20px; margin-bottom: 12px; text-transform: uppercase; }
     div[data-testid="stKPIBlock"] { padding: 6px 10px !important; }
     </style>
@@ -152,44 +143,6 @@ if df_dash is not None and not df_dash.empty:
         </div>
     ''', unsafe_allow_html=True)
 
-    # =========================================================================
-    # 🎯 INDICADORES DE CONFORMIDADE (INJEÇÃO NO PAINEL DA TV)
-    # =========================================================================
-    col_nr35 = next((c for c in reversed(df_dash.columns) if 'NR35' in c.upper() or 'NR-35' in c.upper()), None)
-    col_cert = next((c for c in reversed(df_dash.columns) if 'CERTID' in c.upper() or 'ELEGIVEL' in c.upper() or 'ELEGÍVEL' in c.upper()), None)
-    col_bst  = next((c for c in reversed(df_dash.columns) if 'BST' in c.upper() or 'STEERING' in c.upper() or 'BAND' in c.upper()), None)
-
-    df_prod_ind = df_dash[status_upper_bruto.str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
-    if 'Contrato' in df_prod_ind.columns:
-        df_prod_ind['Contrato_Limpo'] = df_prod_ind['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
-        df_prod_ind = df_prod_ind[df_prod_ind['Contrato_Limpo'] != '']
-        df_prod_ind = df_prod_ind.drop_duplicates(subset=['Contrato_Limpo'])
-
-    df_tec_ind = df_prod_ind.drop_duplicates(subset=[col_recurso]).copy()
-    total_tecnicos_ind = len(df_tec_ind) if len(df_tec_ind) > 0 else 1
-
-    pct_nr35, pct_cert, pct_bst = 0, 0, 0
-    if col_nr35: pct_nr35 = (len(df_tec_ind[df_tec_ind[col_nr35].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos_ind) * 100
-    if col_cert: pct_cert = (len(df_tec_ind[df_tec_ind[col_cert].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos_ind) * 100
-    if col_bst:  pct_bst = (len(df_tec_ind[df_tec_ind[col_bst].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos_ind) * 100
-
-    st.markdown(f'''
-        <div class="kpi-container-ind">
-            <div class="kpi-card-ind nr35">
-                <div class="ind-title">🪜 Conformidade NR35</div>
-                <div class="ind-value">{pct_nr35:.0f}%</div>
-            </div>
-            <div class="kpi-card-ind cert">
-                <div class="ind-title">📜 Conformidade Certidão</div>
-                <div class="ind-value">{pct_cert:.0f}%</div>
-            </div>
-            <div class="kpi-card-ind bst">
-                <div class="ind-title">📶 Conformidade BST</div>
-                <div class="ind-value">{pct_bst:.0f}%</div>
-            </div>
-        </div>
-    ''', unsafe_allow_html=True)
-
     st.markdown("<hr style='margin-top:0px; margin-bottom:15px; border-color:#eee;'>", unsafe_allow_html=True)
 
     # === HIGIENIZAÇÃO COMPLETA PARA OS CARDS MACRO POR BASE ===
@@ -228,16 +181,23 @@ if df_dash is not None and not df_dash.empty:
     col_tarefas = 'QTD_OS_COL' if 'QTD_OS_COL' in df_working.columns else 'Total de tarefas'
     df_working['Total_OS_Num'] = pd.to_numeric(df_working[col_tarefas], errors='coerce').fillna(0).astype(int) if col_tarefas in df_working.columns else 1
 
+    # VARIÁVEL PARA O NOME DO SUPERVISOR NO TÍTULO
+    texto_supervisor_filtro = ""
+
     if 'SUPERVISOR' in df_working.columns:
         lista_supervisores = ["TODOS"] + sorted(df_working['SUPERVISOR'].dropna().unique())
         supervisor_sel = st.sidebar.selectbox("Filtrar por Supervisor:", lista_supervisores)
         if supervisor_sel != "TODOS":
             df_working = df_working[df_working['SUPERVISOR'] == supervisor_sel]
+            texto_supervisor_filtro = f" | SUPERVISOR: {supervisor_sel}"
 
     # =========================================================================
     # 📊 LAÇO DE COMPILAÇÃO DAS BASES
     # =========================================================================
     bases_disponiveis = sorted(df_working[col_base_operacional].unique())
+    
+    if not bases_disponiveis:
+        st.info("Nenhum dado encontrado para os filtros selecionados.")
     
     for base in bases_disponiveis:
         df_base_atual = df_working[df_working[col_base_operacional] == base]
@@ -258,7 +218,8 @@ if df_dash is not None and not df_dash.empty:
         media_contratos_por_tec = base_contratos_liquido / divisor_tecnicos
         media_os_por_tec = base_total_os_liquido / divisor_tecnicos
         
-        st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}</div>', unsafe_allow_html=True)
+        # INJEÇÃO DO TÍTULO DINÂMICO
+        st.markdown(f'<div class="section-base-title">📍 BASE OPERACIONAL: {base}{texto_supervisor_filtro}</div>', unsafe_allow_html=True)
         
         c1, c2, c3, c4, c5, c6 = st.columns(6)
         
