@@ -4,99 +4,61 @@ import os
 
 st.set_page_config(layout="wide")
 
-# CSS PARA LIMPEZA DA INTERFACE
+# CSS PARA LIMPEZA
 st.markdown("""
     <style>
-    [data-testid="stHeader"] { visibility: hidden !important; }
-    .stDeployButton { display: none !important; }
-    footer { visibility: hidden !important; }
+    [data-testid="stHeader"], .stDeployButton, footer, [data-testid="stSidebar"] { visibility: hidden !important; }
+    .stApp { background-color: #ffffff !important; }
     </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<h1 style="color: #008080; text-align: center;">🚀 TÉCNICOS EM BASE</h1>', unsafe_allow_html=True)
 
-URL_COMPILADO = "https://docs.google.com/spreadsheets/d/1kB1YmUuhzHpfN1dLv8PaQn0ipXcHcd6kGKnI3nguT14/export?format=csv&gid=0"
-
-@st.cache_data(ttl=300)
-def carregar_bases():
-    mapa = {}
-    try:
-        df_comp = pd.read_csv(URL_COMPILADO, dtype=str)
-        df_comp.columns = [str(c).strip().upper() for c in df_comp.columns]
-        
-        # Busca dinâmica das colunas, independente do nome original
-        col_nome = next((c for c in df_comp.columns if any(x in c for x in ['NOME', 'RECURSO', 'TÉCN', 'TECN'])), None)
-        col_base = next((c for c in df_comp.columns if any(x in c for x in ['BASE', 'POLO', 'LOCAL'])), None)
-        
-        if col_nome and col_base:
-            for _, row in df_comp.iterrows():
-                nome = str(row[col_nome]).strip().upper()
-                base = str(row[col_base]).strip().upper()
-                if nome and nome != 'NAN': mapa[nome] = base
-    except: pass
-    return mapa
-
-mapa_bases = carregar_bases()
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
 
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
-    # Limpeza total dos dados
-    df.columns = [str(c).strip().upper() for c in df.columns]
+    # Padroniza colunas
+    df.columns = [str(c).strip() for c in df.columns]
     
-    # Identifica colunas automaticamente
-    col_recurso = next((c for c in df.columns if any(x in c for x in ['RECURSO', 'NOME', 'TÉCN'])), df.columns[0])
-    col_tipo = next((c for c in df.columns if 'TIPO' in c), None)
-    col_status = next((c for c in df.columns if 'STATUS' in c), None)
-
-    if col_tipo and col_status:
-        # Normalização para filtro
-        df['TIPO_NORM'] = df[col_tipo].fillna('').astype(str).str.strip().str.upper()
-        df['STATUS_NORM'] = df[col_status].fillna('').astype(str).str.strip().str.upper()
+    # BUSCA DINÂMICA MAIS PRECISA
+    # Procura a primeira coluna que contenha 'STATUS'
+    col_status = next((c for c in df.columns if 'STATUS' in c.upper()), None)
+    # Procura a coluna que contenha 'TIPO' (prioriza a que tem conteúdo relevante)
+    col_tipo = next((c for c in df.columns if 'TIPO' in c.upper()), None)
+    col_recurso = 'Recurso' # Como visto no seu print
+    
+    if col_status and col_tipo:
+        # AQUI ESTÁ A CORREÇÃO: Filtramos diretamente nas colunas encontradas
+        # Normalizamos para string e removemos espaços para garantir o match
+        df['TIPO_CLEAN'] = df[col_tipo].fillna('').astype(str).str.upper()
+        df['STATUS_CLEAN'] = df[col_status].fillna('').astype(str).str.upper()
         
-        # Filtro: Contém 'BASE' E (Pendente OU Aberto)
+        # Filtro: Contém "BASE" e contém "PENDENTE"
         df_tela = df[
-            df['TIPO_NORM'].str.contains('BASE', na=False) & 
-            df['STATUS_NORM'].str.contains('PEND|ABERTO', na=False)
+            df['TIPO_CLEAN'].str.contains('BASE', na=False) & 
+            df['STATUS_CLEAN'].str.contains('PENDENTE', na=False)
         ].copy()
-
-        lista_abc = []
-        lista_sp = []
-
-        for _, row in df_tela.iterrows():
-            nome = str(row[col_recurso]).strip().upper()
-            base_tecnico = mapa_bases.get(nome, "SP").upper() # Default SP
-            display_text = f"🏃‍♂️ **{nome}** ⏳"
-            
-            if "ABC" in base_tecnico: lista_abc.append(display_text)
-            else: lista_sp.append(display_text)
-
-        lista_abc = sorted(list(set(lista_abc)))
-        lista_sp = sorted(list(set(lista_sp)))
         
-        total = len(lista_abc) + len(lista_sp)
-        st.markdown(f"<h4 style='text-align: center; color: #555;'>Total na Base: {total}</h4>", unsafe_allow_html=True)
+        # DEBUG (Só aparece se der 0, para você saber o que está acontecendo)
+        if df_tela.empty:
+            st.warning("⚠️ Nenhum técnico encontrado com os critérios.")
+            st.write("Colunas detectadas:", list(df.columns))
+            st.write("Exemplo de dados na coluna de Tipo:", df[col_tipo].unique())
+            st.write("Exemplo de dados na coluna de Status:", df[col_status].unique())
+        
+        # Exibição
+        nomes = df_tela[col_recurso].unique()
+        st.markdown(f"<h4 style='text-align: center; color: #555;'>Total na Base: {len(nomes)}</h4>", unsafe_allow_html=True)
         st.divider()
-
-        if total > 0:
+        
+        if len(nomes) > 0:
             c1, c2, c3, c4 = st.columns(4)
-            # Exibir ABC
-            with c1:
-                st.markdown('<h3 style="color:#008080;">🏢 ABC (1/2)</h3>', unsafe_allow_html=True)
-                for n in lista_abc[:(len(lista_abc)+1)//2]: st.markdown(n)
-            with c2:
-                st.markdown('<h3 style="color:#008080;">🏢 ABC (2/2)</h3>', unsafe_allow_html=True)
-                for n in lista_abc[(len(lista_abc)+1)//2:]: st.markdown(n)
-            # Exibir SP
-            with c3:
-                st.markdown('<h3 style="color:#c62828;">🏙️ SP (1/2)</h3>', unsafe_allow_html=True)
-                for n in lista_sp[:(len(lista_sp)+1)//2]: st.markdown(n)
-            with c4:
-                st.markdown('<h3 style="color:#c62828;">🏙️ SP (2/2)</h3>', unsafe_allow_html=True)
-                for n in lista_sp[(len(lista_sp)+1)//2:]: st.markdown(n)
-        else:
-            st.success("✅ Nenhum técnico pendente na base no momento!")
+            cols = [c1, c2, c3, c4]
+            for i, nome in enumerate(nomes):
+                with cols[i % 4]:
+                    st.markdown(f'🏃‍♂️ **{nome}** ⏳ PENDENTE')
     else:
-        st.warning(f"⚠️ Colunas não encontradas. Colunas no arquivo: {list(df.columns)}")
+        st.error(f"Não encontrei colunas de Status ({col_status}) ou Tipo ({col_tipo}).")
 else:
-    st.error("⚠️ 'rota_sincronizada.csv' não encontrado. Verifique se o arquivo existe.")
+    st.error("Ficheiro rota_sincronizada.csv não encontrado.")
