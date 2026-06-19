@@ -77,10 +77,21 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# 🔥 CORREÇÃO: SUPERVISORES OFICIAIS FIXOS (Elimina o traço "-" e o "Não Identificado")
+# 🔥 SUPERVISORES OFICIAIS FIXOS (Elimina problemas e o "Não Identificado")
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
+
+# FUNÇÃO CENTRALIZADA PARA DEFINIR O NOME CORRETO EM TODAS AS TELAS
+def obter_nome_visual(nome_completo):
+    n = str(nome_completo).upper()
+    if 'FRANCISCO' in n: return "FRANCISCO"
+    if 'MARCOS' in n: return "MARCOS ROBERTO"
+    if 'EDSON' in n: return "EDSON MARCO"
+    if 'JOAO' in n or 'MIRON' in n: return "JOAO CARLOS MIRON"
+    if 'NELSON' in n: return "NELSON"
+    if 'ALAN' in n: return "ALAN"
+    return n.split()[0]
 
 # =========================================================================
 # ⚙️ MÁQUINA DE TEMPO E ESTADOS INTELIGENTE
@@ -223,7 +234,6 @@ elif st.session_state.idx == 0:
 
             df_tela = df[mask_base & mask_status].copy()
             
-            # Função interna para a separação inteligente de bases
             def mapear_base_interna(row):
                 s = str(row.get(col_sup, '')).upper()
                 if "ALAN" in s or "FRANCISCO" in s or "JOAO" in s or "MIRON" in s: return "SP"
@@ -279,7 +289,7 @@ elif st.session_state.idx == 1:
         col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
         col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
         
-        # Função de Higienização e Blindagem dos Supervisores da sua página de Indicadores
+        # Mapeamento oficial idêntico aos indicadores
         def vincular_supervisor_tecnico_rotativo(row):
             nome_u = str(row.get(col_tecnico, '')).upper().strip()
             sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -354,7 +364,7 @@ elif st.session_state.idx == 1:
                     qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
                     with cols_sub_abc[k]:
                         st.markdown(f'''<div id="sup-box-{k}" class="box-contagem">
-                            <div class="box-nome">{sup.split()[0]}</div>
+                            <div class="box-nome">{obter_nome_visual(sup)}</div>
                             <div class="box-num">{qtd}</div>
                         </div>''', unsafe_allow_html=True)
 
@@ -433,7 +443,7 @@ elif st.session_state.idx == 3:
         if col_status:
             df_ind['Status_Atividade_Upper'] = df_ind[col_status].fillna('').astype(str).str.upper().str.strip()
             
-            # 1. Filtra apenas contratos produtivos (Lógica exata da sua página de lançamentos)
+            # 1. Filtra apenas contratos produtivos
             df_produtivo = df_ind[df_ind['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
             
             if 'CONTRATO' in df_produtivo.columns and not df_produtivo.empty:
@@ -451,7 +461,6 @@ elif st.session_state.idx == 3:
             df_produtivo['FALTA_BST'] = 0
             if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
 
-            # Reutiliza o espelhamento blindado de supervisor
             def vincular_supervisor_tecnico_rotativo(row):
                 nome_u = str(row.get(col_recurso, '')).upper().strip()
                 sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -484,10 +493,12 @@ elif st.session_state.idx == 3:
                     f_bst = int(df_sup['FALTA_BST'].sum())
                     t_faltas = f_nr35 + f_cert + f_bst
                     
+                    nome_exibicao = obter_nome_visual(sup)
+                    
                     st.markdown(f'''
                     <div class="sup-card">
                         <div class="sup-header">
-                            <div class="sup-name">📋 {obter_nome_visual(sup if "EDSON" not in sup else "EDSON MARCO")}</div>
+                            <div class="sup-name">📋 {nome_exibicao}</div>
                             <div class="badge-faltas">Total Faltas: {t_faltas}</div>
                         </div>
                         <div class="faltas-grid">
@@ -508,10 +519,12 @@ elif st.session_state.idx == 3:
                     f_bst = int(df_sup['FALTA_BST'].sum())
                     t_faltas = f_nr35 + f_cert + f_bst
                     
+                    nome_exibicao = obter_nome_visual(sup)
+                    
                     st.markdown(f'''
                     <div class="sup-card">
                         <div class="sup-header">
-                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                            <div class="sup-name">📋 {nome_exibicao}</div>
                             <div class="badge-faltas">Total Faltas: {t_faltas}</div>
                         </div>
                         <div class="faltas-grid">
