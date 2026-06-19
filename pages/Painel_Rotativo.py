@@ -6,7 +6,7 @@ import base64
 from datetime import datetime, timedelta
 
 # =========================================================================
-# CONFIGURAÇÕES E CORREÇÃO DE ESTRUTURA OPERACIONAL 🚀
+# CONFIGURAÇÕES E PARÂMETROS OPERACIONAIS 🚀
 # =========================================================================
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
@@ -62,7 +62,6 @@ st.markdown("""<style>
     
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-    
     .sup-name { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; border: 1px solid #ffcdd2; }
     
@@ -71,19 +70,24 @@ st.markdown("""<style>
     .falta-label { font-size: 12px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
     
+    /* CSS DA NOVA TELA DE JANELAS CRÍTICAS */
+    .box-janela { background: #fff3e0; border-top: 10px solid #ff9800; padding: 30px 15px; text-align: center; border-radius: 12px; box-shadow: 2px 4px 12px rgba(0,0,0,0.1); margin-top: 40px; }
+    .title-janela { font-size: 20px; font-weight: 900; color: #e65100; text-transform: uppercase; }
+    .num-janela { font-size: 90px; font-weight: 900; color: #111; line-height: 1; margin-top: 15px; }
+    
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# 🔥 SUPERVISORES OFICIAIS FIXOS
+# 🔥 ESTRUTURA BLINDADA DE SUPERVISORES DE EQUIPE
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
 # =========================================================================
-# FUNÇÕES GLOBAIS (RESOLVE O ERRO DE TELAS)
+# FUNÇÕES GLOBAIS DE MAPEAMENTO E HIGIENIZAÇÃO
 # =========================================================================
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
@@ -116,8 +120,10 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
     return "EDSON MARCO"
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS INTELIGENTE
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS (ATUALIZADA COM TELA 5)
 # =========================================================================
+# 0 = Técnicos na Base | 1 = Pendentes (TEC1) | 2 = Relógio | 3 = Indicadores | 4 = Tela Branca | 5 = Janelas de Serviço (Nova!)
+
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.last_main = 0   
@@ -135,6 +141,7 @@ if st.session_state.idx == 0: espera = 60
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 3: espera = 45 
+elif st.session_state.idx == 5: espera = 45 # Tempo de exibição da tela de janelas
 elif st.session_state.idx == 4: espera = 2 
 
 tempo_passado = time.time() - st.session_state.last_time
@@ -147,12 +154,16 @@ if tempo_passado > espera:
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
-        if st.session_state.idx in [1, 3]:
+        # Telas principais enviam para a transição branca (4)
+        if st.session_state.idx in [1, 3, 5]:
             st.session_state.last_main = st.session_state.idx
             prox_idx = 4
-        elif st.session_state.idx == 4: prox_idx = 2
+        elif st.session_state.idx == 4: 
+            prox_idx = 2
         elif st.session_state.idx == 2:
+            # Sequência lógica circular: 1 ➔ 3 ➔ 5 ➔ 1...
             if st.session_state.last_main == 1: prox_idx = 3
+            elif st.session_state.last_main == 3: prox_idx = 5
             else: prox_idx = 1
         else: prox_idx = 1
             
@@ -221,7 +232,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
 """
 
 # =========================================================================
-# TELAS
+# EXECUÇÃO DE TELAS
 # =========================================================================
 
 if st.session_state.idx == 4:
@@ -241,7 +252,6 @@ elif st.session_state.idx == 0:
     if os.path.exists(ARQUIVO_ROTA_DISCO):
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
         df.columns = [str(c).strip().upper() for c in df.columns]
-        
         col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
         col_status = next((c for c in df.columns if 'STATUS' in c), None)
         col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
@@ -284,18 +294,13 @@ elif st.session_state.idx == 0:
                 for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                texto_fala = f"Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo."
-                script_cenario += f"anunciarBase('{texto_fala}', 0);\n"
-                script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
+                script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        else: st.error("Coluna Status não encontrada.")
-    else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 1: CONTRATOS PENDENTES (TEC1)
+# TELA 1: CONTRATOS PENDENTES (TEC1 SUPERVISORES)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 1: 
     st.markdown(f'''<div class="topo-container">
@@ -307,133 +312,78 @@ elif st.session_state.idx == 1:
     if os.path.exists(ARQUIVO_ROTA_DISCO):
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
         df.columns = [str(c).strip().upper() for c in df.columns]
-        
         col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
         col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
         
-        # APLICAÇÃO DA REGRA GLOBAL (CORRIGIDA)
         df['SUPERVISOR_CLEAN'] = df.apply(lambda row: padronizar_supervisor_linha(row, col_tecnico, col_sup), axis=1)
-            
         col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
+        
         if col_status_real:
             df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
             df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
             df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
-            df_limpo['R_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('ROTA|DESLOC|DESLOCAMENTO', na=False).astype(int)
-            df_limpo['I_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO|PRODUTIVO|EXECUCAO|INIC', na=False).astype(int)
-            df_validos = df_limpo[(df_limpo['P_COUNT'] > 0) | (df_limpo['R_COUNT'] > 0) | (df_limpo['I_COUNT'] > 0)].copy()
-            
-            col_janela = None
-            for c in df_validos.columns:
-                if 'JANELA' in str(c) or 'INTERVALO' in str(c):
-                    col_janela = c
-                    break
+            df_validos = df_limpo[df_limpo['P_COUNT'] > 0].copy()
 
-            hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
-            df_pendentes_geral = pd.DataFrame()
+            col_contrato = next((c for c in df_validos.columns if 'CONTRATO' in c), None)
+            if col_contrato and not df_validos.empty:
+                df_validos[col_contrato] = df_validos[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
+                df_validos = df_validos.drop_duplicates(subset=[col_contrato])
 
-            if col_janela is not None and not df_validos.empty:
-                df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
-                def extrair_hora_limite(janela_str):
-                    try: return int(janela_str.replace(':', '').split('-')[1].strip()[:2])
-                    except: return 24
-                df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
-                if hora_atual < 12: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
-                elif 12 <= hora_atual < 15: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
-                else: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
-                df_base_janela = df_validos[condicao_horario | (df_validos['R_COUNT'] > 0) | (df_validos['I_COUNT'] > 0)].copy()
-                df_pendentes_geral = df_base_janela[df_base_janela['P_COUNT'] > 0].copy()
-                if df_pendentes_geral.empty and df_base_janela.empty: df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
-            else: df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
-
-            col_contrato = next((c for c in df_pendentes_geral.columns if 'CONTRATO' in c), None)
-            if col_contrato and not df_pendentes_geral.empty:
-                df_pendentes_geral[col_contrato] = df_pendentes_geral[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
-                df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
-
-            qtd_sp = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_SP)])
-            qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)])
+            qtd_sp = len(df_validos[df_validos['SUPERVISOR_CLEAN'].isin(SUPS_SP)])
+            qtd_abc = len(df_validos[df_validos['SUPERVISOR_CLEAN'].isin(SUPS_ABC)])
 
             c_abc, c_sp = st.columns(2)
             with c_abc:
-                st.markdown(f'''<div class="box-base">
-                    <div class="nome-base" style="color: #2e7d32;">ABC PENDENTES</div>
-                    <div class="num-base">{qtd_abc}</div>
-                </div>''', unsafe_allow_html=True)
-                
+                st.markdown(f'''<div class="box-base"><div class="nome-base" style="color: #2e7d32;">ABC PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 cols_sub_abc = st.columns(len(SUPS_ABC))
                 for k, sup in enumerate(SUPS_ABC):
-                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
+                    qtd = len(df_validos[df_validos['SUPERVISOR_CLEAN'] == sup])
                     with cols_sub_abc[k]:
-                        st.markdown(f'''<div id="sup-box-{k}" class="box-contagem">
-                            <div class="box-nome">{obter_nome_visual(sup)}</div>
-                            <div class="box-num">{qtd}</div>
-                        </div>''', unsafe_allow_html=True)
+                        st.markdown(f'''<div id="sup-box-{k}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
 
             with c_sp:
-                st.markdown(f'''<div class="box-base-sp">
-                    <div class="nome-base" style="color: #00695c;">SÃO PAULO PENDENTES</div>
-                    <div class="num-base">{qtd_sp}</div>
-                </div>''', unsafe_allow_html=True)
-                
+                st.markdown(f'''<div class="box-base-sp"><div class="nome-base" style="color: #00695c;">SÃO PAULO PENDENTES</div><div class="num-base">{qtd_sp}</div></div>''', unsafe_allow_html=True)
                 cols_sub_sp = st.columns(len(SUPS_SP))
                 for k, sup in enumerate(SUPS_SP):
                     idx_global = len(SUPS_ABC) + k 
-                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
+                    qtd = len(df_validos[df_validos['SUPERVISOR_CLEAN'] == sup])
                     with cols_sub_sp[k]:
-                        st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem">
-                            <div class="box-nome">{obter_nome_visual(sup)}</div>
-                            <div class="box-num">{qtd}</div>
-                        </div>''', unsafe_allow_html=True)
+                        st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
 
-            # ÁUDIO INTEGRADO NA FILA CERTA
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                script_cenario += f"limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
-                
+                script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                 delay_atual = 0
                 script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                 delay_atual += 7000
-                
                 for i, sup_full in enumerate(SUPS_ABC):
-                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
-                    texto_fala = f"{obter_nome_visual(sup_full)}: {qtd} pendentes."
-                    script_cenario += f"animarSupervisor('{texto_fala}', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
+                    qtd_p = len(df_validos[df_validos['SUPERVISOR_CLEAN'] == sup_full])
+                    script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual += 7000
-                
                 script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', {delay_atual});\n"
                 delay_atual += 7000
-                
                 for i, sup_full in enumerate(SUPS_SP):
                     idx = len(SUPS_ABC) + i
-                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
-                    texto_fala = f"{obter_nome_visual(sup_full)}: {qtd} pendentes."
-                    script_cenario += f"animarSupervisor('{texto_fala}', {delay_atual}, {idx}, {len(SUPERVISORES_ORDENADOS)});\n"
+                    qtd_p = len(df_validos[df_validos['SUPERVISOR_CLEAN'] == sup_full])
+                    script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {idx}, {len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual += 7000
-
-                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n"
-                script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
+                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
-                
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        else: st.error("Coluna Status não encontrada.")
-    else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 3: INDICADORES OPERACIONAIS
+# TELA 3: INDICADORES (FALTAS EM CONTRATOS PRODUTIVOS)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">PRINTS DE INDICADORES</div>
+        <div class="topo-centro">INDICADORES OPERACIONAIS</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
     if os.path.exists(ARQUIVO_ROTA_DISCO):
         df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
         df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
-        
         col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
         col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
         col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
@@ -444,84 +394,108 @@ elif st.session_state.idx == 3:
 
         if col_status:
             df_ind['Status_Atividade_Upper'] = df_ind[col_status].fillna('').astype(str).str.upper().str.strip()
-            
-            # Filtra apenas contratos produtivos
             df_produtivo = df_ind[df_ind['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
             
             if 'CONTRATO' in df_produtivo.columns and not df_produtivo.empty:
                 df_produtivo['CONTRATO'] = df_produtivo['CONTRATO'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
-                df_produtivo = df_produtivo[df_produtivo['CONTRATO'] != '']
-                df_produtivo = df_produtivo.drop_duplicates(subset=['CONTRATO'])
+                df_produtivo = df_produtivo[df_produtivo['CONTRATO'] != ''].drop_duplicates(subset=['CONTRATO'])
 
-            # Motor de Mapeamento de Faltas
             df_produtivo['FALTA_NR35'] = 0
             if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
-            
             df_produtivo['FALTA_CERT'] = 0
             if col_cert: df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
-            
             df_produtivo['FALTA_BST'] = 0
             if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
 
-            # APLICAÇÃO DA REGRA GLOBAL (CORRIGIDA)
             df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(lambda row: padronizar_supervisor_linha(row, col_recurso, col_sup), axis=1)
 
             c_abc, c_sp = st.columns(2)
-            
             with c_abc:
                 st.markdown('<div class="ind-base-title abc">ABC</div>', unsafe_allow_html=True)
                 for sup in SUPS_ABC:
                     df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
-                    f_nr35 = int(df_sup['FALTA_NR35'].sum())
-                    f_cert = int(df_sup['FALTA_CERT'].sum())
-                    f_bst = int(df_sup['FALTA_BST'].sum())
-                    t_faltas = f_nr35 + f_cert + f_bst
-                    
-                    st.markdown(f'''
-                    <div class="sup-card">
-                        <div class="sup-header">
-                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                            <div class="badge-faltas">Total Faltas: {t_faltas}</div>
-                        </div>
-                        <div class="faltas-grid">
-                            <div class="falta-box"><div class="falta-label">🪜 FALTAM NR35</div><div class="falta-value">{f_nr35}</div></div>
-                            <div class="falta-box"><div class="falta-label">📜 FALTA CERTIDÃO</div><div class="falta-value">{f_cert}</div></div>
-                            <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bst}</div></div>
-                        </div>
-                    </div>
-                    ''', unsafe_allow_html=True)
+                    f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
+                    st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
+                        <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 FALTAM NR35</div><div class="falta-value">{f_35}</div></div>
+                        <div class="falta-box"><div class="falta-label">📜 FALTA CERTIDÃO</div><div class="falta-value">{f_ce}</div></div>
+                        <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
             with c_sp:
                 st.markdown('<div class="ind-base-title sp">SÃO PAULO</div>', unsafe_allow_html=True)
                 for sup in SUPS_SP:
                     df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
-                    f_nr35 = int(df_sup['FALTA_NR35'].sum())
-                    f_cert = int(df_sup['FALTA_CERT'].sum())
-                    f_bst = int(df_sup['FALTA_BST'].sum())
-                    t_faltas = f_nr35 + f_cert + f_bst
-                    
-                    st.markdown(f'''
-                    <div class="sup-card">
-                        <div class="sup-header">
-                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                            <div class="badge-faltas">Total Faltas: {t_faltas}</div>
-                        </div>
-                        <div class="faltas-grid">
-                            <div class="falta-box"><div class="falta-label">🪜 FALTAM NR35</div><div class="falta-value">{f_nr35}</div></div>
-                            <div class="falta-box"><div class="falta-label">📜 FALTA CERTIDÃO</div><div class="falta-value">{f_cert}</div></div>
-                            <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bst}</div></div>
-                        </div>
-                    </div>
-                    ''', unsafe_allow_html=True)
+                    f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
+                    st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
+                        <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 FALTAM NR35</div><div class="falta-value">{f_35}</div></div>
+                        <div class="falta-box"><div class="falta-label">📜 FALTA CERTIDÃO</div><div class="falta-value">{f_ce}</div></div>
+                        <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                script_cenario += f"anunciarBase('Apresentando faltas de PRINTS por supervisor.', 0);\n"
-                script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-                st.session_state.script_audio_atual = script_cenario
+                st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Apresentando o resumo de faltas de conformidade por supervisor.', 0);</script>"
                 st.session_state.novo_ciclo = False
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        else: st.error("Coluna Status não encontrada.")
+
+# -------------------------------------------------------------------------
+# TELA 5: NOVA TELA DE CONTRATOS PENDENTES POR JANELA DE SERVIÇO 🔥
+# -------------------------------------------------------------------------
+elif st.session_state.idx == 5:
+    st.markdown(f'''<div class="topo-container">
+        <div class="topo-esquerda">{logo_html}</div>
+        <div class="topo-centro">CONTRATOS POR JANELA</div>
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+    </div>''', unsafe_allow_html=True)
+
+    if os.path.exists(ARQUIVO_ROTA_DISCO):
+        df_j = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+        df_j.columns = [str(c).strip().upper() for c in df_j.columns]
+        
+        col_status = next((c for c in df_j.columns if 'STATUS' in c), None)
+        col_janela = next((c for c in df_j.columns if 'JANELA' in c or 'INTERVALO' in c), None)
+        col_contrato = next((c for c in df_j.columns if 'CONTRATO' in c), None)
+
+        if col_status and col_janela:
+            df_j['Status_Atividade_Upper'] = df_j[col_status].fillna('').astype(str).str.upper().str.strip()
+            df_p = df_j[df_j['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False)].copy()
+            
+            if col_contrato and not df_p.empty:
+                df_p['CONTRATO_LIMPO'] = df_p[col_contrato].fillna('').astype(str).apply(lambda x: x.split('.')[0])
+                df_p = df_p.drop_duplicates(subset=['CONTRATO_LIMPO'])
+
+            # Função inteligente de categorização de agrupamentos de janela
+            def agrupar_janela(row):
+                text_j = str(row.get(col_janela, '')).upper().strip()
+                if '08' in text_j and '11' in text_j: return '08:00 - 11:00'
+                if '08' in text_j and '12' in text_j: return '08:00 - 12:00'
+                if '11' in text_j and '14' in text_j: return '11:00 - 14:00'
+                if '12' in text_j and '15' in text_j: return '12:00 - 15:00'
+                if '15' in text_j and '18' in text_j: return '15:00 - 18:00'
+                return 'OUTROS'
+
+            if not df_p.empty:
+                df_p['JANELA_FINAL'] = df_p.apply(agrupar_janela, axis=1)
+            else:
+                df_p['JANELA_FINAL'] = pd.Series(dtype=str)
+
+            # Contagem dos blocos
+            tot_0811 = len(df_p[df_p['JANELA_FINAL'] == '08:00 - 11:00'])
+            tot_0812 = len(df_p[df_p['JANELA_FINAL'] == '08:00 - 12:00'])
+            tot_1114 = len(df_p[df_p['JANELA_FINAL'] == '11:00 - 14:00'])
+            tot_1215 = len(df_p[df_p['JANELA_FINAL'] == '12:00 - 15:00'])
+            tot_1518 = len(df_p[df_p['JANELA_FINAL'] == '15:00 - 18:00'])
+
+            # Renderização de Grid Amplo na TV (5 Colunas)
+            j1, j2, j3, j4, j5 = st.columns(5)
+            with j1: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 08:00 - 11:00</div><div class="num-janela">{tot_0811}</div></div>', unsafe_allow_html=True)
+            with j2: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 08:00 - 12:00</div><div class="num-janela">{tot_0812}</div></div>', unsafe_allow_html=True)
+            with j3: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 11:00 - 14:00</div><div class="num-janela">{tot_1114}</div></div>', unsafe_allow_html=True)
+            with j4: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 12:00 - 15:00</div><div class="num-janela">{tot_1215}</div></div>', unsafe_allow_html=True)
+            with j5: st.markdown(f'<div class="box-janela"><div class="title-janela">⏳ 15:00 - 18:00</div><div class="num-janela">{tot_1518}</div></div>', unsafe_allow_html=True)
+
+            if st.session_state.novo_ciclo:
+                st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Apresentando o balanço de contratos pendentes divididos por janela de atendimento.', 0);</script>"
+                st.session_state.novo_ciclo = False
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+        else: st.error("Colunas operacionais não encontradas.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
@@ -535,22 +509,10 @@ elif st.session_state.idx == 2:
     </div>''', unsafe_allow_html=True)
 
     tempo_real = datetime.utcnow() - timedelta(hours=3)
-    hora_str = tempo_real.strftime("%H:%M:%S")
-    data_str = tempo_real.strftime("%d/%m/%Y")
-    hora_fala = tempo_real.strftime("%H e %M") 
-    
-    st.markdown(f'''
-    <div class="relogio-container">
-        <div class="hora-gigante">{hora_str}</div>
-        <div class="data-media">{data_str}</div>
-    </div>
-    ''', unsafe_allow_html=True)
+    st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
     
     if st.session_state.novo_ciclo:
-        script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-        script_cenario += f"anunciarBase('Hora certa: {hora_fala}.', 0);\n"
-        script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
-        st.session_state.script_audio_atual = script_cenario
+        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
         st.session_state.novo_ciclo = False
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
