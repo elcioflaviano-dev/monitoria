@@ -289,7 +289,6 @@ elif st.session_state.idx == 1:
         col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
         col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
         
-        # Mapeamento oficial idêntico aos indicadores
         def vincular_supervisor_tecnico_rotativo(row):
             nome_u = str(row.get(col_tecnico, '')).upper().strip()
             sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -384,7 +383,7 @@ elif st.session_state.idx == 1:
                             <div class="box-num">{qtd}</div>
                         </div>''', unsafe_allow_html=True)
 
-            # ÁUDIO INTEGRADO NA FILA CERTA
+            # 🔥 CORREÇÃO DO ÁUDIO: Mudado de sups_abc para SUPS_ABC e de sups_sp para SUPS_SP
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
                 script_cenario += f"limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
@@ -419,12 +418,12 @@ elif st.session_state.idx == 1:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 3: INDICADORES (INTEGRAÇÃO COMPLETA DA LOGICA DE LANÇAMENTOS) 🔥
+# TELA 3: INDICADORES (FALTAS POR SUPERVISOR E BASE)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">PRINTS INDICADORES</div>
+        <div class="topo-centro">INDICADORES OPERACIONAIS</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
@@ -443,7 +442,7 @@ elif st.session_state.idx == 3:
         if col_status:
             df_ind['Status_Atividade_Upper'] = df_ind[col_status].fillna('').astype(str).str.upper().str.strip()
             
-            # 1. Filtra apenas contratos produtivos
+            # Filtra apenas contratos produtivos
             df_produtivo = df_ind[df_ind['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
             
             if 'CONTRATO' in df_produtivo.columns and not df_produtivo.empty:
@@ -451,7 +450,7 @@ elif st.session_state.idx == 3:
                 df_produtivo = df_produtivo[df_produtivo['CONTRATO'] != '']
                 df_produtivo = df_produtivo.drop_duplicates(subset=['CONTRATO'])
 
-            # 2. Motor de Mapeamento de Faltas Puras (Contém NÃO, NAO ou FALTA)
+            # Motor de Mapeamento de Faltas Puras (Contém NÃO, NAO ou FALTA)
             df_produtivo['FALTA_NR35'] = 0
             if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
             
@@ -460,24 +459,6 @@ elif st.session_state.idx == 3:
             
             df_produtivo['FALTA_BST'] = 0
             if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
-
-            def vincular_supervisor_tecnico_rotativo(row):
-                nome_u = str(row.get(col_recurso, '')).upper().strip()
-                sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0', '-']:
-                    if "ALAN" in sup_orig: return "ALAN"
-                    if "FRANCISCO" in sup_orig: return "FRANCISCO"
-                    if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
-                    if "EDSON" in sup_orig: return "EDSON MARCO"
-                    if "NELSON" in sup_orig: return "NELSON"
-                    if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
-                    return sup_orig
-                if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
-                if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
-                if "MARCOS" in nome_u: return "MARCOS ROBERTO"
-                if "NELSON" in nome_u: return "NELSON"
-                if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
-                return "EDSON MARCO"
 
             df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(vincular_supervisor_tecnico_rotativo, axis=1)
 
