@@ -342,7 +342,7 @@ elif st.session_state.idx == 1:
         
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONTRATOS PENDENTES <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
+            <div class="topo-centro">TEC 1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
         
