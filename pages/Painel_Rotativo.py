@@ -6,7 +6,7 @@ import base64
 from datetime import datetime, timedelta
 
 # =========================================================================
-# CONFIGURAÇÕES 🚀
+# CONFIGURAÇÕES E CORREÇÃO DE ESTRUTURA OPERACIONAL 🚀
 # =========================================================================
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
@@ -43,7 +43,7 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* CSS DAS CAIXAS DE BASE E SUPERVISORES (TEC1) */
+    /* CAIXAS DE BASE E SUPERVISORES (TEC1 PENDENTES) */
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
     .box-base-sp { background: #e0f2f1; border-left: 10px solid #00897b; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
     .nome-base { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase;}
@@ -55,7 +55,7 @@ st.markdown("""<style>
     
     .destaque-ativo { transform: scale(1.15) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.5) !important; border-left: 12px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CSS DOS INDICADORES DE FALTAS */
+    /* CSS DOS INDICADORES DE FALTAS REAIS */
     .ind-base-title { font-size: 24px; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
     .ind-base-title.abc { color: #008080; }
     .ind-base-title.sp { color: #b30000; }
@@ -63,14 +63,13 @@ st.markdown("""<style>
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
     
-    /* TAMANHO AUMENTADO PARA O SUPERVISOR */
     .sup-name { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; border: 1px solid #ffcdd2; }
     
     .faltas-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    .falta-box { background: #fff5f5; border: 1px solid #ffebee; border-radius: 6px; padding: 10px 5px; text-align: center; }
-    .falta-label { font-size: 11px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
-    .falta-value { font-size: 32px; font-weight: 900; color: #c62828; line-height: 1; }
+    .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; }
+    .falta-label { font-size: 12px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
+    .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
     
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
@@ -78,31 +77,10 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# LEITURA DE SUPERVISORES (IGNORANDO O FANTASMA "-")
-SUPERVISORES = []
-if os.path.exists(ARQUIVO_ROTA_DISCO):
-    try:
-        df_temp = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
-        df_temp.columns = [str(c).strip().upper() for c in df_temp.columns]
-        col_sup = next((c for c in df_temp.columns if 'SUPERVISOR' in c), None)
-        if col_sup:
-            supervisores_brutos = df_temp[col_sup].dropna().unique().tolist()
-            # O filtro mágico que remove '-', '', 'NAN', etc.
-            SUPERVISORES = sorted([str(s).strip().upper() for s in supervisores_brutos if str(s).strip().upper() not in ["", "NAN", "N/A", "NÃO IDENTIFICADO", "-"]])
-    except Exception: pass
-
-def padronizar_supervisor(nome):
-    n = str(nome).upper().strip()
-    if n in ["", "-", "NAN", "N/A", "NÃO IDENTIFICADO"]: return "NÃO IDENTIFICADO"
-    for s in SUPERVISORES:
-        if s in n or n in s: return s
-    return n
-
-def obter_nome_visual(nome_completo):
-    n = str(nome_completo).upper()
-    if 'FRANCISCO' in n: return "FRANCISCO"
-    if 'MARCOS' in n: return "MARCOS ROBERTO"
-    return n.split()[0]
+# 🔥 CORREÇÃO: SUPERVISORES OFICIAIS FIXOS (Elimina o traço "-" e o "Não Identificado")
+SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
+SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
+SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
 # =========================================================================
 # ⚙️ MÁQUINA DE TEMPO E ESTADOS INTELIGENTE
@@ -245,13 +223,16 @@ elif st.session_state.idx == 0:
 
             df_tela = df[mask_base & mask_status].copy()
             
-            if col_sup: df_tela['SUP_CLEAN'] = df_tela[col_sup].apply(padronizar_supervisor)
-            else: df_tela['SUP_CLEAN'] = ''
-
-            cond_sp = df_tela['SUP_CLEAN'].str.contains('ALAN|FRANCISCO|JOAO', na=False)
+            # Função interna para a separação inteligente de bases
+            def mapear_base_interna(row):
+                s = str(row.get(col_sup, '')).upper()
+                if "ALAN" in s or "FRANCISCO" in s or "JOAO" in s or "MIRON" in s: return "SP"
+                return "ABC"
             
-            nomes_sp = sorted([str(n).strip().upper() for n in df_tela[cond_sp][col_recurso].dropna().unique()])
-            nomes_abc = sorted([str(n).strip().upper() for n in df_tela[~cond_sp][col_recurso].dropna().unique()])
+            df_tela['BASE_REGIAO'] = df_tela.apply(mapear_base_interna, axis=1)
+            
+            nomes_sp = sorted([str(n).strip().upper() for n in df_tela[df_tela['BASE_REGIAO'] == 'SP'][col_recurso].dropna().unique()])
+            nomes_abc = sorted([str(n).strip().upper() for n in df_tela[df_tela['BASE_REGIAO'] == 'ABC'][col_recurso].dropna().unique()])
 
             c1, c2, c3, c4 = st.columns(4)
             mid_abc = (len(nomes_abc) + 1) // 2
@@ -295,9 +276,31 @@ elif st.session_state.idx == 1:
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
         df.columns = [str(c).strip().upper() for c in df.columns]
         
+        col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
         col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-        if col_sup: df['SUPERVISOR_CLEAN'] = df[col_sup].apply(padronizar_supervisor)
-        else: df['SUPERVISOR_CLEAN'] = 'NÃO IDENTIFICADO'
+        
+        # Função de Higienização e Blindagem dos Supervisores da sua página de Indicadores
+        def vincular_supervisor_tecnico_rotativo(row):
+            nome_u = str(row.get(col_tecnico, '')).upper().strip()
+            sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+            
+            if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0', '-']:
+                if "ALAN" in sup_orig: return "ALAN"
+                if "FRANCISCO" in sup_orig: return "FRANCISCO"
+                if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
+                if "EDSON" in sup_orig: return "EDSON MARCO"
+                if "NELSON" in sup_orig: return "NELSON"
+                if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
+                return sup_orig
+
+            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
+            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
+            if "MARCOS" in nome_u: return "MARCOS ROBERTO"
+            if "NELSON" in nome_u: return "NELSON"
+            if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
+            return "EDSON MARCO"
+
+        df['SUPERVISOR_CLEAN'] = df.apply(vincular_supervisor_tecnico_rotativo, axis=1)
             
         col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
         if col_status_real:
@@ -336,13 +339,8 @@ elif st.session_state.idx == 1:
                 df_pendentes_geral[col_contrato] = df_pendentes_geral[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
                 df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
 
-            sups_sp = [s for s in SUPERVISORES if 'ALAN' in s or 'FRANCISCO' in s or 'JOAO' in s]
-            sups_abc = [s for s in SUPERVISORES if s not in sups_sp]
-            sups_ordenados = sups_abc + sups_sp 
-
-            cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('ALAN|FRANCISCO|JOAO', na=False) 
-            qtd_sp = len(df_pendentes_geral[cond_sp])
-            qtd_abc = len(df_pendentes_geral[~cond_sp])
+            qtd_sp = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_SP)])
+            qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)])
 
             c_abc, c_sp = st.columns(2)
             with c_abc:
@@ -351,17 +349,14 @@ elif st.session_state.idx == 1:
                     <div class="num-base">{qtd_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
-                if sups_abc:
-                    cols_sub_abc = st.columns(len(sups_abc))
-                    for k, sup in enumerate(sups_abc):
-                        idx_global = k 
-                        qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
-                        nome_vis = obter_nome_visual(sup)
-                        with cols_sub_abc[k]:
-                            st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem">
-                                <div class="box-nome">{nome_vis}</div>
-                                <div class="box-num">{qtd}</div>
-                            </div>''', unsafe_allow_html=True)
+                cols_sub_abc = st.columns(len(SUPS_ABC))
+                for k, sup in enumerate(SUPS_ABC):
+                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
+                    with cols_sub_abc[k]:
+                        st.markdown(f'''<div id="sup-box-{k}" class="box-contagem">
+                            <div class="box-nome">{sup.split()[0]}</div>
+                            <div class="box-num">{qtd}</div>
+                        </div>''', unsafe_allow_html=True)
 
             with c_sp:
                 st.markdown(f'''<div class="box-base-sp">
@@ -369,54 +364,52 @@ elif st.session_state.idx == 1:
                     <div class="num-base">{qtd_sp}</div>
                 </div>''', unsafe_allow_html=True)
                 
-                if sups_sp:
-                    cols_sub_sp = st.columns(len(sups_sp))
-                    for k, sup in enumerate(sups_sp):
-                        idx_global = len(sups_abc) + k 
-                        qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
-                        nome_vis = obter_nome_visual(sup)
-                        with cols_sub_sp[k]:
-                            st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem">
-                                <div class="box-nome">{nome_vis}</div>
-                                <div class="box-num">{qtd}</div>
-                            </div>''', unsafe_allow_html=True)
+                cols_sub_sp = st.columns(len(SUPS_SP))
+                for k, sup in enumerate(SUPS_SP):
+                    idx_global = len(SUPS_ABC) + k 
+                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
+                    with cols_sub_sp[k]:
+                        st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem">
+                            <div class="box-nome">{obter_nome_visual(sup)}</div>
+                            <div class="box-num">{qtd}</div>
+                        </div>''', unsafe_allow_html=True)
 
-            if sups_ordenados and st.session_state.novo_ciclo:
+            # ÁUDIO INTEGRADO NA FILA CERTA
+            if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                script_cenario += f"limparDestaques({len(sups_ordenados)});\n"
+                script_cenario += f"limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                 
                 delay_atual = 0
                 script_cenario += f"anunciarBase('Contratos pendentes. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                 delay_atual += 7000
                 
-                for i, sup_full in enumerate(sups_abc):
+                for i, sup_full in enumerate(SUPS_ABC):
                     qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
                     texto_fala = f"{obter_nome_visual(sup_full)}: {qtd} pendentes."
-                    script_cenario += f"animarSupervisor('{texto_fala}', {delay_atual}, {i}, {len(sups_ordenados)});\n"
+                    script_cenario += f"animarSupervisor('{texto_fala}', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual += 7000
                 
                 script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', {delay_atual});\n"
                 delay_atual += 7000
                 
-                for i, sup_full in enumerate(sups_sp):
-                    idx = len(sups_abc) + i
+                for i, sup_full in enumerate(SUPS_SP):
+                    idx = len(SUPS_ABC) + i
                     qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
                     texto_fala = f"{obter_nome_visual(sup_full)}: {qtd} pendentes."
-                    script_cenario += f"animarSupervisor('{texto_fala}', {delay_atual}, {idx}, {len(sups_ordenados)});\n"
+                    script_cenario += f"animarSupervisor('{texto_fala}', {delay_atual}, {idx}, {len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual += 7000
 
-                script_cenario += f"setTimeout(() => limparDestaques({len(sups_ordenados)}) , {delay_atual});\n"
+                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n"
                 script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
                 
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        else:
-            st.error("Coluna Status não encontrada.")
+        else: st.error("Coluna Status não encontrada.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 3: INDICADORES (FALTAS POR SUPERVISOR E BASE) 🔥
+# TELA 3: INDICADORES (INTEGRAÇÃO COMPLETA DA LOGICA DE LANÇAMENTOS) 🔥
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
@@ -430,7 +423,7 @@ elif st.session_state.idx == 3:
         df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
         
         col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
-        col_recurso = next((c for c in df_ind.columns if 'RECURSO' in c or 'NOME' in c), df_ind.columns[0])
+        col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
         col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
         
         col_nr35 = next((c for c in reversed(df_ind.columns) if 'NR35' in c or 'NR-35' in c), None)
@@ -438,36 +431,63 @@ elif st.session_state.idx == 3:
         col_bst  = next((c for c in reversed(df_ind.columns) if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
 
         if col_status:
-            status_upper = df_ind[col_status].fillna('').astype(str).str.upper()
+            df_ind['Status_Atividade_Upper'] = df_ind[col_status].fillna('').astype(str).str.upper().str.strip()
             
-            # FILTRO CORRIGIDO: Pega todo o efetivo, exceto os suspensos
-            df_prod = df_ind[status_upper != 'SUSPENSO'].copy()
+            # 1. Filtra apenas contratos produtivos (Lógica exata da sua página de lançamentos)
+            df_produtivo = df_ind[df_ind['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
             
-            if col_sup: df_prod['SUPERVISOR_CLEAN'] = df_prod[col_sup].apply(padronizar_supervisor)
-            else: df_prod['SUPERVISOR_CLEAN'] = 'NÃO IDENTIFICADO'
+            if 'CONTRATO' in df_produtivo.columns and not df_produtivo.empty:
+                df_produtivo['CONTRATO'] = df_produtivo['CONTRATO'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+                df_produtivo = df_produtivo[df_produtivo['CONTRATO'] != '']
+                df_produtivo = df_produtivo.drop_duplicates(subset=['CONTRATO'])
+
+            # 2. Motor de Mapeamento de Faltas Puras (Contém NÃO, NAO ou FALTA)
+            df_produtivo['FALTA_NR35'] = 0
+            if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
             
-            # Limpa duplicados e valores em branco para não bugar a conta
-            df_tec = df_prod.dropna(subset=[col_recurso]).drop_duplicates(subset=[col_recurso]).copy()
-            df_tec = df_tec[df_tec[col_recurso].astype(str).str.strip() != '']
+            df_produtivo['FALTA_CERT'] = 0
+            if col_cert: df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
             
-            sups_sp = [s for s in SUPERVISORES if 'ALAN' in s or 'FRANCISCO' in s or 'JOAO' in s]
-            sups_abc = [s for s in SUPERVISORES if s not in sups_sp]
+            df_produtivo['FALTA_BST'] = 0
+            if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+
+            # Reutiliza o espelhamento blindado de supervisor
+            def vincular_supervisor_tecnico_rotativo(row):
+                nome_u = str(row.get(col_recurso, '')).upper().strip()
+                sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0', '-']:
+                    if "ALAN" in sup_orig: return "ALAN"
+                    if "FRANCISCO" in sup_orig: return "FRANCISCO"
+                    if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
+                    if "EDSON" in sup_orig: return "EDSON MARCO"
+                    if "NELSON" in sup_orig: return "NELSON"
+                    if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
+                    return sup_orig
+                if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
+                if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
+                if "MARCOS" in nome_u: return "MARCOS ROBERTO"
+                if "NELSON" in nome_u: return "NELSON"
+                if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
+                return "EDSON MARCO"
+
+            df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(vincular_supervisor_tecnico_rotativo, axis=1)
 
             c_abc, c_sp = st.columns(2)
             
+            # --- BLOCADOS DO ABC ---
             with c_abc:
                 st.markdown('<div class="ind-base-title abc">ABC</div>', unsafe_allow_html=True)
-                for sup in sups_abc:
-                    df_sup_tec = df_tec[df_tec['SUPERVISOR_CLEAN'] == sup]
-                    f_nr35 = len(df_sup_tec[df_sup_tec[col_nr35].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_nr35 else 0
-                    f_cert = len(df_sup_tec[df_sup_tec[col_cert].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_cert else 0
-                    f_bst = len(df_sup_tec[df_sup_tec[col_bst].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_bst else 0
+                for sup in SUPS_ABC:
+                    df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
+                    f_nr35 = int(df_sup['FALTA_NR35'].sum())
+                    f_cert = int(df_sup['FALTA_CERT'].sum())
+                    f_bst = int(df_sup['FALTA_BST'].sum())
                     t_faltas = f_nr35 + f_cert + f_bst
                     
                     st.markdown(f'''
                     <div class="sup-card">
                         <div class="sup-header">
-                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                            <div class="sup-name">📋 {obter_nome_visual(sup if "EDSON" not in sup else "EDSON MARCO")}</div>
                             <div class="badge-faltas">Total Faltas: {t_faltas}</div>
                         </div>
                         <div class="faltas-grid">
@@ -478,13 +498,14 @@ elif st.session_state.idx == 3:
                     </div>
                     ''', unsafe_allow_html=True)
 
+            # --- BLOCADOS DE SÃO PAULO ---
             with c_sp:
                 st.markdown('<div class="ind-base-title sp">SÃO PAULO</div>', unsafe_allow_html=True)
-                for sup in sups_sp:
-                    df_sup_tec = df_tec[df_tec['SUPERVISOR_CLEAN'] == sup]
-                    f_nr35 = len(df_sup_tec[df_sup_tec[col_nr35].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_nr35 else 0
-                    f_cert = len(df_sup_tec[df_sup_tec[col_cert].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_cert else 0
-                    f_bst = len(df_sup_tec[df_sup_tec[col_bst].fillna('').astype(str).str.upper().str.strip() != 'SIM']) if col_bst else 0
+                for sup in SUPS_SP:
+                    df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
+                    f_nr35 = int(df_sup['FALTA_NR35'].sum())
+                    f_cert = int(df_sup['FALTA_CERT'].sum())
+                    f_bst = int(df_sup['FALTA_BST'].sum())
                     t_faltas = f_nr35 + f_cert + f_bst
                     
                     st.markdown(f'''
@@ -503,15 +524,12 @@ elif st.session_state.idx == 3:
 
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-                texto_hora = f"Apresentando o total de faltas de conformidade por supervisor."
-                script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
+                script_cenario += f"anunciarBase('Apresentando o total de faltas de conformidade por supervisor.', 0);\n"
                 script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False
-                
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        else:
-            st.error("Coluna Status não encontrada.")
+        else: st.error("Coluna Status não encontrada.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
@@ -538,12 +556,10 @@ elif st.session_state.idx == 2:
     
     if st.session_state.novo_ciclo:
         script_cenario = f"<script>{JS_MOTOR_AUDIO}"
-        texto_hora = f"Hora certa: {hora_fala}."
-        script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
+        script_cenario += f"anunciarBase('Hora certa: {hora_fala}.', 0);\n"
         script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
         st.session_state.script_audio_atual = script_cenario
         st.session_state.novo_ciclo = False
-        
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 time.sleep(1)
