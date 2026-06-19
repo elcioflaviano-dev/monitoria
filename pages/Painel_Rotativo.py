@@ -115,7 +115,7 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
     return "EDSON MARCO"
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS (COM FECHADURA DE ÁUDIO)
 # =========================================================================
 # 0 = Técnicos na Base | 1 = Pendentes (TEC1) | 2 = Relógio | 3 = Print dos Indicadores | 4 = Tela Branca
 
@@ -131,6 +131,17 @@ antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30
 
 alerta_fim_janela = False
 if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = True
+
+# 🔕 FECHADURA DE ÁUDIO: Só permite falar nestas janelas de horário
+minutos_agora = agora_br.hour * 60 + agora_br.minute
+janelas_audio = [
+    (10*60+30, 11*60),   # 10:30 até 11:00
+    (11*60+30, 12*60),   # 11:30 até 12:00
+    (13*60+30, 14*60),   # 13:30 até 14:00
+    (14*60+30, 15*60),   # 14:30 até 15:00
+    (17*60+30, 18*60)    # 17:30 até 18:00
+]
+permitir_audio = any(inicio <= minutos_agora <= fim for inicio, fim in janelas_audio)
 
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
@@ -285,7 +296,10 @@ elif st.session_state.idx == 0:
                 for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
+                if permitir_audio:
+                    script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
+                else:
+                    script_cenario = ""
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -293,7 +307,7 @@ elif st.session_state.idx == 0:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 1: CONTRATOS PENDENTES (TEC1 SUPERVISORES) 🔥 [COM ÁUDIO DE JANELA]
+# TELA 1: CONTRATOS PENDENTES (TEC1 SUPERVISORES)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 1: 
 
@@ -306,7 +320,6 @@ elif st.session_state.idx == 1:
         df['SUPERVISOR_CLEAN'] = df.apply(lambda row: padronizar_supervisor_linha(row, col_tecnico, col_sup), axis=1)
         col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
         
-        # 📌 LÓGICA DE DEFINIÇÃO DA JANELA (VISUAL E ÁUDIO)
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         if hora_atual < 12: 
             label_janela = "ATÉ 12:00"
@@ -381,28 +394,26 @@ elif st.session_state.idx == 1:
                         st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
-                delay_atual = 0
-                
-                # 🔥 ÁUDIO DIZENDO A JANELA AQUI 🔥
-                script_cenario += f"anunciarBase('Contratos pendentes {fala_janela}. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
-                delay_atual += 7000
-                
-                for i, sup_full in enumerate(SUPS_ABC):
-                    qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
-                    script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
+                if permitir_audio:
+                    script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
+                    delay_atual = 0
+                    script_cenario += f"anunciarBase('Contratos pendentes {fala_janela}. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                     delay_atual += 7000
-                
-                script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', {delay_atual});\n"
-                delay_atual += 7000
-                
-                for i, sup_full in enumerate(SUPS_SP):
-                    idx = len(SUPS_ABC) + i
-                    qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
-                    script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {idx}, {len(SUPERVISORES_ORDENADOS)});\n"
+                    for i, sup_full in enumerate(SUPS_ABC):
+                        qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
+                        script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
+                        delay_atual += 7000
+                    script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', {delay_atual});\n"
                     delay_atual += 7000
+                    for i, sup_full in enumerate(SUPS_SP):
+                        idx = len(SUPS_ABC) + i
+                        qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
+                        script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {idx}, {len(SUPERVISORES_ORDENADOS)});\n"
+                        delay_atual += 7000
+                    script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n</script>"
+                else:
+                    script_cenario = ""
                     
-                script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n</script>"
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -467,7 +478,10 @@ elif st.session_state.idx == 3:
                         <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Falta print dos indicadores.', 0);</script>"
+                if permitir_audio:
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Falta print dos indicadores.', 0);</script>"
+                else:
+                    st.session_state.script_audio_atual = ""
                 st.session_state.novo_ciclo = False
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Coluna Status não encontrada.")
@@ -487,7 +501,10 @@ elif st.session_state.idx == 2:
     st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
     
     if st.session_state.novo_ciclo:
-        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
+        if permitir_audio:
+            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
+        else:
+            st.session_state.script_audio_atual = ""
         st.session_state.novo_ciclo = False
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
