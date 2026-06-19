@@ -77,12 +77,14 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# 🔥 SUPERVISORES OFICIAIS FIXOS (Elimina problemas e o "Não Identificado")
+# 🔥 SUPERVISORES OFICIAIS FIXOS
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
-# FUNÇÃO CENTRALIZADA PARA DEFINIR O NOME CORRETO EM TODAS AS TELAS
+# =========================================================================
+# FUNÇÕES GLOBAIS (RESOLVE O ERRO DE TELAS)
+# =========================================================================
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
     if 'FRANCISCO' in n: return "FRANCISCO"
@@ -92,6 +94,26 @@ def obter_nome_visual(nome_completo):
     if 'NELSON' in n: return "NELSON"
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
+
+def padronizar_supervisor_linha(row, col_nome, col_sup):
+    nome_u = str(row.get(col_nome, '')).upper().strip()
+    sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+    
+    if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0', '-']:
+        if "ALAN" in sup_orig: return "ALAN"
+        if "FRANCISCO" in sup_orig: return "FRANCISCO"
+        if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
+        if "EDSON" in sup_orig: return "EDSON MARCO"
+        if "NELSON" in sup_orig: return "NELSON"
+        if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
+        return sup_orig
+
+    if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
+    if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
+    if "MARCOS" in nome_u: return "MARCOS ROBERTO"
+    if "NELSON" in nome_u: return "NELSON"
+    if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
+    return "EDSON MARCO"
 
 # =========================================================================
 # ⚙️ MÁQUINA DE TEMPO E ESTADOS INTELIGENTE
@@ -289,27 +311,8 @@ elif st.session_state.idx == 1:
         col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
         col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
         
-        def vincular_supervisor_tecnico_rotativo(row):
-            nome_u = str(row.get(col_tecnico, '')).upper().strip()
-            sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-            
-            if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0', '-']:
-                if "ALAN" in sup_orig: return "ALAN"
-                if "FRANCISCO" in sup_orig: return "FRANCISCO"
-                if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
-                if "EDSON" in sup_orig: return "EDSON MARCO"
-                if "NELSON" in sup_orig: return "NELSON"
-                if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
-                return sup_orig
-
-            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
-            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
-            if "MARCOS" in nome_u: return "MARCOS ROBERTO"
-            if "NELSON" in nome_u: return "NELSON"
-            if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
-            return "EDSON MARCO"
-
-        df['SUPERVISOR_CLEAN'] = df.apply(vincular_supervisor_tecnico_rotativo, axis=1)
+        # APLICAÇÃO DA REGRA GLOBAL (CORRIGIDA)
+        df['SUPERVISOR_CLEAN'] = df.apply(lambda row: padronizar_supervisor_linha(row, col_tecnico, col_sup), axis=1)
             
         col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
         if col_status_real:
@@ -383,7 +386,7 @@ elif st.session_state.idx == 1:
                             <div class="box-num">{qtd}</div>
                         </div>''', unsafe_allow_html=True)
 
-            # 🔥 CORREÇÃO DO ÁUDIO: Mudado de sups_abc para SUPS_ABC e de sups_sp para SUPS_SP
+            # ÁUDIO INTEGRADO NA FILA CERTA
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
                 script_cenario += f"limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
@@ -418,7 +421,7 @@ elif st.session_state.idx == 1:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 3: INDICADORES (FALTAS POR SUPERVISOR E BASE)
+# TELA 3: INDICADORES OPERACIONAIS
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
@@ -450,7 +453,7 @@ elif st.session_state.idx == 3:
                 df_produtivo = df_produtivo[df_produtivo['CONTRATO'] != '']
                 df_produtivo = df_produtivo.drop_duplicates(subset=['CONTRATO'])
 
-            # Motor de Mapeamento de Faltas Puras (Contém NÃO, NAO ou FALTA)
+            # Motor de Mapeamento de Faltas
             df_produtivo['FALTA_NR35'] = 0
             if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
             
@@ -460,11 +463,11 @@ elif st.session_state.idx == 3:
             df_produtivo['FALTA_BST'] = 0
             if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
 
-            df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(vincular_supervisor_tecnico_rotativo, axis=1)
+            # APLICAÇÃO DA REGRA GLOBAL (CORRIGIDA)
+            df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(lambda row: padronizar_supervisor_linha(row, col_recurso, col_sup), axis=1)
 
             c_abc, c_sp = st.columns(2)
             
-            # --- BLOCADOS DO ABC ---
             with c_abc:
                 st.markdown('<div class="ind-base-title abc">ABC</div>', unsafe_allow_html=True)
                 for sup in SUPS_ABC:
@@ -474,12 +477,10 @@ elif st.session_state.idx == 3:
                     f_bst = int(df_sup['FALTA_BST'].sum())
                     t_faltas = f_nr35 + f_cert + f_bst
                     
-                    nome_exibicao = obter_nome_visual(sup)
-                    
                     st.markdown(f'''
                     <div class="sup-card">
                         <div class="sup-header">
-                            <div class="sup-name">📋 {nome_exibicao}</div>
+                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                             <div class="badge-faltas">Total Faltas: {t_faltas}</div>
                         </div>
                         <div class="faltas-grid">
@@ -490,7 +491,6 @@ elif st.session_state.idx == 3:
                     </div>
                     ''', unsafe_allow_html=True)
 
-            # --- BLOCADOS DE SÃO PAULO ---
             with c_sp:
                 st.markdown('<div class="ind-base-title sp">SÃO PAULO</div>', unsafe_allow_html=True)
                 for sup in SUPS_SP:
@@ -500,12 +500,10 @@ elif st.session_state.idx == 3:
                     f_bst = int(df_sup['FALTA_BST'].sum())
                     t_faltas = f_nr35 + f_cert + f_bst
                     
-                    nome_exibicao = obter_nome_visual(sup)
-                    
                     st.markdown(f'''
                     <div class="sup-card">
                         <div class="sup-header">
-                            <div class="sup-name">📋 {nome_exibicao}</div>
+                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                             <div class="badge-faltas">Total Faltas: {t_faltas}</div>
                         </div>
                         <div class="faltas-grid">
