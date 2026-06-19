@@ -62,7 +62,6 @@ st.markdown("""<style>
     
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-    
     .sup-name { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; border: 1px solid #ffcdd2; }
     
@@ -79,7 +78,7 @@ st.markdown("""<style>
 
 # 🔥 SUPERVISORES OFICIAIS FIXOS
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
-SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS"]
+SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
 # =========================================================================
@@ -90,7 +89,7 @@ def obter_nome_visual(nome_completo):
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'EDSON' in n: return "EDSON MARCO"
-    if 'JOAO' in n or 'MIRON' in n: return "JOAO CARLOS"
+    if 'JOAO' in n or 'MIRON' in n: return "JOÃO CARLOS" # <--- ALTERADO AQUI
     if 'NELSON' in n: return "NELSON"
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
@@ -105,14 +104,14 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
         if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
         if "EDSON" in sup_orig: return "EDSON MARCO"
         if "NELSON" in sup_orig: return "NELSON"
-        if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS"
+        if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
         return sup_orig
 
     if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
     if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
     if "MARCOS" in nome_u: return "MARCOS ROBERTO"
     if "NELSON" in nome_u: return "NELSON"
-    if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS"
+    if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
     return "EDSON MARCO"
 
 # =========================================================================
@@ -133,7 +132,7 @@ if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = 
 
 minutos_agora = agora_br.hour * 60 + agora_br.minute
 
-# 🔕 1. FECHADURA DE ÁUDIO PARA ROTA (Telas 0, 1 e 2)
+# 🔕 1. FECHADURA DE ÁUDIO PARA ROTA (Telas 0 e 1) - O Relógio (Tela 2) fala sempre!
 permitir_audio_tec1 = False
 frase_incisiva = ""
 regras_audio_tec1 = [
@@ -329,7 +328,7 @@ elif st.session_state.idx == 0:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 1: CONTRATOS PENDENTES (TEC1 SUPERVISORES)
+# TELA 1: TEC1 (SUPERVISORES) 🔥 [TÍTULO ALTERADO]
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 1: 
 
@@ -353,9 +352,10 @@ elif st.session_state.idx == 1:
             label_janela = "TURNO COMPLETO"
             fala_janela = "do turno completo"
         
+        # 🔥 TÍTULO ALTERADO PARA "TEC1"
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">TEC 1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
+            <div class="topo-centro">TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
         
@@ -443,7 +443,7 @@ elif st.session_state.idx == 1:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 3: PRINT DOS INDICADORES 🔥 [FECHADURA E FRASE EXCLUSIVAS]
+# TELA 3: PRINT DOS INDICADORES
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
@@ -503,7 +503,7 @@ elif st.session_state.idx == 3:
 
             if st.session_state.novo_ciclo:
                 if permitir_audio_ind:
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do NR35, BAND STEERING e certidão de atendimento.', 0);</script>"
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores enviem os prints pendentes do NR35, BAND STEERING e certidão de atendimento.', 0);</script>"
                 else:
                     st.session_state.script_audio_atual = ""
                 st.session_state.novo_ciclo = False
@@ -512,7 +512,7 @@ elif st.session_state.idx == 3:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 2: HORÁRIO
+# TELA 2: HORÁRIO 🔥 [RELÓGIO FALA SEMPRE]
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 2:
     st.markdown(f'''<div class="topo-container">
@@ -525,11 +525,10 @@ elif st.session_state.idx == 2:
     st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
     
     if st.session_state.novo_ciclo:
-        if permitir_audio_tec1:
-            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva} Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
-        else:
-            st.session_state.script_audio_atual = ""
+        # A TELA DO RELÓGIO IGNORA AS FECHADURAS E FALA SEMPRE A HORA!
+        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
         st.session_state.novo_ciclo = False
+        
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 time.sleep(1)
