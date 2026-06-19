@@ -62,6 +62,7 @@ st.markdown("""<style>
     
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+    
     .sup-name { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; border: 1px solid #ffcdd2; }
     
@@ -76,7 +77,7 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# 🔥 ESTRUTURA BLINDADA DE SUPERVISORES DE EQUIPE
+# 🔥 SUPERVISORES OFICIAIS FIXOS
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
@@ -115,10 +116,8 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
     return "EDSON MARCO"
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS (COM FECHADURA DE ÁUDIO)
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS
 # =========================================================================
-# 0 = Técnicos na Base | 1 = Pendentes (TEC1) | 2 = Relógio | 3 = Print dos Indicadores | 4 = Tela Branca
-
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.last_main = 0   
@@ -132,16 +131,29 @@ antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30
 alerta_fim_janela = False
 if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = True
 
-# 🔕 FECHADURA DE ÁUDIO: Só permite falar nestas janelas de horário
+# 🔕 FECHADURA DE ÁUDIO E FRASES INCISIVAS (Novos Horários de Cobrança)
 minutos_agora = agora_br.hour * 60 + agora_br.minute
-janelas_audio = [
-    (10*60+30, 11*60),   # 10:30 até 11:00
-    (11*60+30, 12*60),   # 11:30 até 12:00
-    (13*60+30, 14*60),   # 13:30 até 14:00
-    (14*60+30, 15*60),   # 14:30 até 15:00
-    (17*60+30, 18*60)    # 17:30 até 18:00
+permitir_audio = False
+frase_incisiva = ""
+
+# Cada janela dura 15 minutos para garantir que o painel consiga rodar o áudio neste intervalo
+regras_audio = [
+    {"inicio": 11*60,      "fim": 11*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota. "},
+    {"inicio": 12*60,      "fim": 12*60 + 15, "frase": "Atenção. Fechamento de janela. "},
+    {"inicio": 12*60 + 30, "fim": 12*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela. "},
+    {"inicio": 14*60,      "fim": 14*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota. "},
+    {"inicio": 15*60,      "fim": 15*60 + 15, "frase": "Atenção. Fechamento de janela. "},
+    {"inicio": 15*60 + 30, "fim": 15*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela. "},
+    {"inicio": 16*60,      "fim": 16*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota. "},
+    {"inicio": 17*60,      "fim": 17*60 + 15, "frase": "Atenção. Fechamento de janela. "},
+    {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela. "}
 ]
-permitir_audio = any(inicio <= minutos_agora <= fim for inicio, fim in janelas_audio)
+
+for regra in regras_audio:
+    if regra["inicio"] <= minutos_agora <= regra["fim"]:
+        permitir_audio = True
+        frase_incisiva = regra["frase"]
+        break
 
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
@@ -297,7 +309,7 @@ elif st.session_state.idx == 0:
 
             if st.session_state.novo_ciclo:
                 if permitir_audio:
-                    script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
+                    script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva} Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
                 else:
                     script_cenario = ""
                 st.session_state.script_audio_atual = script_cenario
@@ -323,13 +335,10 @@ elif st.session_state.idx == 1:
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         if hora_atual < 12: 
             label_janela = "ATÉ 12:00"
-            fala_janela = "até as 12 horas"
         elif 12 <= hora_atual < 15: 
             label_janela = "ATÉ 15:00"
-            fala_janela = "até as 15 horas"
         else: 
             label_janela = "TURNO COMPLETO"
-            fala_janela = "do turno completo"
         
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
@@ -397,7 +406,7 @@ elif st.session_state.idx == 1:
                 if permitir_audio:
                     script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual = 0
-                    script_cenario += f"anunciarBase('Contratos pendentes {fala_janela}. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
+                    script_cenario += f"anunciarBase('{frase_incisiva} Contratos pendentes. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                     delay_atual += 7000
                     for i, sup_full in enumerate(SUPS_ABC):
                         qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
@@ -417,6 +426,8 @@ elif st.session_state.idx == 1:
                 st.session_state.script_audio_atual = script_cenario
                 st.session_state.novo_ciclo = False 
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
+        else: st.error("Coluna Status não encontrada.")
+    else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
 # TELA 3: PRINT DOS INDICADORES
@@ -479,7 +490,7 @@ elif st.session_state.idx == 3:
 
             if st.session_state.novo_ciclo:
                 if permitir_audio:
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Falta print dos indicadores.', 0);</script>"
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva} Atenção. Falta print dos indicadores.', 0);</script>"
                 else:
                     st.session_state.script_audio_atual = ""
                 st.session_state.novo_ciclo = False
@@ -502,7 +513,7 @@ elif st.session_state.idx == 2:
     
     if st.session_state.novo_ciclo:
         if permitir_audio:
-            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
+            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva} Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
         else:
             st.session_state.script_audio_atual = ""
         st.session_state.novo_ciclo = False
