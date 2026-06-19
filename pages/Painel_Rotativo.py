@@ -120,9 +120,9 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
     return "EDSON MARCO"
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS (ATUALIZADA COM TELA 5)
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS
 # =========================================================================
-# 0 = Técnicos na Base | 1 = Pendentes (TEC1) | 2 = Relógio | 3 = Indicadores | 4 = Tela Branca | 5 = Janelas de Serviço (Nova!)
+# 0 = Técnicos na Base | 1 = Pendentes (TEC1) | 2 = Relógio | 3 = Indicadores | 4 = Tela Branca | 5 = Janelas de Serviço
 
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
@@ -141,7 +141,7 @@ if st.session_state.idx == 0: espera = 60
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 5: espera = 45 # Tempo de exibição da nova tela de janelas
+elif st.session_state.idx == 5: espera = 45
 elif st.session_state.idx == 4: espera = 2 
 
 tempo_passado = time.time() - st.session_state.last_time
@@ -154,14 +154,12 @@ if tempo_passado > espera:
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
-        # Telas principais enviam para a transição branca (4)
         if st.session_state.idx in [1, 3, 5]:
             st.session_state.last_main = st.session_state.idx
             prox_idx = 4
         elif st.session_state.idx == 4: 
             prox_idx = 2
         elif st.session_state.idx == 2:
-            # Sequência lógica circular: 1 ➔ 3 ➔ 5 ➔ 1...
             if st.session_state.last_main == 1: prox_idx = 3
             elif st.session_state.last_main == 3: prox_idx = 5
             else: prox_idx = 1
@@ -300,7 +298,7 @@ elif st.session_state.idx == 0:
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # -------------------------------------------------------------------------
-# TELA 1: CONTRATOS PENDENTES (TEC1 SUPERVISORES) 🔥 [CORRIGIDA]
+# TELA 1: CONTRATOS PENDENTES (TEC1 SUPERVISORES)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 1: 
 
@@ -318,9 +316,10 @@ elif st.session_state.idx == 1:
         elif 12 <= hora_atual < 15: label_janela = "ATÉ 15:00"
         else: label_janela = "TURNO COMPLETO"
         
+        # 🔥 TAMANHO DA LABEL AUMENTADO AQUI 🔥
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONTRATOS PENDENTES <span style="font-size: 20px; vertical-align: middle; background: #ff9800; color: #fff; padding: 4px 12px; border-radius: 20px;">{label_janela}</span></div>
+            <div class="topo-centro">CONTRATOS PENDENTES <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
         
@@ -349,7 +348,6 @@ elif st.session_state.idx == 1:
                 elif 12 <= hora_atual < 15: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
                 else: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
                 
-                # Aplica a condição de forma estrita! (Sem fallback que puxa todos os contratos)
                 df_pendentes_geral = df_validos[condicao_horario & (df_validos['P_COUNT'] > 0)].copy()
             else:
                 if not df_validos.empty:
@@ -403,12 +401,12 @@ elif st.session_state.idx == 1:
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # -------------------------------------------------------------------------
-# TELA 3: INDICADORES (FALTAS EM CONTRATOS PRODUTIVOS)
+# TELA 3: PRINT DOS INDICADORES 🔥 [TÍTULO E ÁUDIO ATUALIZADOS]
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">INDICADORES OPERACIONAIS</div>
+        <div class="topo-centro">PRINT DOS INDICADORES</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
@@ -462,12 +460,12 @@ elif st.session_state.idx == 3:
                         <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Apresentando o resumo de faltas de conformidade por supervisor.', 0);</script>"
+                st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção. Falta print dos indicadores.', 0);</script>"
                 st.session_state.novo_ciclo = False
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 # -------------------------------------------------------------------------
-# TELA 5: NOVA TELA DE CONTRATOS PENDENTES POR JANELA DE SERVIÇO 🔥
+# TELA 5: TELA DE CONTRATOS PENDENTES POR JANELA DE SERVIÇO
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 5:
     st.markdown(f'''<div class="topo-container">
