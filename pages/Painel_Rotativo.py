@@ -426,7 +426,7 @@ elif st.session_state.idx == 1:
 elif st.session_state.idx == 3:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">INDICADORES OPERACIONAIS</div>
+        <div class="topo-centro">PRINT DE INDICADORES</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
