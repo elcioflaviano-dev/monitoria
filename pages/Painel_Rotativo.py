@@ -58,6 +58,15 @@ st.markdown("""<style>
     .box-nome { font-size: 18px; font-weight: 900; color: #003366; text-transform: uppercase;}
     .box-num { font-size: 65px; font-weight: 900; color: #cc6600; line-height: 1; }
     
+    /* CSS DOS INDICADORES */
+    .kpi-container-ind { display: flex; justify-content: center; gap: 30px; margin-top: 50px; }
+    .kpi-card-ind { background-color: #f8f9fa; border-radius: 10px; padding: 25px 35px; text-align: center; min-width: 300px; border: 1px solid #e0e0e0; box-shadow: 2px 4px 10px rgba(0,0,0,0.05); }
+    .kpi-card-ind.nr35 { border-bottom: 8px solid #008080; }
+    .kpi-card-ind.cert { border-bottom: 8px solid #005088; }
+    .kpi-card-ind.bst { border-bottom: 8px solid #b30000; }
+    .ind-title { font-size: 22px; color: #555; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;}
+    .ind-value { font-size: 70px; font-weight: 900; color: #111; margin-top: 5px; }
+    
     .destaque-ativo { transform: scale(1.30) !important; box-shadow: 0px 25px 45px rgba(204, 102, 0, 0.6) !important; border-left: 20px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
@@ -66,11 +75,7 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# LISTAS FIXAS
-LISTA_SP_FIXA = ["ABNER MAKALAS MARTINS PAULINO", "ADRIANO JOSE DE OLIVEIRA", "ALYSON CAMPOS ANDRADE", "ANTONIO CICERO PEREIRA DA SILVA", "BRUNO CARLOS COUTO CRUZ", "BRUNO MIRANDA SANTOS", "CARLIELTON FERREIRA SANTOS", "CLAYTON IONAMINE", "Edcarlos Pereira de Jesus", "GETULIO DOS SANTOS CAFE", "Glemerson Lima De Souza", "GUILHERME DE OLIVEIRA DANTAS", "ILTON OLIVEIRA CORREIA", "ISAQUE INACIO BARRETO MENDONCA", "JANAILSON RICARDO FERREIRA DOS SANTOS", "JHONNY DORNELLES DE ALMEIDA", "JOSE CARLOS DA SILVA SANTOS", "LUCAS DE OLIVEIRA SANTOS", "MARCOS VINICIUS BARRETO", "NICHOLAS CZAR LEITAO SANTOS", "RAFAEL GOMES PEREIRA", "RINALDO ANTONIO DA SILVA JUNIOR", "THIAGO ARAUJO SANTOS", "VICENTE RODRIGUES DOS SANTOS", "VINICIUS ARAUJO DA SILVA", "VINICIUS SILVA FARIAS", "VITORIA FERREIRA", "Alan Cesar Cardoso", "ALEXANDRE ROGERIO GONCALVES DE MACEDO", "BARBARA CRISTINA DOS SANTOS PINTO", "BRUNA DA SILVA GOMES FERREIRA", "DOUGLAS WILLIAM SANTOS", "EMERSON DA SILVA", "FABIO OLIVEIRA CAMPOS FARIAS", "FABIO XAVIER CATAO", "FELIPE DE SOUZA OLIVEIRA", "FERNANDO LOPES", "FRANCISCO ALVES FILHO", "FRANKLIM ALVES MAIA", "GUILHERME SILVA DIAS CASTRO", "HELVIO STAFF", "JOAO CARLOS MIRON", "JOSE MARCIO DA SILVA VELOSO", "LUCAS FREIRIA PINTO", "MANOELA MIRANDA", "MATHEUS DOS SANTOS OLIVEIRA", "PEDRO LUIZ FEREEIRA CORREA", "PEDRO OLIVEIRA CARLOS DA SILVA", "RAFAELA SANTOS SILVA", "ROBSON SANTIAGO DA LUZ", "TIAGO MEIRA DA SILVA", "VALMIR RAMOS", "VITOR OLIVEIRA DA SILVA", "WELLINGTON GOMES DE OLIVEIRA", "TAILSON JUAN SANTOS DA CONCEICAO", "DIEGO FRAGOSO DE BRITO", "ALYSON ALBERTO MARTINS", "AUGUSTO MOREIRA DA SILVA", "ENDERSON CLEITON SOUZA CRUZ", "CARLOS SEBASTIAO MORAIS", "EZIEL DE OLIVEIRA BARROS", "VICTOR BORGES ALVES", "MATHEUS CARDOSO DE OLIVEIRA", "ROGERIO AFONSO DA SILVA", "KAIO NASCIMENTO ALVES DOS SANTOS", "KELVIN RIBEIRO BENTO DA COSTA", "MARCELO BUENO SEGURA", "MAYKON RIBEIRO GUIMARAES", "THIAGO JOSE ASSUNCAO", "GUSTAVO SANTOS SANT ANA"]
-LISTA_ABC_FIXA = ["ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA", "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS", "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "AUGUSTO ERNANDES DA SILVA", "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS", "DANIEL SOUZA OLIVEIRA", "DANILO FERREIRA LIMA", "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES", "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES", "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA", "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA", "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRADAO BASTOS", "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME", "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS", "LUCAS SILVA DE LIMA", "LUIS HENRIQUE GOMES DA SILVA", "MARCOS VINICIUS OLIVEIRA GOVEIA", "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA", "OSCLEY FRANCA DE SOUSA", "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO", "RENATO FUTRO ROSSI", "PAULO CESAR BATISTA DE SOUSA", "RAFAEL DOS ANJOS BATISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", "RICARDO SANTOS", "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", "SILAS DA SILVA NASCIMENTO", "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", "DANIEL AUGUSTO PEREIRA", "JULIO CESAR SILVA DOS SANTOS", "EDER SALES MONTEIRO", "ANTONIO WESLEY HOLANDA DA SILVA", "MAICON JORDAN PEDRO SANTOS GARCEZ", "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "ALEX DE JESUS FREIRE", "ANTHONY HULLY PEREIRA DIAS", "ANTONIO CHARLES MARINHO", "ARLAN DUARTE NASCIMENTO", "EVERTON ALVES", "IGOR DAVID DE MARCHI", "JAZIEL DOS SANTOS SILVA", "KAUAN PASCHOAL", "LUCAS SILVA SOBRINHO", "NICOLAS CALEGARI STARCHARVSKI", "RENATO ESPERANÇA", "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", "VITOR MATOS DE ALMEIDA"]
-
-# LEITURA DE SUPERVISORES DIRETAMENTE DO CSV LOCAL 🚀
+# LEITURA DE SUPERVISORES E DADOS DINÂMICOS DIRETAMENTE DO CSV LOCAL 🚀
 SUPERVISORES = []
 if os.path.exists(ARQUIVO_ROTA_DISCO):
     try:
@@ -79,11 +84,16 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
         
         col_sup = next((c for c in df_temp.columns if 'SUPERVISOR' in c), None)
         if col_sup:
-            # Extrai supervisores únicos (Ignora vazios ou 'NÃO IDENTIFICADO')
             supervisores_brutos = df_temp[col_sup].dropna().unique().tolist()
             SUPERVISORES = sorted([str(s).strip().upper() for s in supervisores_brutos if str(s).strip().upper() not in ["", "NAN", "N/A", "NÃO IDENTIFICADO"]])
     except Exception:
         pass
+
+def padronizar_supervisor(nome):
+    n = str(nome).upper().strip()
+    for s in SUPERVISORES:
+        if s in n or n in s: return s
+    return n
 
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
@@ -94,6 +104,13 @@ def obter_nome_visual(nome_completo):
 # =========================================================================
 # ⚙️ MÁQUINA DE TEMPO E ESTADOS INTELIGENTE
 # =========================================================================
+# Telas Disponíveis: 
+# 0 = Técnicos na Base
+# 1 = Pendentes
+# 2 = Relógio
+# 3 = Indicadores (Nova!)
+# 4 = Tela Branca
+
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.last_main = 0   
@@ -102,28 +119,22 @@ if "idx" not in st.session_state:
     st.session_state.script_audio_atual = ""
 
 agora_br = datetime.utcnow() - timedelta(hours=3)
-
-# REGRAS DE HORÁRIO
 antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
 
-# ACELERADOR RUSH
 alerta_fim_janela = False
 if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: 
     alerta_fim_janela = True
 
 # ⏳ TEMPO DE CADA TELA
-if st.session_state.idx == 0: 
-    espera = 60 # Técnicos na Base
-elif st.session_state.idx == 1: 
-    espera = 30 if alerta_fim_janela else 60 # Pendentes
-elif st.session_state.idx == 2:
-    espera = 30 if alerta_fim_janela else 180 # Relógio
-elif st.session_state.idx == 4:
-    espera = 2 # TELA BRANCA DE LIMPEZA
+if st.session_state.idx == 0: espera = 60 # Técnicos na Base
+elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 # Pendentes
+elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 # Relógio
+elif st.session_state.idx == 3: espera = 45 # Indicadores
+elif st.session_state.idx == 4: espera = 2 # Tela Branca
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# 🔄 ROTADOR COM TELA BRANCA DE TRANSIÇÃO
+# 🔄 ROTADOR LÓGICO
 if tempo_passado > espera:
     if antes_0830:
         if st.session_state.idx == 0:
@@ -132,20 +143,25 @@ if tempo_passado > espera:
         else:
             prox_idx = 0
     else:
-        if st.session_state.idx in [0, 1]:
+        # Telas de dados vão para a tela branca
+        if st.session_state.idx in [0, 1, 3]:
             st.session_state.last_main = st.session_state.idx
             prox_idx = 4
+        # Tela branca vai sempre para o Relógio
         elif st.session_state.idx == 4:
             prox_idx = 2
+        # Relógio decide qual será a próxima tela de dados
         elif st.session_state.idx == 2:
-            prox_idx = 0 if st.session_state.last_main == 1 else 1
+            if st.session_state.last_main == 0: prox_idx = 1
+            elif st.session_state.last_main == 1: prox_idx = 3
+            else: prox_idx = 0
             
     st.session_state.idx = prox_idx
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.rerun()
 
-# 🔊 MOTOR DE ÁUDIO
+# 🔊 MOTOR DE ÁUDIO JS (MANTIDO)
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -208,13 +224,13 @@ function animarSupervisor(texto, delay, index, totalSup) {
 # TELAS
 # =========================================================================
 
-# TELA 4: A TELA BRANCA DE LIMPEZA
+# TELA 4: TELA BRANCA
 if st.session_state.idx == 4:
     st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
     st.components.v1.html("", height=0)
 
 # -------------------------------------------------------------------------
-# TELA 0: TÉCNICOS NA BASE
+# TELA 0: TÉCNICOS NA BASE (Dinâmico sem lista fixa)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 0:
     st.markdown(f'''<div class="topo-container">
@@ -225,11 +241,12 @@ elif st.session_state.idx == 0:
 
     if os.path.exists(ARQUIVO_ROTA_DISCO):
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
-        df.columns = [str(c).strip() for c in df.columns]
+        df.columns = [str(c).strip().upper() for c in df.columns]
         
-        col_recurso = next((c for c in df.columns if 'RECURSO' in c.upper() or 'NOME' in c.upper()), df.columns[0])
-        col_status = next((c for c in df.columns if 'STATUS' in c.upper()), None)
-        col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c.upper() or 'TIPO DE ATIVIDADE 3' in c.upper()), None)
+        col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
+        col_status = next((c for c in df.columns if 'STATUS' in c), None)
+        col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
+        col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
 
         if col_status:
             mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend')
@@ -237,17 +254,21 @@ elif st.session_state.idx == 0:
             if col_tipo_exata:
                 mask_base = df[col_tipo_exata].fillna('').astype(str).str.strip().str.lower() == 'na base'
             else:
-                cols_tipo = [c for c in df.columns if 'TIPO' in c.upper()]
+                cols_tipo = [c for c in df.columns if 'TIPO' in c]
                 mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.strip().str.lower() == 'na base').any(axis=1)
 
             df_tela = df[mask_base & mask_status].copy()
-            nomes_na_base = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
             
-            lista_sp = [n.upper() for n in LISTA_SP_FIXA]
-            lista_abc = [n.upper() for n in LISTA_ABC_FIXA]
+            # Aplica inteligência do Supervisor para separar ABC e SP
+            if col_sup:
+                df_tela['SUP_CLEAN'] = df_tela[col_sup].apply(padronizar_supervisor)
+            else:
+                df_tela['SUP_CLEAN'] = ''
+
+            cond_sp = df_tela['SUP_CLEAN'].str.contains('ALAN|FRANCISCO|JOAO', na=False)
             
-            nomes_abc = [n for n in nomes_na_base if n in lista_abc or n not in lista_sp]
-            nomes_sp = [n for n in nomes_na_base if n in lista_sp]
+            nomes_sp = sorted([str(n).strip().upper() for n in df_tela[cond_sp][col_recurso].dropna().unique()])
+            nomes_abc = sorted([str(n).strip().upper() for n in df_tela[~cond_sp][col_recurso].dropna().unique()])
 
             c1, c2, c3, c4 = st.columns(4)
             mid_abc = (len(nomes_abc) + 1) // 2
@@ -266,7 +287,6 @@ elif st.session_state.idx == 0:
                 st.markdown('<h3 style="color:#c62828;">🏙️ SP (2/2)</h3>', unsafe_allow_html=True)
                 for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
-            # Aciona o áudio caso seja um novo ciclo
             if st.session_state.novo_ciclo:
                 script_cenario = f"<script>{JS_MOTOR_AUDIO}"
                 texto_fala = f"Atenção. Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo."
@@ -291,20 +311,15 @@ elif st.session_state.idx == 1:
 
     if os.path.exists(ARQUIVO_ROTA_DISCO):
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
-        df.columns = [str(c).strip() for c in df.columns]
+        df.columns = [str(c).strip().upper() for c in df.columns]
         
-        def padronizar_supervisor(nome):
-            n = str(nome).upper().strip()
-            for s in SUPERVISORES:
-                if s in n or n in s: return s
-            return n
-        
-        if 'SUPERVISOR' in df.columns:
-            df['SUPERVISOR_CLEAN'] = df['SUPERVISOR'].apply(padronizar_supervisor)
+        col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+        if col_sup:
+            df['SUPERVISOR_CLEAN'] = df[col_sup].apply(padronizar_supervisor)
         else:
             df['SUPERVISOR_CLEAN'] = 'NÃO IDENTIFICADO'
             
-        col_status_real = next((c for c in df.columns if 'STATUS' in c.upper()), None)
+        col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
         if col_status_real:
             df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
             df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
@@ -315,7 +330,7 @@ elif st.session_state.idx == 1:
             
             col_janela = None
             for c in df_validos.columns:
-                if 'JANELA' in str(c).upper() or 'INTERVALO' in str(c).upper():
+                if 'JANELA' in str(c) or 'INTERVALO' in str(c):
                     col_janela = c
                     break
 
@@ -336,9 +351,10 @@ elif st.session_state.idx == 1:
                 if df_pendentes_geral.empty and df_base_janela.empty: df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
             else: df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
 
-            if 'Contrato' in df_pendentes_geral.columns and not df_pendentes_geral.empty:
-                df_pendentes_geral['Contrato'] = df_pendentes_geral['Contrato'].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
-                df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=['Contrato'])
+            col_contrato = next((c for c in df_pendentes_geral.columns if 'CONTRATO' in c), None)
+            if col_contrato and not df_pendentes_geral.empty:
+                df_pendentes_geral[col_contrato] = df_pendentes_geral[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
+                df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
 
             cond_sp = df_pendentes_geral['SUPERVISOR_CLEAN'].str.contains('ALAN|FRANCISCO|JOAO', na=False) 
             qtd_sp = len(df_pendentes_geral[cond_sp])
@@ -382,6 +398,69 @@ elif st.session_state.idx == 1:
                             <div class="box-num">{qtd_pendentes}</div>
                         </div>''', unsafe_allow_html=True)
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
+        else:
+            st.error("Coluna Status não encontrada.")
+    else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+# -------------------------------------------------------------------------
+# TELA 3: INDICADORES
+# -------------------------------------------------------------------------
+elif st.session_state.idx == 3:
+    st.markdown(f'''<div class="topo-container">
+        <div class="topo-esquerda">{logo_html}</div>
+        <div class="topo-centro">INDICADORES DE CONFORMIDADE</div>
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+    </div>''', unsafe_allow_html=True)
+
+    if os.path.exists(ARQUIVO_ROTA_DISCO):
+        df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+        df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
+        
+        col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
+        col_recurso = next((c for c in df_ind.columns if 'RECURSO' in c or 'NOME' in c), df_ind.columns[0])
+        col_nr35 = next((c for c in reversed(df_ind.columns) if 'NR35' in c or 'NR-35' in c), None)
+        col_cert = next((c for c in reversed(df_ind.columns) if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
+        col_bst  = next((c for c in reversed(df_ind.columns) if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
+
+        if col_status:
+            status_upper = df_ind[col_status].fillna('').astype(str).str.upper()
+            df_prod = df_ind[status_upper.str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
+            
+            # Remove duplicados para calcular o % corretamente por técnico único
+            df_tec = df_prod.drop_duplicates(subset=[col_recurso]).copy()
+            total_tecnicos = len(df_tec) if len(df_tec) > 0 else 1
+
+            pct_nr35, pct_cert, pct_bst = 0, 0, 0
+            if col_nr35: pct_nr35 = (len(df_tec[df_tec[col_nr35].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos) * 100
+            if col_cert: pct_cert = (len(df_tec[df_tec[col_cert].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos) * 100
+            if col_bst:  pct_bst = (len(df_tec[df_tec[col_bst].fillna('').astype(str).str.upper().str.strip() == 'SIM']) / total_tecnicos) * 100
+
+            st.markdown(f'''
+                <div class="kpi-container-ind">
+                    <div class="kpi-card-ind nr35">
+                        <div class="ind-title">🪜 NR35</div>
+                        <div class="ind-value">{pct_nr35:.0f}%</div>
+                    </div>
+                    <div class="kpi-card-ind cert">
+                        <div class="ind-title">📜 Certidão</div>
+                        <div class="ind-value">{pct_cert:.0f}%</div>
+                    </div>
+                    <div class="kpi-card-ind bst">
+                        <div class="ind-title">📶 BST</div>
+                        <div class="ind-value">{pct_bst:.0f}%</div>
+                    </div>
+                </div>
+            ''', unsafe_allow_html=True)
+            
+            if st.session_state.novo_ciclo:
+                script_cenario = f"<script>{JS_MOTOR_AUDIO}"
+                texto_hora = f"Apresentando indicadores operacionais gerais."
+                script_cenario += f"anunciarBase('{texto_hora}', 0);\n"
+                script_cenario += f"\n// TIMESTAMP_RUN: {time.time()}\n</script>"
+                st.session_state.script_audio_atual = script_cenario
+                st.session_state.novo_ciclo = False
+                
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else:
             st.error("Coluna Status não encontrada.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
