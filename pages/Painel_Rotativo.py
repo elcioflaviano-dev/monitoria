@@ -43,7 +43,7 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* CAIXAS DE BASE E SUPERVISORES (TEC1 PENDENTES) */
+    /* CAIXAS DE BASE E SUPERVISORES */
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
     .box-base-sp { background: #e0f2f1; border-left: 10px solid #00897b; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
     .nome-base { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase;}
@@ -55,7 +55,7 @@ st.markdown("""<style>
     
     .destaque-ativo { transform: scale(1.15) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.5) !important; border-left: 12px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CSS DOS INDICADORES DE FALTAS REAIS */
+    /* CSS DOS INDICADORES */
     .ind-base-title { font-size: 24px; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
     .ind-base-title.abc { color: #008080; }
     .ind-base-title.sp { color: #b30000; }
@@ -108,6 +108,7 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
         if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
         return sup_orig
 
+    # BLINDAGEM INFALÍVEL PARA QUANDO O EXCEL VEM SEM SUPERVISOR (Muito útil para TELA 0)
     if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
     if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
     if "MARCOS" in nome_u: return "MARCOS ROBERTO"
@@ -116,7 +117,7 @@ def padronizar_supervisor_linha(row, col_nome, col_sup):
     return "EDSON MARCO"
 
 # =========================================================================
-# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS (COM FECHADURAS INDEPENDENTES)
+# ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS
 # =========================================================================
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
@@ -133,9 +134,23 @@ if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = 
 
 minutos_agora = agora_br.hour * 60 + agora_br.minute
 
-# 🔕 1. FECHADURA DE ÁUDIO EXCLUSIVA PARA TEC1 (Telas 0 e 1)
+# 🔕 1. FECHADURA DE ÁUDIO PARA TÉCNICOS EM BASE (Tela 0 - Manhã)
+permitir_audio_base = False
+frase_incisiva_base = ""
+regras_audio_base = [
+    {"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."},
+    {"inicio": 8*60,      "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."},
+    {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
+]
+for regra in regras_audio_base:
+    if regra["inicio"] <= minutos_agora <= regra["fim"]:
+        permitir_audio_base = True
+        frase_incisiva_base = regra["frase"]
+        break
+
+# 🔕 2. FECHADURA DE ÁUDIO PARA TEC1 PENDENTES (Tela 1 - Durante o dia)
 permitir_audio_tec1 = False
-frase_incisiva = ""
+frase_incisiva_tec1 = ""
 regras_audio_tec1 = [
     {"inicio": 11*60,      "fim": 11*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
     {"inicio": 12*60,      "fim": 12*60 + 15, "frase": "Atenção. Fechamento de janela."},
@@ -147,14 +162,13 @@ regras_audio_tec1 = [
     {"inicio": 17*60,      "fim": 17*60 + 15, "frase": "Atenção. Fechamento de janela."},
     {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."}
 ]
-
 for regra in regras_audio_tec1:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_tec1 = True
-        frase_incisiva = regra["frase"]
+        frase_incisiva_tec1 = regra["frase"]
         break
 
-# 🔕 2. FECHADURA DE ÁUDIO EXCLUSIVA PARA INDICADORES (Tela 3)
+# 🔕 3. FECHADURA DE ÁUDIO EXCLUSIVA PARA INDICADORES (Tela 3)
 permitir_audio_ind = False
 regras_audio_ind = [
     (13*60, 13*60 + 15), # 13:00 as 13:15
@@ -169,6 +183,7 @@ for inicio, fim in regras_audio_ind:
 badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇 ÁUDIO EM ESPERA</span>'
 badge_ativo = '<span style="font-size: 14px; vertical-align: middle; background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔊 ÁUDIO ATIVO</span>'
 
+html_audio_base = badge_ativo if permitir_audio_base else badge_mudo
 html_audio_tec1 = badge_ativo if permitir_audio_tec1 else badge_mudo
 html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
@@ -271,12 +286,12 @@ if st.session_state.idx == 4:
     st.components.v1.html("", height=0)
 
 # -------------------------------------------------------------------------
-# TELA 0: TÉCNICOS NA BASE
+# TELA 0: TÉCNICOS NA BASE (ATUALIZADA COM O CORRETOR DE SUPERVISOR)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 0:
     st.markdown(f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">🚀 TÉCNICOS EM BASE {html_audio_tec1}</div>
+        <div class="topo-centro">🚀 TÉCNICOS EM BASE {html_audio_base}</div>
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
@@ -297,12 +312,9 @@ elif st.session_state.idx == 0:
 
             df_tela = df[mask_base & mask_status].copy()
             
-            def mapear_base_interna(row):
-                s = str(row.get(col_sup, '')).upper()
-                if "ALAN" in s or "FRANCISCO" in s or "JOAO" in s or "MIRON" in s: return "SP"
-                return "ABC"
-            
-            df_tela['BASE_REGIAO'] = df_tela.apply(mapear_base_interna, axis=1)
+            # Aplica o corretor inteligente para evitar que todos caiam no ABC
+            df_tela['SUPERVISOR_CLEAN'] = df_tela.apply(lambda row: padronizar_supervisor_linha(row, col_recurso, col_sup), axis=1)
+            df_tela['BASE_REGIAO'] = df_tela['SUPERVISOR_CLEAN'].apply(lambda s: "SP" if s in SUPS_SP else "ABC")
             
             nomes_sp = sorted([str(n).strip().upper() for n in df_tela[df_tela['BASE_REGIAO'] == 'SP'][col_recurso].dropna().unique()])
             nomes_abc = sorted([str(n).strip().upper() for n in df_tela[df_tela['BASE_REGIAO'] == 'ABC'][col_recurso].dropna().unique()])
@@ -325,8 +337,8 @@ elif st.session_state.idx == 0:
                 for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
             if st.session_state.novo_ciclo:
-                if permitir_audio_tec1:
-                    script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva} Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
+                if permitir_audio_base:
+                    script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
                 else:
                     script_cenario = ""
                 st.session_state.script_audio_atual = script_cenario
@@ -426,7 +438,7 @@ elif st.session_state.idx == 1:
                 if permitir_audio_tec1:
                     script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                     delay_atual = 0
-                    script_cenario += f"anunciarBase('{frase_incisiva} Contratos pendentes {fala_janela}. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
+                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                     delay_atual += 7000
                     for i, sup_full in enumerate(SUPS_ABC):
                         qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
@@ -519,7 +531,7 @@ elif st.session_state.idx == 3:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 2: HORÁRIO (RELÓGIO - ÁUDIO SEMPRE ATIVO)
+# TELA 2: HORÁRIO
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 2:
     st.markdown(f'''<div class="topo-container">
