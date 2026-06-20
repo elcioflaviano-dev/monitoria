@@ -43,7 +43,7 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* CAIXAS DE BASE E SUPERVISORES */
+    /* CAIXAS DE BASE E SUPERVISORES (TEC1 PENDENTES) */
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
     .box-base-sp { background: #e0f2f1; border-left: 10px solid #00897b; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 15px; }
     .nome-base { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase;}
@@ -55,14 +55,13 @@ st.markdown("""<style>
     
     .destaque-ativo { transform: scale(1.15) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.5) !important; border-left: 12px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CSS DOS INDICADORES */
+    /* CSS DOS INDICADORES DE FALTAS REAIS */
     .ind-base-title { font-size: 24px; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
     .ind-base-title.abc { color: #008080; }
     .ind-base-title.sp { color: #b30000; }
     
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-    
     .sup-name { font-size: 24px; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; border: 1px solid #ffcdd2; }
     
@@ -82,9 +81,6 @@ SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
-# =========================================================================
-# FUNÇÕES GLOBAIS DE MAPEAMENTO E HIGIENIZAÇÃO
-# =========================================================================
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
     if 'FRANCISCO' in n: return "FRANCISCO"
@@ -94,27 +90,6 @@ def obter_nome_visual(nome_completo):
     if 'NELSON' in n: return "NELSON"
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
-
-def padronizar_supervisor_linha(row, col_nome, col_sup):
-    nome_u = str(row.get(col_nome, '')).upper().strip()
-    sup_orig = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-    
-    if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0', '-']:
-        if "ALAN" in sup_orig: return "ALAN"
-        if "FRANCISCO" in sup_orig: return "FRANCISCO"
-        if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
-        if "EDSON" in sup_orig: return "EDSON MARCO"
-        if "NELSON" in sup_orig: return "NELSON"
-        if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
-        return sup_orig
-
-    # BLINDAGEM INFALÍVEL PARA QUANDO O EXCEL VEM SEM SUPERVISOR (Muito útil para TELA 0)
-    if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
-    if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
-    if "MARCOS" in nome_u: return "MARCOS ROBERTO"
-    if "NELSON" in nome_u: return "NELSON"
-    if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
-    return "EDSON MARCO"
 
 # =========================================================================
 # ⚙️ MÁQUINA DE TEMPO E ESTADOS ROTATIVOS
@@ -179,7 +154,7 @@ for inicio, fim in regras_audio_ind:
         permitir_audio_ind = True
         break
 
-# LABELS VISUAIS PARA AJUDAR NA COMPREENSÃO DE QUANDO O ÁUDIO ESTÁ ATIVO
+# LABELS VISUAIS
 badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇 ÁUDIO EM ESPERA</span>'
 badge_ativo = '<span style="font-size: 14px; vertical-align: middle; background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔊 ÁUDIO ATIVO</span>'
 
@@ -286,7 +261,7 @@ if st.session_state.idx == 4:
     st.components.v1.html("", height=0)
 
 # -------------------------------------------------------------------------
-# TELA 0: TÉCNICOS NA BASE (ATUALIZADA COM O CORRETOR DE SUPERVISOR)
+# TELA 0: TÉCNICOS NA BASE (COM INTELIGÊNCIA DE MAPEAMENTO)
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 0:
     st.markdown(f'''<div class="topo-container">
@@ -299,9 +274,9 @@ elif st.session_state.idx == 0:
         df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
         df.columns = [str(c).strip().upper() for c in df.columns]
         col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
+        col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
         col_status = next((c for c in df.columns if 'STATUS' in c), None)
         col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
-        col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
 
         if col_status:
             mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend')
@@ -310,11 +285,43 @@ elif st.session_state.idx == 0:
                 cols_tipo = [c for c in df.columns if 'TIPO' in c]
                 mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.strip().str.lower() == 'na base').any(axis=1)
 
+            # 🔥 INTELIGÊNCIA DE MAPEAMENTO DINÂMICO
+            mapa_tecnico_sup = {}
+            if col_sup and col_recurso:
+                for _, row in df.dropna(subset=[col_recurso, col_sup]).iterrows():
+                    tec = str(row[col_recurso]).upper().strip()
+                    sup = str(row[col_sup]).upper().strip()
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup:
+                            mapa_tecnico_sup[tec] = oficial
+                            break
+
+            def resolver_supervisor(row):
+                tec = str(row.get(col_recurso, '')).upper().strip()
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup: return oficial
+                return mapa_tecnico_sup.get(tec, "NÃO IDENTIFICADO")
+
             df_tela = df[mask_base & mask_status].copy()
+            df_tela['SUPERVISOR_CLEAN'] = df_tela.apply(resolver_supervisor, axis=1)
             
-            # Aplica o corretor inteligente para evitar que todos caiam no ABC
-            df_tela['SUPERVISOR_CLEAN'] = df_tela.apply(lambda row: padronizar_supervisor_linha(row, col_recurso, col_sup), axis=1)
-            df_tela['BASE_REGIAO'] = df_tela['SUPERVISOR_CLEAN'].apply(lambda s: "SP" if s in SUPS_SP else "ABC")
+            # Última barreira de verificação pela Cidade/Região
+            col_cidade = next((c for c in df.columns if 'CIDADE' in c), None)
+            col_regiao = next((c for c in df.columns if 'REGIAO' in c or 'REGIÃO' in c or 'BASE' in c), None)
+
+            def definir_regiao(row):
+                sup = row.get('SUPERVISOR_CLEAN', '')
+                if sup in SUPS_SP: return "SP"
+                if sup in SUPS_ABC: return "ABC"
+                
+                cid = str(row.get(col_cidade, '')).upper() if col_cidade else ''
+                reg = str(row.get(col_regiao, '')).upper() if col_regiao else ''
+                if 'SP' in cid or 'SÃO PAULO' in cid or 'SAO PAULO' in cid: return "SP"
+                if 'SP' == reg or 'SÃO PAULO' in reg or 'SAO PAULO' in reg: return "SP"
+                return "ABC" # Fallback global
+            
+            df_tela['BASE_REGIAO'] = df_tela.apply(definir_regiao, axis=1)
             
             nomes_sp = sorted([str(n).strip().upper() for n in df_tela[df_tela['BASE_REGIAO'] == 'SP'][col_recurso].dropna().unique()])
             nomes_abc = sorted([str(n).strip().upper() for n in df_tela[df_tela['BASE_REGIAO'] == 'ABC'][col_recurso].dropna().unique()])
@@ -358,7 +365,24 @@ elif st.session_state.idx == 1:
         col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
         col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
         
-        df['SUPERVISOR_CLEAN'] = df.apply(lambda row: padronizar_supervisor_linha(row, col_tecnico, col_sup), axis=1)
+        mapa_tecnico_sup = {}
+        if col_sup and col_tecnico:
+            for _, row in df.dropna(subset=[col_tecnico, col_sup]).iterrows():
+                tec = str(row[col_tecnico]).upper().strip()
+                sup = str(row[col_sup]).upper().strip()
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup:
+                        mapa_tecnico_sup[tec] = oficial
+                        break
+
+        def resolver_supervisor(row):
+            tec = str(row.get(col_tecnico, '')).upper().strip()
+            sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+            for oficial in SUPERVISORES_ORDENADOS:
+                if oficial in sup: return oficial
+            return mapa_tecnico_sup.get(tec, "NÃO IDENTIFICADO")
+
+        df['SUPERVISOR_CLEAN'] = df.apply(resolver_supervisor, axis=1)
         col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
         
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
@@ -497,7 +521,24 @@ elif st.session_state.idx == 3:
             df_produtivo['FALTA_BST'] = 0
             if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
 
-            df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(lambda row: padronizar_supervisor_linha(row, col_recurso, col_sup), axis=1)
+            mapa_tecnico_sup = {}
+            if col_sup and col_recurso:
+                for _, row in df_ind.dropna(subset=[col_recurso, col_sup]).iterrows():
+                    tec = str(row[col_recurso]).upper().strip()
+                    sup = str(row[col_sup]).upper().strip()
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup:
+                            mapa_tecnico_sup[tec] = oficial
+                            break
+
+            def resolver_supervisor(row):
+                tec = str(row.get(col_recurso, '')).upper().strip()
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup: return oficial
+                return mapa_tecnico_sup.get(tec, "NÃO IDENTIFICADO")
+
+            df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
             c_abc, c_sp = st.columns(2)
             with c_abc:
