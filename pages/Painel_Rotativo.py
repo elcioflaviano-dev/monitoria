@@ -92,7 +92,6 @@ def obter_nome_visual(nome_completo):
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
 
-# Relógio e estados do Carrossel
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.last_main = 0   
@@ -105,7 +104,6 @@ alerta_fim_janela = False
 if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = True
 minutos_agora = agora_br.hour * 60 + agora_br.minute
 
-# Configuração de Fechamento de Áudio
 permitir_audio_base = False
 frase_incisiva_base = ""
 regras_audio_base = [
@@ -140,8 +138,8 @@ for regra in regras_audio_tec1:
 
 permitir_audio_ind = False
 regras_audio_ind = [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]
-for inicio, fim in regras_audio_ind:
-    if inicio <= minutos_agora <= fim:
+for inicio, f in regras_audio_ind:
+    if inicio <= minutos_agora <= f:
         permitir_audio_ind = True
         break
 
@@ -154,21 +152,20 @@ html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 5: espera = 60 # Tempo do Consultivo
-elif st.session_state.idx == 3: espera = 45 # Tempo dos Indicadores
-elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 # Tempo do Relógio
-elif st.session_state.idx == 4: espera = 2  # Tempo da Tela em Branco
+elif st.session_state.idx == 5: espera = 60 
+elif st.session_state.idx == 3: espera = 45 
+elif st.session_state.idx == 2: bundle_espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 4: espera = 2  
 
 tempo_passado = time.time() - st.session_state.last_time
 
 if tempo_passado > espera:
-    if (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30):
+    if antes_0830:
         if st.session_state.idx == 0:
             st.session_state.last_main = 0; prox_idx = 4
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
-        # Loop sequencial: TEC1 (1) -> Branco (4) -> CONSULTIVO (5) -> Branco (4) -> INDICADORES (3) -> Branco (4) -> RELÓGIO (2)
         if st.session_state.idx == 1:
             st.session_state.last_main = 1; prox_idx = 4
         elif st.session_state.idx == 5:
@@ -248,9 +245,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
-# =========================================================================
-# 🧼 GESTÃO ABSOLUTA DE MEMÓRIA VISUAL (CONTEUDO ISOLADO ANTI-FANTASMA)
-# =========================================================================
+# CONTAINER DE CONTROLE DE RENDERIZAÇÃO
 CONTEUDO_TV = st.empty()
 
 with CONTEUDO_TV.container():
@@ -354,7 +349,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 (SUPERVISORES)
+    # TELA 1: TEC1 (SUPERVISORES PENDENTES)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
@@ -486,7 +481,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL (MÓDULO CORRIGIDO 🎯)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL (BLINDADO EM FILTROS E BASES) 🎯
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -497,43 +492,41 @@ with CONTEUDO_TV.container():
 
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
-                # Carrega o arquivo do Consultivo
                 df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
                 df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
-                # Converte os Produtos em Número
-                if 'QTD_PRODUTOS' in df_cons.columns:
-                    df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
-                else:
-                    df_cons['QTD_PRODUTOS'] = 0
-
-                # 🔥 PASSO 1: LIMPEZA DOS ERROS DO EXCEL (#N/D, GHOSTS, VAZIOS E BASE GRU) 🔥
+                # Trata as colunas essenciais de agrupamento
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].fillna('').astype(str).str.strip().str.upper()
                 df_cons['BASE'] = df_cons['BASE'].fillna('').astype(str).str.strip().str.upper()
+                df_cons['TIPO DE TABULAÇÃO'] = df_cons['TIPO DE TABULAÇÃO'].fillna('').astype(str).str.strip().str.upper()
 
-                # Descarte completo das linhas com erro #N/D ou pertencentes à base GRU
+                # 🔥 TRAVA 1: FILTRAGEM ULTRA ESTRITA DE ENTRADA (SÓ ENTRA VENDA E REJEITA BASE GRU) 🔥
                 df_cons = df_cons[
+                    (df_cons['TIPO DE TABULAÇÃO'] == 'VENDA') & 
                     (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
                     (df_cons['SUPERVISOR'] != '') & 
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
-                # 🔥 PASSO 2: INTEGRAÇÃO DIRETA DAS NOVAS COLUNAS DA PLANILHA 🔥
+                # Converte os volumes finais em números inteiros
+                if 'QTD_PRODUTOS' in df_cons.columns:
+                    df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
+                else:
+                    df_cons['QTD_PRODUTOS'] = 0
+
+                # Vincula os registros ao ID curto oficial do carrossel
                 def classificar_supervisor_limpo(row):
                     texto_celula = str(row.get('SUPERVISOR', ''))
-                    # Casamento direto pelo termo curto chave oficial
                     for oficial in SUPERVISORES_ORDENADOS:
-                        primeiro_nome = oficial.split()[0] # "EDSON", "MARCOS", "ALAN"...
+                        primeiro_nome = oficial.split()[0]
                         if primeiro_nome in texto_celula:
                             return oficial
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
-                
-                # Mantém apenas quem casou com a lista oficial
                 df_cons = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                # --- INTELIGÊNCIA OPERACIONAL DE CALENDÁRIO ---
+                # --- INTELIGÊNCIA OPERACIONAL DE METAS E CALENDÁRIO ---
                 hoje = datetime.utcnow() - timedelta(hours=3)
                 ano, mes = hoje.year, hoje.month
                 
@@ -542,19 +535,27 @@ with CONTEUDO_TV.container():
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
+                # Separação e soma rígida de dados por bases reais
+                df_abc_puro = df_cons[df_cons['BASE'] == 'ABC']
+                df_sp_puro = df_cons[df_cons['BASE'] == 'SP']
+
+                # Somas separadas por base
+                total_realizado_abc = df_abc_puro['QTD_PRODUTOS'].sum()
+                total_realizado_sp = df_sp_puro['QTD_PRODUTOS'].sum()
+                total_realizado_global = total_realizado_abc + total_realizado_sp
+
                 meta_total_base = len(SUPERVISORES_ORDENADOS) * 350
                 meta_diaria_base = int(meta_total_base / dias_uteis_totais) if dias_uteis_totais > 0 else 0
-                total_realizado = df_cons['QTD_PRODUTOS'].sum()
 
-                # Impressão dos Cards KPI no Cabeçalho
+                # Painel de cartões macro globais do topo
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     st.markdown(f'''<div class="kpi-card"><div class="kpi-title">🎯 META MENSAL (BASE)</div><div class="kpi-value">{meta_total_base}</div></div>''', unsafe_allow_html=True)
                 with c2:
                     st.markdown(f'''<div class="kpi-card" style="border-top-color: #cc6600;"><div class="kpi-title">🚀 RITMO DIÁRIO BASE</div><div class="kpi-value">{meta_diaria_base}</div></div>''', unsafe_allow_html=True)
                 with c3:
-                    cor_realizado = "#2e7d32" if total_realizado >= (meta_diaria_base * hoje.day) else "#c62828"
-                    st.markdown(f'''<div class="kpi-card" style="border-top-color: {cor_realizado};"><div class="kpi-title">✅ TOTAL REALIZADO MÊS</div><div class="kpi-value" style="color: {cor_realizado};">{total_realizado}</div></div>''', unsafe_allow_html=True)
+                    cor_realizado = "#2e7d32" if total_realizado_global >= (meta_diaria_base * hoje.day) else "#c62828"
+                    st.markdown(f'''<div class="kpi-card" style="border-top-color: {cor_realizado};"><div class="kpi-title">✅ TOTAL REALIZADO MÊS</div><div class="kpi-value" style="color: {cor_realizado};">{total_realizado_global}</div></div>''', unsafe_allow_html=True)
 
                 st.markdown('<hr style="margin: 5px 0px 20px 0px;">', unsafe_allow_html=True)
                 
@@ -562,10 +563,10 @@ with CONTEUDO_TV.container():
                 col_abc, col_sp = st.columns(2)
                 
                 with col_abc:
-                    st.markdown('<div class="ind-base-title abc">RESULTADOS ABC</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="ind-base-title abc">RESULTADOS ABC (Total: {total_realizado_abc})</div>', unsafe_allow_html=True)
                     for sup in SUPS_ABC:
-                        # Pega a soma real filtrando o ID limpo
-                        df_filtrado = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]
+                        # Pega a soma real filtrando apenas o ID limpo dentro do dataframe exclusivo da base ABC
+                        df_filtrado = df_abc_puro[df_abc_puro['SUPERVISOR_CLEAN'] == sup]
                         qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
                         
                         meta_individual = 350
@@ -586,9 +587,10 @@ with CONTEUDO_TV.container():
                         </div>''', unsafe_allow_html=True)
 
                 with col_sp:
-                    st.markdown('<div class="ind-base-title sp">SÃO PAULO</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="ind-base-title sp">SÃO PAULO (Total: {total_realizado_sp})</div>', unsafe_allow_html=True)
                     for sup in SUPS_SP:
-                        df_filtrado = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]
+                        # Pega a soma real filtrando apenas o ID limpo dentro do dataframe exclusivo da base SP
+                        df_filtrado = df_sp_puro[df_sp_puro['SUPERVISOR_CLEAN'] == sup]
                         qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
                         
                         meta_individual = 350
