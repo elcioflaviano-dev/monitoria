@@ -119,7 +119,7 @@ if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = 
 
 minutos_agora = agora_br.hour * 60 + agora_br.minute
 
-# ... [MANTÉM AS SUAS REGRAS DE ÁUDIO INTACTAS AQUI (1, 2 E 3)] ...
+# 🔕 1. FECHADURA DE ÁUDIO PARA TÉCNICOS EM BASE (Tela 0 - Manhã)
 permitir_audio_base = False
 frase_incisiva_base = ""
 regras_audio_base = [
@@ -127,12 +127,13 @@ regras_audio_base = [
     {"inicio": 8*60,      "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."},
     {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
 ]
-for regra in regras_audio_base:
+for regra incall in regras_audio_base:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_base = True
         frase_incisiva_base = regra["frase"]
         break
 
+# 🔕 2. FECHADURA DE ÁUDIO PARA TEC1 PENDENTES (Tela 1 - Durante o dia)
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 regras_audio_tec1 = [
@@ -152,13 +153,18 @@ for regra in regras_audio_tec1:
         frase_incisiva_tec1 = regra["frase"]
         break
 
+# 🔕 3. FECHADURA DE ÁUDIO EXCLUSIVA PARA INDICADORES (Tela 3)
 permitir_audio_ind = False
-regras_audio_ind = [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]
+regras_audio_ind = [
+    (13*60, 13*60 + 15), # 13:00 as 13:15
+    (16*60, 16*60 + 15)  # 16:00 as 16:15
+]
 for inicio, fim in regras_audio_ind:
     if inicio <= minutos_agora <= fim:
         permitir_audio_ind = True
         break
 
+# LABELS VISUAIS
 badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇 ÁUDIO EM ESPERA</span>'
 badge_ativo = '<span style="font-size: 14px; vertical-align: middle; background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔊 ÁUDIO ATIVO</span>'
 
@@ -166,10 +172,9 @@ html_audio_base = badge_ativo if permitir_audio_base else badge_mudo
 html_audio_tec1 = badge_ativo if permitir_audio_tec1 else badge_mudo
 html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
-# 👇 NOVA GESTÃO DE ROTAÇÃO INCLUINDO O CONSULTIVO (TELA 5)
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 5: espera = 60 # Tempo da tela Consultivo na TV
+elif st.session_state.idx == 5: espera = 60 # Tempo da tela do Consultivo
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 4: espera = 2 
@@ -183,7 +188,6 @@ if tempo_passado > espera:
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
-        # Loop sequencial da tarde: TEC1 (1) -> CONSULTIVO (5) -> INDICADORES (3) -> RELÓGIO (2)
         if st.session_state.idx == 1:
             st.session_state.last_main = 1; prox_idx = 4
         elif st.session_state.idx == 5:
@@ -191,7 +195,6 @@ if tempo_passado > espera:
         elif st.session_state.idx == 3:
             st.session_state.last_main = 3; prox_idx = 4
         elif st.session_state.idx == 4: 
-            # Define para onde ir depois da transição preta
             if st.session_state.last_main == 1: prox_idx = 5
             elif st.session_state.last_main == 5: prox_idx = 3
             elif st.session_state.last_main == 3: prox_idx = 2
@@ -263,6 +266,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
         }, 1500);
     }, delay);
 }
+"""
 
 # =========================================================================
 # EXECUÇÃO DE TELAS
@@ -273,7 +277,7 @@ if st.session_state.idx == 4:
     st.components.v1.html("", height=0)
 
 # -------------------------------------------------------------------------
-# TELA 0: TÉCNICOS NA BASE (COM INTELIGÊNCIA DE MAPEAMENTO)
+# TELA 0: TÉCNICOS NA BASE
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 0:
     st.markdown(f'''<div class="topo-container">
@@ -297,7 +301,6 @@ elif st.session_state.idx == 0:
                 cols_tipo = [c for c in df.columns if 'TIPO' in c]
                 mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.strip().str.lower() == 'na base').any(axis=1)
 
-            # 🔥 INTELIGÊNCIA DE MAPEAMENTO DINÂMICO
             mapa_tecnico_sup = {}
             if col_sup and col_recurso:
                 for _, row in df.dropna(subset=[col_recurso, col_sup]).iterrows():
@@ -318,7 +321,6 @@ elif st.session_state.idx == 0:
             df_tela = df[mask_base & mask_status].copy()
             df_tela['SUPERVISOR_CLEAN'] = df_tela.apply(resolver_supervisor, axis=1)
             
-            # Última barreira de verificação pela Cidade/Região
             col_cidade = next((c for c in df.columns if 'CIDADE' in c), None)
             col_regiao = next((c for c in df.columns if 'REGIAO' in c or 'REGIÃO' in c or 'BASE' in c), None)
 
@@ -326,12 +328,11 @@ elif st.session_state.idx == 0:
                 sup = row.get('SUPERVISOR_CLEAN', '')
                 if sup in SUPS_SP: return "SP"
                 if sup in SUPS_ABC: return "ABC"
-                
                 cid = str(row.get(col_cidade, '')).upper() if col_cidade else ''
                 reg = str(row.get(col_regiao, '')).upper() if col_regiao else ''
                 if 'SP' in cid or 'SÃO PAULO' in cid or 'SAO PAULO' in cid: return "SP"
                 if 'SP' == reg or 'SÃO PAULO' in reg or 'SAO PAULO' in reg: return "SP"
-                return "ABC" # Fallback global
+                return "ABC"
             
             df_tela['BASE_REGIAO'] = df_tela.apply(definir_regiao, axis=1)
             
@@ -512,18 +513,13 @@ elif st.session_state.idx == 5:
             df_cons = pd.read_excel(ARQUIVO_CONSULTIVO)
             df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
-            # 🧠 INTELIGÊNCIA PYTHON: Conta produtos extraindo os 10 dígitos da O.S (Igual ao Power Query)
             if 'OBSERVACAO' in df_cons.columns:
-                # Extrai apenas o texto entre O.S e DATA
                 extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'O\.?S(.*?)(?:DATA|$)', expand=False)
-                # Remove espaços, letras e caracteres especiais, deixando só números
                 apenas_numeros = extraido.str.replace(r'\D', '', regex=True)
-                # Divide o comprimento por 10
                 df_cons['QTD_PRODUTOS'] = (apenas_numeros.str.len().fillna(0) / 10).astype(int)
             else:
                 df_cons['QTD_PRODUTOS'] = 0
 
-            # Mapeamento do Supervisor
             col_tecnico = 'LOGIN NETSALES' if 'LOGIN NETSALES' in df_cons.columns else df_cons.columns[0]
             col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c or 'MONITOR' in c), None)
 
@@ -535,22 +531,19 @@ elif st.session_state.idx == 5:
 
             df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(resolver_supervisor_cons, axis=1)
 
-            # MATEMÁTICA E CÁLCULO DE METAS 📊
             hoje = datetime.utcnow() - timedelta(hours=3)
             ano, mes = hoje.year, hoje.month
             
-            # Conta dias úteis sem domingo
             _, num_dias = calendar.monthrange(ano, mes)
             dias_uteis = sum(1 for d in range(1, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
 
             sups_presentes = len([s for s in SUPERVISORES_ORDENADOS if s in df_cons['SUPERVISOR_CLEAN'].values])
-            if sups_presentes == 0: sups_presentes = len(SUPERVISORES_ORDENADOS) # Segurança caso a base esteja vazia
+            if sups_presentes == 0: sups_presentes = len(SUPERVISORES_ORDENADOS)
             
             meta_total_base = sups_presentes * 350
             meta_diaria = int(meta_total_base / dias_uteis) if dias_uteis > 0 else 0
             total_realizado = df_cons['QTD_PRODUTOS'].sum()
 
-            # PAINEL DE CARTÕES MACRO
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.markdown(f'''<div class="kpi-card"><div class="kpi-title">🎯 META MENSAL (BASE)</div><div class="kpi-value">{meta_total_base}</div></div>''', unsafe_allow_html=True)
@@ -560,7 +553,6 @@ elif st.session_state.idx == 5:
                 cor_realizado = "#2e7d32" if total_realizado >= (meta_diaria * hoje.day) else "#c62828"
                 st.markdown(f'''<div class="kpi-card" style="border-top-color: {cor_realizado};"><div class="kpi-title">✅ TOTAL REALIZADO MÊS</div><div class="kpi-value" style="color: {cor_realizado};">{total_realizado}</div></div>''', unsafe_allow_html=True)
 
-            # DIVISÃO DE RESULTADOS POR SUPERVISOR
             st.markdown('<hr style="margin: 5px 0px 20px 0px;">', unsafe_allow_html=True)
             
             col_abc, col_sp = st.columns(2)
@@ -587,7 +579,7 @@ elif st.session_state.idx == 5:
         except Exception as e:
             st.error(f"Erro ao ler o ficheiro Excel. Detalhes: {e}")
     else: 
-        st.warning(f"Aguardando o ficheiro de Consultivo na pasta segura: {ARQUIVO_CONSULTIVO}. Clique no botão do Excel para importar.")
+        st.warning(f"Aguardando o ficheiro de Consultivo na pasta segura: {ARQUIVO_CONSULTIVO}.")
 
 # -------------------------------------------------------------------------
 # TELA 3: PRINT DOS INDICADORES
@@ -695,5 +687,3 @@ elif st.session_state.idx == 2:
 
 time.sleep(1)
 st.rerun()
-
-
