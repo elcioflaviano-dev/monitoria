@@ -77,7 +77,7 @@ st.markdown("""<style>
     .kpi-card { background: #fff; border: 1px solid #ccc; border-top: 8px solid #003366; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;}
     .kpi-title { font-size: 18px; font-weight: bold; color: #666; text-transform: uppercase; margin-bottom: 10px; }
     .kpi-value { font-size: 55px; font-weight: 900; color: #003366; line-height: 1; }
-
+    
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
@@ -125,7 +125,7 @@ regras_audio_base = [
     {"inicio": 8*60,      "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."},
     {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
 ]
-for regra in Array(regras_audio_base) if 'Array' in dir() else regras_audio_base:
+for regra in regras_audio_base:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_base = True
         frase_incisiva_base = regra["frase"]
@@ -170,13 +170,13 @@ html_audio_base = badge_ativo if permitir_audio_base else badge_mudo
 html_audio_tec1 = badge_ativo if permitir_audio_tec1 else badge_mudo
 html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
-# Configuração da rotação de telas incluindo o Consultivo (Tela 5)
+# Configuração da rotação de telas incluindo o Consultivo (Tela 5) e Transição (Tela 4)
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 5: espera = 60 # Tempo da tela do Consultivo
-elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 5: espera = 60 # Tempo da nova tela do Consultivo
 elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 4: espera = 2 
+elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 4: espera = 2  # Tela em Branco
 
 tempo_passado = time.time() - st.session_state.last_time
 
@@ -187,7 +187,7 @@ if tempo_passado > espera:
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
-        # Carrossel sequencial estruturado: TEC1 (1) -> CONSULTIVO (5) -> INDICADORES (3) -> RELÓGIO (2)
+        # Loop sequencial: TEC1 (1) -> Branco (4) -> CONSULTIVO (5) -> Branco (4) -> INDICADORES (3) -> Branco (4) -> RELÓGIO (2)
         if st.session_state.idx == 1:
             st.session_state.last_main = 1; prox_idx = 4
         elif st.session_state.idx == 5:
@@ -268,7 +268,12 @@ function animarSupervisor(texto, delay, index, totalSup) {
 }
 """
 
+# =========================================================================
+# EXECUÇÃO DE TELAS
+# =========================================================================
+
 if st.session_state.idx == 4:
+    # 🧼 TELA EM BRANCO ATIVA PARA LIMPAR O RETROVISOR VISUAL
     st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
     st.components.v1.html("", height=0)
 
@@ -495,7 +500,7 @@ elif st.session_state.idx == 1:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀
+# TELA 5: PAINEL DO CONSULTIVO OPERACIONAL COMPLETADO 🚀
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 5:
     st.markdown(f'''<div class="topo-container">
@@ -509,79 +514,106 @@ elif st.session_state.idx == 5:
             df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
             df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
-            # Processamento de texto e contagem nativa das O.S na nuvem
-            if 'OBSERVACAO' in df_cons.columns:
-                extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'O\.?S(.*?)(?:DATA|$)', expand=False)
-                apenas_numeros = extraido.str.replace(r'\D', '', regex=True)
-                df_cons['QTD_PRODUTOS'] = (apenas_numeros.str.len().fillna(0) / 10).astype(int)
+            # Converte a volumetria mastigada vinda da aba do Excel
+            if 'QTD_PRODUTOS' in df_cons.columns:
+                df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
             else:
                 df_cons['QTD_PRODUTOS'] = 0
 
             col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c or 'MONITOR' in c), None)
 
-            def resolver_supervisor_cons(row):
-                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+            # 🔥 Varredura flexível cruzada para linkar os supervisores e sair do zero! 🔥
+            def mapear_linha_supervisor(row):
+                texto_linha = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                 for oficial in SUPERVISORES_ORDENADOS:
-                    if oficial in sup: return oficial
+                    if oficial in texto_linha or texto_linha in oficial:
+                        return oficial
                 return "NÃO IDENTIFICADO"
 
-            df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(resolver_supervisor_cons, axis=1)
+            df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(mapear_linha_supervisor, axis=1)
 
+            # --- INTELIGÊNCIA OPERACIONAL DE METAS DO MÊS ---
             hoje = datetime.utcnow() - timedelta(hours=3)
             ano, mes = hoje.year, hoje.month
             
+            # Conta dias úteis sem domingos no mês corrente
             _, num_dias = calendar.monthrange(ano, mes)
-            dias_uteis = sum(1 for d in range(1, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+            dias_uteis_totais = sum(1 for d in range(1, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+            dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+            if dias_restantes == 0: dias_restantes = 1
 
-            sups_presentes = len([s for s in SUPERVISORES_ORDENADOS if s in df_cons['SUPERVISOR_CLEAN'].values])
-            if sups_presentes == 0: sups_presentes = len(SUPERVISORES_ORDENADOS)
-            
-            meta_total_base = sups_presentes * 350
-            meta_diaria = int(meta_total_base / dias_uteis) if dias_uteis > 0 else 0
+            meta_total_base = len(SUPERVISORES_ORDENADOS) * 350
+            meta_diaria_base = int(meta_total_base / dias_uteis_totais) if dias_uteis_totais > 0 else 0
             total_realizado = df_cons['QTD_PRODUTOS'].sum()
 
+            # PAINEL DE CARTÕES MACRO DO TOPO
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.markdown(f'''<div class="kpi-card"><div class="kpi-title">🎯 META MENSAL (BASE)</div><div class="kpi-value">{meta_total_base}</div></div>''', unsafe_allow_html=True)
             with c2:
-                st.markdown(f'''<div class="kpi-card" style="border-top-color: #cc6600;"><div class="kpi-title">🚀 RITMO DIÁRIO NECESSÁRIO</div><div class="kpi-value">{meta_diaria}</div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div class="kpi-card" style="border-top-color: #cc6600;"><div class="kpi-title">🚀 RITMO DIÁRIO BASE</div><div class="kpi-value">{meta_diaria_base}</div></div>''', unsafe_allow_html=True)
             with c3:
-                cor_realizado = "#2e7d32" if total_realizado >= (meta_diaria * hoje.day) else "#c62828"
+                cor_realizado = "#2e7d32" if total_realizado >= (meta_diaria_base * hoje.day) else "#c62828"
                 st.markdown(f'''<div class="kpi-card" style="border-top-color: {cor_realizado};"><div class="kpi-title">✅ TOTAL REALIZADO MÊS</div><div class="kpi-value" style="color: {cor_realizado};">{total_realizado}</div></div>''', unsafe_allow_html=True)
 
             st.markdown('<hr style="margin: 5px 0px 20px 0px;">', unsafe_allow_html=True)
             
+            # --- DIVISÃO DETALHADA POR BASES REGIONAIS COM SALDO E TAXA DE ESFORÇO ---
             col_abc, col_sp = st.columns(2)
+            
             with col_abc:
                 st.markdown('<div class="ind-base-title abc">RESULTADOS ABC</div>', unsafe_allow_html=True)
                 for sup in SUPS_ABC:
-                    # 🔍 Filtro inteligente: soma se o nome do supervisor estiver contido na coluna, ignorando maiúsculas/minúsculas
-                    mascara_sup = df_cons['SUPERVISOR_CLEAN'].str.contains(sup, case=False, na=False)
-                    qtd_sup = df_cons[mascara_sup]['QTD_PRODUTOS'].sum()
+                    df_filtrado = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]
+                    qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
                     
+                    # Matemática individual do supervisor
+                    meta_individual = 350
+                    falta_individual = meta_individual - qtd_sup
+                    if falta_individual < 0: falta_individual = 0
+                    
+                    ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
+
                     st.markdown(f'''
-                    <div style="background: #f8f9fa; border-left: 5px solid #008080; padding: 15px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; box-shadow: 1px 1px 4px rgba(0,0,0,0.1);">
-                        <div style="font-size: 20px; font-weight: bold; color: #333;">📋 {obter_nome_visual(sup)}</div>
-                        <div style="font-size: 30px; font-weight: 900; color: #008080;">{qtd_sup} <span style="font-size: 14px; font-weight: normal; color: #666;">produtos</span></div>
+                    <div style="background: #f8f9fa; border-left: 5px solid #008080; padding: 12px 15px; margin-bottom: 12px; border-radius: 6px; box-shadow: 1px 1px 4px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                            <div style="font-size: 18px; font-weight: bold; color: #333;">📋 {obter_nome_visual(sup)}</div>
+                            <div style="font-size: 24px; font-weight: 900; color: #008080;">{qtd_sup} <span style="font-size: 12px; font-weight: normal; color: #666;">feitos</span></div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px dashed #ddd; padding-top: 5px; font-size: 13px; color: #555;">
+                            <div>📉 Falta para Meta: <b style="color:#c62828;">{falta_individual}</b></div>
+                            <div style="text-align: right;">🏃‍♂️ Ritmo por Dia: <b style="color:#cc6600;">{ritmo_diario_individual}/dia</b></div>
+                        </div>
                     </div>''', unsafe_allow_html=True)
 
             with col_sp:
                 st.markdown('<div class="ind-base-title sp">RESULTADOS SÃO PAULO</div>', unsafe_allow_html=True)
                 for sup in SUPS_SP:
-                    # 🔍 Filtro inteligente para São Paulo
-                    mascara_sup = df_cons['SUPERVISOR_CLEAN'].str.contains(sup, case=False, na=False)
-                    qtd_sup = df_cons[mascara_sup]['QTD_PRODUTOS'].sum()
+                    df_filtrado = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]
+                    qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
                     
+                    meta_individual = 350
+                    falta_individual = meta_individual - qtd_sup
+                    if falta_individual < 0: falta_individual = 0
+                    
+                    ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
+
                     st.markdown(f'''
-                    <div style="background: #f8f9fa; border-left: 5px solid #b30000; padding: 15px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; box-shadow: 1px 1px 4px rgba(0,0,0,0.1);">
-                        <div style="font-size: 20px; font-weight: bold; color: #333;">📋 {obter_nome_visual(sup)}</div>
-                        <div style="font-size: 30px; font-weight: 900; color: #b30000;">{qtd_sup} <span style="font-size: 14px; font-weight: normal; color: #666;">produtos</span></div>
+                    <div style="background: #f8f9fa; border-left: 5px solid #b30000; padding: 12px 15px; margin-bottom: 12px; border-radius: 6px; box-shadow: 1px 1px 4px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                            <div style="font-size: 18px; font-weight: bold; color: #333;">📋 {obter_nome_visual(sup)}</div>
+                            <div style="font-size: 24px; font-weight: 900; color: #b30000;">{qtd_sup} <span style="font-size: 12px; font-weight: normal; color: #666;">feitos</span></div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px dashed #ddd; padding-top: 5px; font-size: 13px; color: #555;">
+                            <div>📉 Falta para Meta: <b style="color:#c62828;">{falta_individual}</b></div>
+                            <div style="text-align: right;">🏃‍♂️ Ritmo por Dia: <b style="color:#cc6600;">{ritmo_diario_individual}/dia</b></div>
+                        </div>
                     </div>''', unsafe_allow_html=True)
 
         except Exception as e:
-            st.error(f"Erro ao ler os dados do Consultivo. Detalhes: {e}")
+            st.error(f"Erro ao computar os dados do Consultivo. Detalhes: {e}")
     else: 
-        st.warning("Aguardar a primeira sincronização da planilha master para carregar o Consultivo...")
+        st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
 # -------------------------------------------------------------------------
 # TELA 3: PRINT DOS INDICADORES
