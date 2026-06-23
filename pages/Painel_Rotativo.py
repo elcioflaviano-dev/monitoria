@@ -67,11 +67,6 @@ st.markdown("""<style>
     .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; }
     .falta-label { font-size: 11px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
-    
-    .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
-    .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
-    .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
-    .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
@@ -129,7 +124,7 @@ regras_audio_tec1 = [
     {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."}
 ]
 for regra in regras_audio_tec1:
-    if regra["inicio"] <= minutos_agora <= regra["fim"]:
+    if regra["inicio"] <= minutes_agora <= regra["fim"]:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = regra["frase"]
         break
@@ -151,7 +146,7 @@ html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 5: espera = 60 
-elif st.session_state.idx == 3: __bundle_espera = 45 
+elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 4: espera = 2  
 
@@ -478,7 +473,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL (LAYOUT 100% REGIONALIZADO 🎯)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -496,7 +491,7 @@ with CONTEUDO_TV.container():
                 df_cons['BASE'] = df_cons['BASE'].fillna('').astype(str).str.strip().str.upper()
                 df_cons['TIPO DE TABULAÇÃO'] = df_cons['TIPO DE TABULAÇÃO'].fillna('').astype(str).str.strip().str.upper()
 
-                # Filtra apenas o tipo VENDA e rejeita anomalias e base GRU[cite: 1]
+                # Filtra apenas tabulação VENDA e descarta lixo operacional / base GRU
                 df_cons = df_cons[
                     (df_cons['TIPO DE TABULAÇÃO'] == 'VENDA') & 
                     (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
@@ -504,7 +499,14 @@ with CONTEUDO_TV.container():
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
-                if 'QTD_PRODUTOS' in df_cons.columns:
+                # 🔥 NOVO MOTOR DE EXTRAÇÃO HÍBRIDO: SUPORTA O.S E O.C DINAMICAMENTE 🔥
+                if 'OBSERVACAO' in df_cons.columns:
+                    # Captura texto contido após O.S ou O.C até bater na palavra DATA
+                    extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'O\.?[SC](.*?)(?:DATA|$)', expand=False)
+                    apenas_numeros = extraido.str.replace(r'\D', '', regex=True).fillna('')
+                    # Conta os dígitos dividindo por 10 (usa arredondamento proporcional superior seguro)
+                    df_cons['QTD_PRODUTOS'] = apenas_numeros.str.len().apply(lambda x: int((x + 9) // 10) if x > 0 else 0)
+                elif 'QTD_PRODUTOS' in df_cons.columns:
                     df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
                 else:
                     df_cons['QTD_PRODUTOS'] = 0
@@ -529,33 +531,28 @@ with CONTEUDO_TV.container():
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
-                # Separação rígida das bases puras[cite: 1]
+                # Divisão analítica por bases reais
                 df_abc_puro = df_cons[df_cons['BASE'] == 'ABC']
                 df_sp_puro = df_cons[df_cons['BASE'] == 'SP']
 
-                # Somas reais realizadas[cite: 1]
                 total_realizado_abc = df_abc_puro['QTD_PRODUTOS'].sum()
                 total_realizado_sp = df_sp_puro['QTD_PRODUTOS'].sum()
 
-                # Metas mensais individualizadas por base (Igual à regra do TEC1)[cite: 1]
                 meta_mensal_abc = len(SUPS_ABC) * 350
                 meta_mensal_sp = len(SUPS_SP) * 350
 
-                # Ritmos diários individualizados por base[cite: 1]
                 ritmo_diario_base_abc = int(meta_mensal_abc / dias_uteis_totais) if dias_uteis_totais > 0 else 0
                 ritmo_diario_base_sp = int(meta_mensal_sp / dias_uteis_totais) if dias_uteis_totais > 0 else 0
 
-                # --- DIVISÃO EM DUAS GRANDES COLUNAS REGIONAIS (IGUAL AO TEC1) ---
+                # --- GRID EXIBIÇÃO POR REGIONAIS (ABC vs SÃO PAULO) ---
                 col_abc, col_sp = st.columns(2)
                 
                 with col_abc:
-                    # Caixa macro regional do ABC[cite: 1]
                     st.markdown(f'''<div class="box-base">
                         <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC TOTAL (Meta: {meta_mensal_abc} | Ritmo: {ritmo_diario_base_abc}/dia)</div>
                         <div class="num-base">{total_realizado_abc}</div>
                     </div>''', unsafe_allow_html=True)
                     
-                    # Lista de Supervisores do ABC usando o layout de caixas dos Indicadores
                     for sup in SUPS_ABC:
                         df_filtrado = df_abc_puro[df_abc_puro['SUPERVISOR_CLEAN'] == sup]
                         qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
@@ -588,13 +585,11 @@ with CONTEUDO_TV.container():
                         </div>''', unsafe_allow_html=True)
 
                 with col_sp:
-                    # Caixa macro regional de São Paulo[cite: 1]
                     st.markdown(f'''<div class="box-base-sp">
                         <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO TOTAL (Meta: {meta_mensal_sp} | Ritmo: {ritmo_diario_base_sp}/dia)</div>
                         <div class="num-base">{total_realizado_sp}</div>
                     </div>''', unsafe_allow_html=True)
                     
-                    # Lista de Supervisores de SP usando o layout de caixas dos Indicadores
                     for sup in SUPS_SP:
                         df_filtrado = df_sp_puro[df_sp_puro['SUPERVISOR_CLEAN'] == sup]
                         qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
