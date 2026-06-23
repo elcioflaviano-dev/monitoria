@@ -127,7 +127,7 @@ regras_audio_base = [
     {"inicio": 8*60,      "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."},
     {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
 ]
-for regra incall in regras_audio_base:
+for regra in regras_audio_base:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_base = True
         frase_incisiva_base = regra["frase"]
@@ -145,7 +145,7 @@ regras_audio_tec1 = [
     {"inicio": 15*60 + 30, "fim": 15*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."},
     {"inicio": 16*60,      "fim": 16*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
     {"inicio": 17*60,      "fim": 17*60 + 15, "frase": "Atenção. Fechamento de janela."},
-    {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."}
+    {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da dementia do dia anterior."}
 ]
 for regra in regras_audio_tec1:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
@@ -174,7 +174,7 @@ html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 5: espera = 60 # Tempo da tela do Consultivo
+elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 4: espera = 2 
