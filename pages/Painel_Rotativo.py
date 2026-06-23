@@ -124,7 +124,7 @@ regras_audio_tec1 = [
     {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."}
 ]
 for regra in regras_audio_tec1:
-    if regra["inicio"] <= minutes_agora <= regra["fim"]:
+    if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = regra["frase"]
         break
