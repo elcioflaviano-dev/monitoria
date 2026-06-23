@@ -105,6 +105,7 @@ regras_audio_base = [
     {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
 ]
 for regra in regras_audio_base:
+    # 🕵️‍♂️ CORRIGIDO: de 'minutes_agora' para 'minutos_agora'
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_base = True
         frase_incisiva_base = regra["frase"]
@@ -124,7 +125,7 @@ regras_audio_tec1 = [
     {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."}
 ]
 for regra in regras_audio_tec1:
-    if regra["inicio"] <= minutes_agora <= regra["fim"]:
+    if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = regra["frase"]
         break
@@ -499,12 +500,10 @@ with CONTEUDO_TV.container():
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
-                # 🔥 NOVO MOTOR DE EXTRAÇÃO HÍBRIDO: SUPORTA O.S E O.C DINAMICAMENTE 🔥
+                # NOVO MOTOR DE EXTRAÇÃO HÍBRIDO: SUPORTA O.S E O.C DINAMICAMENTE
                 if 'OBSERVACAO' in df_cons.columns:
-                    # Captura texto contido após O.S ou O.C até bater na palavra DATA
                     extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'O\.?[SC](.*?)(?:DATA|$)', expand=False)
                     apenas_numeros = extraido.str.replace(r'\D', '', regex=True).fillna('')
-                    # Conta os dígitos dividindo por 10 (usa arredondamento proporcional superior seguro)
                     df_cons['QTD_PRODUTOS'] = apenas_numeros.str.len().apply(lambda x: int((x + 9) // 10) if x > 0 else 0)
                 elif 'QTD_PRODUTOS' in df_cons.columns:
                     df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
