@@ -4,7 +4,6 @@ import os
 import time
 import base64
 import calendar
-import re
 from datetime import datetime, timedelta
 
 # =========================================================================
@@ -170,12 +169,12 @@ html_audio_base = badge_ativo if permitir_audio_base else badge_mudo
 html_audio_tec1 = badge_ativo if permitir_audio_tec1 else badge_mudo
 html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
-# Configuração da rotação de telas incluindo o Consultivo (Tela 5) e Transição (Tela 4)
+# Definição dos tempos de cada tela
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 5: espera = 60 # Tempo da nova tela do Consultivo
-elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 5: espera = 60 # Consultivo
+elif st.session_state.idx == 3: espera = 45 # Indicadores
+elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 # Relógio
 elif st.session_state.idx == 4: espera = 2  # Tela em Branco
 
 tempo_passado = time.time() - st.session_state.last_time
@@ -187,7 +186,7 @@ if tempo_passado > espera:
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
-        # Loop sequencial: TEC1 (1) -> Branco (4) -> CONSULTIVO (5) -> Branco (4) -> INDICADORES (3) -> Branco (4) -> RELÓGIO (2)
+        # Loop sequencial perfeito: 1 -> Branco -> 5 -> Branco -> 3 -> Branco -> 2
         if st.session_state.idx == 1:
             st.session_state.last_main = 1; prox_idx = 4
         elif st.session_state.idx == 5:
@@ -272,10 +271,14 @@ function animarSupervisor(texto, delay, index, totalSup) {
 # EXECUÇÃO DE TELAS
 # =========================================================================
 
+# -------------------------------------------------------------------------
+# TELA 4: TELA EM BRANCO (ESTABILIZADORA ANTI-FANTASMA)
+# -------------------------------------------------------------------------
 if st.session_state.idx == 4:
-    # 🧼 TELA EM BRANCO ATIVA PARA LIMPAR O RETROVISOR VISUAL
     st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
     st.components.v1.html("", height=0)
+    time.sleep(2) # 🧼 Dá 2 segundos para o navegador apagar as estruturas antigas do HTML
+    st.rerun()
 
 # -------------------------------------------------------------------------
 # TELA 0: TÉCNICOS NA BASE
@@ -367,6 +370,8 @@ elif st.session_state.idx == 0:
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Coluna Status não encontrada.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+    time.sleep(1)
+    st.rerun()
 
 # -------------------------------------------------------------------------
 # TELA 1: TEC1 (SUPERVISORES)
@@ -498,9 +503,11 @@ elif st.session_state.idx == 1:
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Coluna Status não encontrada.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+    time.sleep(1)
+    st.rerun()
 
 # -------------------------------------------------------------------------
-# TELA 5: PAINEL DO CONSULTIVO OPERACIONAL COMPLETADO 🚀
+# TELA 5: PAINEL DO CONSULTIVO OPERACIONAL (LOGICA FIXADA IGUAL A TELA 1) 🚀
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 5:
     st.markdown(f'''<div class="topo-container">
@@ -509,34 +516,55 @@ elif st.session_state.idx == 5:
         <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>''', unsafe_allow_html=True)
 
-    if os.path.exists(ARQUIVO_CONSULTIVO):
+    if os.path.exists(ARQUIVO_CONSULTIVO) and os.path.exists(ARQUIVO_ROTA_DISCO):
         try:
+            # 1. PEGA O MAPA DE SUPERVISORES REAL DA ROTA (IGUALZINHO A TELA 1)
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+            df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
+            col_tec_rota = 'RECURSO' if 'RECURSO' in df_rota.columns else df_rota.columns[0]
+            col_sup_rota = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
+            
+            mapa_tecnico_sup = {}
+            if col_sup_rota and col_tec_rota:
+                for _, row in df_rota.dropna(subset=[col_tec_rota, col_sup_rota]).iterrows():
+                    tec = str(row[col_tec_rota]).upper().strip()
+                    sup = str(row[col_sup_rota]).upper().strip()
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup:
+                            mapa_tecnico_sup[tec] = oficial
+                            break
+
+            # 2. CARREGA O ARQUIVO DO CONSULTIVO
             df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
             df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
-            # Converte a volumetria mastigada vinda da aba do Excel
             if 'QTD_PRODUTOS' in df_cons.columns:
                 df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
             else:
                 df_cons['QTD_PRODUTOS'] = 0
 
-            col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c or 'MONITOR' in c), None)
+            # Procura a coluna de recurso no consultivo (LOGIN NETSALES ou NOME DO TECNICO)
+            col_tec_cons = 'LOGIN NETSALES' if 'LOGIN NETSALES' in df_cons.columns else (df_cons.columns[0])
 
-            # 🔥 Varredura flexível cruzada para linkar os supervisores e sair do zero! 🔥
-            def mapear_linha_supervisor(row):
-                texto_linha = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                for oficial in SUPERVISORES_ORDENADOS:
-                    if oficial in texto_linha or texto_linha in oficial:
-                        return oficial
+            # Aplica o mapa de busca estrita idêntico à Tela 1 para achar o Supervisor
+            def resolver_supervisor_consultivo(row):
+                tec_id = str(row.get(col_tec_cons, '')).upper().strip()
+                # Se o ID/Nome do técnico estiver no mapa, retorna o Supervisor oficial dele
+                if tec_id in mapa_tecnico_sup:
+                    return mapa_tecnico_sup[tec_id]
+                
+                # Fallback secundário por aproximação de texto caso não ache o ID exato
+                for tec_chave, sup_oficial in mapa_tecnico_sup.items():
+                    if tec_chave in tec_id or tec_id in tec_chave:
+                        return sup_oficial
                 return "NÃO IDENTIFICADO"
 
-            df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(mapear_linha_supervisor, axis=1)
+            df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(resolver_supervisor_consultivo, axis=1)
 
-            # --- INTELIGÊNCIA OPERACIONAL DE METAS DO MÊS ---
+            # --- CÁLCULOS E METAS OPERACIONAIS ---
             hoje = datetime.utcnow() - timedelta(hours=3)
             ano, mes = hoje.year, hoje.month
             
-            # Conta dias úteis sem domingos no mês corrente
             _, num_dias = calendar.monthrange(ano, mes)
             dias_uteis_totais = sum(1 for d in range(1, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
             dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
@@ -546,7 +574,7 @@ elif st.session_state.idx == 5:
             meta_diaria_base = int(meta_total_base / dias_uteis_totais) if dias_uteis_totais > 0 else 0
             total_realizado = df_cons['QTD_PRODUTOS'].sum()
 
-            # PAINEL DE CARTÕES MACRO DO TOPO
+            # CARTOES DO TOPO
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.markdown(f'''<div class="kpi-card"><div class="kpi-title">🎯 META MENSAL (BASE)</div><div class="kpi-value">{meta_total_base}</div></div>''', unsafe_allow_html=True)
@@ -558,7 +586,7 @@ elif st.session_state.idx == 5:
 
             st.markdown('<hr style="margin: 5px 0px 20px 0px;">', unsafe_allow_html=True)
             
-            # --- DIVISÃO DETALHADA POR BASES REGIONAIS COM SALDO E TAXA DE ESFORÇO ---
+            # --- SEPARAÇÃO REAL E CORRETA POR BASES REGIONAIS ---
             col_abc, col_sp = st.columns(2)
             
             with col_abc:
@@ -567,11 +595,9 @@ elif st.session_state.idx == 5:
                     df_filtrado = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]
                     qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
                     
-                    # Matemática individual do supervisor
                     meta_individual = 350
                     falta_individual = meta_individual - qtd_sup
                     if falta_individual < 0: falta_individual = 0
-                    
                     ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
 
                     st.markdown(f'''
@@ -587,7 +613,7 @@ elif st.session_state.idx == 5:
                     </div>''', unsafe_allow_html=True)
 
             with col_sp:
-                st.markdown('<div class="ind-base-title sp">RESULTADOS SÃO PAULO</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title sp">SÃO PAULO</div>', unsafe_allow_html=True)
                 for sup in SUPS_SP:
                     df_filtrado = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]
                     qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
@@ -595,7 +621,6 @@ elif st.session_state.idx == 5:
                     meta_individual = 350
                     falta_individual = meta_individual - qtd_sup
                     if falta_individual < 0: falta_individual = 0
-                    
                     ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
 
                     st.markdown(f'''
@@ -610,10 +635,17 @@ elif st.session_state.idx == 5:
                         </div>
                     </div>''', unsafe_allow_html=True)
 
+            if st.session_state.novo_ciclo:
+                st.session_state.script_audio_atual = ""
+                st.session_state.novo_ciclo = False
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
         except Exception as e:
             st.error(f"Erro ao computar os dados do Consultivo. Detalhes: {e}")
     else: 
-        st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+        st.warning("Aguardando sincronização de arquivos para processamento...")
+    time.sleep(1)
+    st.rerun()
 
 # -------------------------------------------------------------------------
 # TELA 3: PRINT DOS INDICADORES
@@ -700,6 +732,8 @@ elif st.session_state.idx == 3:
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Coluna Status não encontrada.")
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+    time.sleep(1)
+    st.rerun()
 
 # -------------------------------------------------------------------------
 # TELA 2: HORÁRIO
@@ -718,6 +752,5 @@ elif st.session_state.idx == 2:
         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
         st.session_state.novo_ciclo = False
     st.components.v1.html(st.session_state.script_audio_atual, height=0)
-
-time.sleep(1)
-st.rerun()
+    time.sleep(1)
+    st.rerun()
