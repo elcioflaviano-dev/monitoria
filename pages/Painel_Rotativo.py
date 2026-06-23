@@ -160,7 +160,7 @@ elif st.session_state.idx == 4: espera = 2
 tempo_passado = time.time() - st.session_state.last_time
 
 if tempo_passado > espera:
-    if antes_0830:
+    if antes_08:30:
         if st.session_state.idx == 0:
             st.session_state.last_main = 0; prox_idx = 4
         elif st.session_state.idx == 4: prox_idx = 2
