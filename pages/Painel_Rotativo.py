@@ -3,6 +3,8 @@ import pandas as pd
 import os
 import time
 import base64
+import calendar
+import re
 from datetime import datetime, timedelta
 
 # =========================================================================
@@ -10,6 +12,9 @@ from datetime import datetime, timedelta
 # =========================================================================
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
+
+# 👇 CAMINHO DO SEU ARQUIVO DO CONSULTIVO (Criado pelo botão no Excel)
+ARQUIVO_CONSULTIVO = r"C:\Robo_Consultivo\Base_Consultivo_Motor.xlsx"
 
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
@@ -55,7 +60,7 @@ st.markdown("""<style>
     
     .destaque-ativo { transform: scale(1.15) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.5) !important; border-left: 12px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CSS DOS INDICADORES DE FALTAS REAIS */
+    /* CSS DOS INDICADORES E CONSULTIVO */
     .ind-base-title { font-size: 24px; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
     .ind-base-title.abc { color: #008080; }
     .ind-base-title.sp { color: #b30000; }
@@ -69,6 +74,11 @@ st.markdown("""<style>
     .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; }
     .falta-label { font-size: 12px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
+
+    /* CSS DO CONSULTIVO */
+    .kpi-card { background: #fff; border: 1px solid #ccc; border-top: 8px solid #003366; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;}
+    .kpi-title { font-size: 18px; font-weight: bold; color: #666; text-transform: uppercase; margin-bottom: 10px; }
+    .kpi-value { font-size: 55px; font-weight: 900; color: #003366; line-height: 1; }
     
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
@@ -109,7 +119,7 @@ if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = 
 
 minutos_agora = agora_br.hour * 60 + agora_br.minute
 
-# 🔕 1. FECHADURA DE ÁUDIO PARA TÉCNICOS EM BASE (Tela 0 - Manhã)
+# ... [MANTÉM AS SUAS REGRAS DE ÁUDIO INTACTAS AQUI (1, 2 E 3)] ...
 permitir_audio_base = False
 frase_incisiva_base = ""
 regras_audio_base = [
@@ -123,7 +133,6 @@ for regra in regras_audio_base:
         frase_incisiva_base = regra["frase"]
         break
 
-# 🔕 2. FECHADURA DE ÁUDIO PARA TEC1 PENDENTES (Tela 1 - Durante o dia)
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 regras_audio_tec1 = [
@@ -143,18 +152,13 @@ for regra in regras_audio_tec1:
         frase_incisiva_tec1 = regra["frase"]
         break
 
-# 🔕 3. FECHADURA DE ÁUDIO EXCLUSIVA PARA INDICADORES (Tela 3)
 permitir_audio_ind = False
-regras_audio_ind = [
-    (13*60, 13*60 + 15), # 13:00 as 13:15
-    (16*60, 16*60 + 15)  # 16:00 as 16:15
-]
+regras_audio_ind = [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]
 for inicio, fim in regras_audio_ind:
     if inicio <= minutos_agora <= fim:
         permitir_audio_ind = True
         break
 
-# LABELS VISUAIS
 badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇 ÁUDIO EM ESPERA</span>'
 badge_ativo = '<span style="font-size: 14px; vertical-align: middle; background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔊 ÁUDIO ATIVO</span>'
 
@@ -162,8 +166,10 @@ html_audio_base = badge_ativo if permitir_audio_base else badge_mudo
 html_audio_tec1 = badge_ativo if permitir_audio_tec1 else badge_mudo
 html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
+# 👇 NOVA GESTÃO DE ROTAÇÃO INCLUINDO O CONSULTIVO (TELA 5)
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 5: espera = 60 # Tempo da tela Consultivo na TV
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 4: espera = 2 
@@ -173,20 +179,27 @@ tempo_passado = time.time() - st.session_state.last_time
 if tempo_passado > espera:
     if antes_0830:
         if st.session_state.idx == 0:
-            st.session_state.last_main = 0
-            prox_idx = 4
+            st.session_state.last_main = 0; prox_idx = 4
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
-        if st.session_state.idx in [1, 3]:
-            st.session_state.last_main = st.session_state.idx
-            prox_idx = 4
+        # Loop sequencial da tarde: TEC1 (1) -> CONSULTIVO (5) -> INDICADORES (3) -> RELÓGIO (2)
+        if st.session_state.idx == 1:
+            st.session_state.last_main = 1; prox_idx = 4
+        elif st.session_state.idx == 5:
+            st.session_state.last_main = 5; prox_idx = 4
+        elif st.session_state.idx == 3:
+            st.session_state.last_main = 3; prox_idx = 4
         elif st.session_state.idx == 4: 
-            prox_idx = 2
-        elif st.session_state.idx == 2:
-            if st.session_state.last_main == 1: prox_idx = 3
+            # Define para onde ir depois da transição preta
+            if st.session_state.last_main == 1: prox_idx = 5
+            elif st.session_state.last_main == 5: prox_idx = 3
+            elif st.session_state.last_main == 3: prox_idx = 2
             else: prox_idx = 1
-        else: prox_idx = 1
+        elif st.session_state.idx == 2:
+            prox_idx = 1
+        else:
+            prox_idx = 1
             
     st.session_state.idx = prox_idx
     st.session_state.last_time = time.time()
@@ -250,7 +263,6 @@ function animarSupervisor(texto, delay, index, totalSup) {
         }, 1500);
     }, delay);
 }
-"""
 
 # =========================================================================
 # EXECUÇÃO DE TELAS
@@ -486,6 +498,98 @@ elif st.session_state.idx == 1:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
+# TELA 5: NOVO PAINEL DO CONSULTIVO 🚀
+# -------------------------------------------------------------------------
+elif st.session_state.idx == 5:
+    st.markdown(f'''<div class="topo-container">
+        <div class="topo-esquerda">{logo_html}</div>
+        <div class="topo-centro">PERFORMANCE CONSULTIVO</div>
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+    </div>''', unsafe_allow_html=True)
+
+    if os.path.exists(ARQUIVO_CONSULTIVO):
+        try:
+            df_cons = pd.read_excel(ARQUIVO_CONSULTIVO)
+            df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
+
+            # 🧠 INTELIGÊNCIA PYTHON: Conta produtos extraindo os 10 dígitos da O.S (Igual ao Power Query)
+            if 'OBSERVACAO' in df_cons.columns:
+                # Extrai apenas o texto entre O.S e DATA
+                extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'O\.?S(.*?)(?:DATA|$)', expand=False)
+                # Remove espaços, letras e caracteres especiais, deixando só números
+                apenas_numeros = extraido.str.replace(r'\D', '', regex=True)
+                # Divide o comprimento por 10
+                df_cons['QTD_PRODUTOS'] = (apenas_numeros.str.len().fillna(0) / 10).astype(int)
+            else:
+                df_cons['QTD_PRODUTOS'] = 0
+
+            # Mapeamento do Supervisor
+            col_tecnico = 'LOGIN NETSALES' if 'LOGIN NETSALES' in df_cons.columns else df_cons.columns[0]
+            col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c or 'MONITOR' in c), None)
+
+            def resolver_supervisor_cons(row):
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup: return oficial
+                return "NÃO IDENTIFICADO"
+
+            df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(resolver_supervisor_cons, axis=1)
+
+            # MATEMÁTICA E CÁLCULO DE METAS 📊
+            hoje = datetime.utcnow() - timedelta(hours=3)
+            ano, mes = hoje.year, hoje.month
+            
+            # Conta dias úteis sem domingo
+            _, num_dias = calendar.monthrange(ano, mes)
+            dias_uteis = sum(1 for d in range(1, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+
+            sups_presentes = len([s for s in SUPERVISORES_ORDENADOS if s in df_cons['SUPERVISOR_CLEAN'].values])
+            if sups_presentes == 0: sups_presentes = len(SUPERVISORES_ORDENADOS) # Segurança caso a base esteja vazia
+            
+            meta_total_base = sups_presentes * 350
+            meta_diaria = int(meta_total_base / dias_uteis) if dias_uteis > 0 else 0
+            total_realizado = df_cons['QTD_PRODUTOS'].sum()
+
+            # PAINEL DE CARTÕES MACRO
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown(f'''<div class="kpi-card"><div class="kpi-title">🎯 META MENSAL (BASE)</div><div class="kpi-value">{meta_total_base}</div></div>''', unsafe_allow_html=True)
+            with c2:
+                st.markdown(f'''<div class="kpi-card" style="border-top-color: #cc6600;"><div class="kpi-title">🚀 RITMO DIÁRIO NECESSÁRIO</div><div class="kpi-value">{meta_diaria}</div></div>''', unsafe_allow_html=True)
+            with c3:
+                cor_realizado = "#2e7d32" if total_realizado >= (meta_diaria * hoje.day) else "#c62828"
+                st.markdown(f'''<div class="kpi-card" style="border-top-color: {cor_realizado};"><div class="kpi-title">✅ TOTAL REALIZADO MÊS</div><div class="kpi-value" style="color: {cor_realizado};">{total_realizado}</div></div>''', unsafe_allow_html=True)
+
+            # DIVISÃO DE RESULTADOS POR SUPERVISOR
+            st.markdown('<hr style="margin: 5px 0px 20px 0px;">', unsafe_allow_html=True)
+            
+            col_abc, col_sp = st.columns(2)
+            with col_abc:
+                st.markdown('<div class="ind-base-title abc">RESULTADOS ABC</div>', unsafe_allow_html=True)
+                for sup in SUPS_ABC:
+                    qtd_sup = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS'].sum()
+                    st.markdown(f'''
+                    <div style="background: #f8f9fa; border-left: 5px solid #008080; padding: 15px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; box-shadow: 1px 1px 4px rgba(0,0,0,0.1);">
+                        <div style="font-size: 20px; font-weight: bold; color: #333;">📋 {obter_nome_visual(sup)}</div>
+                        <div style="font-size: 30px; font-weight: 900; color: #008080;">{qtd_sup} <span style="font-size: 14px; font-weight: normal; color: #666;">produtos</span></div>
+                    </div>''', unsafe_allow_html=True)
+
+            with col_sp:
+                st.markdown('<div class="ind-base-title sp">RESULTADOS SÃO PAULO</div>', unsafe_allow_html=True)
+                for sup in SUPS_SP:
+                    qtd_sup = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS'].sum()
+                    st.markdown(f'''
+                    <div style="background: #f8f9fa; border-left: 5px solid #b30000; padding: 15px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; box-shadow: 1px 1px 4px rgba(0,0,0,0.1);">
+                        <div style="font-size: 20px; font-weight: bold; color: #333;">📋 {obter_nome_visual(sup)}</div>
+                        <div style="font-size: 30px; font-weight: 900; color: #b30000;">{qtd_sup} <span style="font-size: 14px; font-weight: normal; color: #666;">produtos</span></div>
+                    </div>''', unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"Erro ao ler o ficheiro Excel. Detalhes: {e}")
+    else: 
+        st.warning(f"Aguardando o ficheiro de Consultivo na pasta segura: {ARQUIVO_CONSULTIVO}. Clique no botão do Excel para importar.")
+
+# -------------------------------------------------------------------------
 # TELA 3: PRINT DOS INDICADORES
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 3:
@@ -591,3 +695,5 @@ elif st.session_state.idx == 2:
 
 time.sleep(1)
 st.rerun()
+
+
