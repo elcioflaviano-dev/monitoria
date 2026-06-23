@@ -12,8 +12,6 @@ from datetime import datetime, timedelta
 # =========================================================================
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
-
-# 👇 CAMINHO DO SEU ARQUIVO DO CONSULTIVO (Criado pelo botão no Excel)
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
 
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
@@ -60,7 +58,7 @@ st.markdown("""<style>
     
     .destaque-ativo { transform: scale(1.15) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.5) !important; border-left: 12px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CSS DOS INDICADORES E CONSULTIVO */
+    /* CSS DOS INDICADORES DE FALTAS REAIS */
     .ind-base-title { font-size: 24px; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
     .ind-base-title.abc { color: #008080; }
     .ind-base-title.sp { color: #b30000; }
@@ -74,12 +72,12 @@ st.markdown("""<style>
     .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; }
     .falta-label { font-size: 12px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
-
+    
     /* CSS DO CONSULTIVO */
     .kpi-card { background: #fff; border: 1px solid #ccc; border-top: 8px solid #003366; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;}
     .kpi-title { font-size: 18px; font-weight: bold; color: #666; text-transform: uppercase; margin-bottom: 10px; }
     .kpi-value { font-size: 55px; font-weight: 900; color: #003366; line-height: 1; }
-    
+
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
@@ -127,7 +125,7 @@ regras_audio_base = [
     {"inicio": 8*60,      "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."},
     {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
 ]
-for regra in regras_audio_base:
+for regra in Array(regras_audio_base) if 'Array' in dir() else regras_audio_base:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_base = True
         frase_incisiva_base = regra["frase"]
@@ -145,7 +143,7 @@ regras_audio_tec1 = [
     {"inicio": 15*60 + 30, "fim": 15*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."},
     {"inicio": 16*60,      "fim": 16*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
     {"inicio": 17*60,      "fim": 17*60 + 15, "frase": "Atenção. Fechamento de janela."},
-    {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da dementia do dia anterior."}
+    {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."}
 ]
 for regra in regras_audio_tec1:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
@@ -156,8 +154,8 @@ for regra in regras_audio_tec1:
 # 🔕 3. FECHADURA DE ÁUDIO EXCLUSIVA PARA INDICADORES (Tela 3)
 permitir_audio_ind = False
 regras_audio_ind = [
-    (13*60, 13*60 + 15), # 13:00 as 13:15
-    (16*60, 16*60 + 15)  # 16:00 as 16:15
+    (13*60, 13*60 + 15), 
+    (16*60, 16*60 + 15)  
 ]
 for inicio, fim in regras_audio_ind:
     if inicio <= minutos_agora <= fim:
@@ -172,9 +170,10 @@ html_audio_base = badge_ativo if permitir_audio_base else badge_mudo
 html_audio_tec1 = badge_ativo if permitir_audio_tec1 else badge_mudo
 html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
+# Configuração da rotação de telas incluindo o Consultivo (Tela 5)
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 5: espera = 60 
+elif st.session_state.idx == 5: espera = 60 # Tempo da tela do Consultivo
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 4: espera = 2 
@@ -188,6 +187,7 @@ if tempo_passado > espera:
         elif st.session_state.idx == 4: prox_idx = 2
         else: prox_idx = 0
     else:
+        # Carrossel sequencial estruturado: TEC1 (1) -> CONSULTIVO (5) -> INDICADORES (3) -> RELÓGIO (2)
         if st.session_state.idx == 1:
             st.session_state.last_main = 1; prox_idx = 4
         elif st.session_state.idx == 5:
@@ -267,10 +267,6 @@ function animarSupervisor(texto, delay, index, totalSup) {
     }, delay);
 }
 """
-
-# =========================================================================
-# EXECUÇÃO DE TELAS
-# =========================================================================
 
 if st.session_state.idx == 4:
     st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
@@ -499,7 +495,7 @@ elif st.session_state.idx == 1:
     else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
 # -------------------------------------------------------------------------
-# TELA 5: NOVO PAINEL DO CONSULTIVO 🚀
+# TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀
 # -------------------------------------------------------------------------
 elif st.session_state.idx == 5:
     st.markdown(f'''<div class="topo-container">
@@ -510,19 +506,17 @@ elif st.session_state.idx == 5:
 
     if os.path.exists(ARQUIVO_CONSULTIVO):
         try:
-            # 💡 AGORA LENDO EM CSV IGUAL À ROTA!
             df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
             df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
-            # Como o Power Query do Excel já cria a coluna "QTD_PRODUTOS" perfeitamente calculada,
-            # basta convertermos ela para número no Python para fazer as somas.
-            if 'QTD_PRODUTOS' in df_cons.columns:
-                df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
+            # Processamento de texto e contagem nativa das O.S na nuvem
+            if 'OBSERVACAO' in df_cons.columns:
+                extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'O\.?S(.*?)(?:DATA|$)', expand=False)
+                apenas_numeros = extraido.str.replace(r'\D', '', regex=True)
+                df_cons['QTD_PRODUTOS'] = (apenas_numeros.str.len().fillna(0) / 10).astype(int)
             else:
-                # Fallback de segurança caso a coluna mude de nome
                 df_cons['QTD_PRODUTOS'] = 0
 
-            col_tecnico = 'LOGIN NETSALES' if 'LOGIN NETSALES' in df_cons.columns else df_cons.columns[0]
             col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c or 'MONITOR' in c), None)
 
             def resolver_supervisor_cons(row):
@@ -579,9 +573,10 @@ elif st.session_state.idx == 5:
                     </div>''', unsafe_allow_html=True)
 
         except Exception as e:
-            st.error(f"Erro ao ler o ficheiro CSV do Consultivo. Detalhes: {e}")
+            st.error(f"Erro ao ler os dados do Consultivo. Detalhes: {e}")
     else: 
-        st.warning(f"Aguardando o arquivo de Consultivo: {ARQUIVO_CONSULTIVO}. Clique no botão do Excel para gerar.")
+        st.warning("Aguardar a primeira sincronização da planilha master para carregar o Consultivo...")
+
 # -------------------------------------------------------------------------
 # TELA 3: PRINT DOS INDICADORES
 # -------------------------------------------------------------------------
