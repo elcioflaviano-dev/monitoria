@@ -14,7 +14,7 @@ ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 
 # 👇 CAMINHO DO SEU ARQUIVO DO CONSULTIVO (Criado pelo botão no Excel)
-ARQUIVO_CONSULTIVO = r"C:\Robo_Consultivo\Base_Consultivo_Motor.xlsx"
+ARQUIVO_CONSULTIVO = "C:/Robo_Consultivo/Base_Consultivo_Motor.xlsx"
 
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
@@ -510,7 +510,7 @@ elif st.session_state.idx == 5:
 
     if os.path.exists(ARQUIVO_CONSULTIVO):
         try:
-            df_cons = pd.read_excel(ARQUIVO_CONSULTIVO)
+            df_cons = pd.read_excel(ARQUIVO_CONSULTIVO, engine="openpyxl")
             df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
             if 'OBSERVACAO' in df_cons.columns:
