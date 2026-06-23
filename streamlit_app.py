@@ -37,6 +37,25 @@ def carregar_dados_nuvem():
             return None
 
         ficheiro_excel = io.BytesIO(resposta.content)
+        
+        # =====================================================================
+        # 📊 PARTE A: PROCESSA E SINCRONIZA A ABA DO CONSULTIVO (NOVO!)
+        # =====================================================================
+        try:
+            df_cons_bruto = pd.read_excel(ficheiro_excel, sheet_name='CONSULTIVO', engine='openpyxl')
+            if not df_cons_bruto.empty:
+                df_cons_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_cons_bruto.columns]
+                # Salva o CSV do consultivo na nuvem
+                df_cons_bruto.to_csv("consultivo_sincronizado.csv", index=False)
+        except Exception as e_cons:
+            st.sidebar.warning(f"Aba CONSULTIVO não processada: {e_cons}")
+
+        # Retorna o ponteiro do arquivo para o início para ler a Rota
+        ficheiro_excel.seek(0)
+
+        # =====================================================================
+        # 🗺️ PARTE B: PROCESSA E SINCRONIZA A ABA DA ROTA (SEU CÓDIGO ORIGINAL)
+        # =====================================================================
         df_bruto = pd.read_excel(ficheiro_excel, sheet_name='ROTA', engine='openpyxl')
         
         if df_bruto.empty:
@@ -44,16 +63,12 @@ def carregar_dados_nuvem():
 
         df_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_bruto.columns]
         
-        # 🔥 PASSO 1: EXTRAI OS VALORES PUROS DAS SUAS FÓRMULAS LÁ DO FINAL DA PLANILHA 🔥
-        # Procura qualquer coluna que contenha "SUPERV" e pega a última
         cols_sup = [c for c in df_bruto.columns if 'SUPERV' in str(c).upper()]
         valores_supervisor = df_bruto[cols_sup[-1]].values if cols_sup else None
         
-        # Procura qualquer coluna que contenha "BASE" ou "REGIAO" e pega a última
         cols_base = [c for c in df_bruto.columns if 'BASE' in str(c).upper() or 'REGIAO' in str(c).upper() or 'REGIÃO' in str(c).upper()]
         valores_base = df_bruto[cols_base[-1]].values if cols_base else None
 
-        # PASSO 2: Mapeamento Seguro das outras colunas
         colunas_mapeadas = {}
         for col in list(df_bruto.columns):
             col_upper = str(col).upper()
@@ -62,7 +77,6 @@ def carregar_dados_nuvem():
             elif 'STATUS' in col_upper and 'ATIVIDADE' in col_upper: 
                 colunas_mapeadas[col] = 'Status da Atividade'
             elif 'TIPO' in col_upper and 'ATIVIDADE' in col_upper:
-                # 🔥 CORREÇÃO: Salva a Tipo de Atividade3 separadamente! 🔥
                 if '3' in col_upper:
                     colunas_mapeadas[col] = 'Tipo de Atividade3'
                 else:
@@ -75,7 +89,6 @@ def carregar_dados_nuvem():
         df_final = df_bruto.rename(columns=colunas_mapeadas)
         df_final = df_final.loc[:, ~df_final.columns.duplicated(keep='first')]
         
-        # 🔥 PASSO 3: INJETA OS VALORES REAIS NA TABELA BLINDADA 🔥
         if valores_supervisor is not None:
             df_final['SUPERVISOR'] = valores_supervisor
         else:
@@ -86,7 +99,6 @@ def carregar_dados_nuvem():
         else:
             df_final['REGIAO_BASE'] = 'GERAL'
 
-        # Limpeza final dos "Fantasmas" e vazios
         df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('NÃO IDENTIFICADO').astype(str).str.strip().str.upper()
         df_final['SUPERVISOR'] = df_final['SUPERVISOR'].replace(['NAN', 'N/A', 'NULL', '', '-', '0', '0.0'], 'NÃO IDENTIFICADO')
 
@@ -96,7 +108,6 @@ def carregar_dados_nuvem():
         if 'Recurso' not in df_final.columns and 'Login do Técnico' in df_final.columns:
             df_final['Recurso'] = df_final['Login do Técnico']
 
-        # Salva o arquivo CSV que abastece os outros painéis
         st.session_state['df_rota_ativa'] = df_final
         df_final.to_csv(ARQUIVO_ROTA_DISCO, index=False)
         
