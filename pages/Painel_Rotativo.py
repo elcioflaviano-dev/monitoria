@@ -555,7 +555,10 @@ elif st.session_state.idx == 5:
             with col_abc:
                 st.markdown('<div class="ind-base-title abc">RESULTADOS ABC</div>', unsafe_allow_html=True)
                 for sup in SUPS_ABC:
-                    qtd_sup = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS'].sum()
+                    # 🔍 Filtro inteligente: soma se o nome do supervisor estiver contido na coluna, ignorando maiúsculas/minúsculas
+                    mascara_sup = df_cons['SUPERVISOR_CLEAN'].str.contains(sup, case=False, na=False)
+                    qtd_sup = df_cons[mascara_sup]['QTD_PRODUTOS'].sum()
+                    
                     st.markdown(f'''
                     <div style="background: #f8f9fa; border-left: 5px solid #008080; padding: 15px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; box-shadow: 1px 1px 4px rgba(0,0,0,0.1);">
                         <div style="font-size: 20px; font-weight: bold; color: #333;">📋 {obter_nome_visual(sup)}</div>
@@ -565,7 +568,10 @@ elif st.session_state.idx == 5:
             with col_sp:
                 st.markdown('<div class="ind-base-title sp">RESULTADOS SÃO PAULO</div>', unsafe_allow_html=True)
                 for sup in SUPS_SP:
-                    qtd_sup = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS'].sum()
+                    # 🔍 Filtro inteligente para São Paulo
+                    mascara_sup = df_cons['SUPERVISOR_CLEAN'].str.contains(sup, case=False, na=False)
+                    qtd_sup = df_cons[mascara_sup]['QTD_PRODUTOS'].sum()
+                    
                     st.markdown(f'''
                     <div style="background: #f8f9fa; border-left: 5px solid #b30000; padding: 15px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; box-shadow: 1px 1px 4px rgba(0,0,0,0.1);">
                         <div style="font-size: 20px; font-weight: bold; color: #333;">📋 {obter_nome_visual(sup)}</div>
