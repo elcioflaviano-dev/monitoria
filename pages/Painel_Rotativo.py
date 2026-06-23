@@ -131,7 +131,7 @@ for regra in regras_audio_tec1:
 
 permitir_audio_ind = False
 regras_audio_ind = [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]
-for inicio, f in []: regras_audio_ind:
+for inicio, f in regras_audio_ind:
     if inicio <= minutos_agora <= f:
         permitir_audio_ind = True
         break
@@ -147,7 +147,7 @@ if st.session_state.idx == 0: espera = 60
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60  # 🔥 FIXADO: De bundle_espera para espera!
+elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60  
 elif st.session_state.idx == 4: espera = 2  
 
 tempo_passado = time.time() - st.session_state.last_time
@@ -466,14 +466,14 @@ with CONTEUDO_TV.container():
                         
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
-                st.components.v1.html(st.session_state.script_audio_ativa if 'df_rota_ativa' in dir() else st.session_state.script_audio_atual, height=0)
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
         time.sleep(1)
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🔥
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -499,9 +499,9 @@ with CONTEUDO_TV.container():
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
-                # 🔥 NOVO MOTOR REGEX EXTRAI UNIVERSALMENTE SE FOR O.S:, O.C:, O. OU NÚMERO: 🔥
+                # 🔥 MOTOR REGEX ATUALIZADO: ABRE ESPAÇO AMPLO PARA IDENTIFICAR NÚMERO / Nº / N° 🔥
                 if 'OBSERVACAO' in df_cons.columns:
-                    extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'(?:NÚMERO|NUMERO)(.*?)(?:DATA|HORA|$)', expand=False)
+                    extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'(?:NÚMERO|NUMERO|Nº|N°)(.*?)(?:DATA|HORA|$)', expand=False)
                     apenas_numeros = extraido.str.replace(r'\D', '', regex=True).fillna('')
                     df_cons['QTD_PRODUTOS'] = apenas_numeros.str.len().apply(lambda x: int((x + 9) // 10) if x > 0 else 0)
                 elif 'QTD_PRODUTOS' in df_cons.columns:
