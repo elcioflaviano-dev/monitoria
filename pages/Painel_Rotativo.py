@@ -14,7 +14,7 @@ ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 
 # 👇 CAMINHO DO SEU ARQUIVO DO CONSULTIVO (Criado pelo botão no Excel)
-ARQUIVO_CONSULTIVO = "C:/Robo_Consultivo/Base_Consultivo_Motor.xlsx"
+ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
 
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
@@ -510,14 +510,16 @@ elif st.session_state.idx == 5:
 
     if os.path.exists(ARQUIVO_CONSULTIVO):
         try:
-            df_cons = pd.read_excel(ARQUIVO_CONSULTIVO, engine="openpyxl")
+            # 💡 AGORA LENDO EM CSV IGUAL À ROTA!
+            df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
             df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
-            if 'OBSERVACAO' in df_cons.columns:
-                extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'O\.?S(.*?)(?:DATA|$)', expand=False)
-                apenas_numeros = extraido.str.replace(r'\D', '', regex=True)
-                df_cons['QTD_PRODUTOS'] = (apenas_numeros.str.len().fillna(0) / 10).astype(int)
+            # Como o Power Query do Excel já cria a coluna "QTD_PRODUTOS" perfeitamente calculada,
+            # basta convertermos ela para número no Python para fazer as somas.
+            if 'QTD_PRODUTOS' in df_cons.columns:
+                df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
             else:
+                # Fallback de segurança caso a coluna mude de nome
                 df_cons['QTD_PRODUTOS'] = 0
 
             col_tecnico = 'LOGIN NETSALES' if 'LOGIN NETSALES' in df_cons.columns else df_cons.columns[0]
@@ -577,10 +579,9 @@ elif st.session_state.idx == 5:
                     </div>''', unsafe_allow_html=True)
 
         except Exception as e:
-            st.error(f"Erro ao ler o ficheiro Excel. Detalhes: {e}")
+            st.error(f"Erro ao ler o ficheiro CSV do Consultivo. Detalhes: {e}")
     else: 
-        st.warning(f"Aguardando o ficheiro de Consultivo na pasta segura: {ARQUIVO_CONSULTIVO}.")
-
+        st.warning(f"Aguardando o arquivo de Consultivo: {ARQUIVO_CONSULTIVO}. Clique no botão do Excel para gerar.")
 # -------------------------------------------------------------------------
 # TELA 3: PRINT DOS INDICADORES
 # -------------------------------------------------------------------------
