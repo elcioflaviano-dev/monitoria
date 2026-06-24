@@ -476,7 +476,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀 (SOMA DIRETA DO POWER QUERY)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -488,12 +488,15 @@ with CONTEUDO_TV.container():
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
                 df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
+                # Padroniza nomes das colunas para maiúsculo
                 df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
+                # Limpeza básica de texto
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].fillna('').astype(str).str.strip().str.upper()
                 df_cons['BASE'] = df_cons['BASE'].fillna('').astype(str).str.strip().str.upper()
                 df_cons['TIPO DE TABULAÇÃO'] = df_cons['TIPO DE TABULAÇÃO'].fillna('').astype(str).str.strip().str.upper()
 
+                # Filtros Rígidos
                 df_cons = df_cons[
                     (df_cons['TIPO DE TABULAÇÃO'] == 'VENDA') & 
                     (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
@@ -501,24 +504,10 @@ with CONTEUDO_TV.container():
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
-                # 🔥 MOTOR DE EXTRAÇÃO COM FILTRO DE DUPLICADAS (VALIDADO) 🔥
-                if 'OBSERVACAO' in df_cons.columns:
-                    import re
-                    def contar_contratos_unicos(texto):
-                        matches = re.findall(r'\d{9,}', str(texto))
-                        contratos_unicos = set()
-                        for m in matches:
-                            if len(m) >= 18: 
-                                for i in range(0, len(m), 10):
-                                    chunk = m[i:i+10]
-                                    if len(chunk) >= 9: contratos_unicos.add(chunk)
-                            elif 9 <= len(m) <= 12:
-                                contratos_unicos.add(m)
-                        return len(contratos_unicos)
-
-                    df_cons['QTD_PRODUTOS'] = df_cons['OBSERVACAO'].apply(contar_contratos_unicos)
-                elif 'QTD_PRODUTOS' in df_cons.columns:
-                    df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
+                # 🔥 SOMA DIRETA DA COLUNA DO POWER QUERY 🔥
+                if 'QTD_PRODUTOS' in df_cons.columns:
+                    # Converte a coluna já calculada pelo Power Query para número inteiro
+                    df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0), errors='coerce').fillna(0).astype(int)
                 else:
                     df_cons['QTD_PRODUTOS'] = 0
 
@@ -640,7 +629,6 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
         time.sleep(1)
         st.rerun()
-
     # -------------------------------------------------------------------------
     # TELA 3: PRINT DOS INDICADORES
     # -------------------------------------------------------------------------
