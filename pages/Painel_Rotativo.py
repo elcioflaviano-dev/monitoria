@@ -4,6 +4,7 @@ import os
 import time
 import base64
 import calendar
+import unicodedata
 from datetime import datetime, timedelta
 
 # =========================================================================
@@ -89,6 +90,10 @@ def obter_nome_visual(nome_completo):
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
 
+def limpar_texto(txt):
+    if pd.isna(txt): return ''
+    return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
+
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.last_main = 0   
@@ -152,12 +157,14 @@ html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 5: espera = 60 
+elif st.session_state.idx == 6: espera = 60 # 🔥 TELA NOVA
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 4: espera = 2  
 
 tempo_passado = time.time() - st.session_state.last_time
 
+# Lógica do motor de rotação atualizada com Tela 6
 if tempo_passado > espera:
     if antes_0830:
         if st.session_state.idx == 0:
@@ -169,11 +176,14 @@ if tempo_passado > espera:
             st.session_state.last_main = 1; prox_idx = 4
         elif st.session_state.idx == 5:
             st.session_state.last_main = 5; prox_idx = 4
+        elif st.session_state.idx == 6:
+            st.session_state.last_main = 6; prox_idx = 4
         elif st.session_state.idx == 3:
             st.session_state.last_main = 3; prox_idx = 4
         elif st.session_state.idx == 4: 
             if st.session_state.last_main == 1: prox_idx = 5
-            elif st.session_state.last_main == 5: prox_idx = 3
+            elif st.session_state.last_main == 5: prox_idx = 6 # Da 5 vai pra 6
+            elif st.session_state.last_main == 6: prox_idx = 3 # Da 6 vai pra 3
             elif st.session_state.last_main == 3: prox_idx = 2
             else: prox_idx = 1
         elif st.session_state.idx == 2:
@@ -507,12 +517,8 @@ with CONTEUDO_TV.container():
                 else:
                     df_cons['QTD_PRODUTOS_CALC'] = 0
 
-                # 🔥 1. SOMA TOTAL DA BASE (EXATO DA PLANILHA, ANTES DE QUALQUER FILTRO) 🔥
-                total_realizado_abc = df_cons[df_cons['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
-                total_realizado_sp  = df_cons[df_cons['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
-
                 # -------------------------------------------------------------------------
-                # Agora tratamos os Supervisores para preencher os Cards Individuais
+                # FILTRA OS SUPERVISORES VÁLIDOS PRIMEIRO PARA IGNORAR #N/D
                 # -------------------------------------------------------------------------
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
 
@@ -526,8 +532,12 @@ with CONTEUDO_TV.container():
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
                 
-                # Para os cards, ficamos apenas com as linhas que têm supervisor válido
+                # Para os cards E para o total, ficamos apenas com as linhas que têm supervisor válido
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+
+                # 🔥 1. SOMA TOTAL DA BASE (APENAS O QUE É VÁLIDO) 🔥
+                total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
+                total_realizado_sp  = df_cards[df_cards['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
 
                 hoje = datetime.utcnow() - timedelta(hours=3)
                 ano, mes = hoje.year, hoje.month
@@ -552,7 +562,6 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_ABC:
-                        # Puxa do df_cards, que já descartou os "N/D"
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         meta_individual = 350
@@ -571,9 +580,9 @@ with CONTEUDO_TV.container():
                                     <div class="falta-label" style="color: #2e7d32;">📦 TOTAL PRODUTOS</div>
                                     <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
                                 </div>
-                                <div class="falta-box">
-                                    <div class="falta-label">📉 FALTA PARA META</div>
-                                    <div class="falta-value">{falta_individual}</div>
+                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
+                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
                                     <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
@@ -589,7 +598,6 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_SP:
-                        # Puxa do df_cards, que já descartou os "N/D"
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         meta_individual = 350
@@ -608,9 +616,9 @@ with CONTEUDO_TV.container():
                                     <div class="falta-label" style="color: #00695c;">📦 TOTAL PRODUTOS</div>
                                     <div class="falta-value" style="color: #004d40;">{qtd_sup}</div>
                                 </div>
-                                <div class="falta-box">
-                                    <div class="falta-label">📉 FALTA PARA META</div>
-                                    <div class="falta-value">{falta_individual}</div>
+                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
+                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
                                     <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
@@ -630,6 +638,157 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
         time.sleep(1)
         st.rerun()
+
+    # -------------------------------------------------------------------------
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 🚀
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx == 6:
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">PERFORMANCE CONSULTIVO DIÁRIO</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>''', unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_CONSULTIVO):
+            try:
+                import unicodedata
+                
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
+                df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
+
+                def limpar_texto(txt):
+                    if pd.isna(txt): return ''
+                    return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
+
+                if 'BASE' in df_cons.columns:
+                    df_cons['BASE'] = df_cons['BASE'].apply(limpar_texto)
+                else:
+                    df_cons['BASE'] = 'N/D'
+
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+                if col_qtd:
+                    df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int)
+                else:
+                    df_cons['QTD_PRODUTOS_CALC'] = 0
+
+                # -------------------------------------------------------------------------
+                # FILTRA OS SUPERVISORES VÁLIDOS PRIMEIRO PARA IGNORAR #N/D
+                # -------------------------------------------------------------------------
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
+
+                def classificar_supervisor_limpo(row):
+                    texto_celula = row.get('SUPERVISOR', '')
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        primeiro_nome = limpar_texto(oficial.split()[0])
+                        if primeiro_nome in texto_celula:
+                            return oficial
+                    return "DESCARTADO"
+
+                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
+                
+                # Para os cards, ficamos apenas com as linhas que têm supervisor válido
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+
+                # 🔥 FILTRO DE DATA (SOMENTE HOJE) 🔥
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+                if col_data:
+                    hoje_str = (datetime.utcnow() - timedelta(hours=3)).strftime('%d/%m/%Y')
+                    df_cards[col_data] = pd.to_datetime(df_cards[col_data], dayfirst=True, errors='coerce').dt.strftime('%d/%m/%Y')
+                    df_cards = df_cards[df_cards[col_data] == hoje_str].copy()
+
+                # SOMA TOTAL DA BASE (SOMENTE HOJE E VÁLIDOS)
+                total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
+                total_realizado_sp  = df_cards[df_cards['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
+
+                # A meta diária estabelecida
+                meta_diaria_base = 17.5
+                meta_mensal_abc = len(SUPS_ABC) * meta_diaria_base
+                meta_mensal_sp = len(SUPS_SP) * meta_diaria_base
+
+                col_abc, col_sp = st.columns(2)
+                
+                with col_abc:
+                    st.markdown(f'''<div class="box-base">
+                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC TOTAL DIA (Meta: {meta_mensal_abc})</div>
+                        <div class="num-base">{total_realizado_abc}</div>
+                    </div>''', unsafe_allow_html=True)
+                    
+                    for sup in SUPS_ABC:
+                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        
+                        meta_individual = 17.5
+                        falta_individual = round(meta_individual - qtd_sup, 1)
+                        if falta_individual < 0: falta_individual = 0
+
+                        st.markdown(f'''
+                        <div class="sup-card">
+                            <div class="sup-header">
+                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo: 17.5</div>
+                            </div>
+                            <div class="faltas-grid">
+                                <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                    <div class="falta-label" style="color: #2e7d32;">📦 TOTAL HOJE</div>
+                                    <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
+                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103;">{meta_individual}</div>
+                                </div>
+                            </div>
+                        </div>''', unsafe_allow_html=True)
+
+                with col_sp:
+                    st.markdown(f'''<div class="box-base-sp">
+                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO TOTAL DIA (Meta: {meta_mensal_sp})</div>
+                        <div class="num-base">{total_realizado_sp}</div>
+                    </div>''', unsafe_allow_html=True)
+                    
+                    for sup in SUPS_SP:
+                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        
+                        meta_individual = 17.5
+                        falta_individual = round(meta_individual - qtd_sup, 1)
+                        if falta_individual < 0: falta_individual = 0
+
+                        st.markdown(f'''
+                        <div class="sup-card">
+                            <div class="sup-header">
+                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Alvo: 17.5</div>
+                            </div>
+                            <div class="faltas-grid">
+                                <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;">
+                                    <div class="falta-label" style="color: #00695c;">📦 TOTAL HOJE</div>
+                                    <div class="falta-value" style="color: #004d40;">{qtd_sup}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
+                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103;">{meta_individual}</div>
+                                </div>
+                            </div>
+                        </div>''', unsafe_allow_html=True)
+
+                if st.session_state.novo_ciclo:
+                    st.session_state.script_audio_atual = ""
+                    st.session_state.novo_ciclo = False
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+            except Exception as e:
+                st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
+        else: 
+            st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+        time.sleep(1)
+        st.rerun()
+
     # -------------------------------------------------------------------------
     # TELA 3: PRINT DOS INDICADORES
     # -------------------------------------------------------------------------
