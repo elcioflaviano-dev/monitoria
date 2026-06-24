@@ -490,7 +490,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONSULTIVO</div>
+            <div class="topo-centro">PERFORMANCE CONSULTIVO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
@@ -646,7 +646,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONSULTIVO DIÁRIO</div>
+            <div class="topo-centro">PERFORMANCE CONSULTIVO DIÁRIO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
@@ -728,13 +728,13 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_ABC:
-                        # 1. Pega acumulado do mês para saber a real situação
+                        # 1. Pega acumulado do mês
                         qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         # 2. Pega apenas o que foi feito hoje
                         qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
-                        # 3. Calcula a meta do dia dinamicamente com base no que falta no mês
+                        # 3. Calcula a meta do dia dinamicamente
                         falta_mes = max(0, 350 - qtd_mes)
                         meta_dia = round(falta_mes / dias_restantes, 1)
                         
@@ -745,7 +745,7 @@ with CONTEUDO_TV.container():
                         <div class="sup-card">
                             <div class="sup-header">
                                 <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo Dia: {meta_dia}</div>
+                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Total Acumulado: {qtd_mes}</div>
                             </div>
                             <div class="faltas-grid">
                                 <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
@@ -781,7 +781,7 @@ with CONTEUDO_TV.container():
                         <div class="sup-card">
                             <div class="sup-header">
                                 <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Alvo Dia: {meta_dia}</div>
+                                <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Total Acumulado: {qtd_mes}</div>
                             </div>
                             <div class="faltas-grid">
                                 <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;">
