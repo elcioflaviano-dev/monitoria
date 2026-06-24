@@ -476,7 +476,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀 (SOMA DIRETA E LIMPA)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀 (SOMA DIRETA E BLINDADA)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -487,30 +487,45 @@ with CONTEUDO_TV.container():
 
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
+                import unicodedata
+                
                 df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
-                df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
+                
+                # 🔥 BLINDAGEM 1: Remove caracteres ocultos e espaços dos nomes das colunas
+                df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
 
-                # Limpeza de colunas básicas
-                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].fillna('').astype(str).str.strip().str.upper()
-                df_cons['BASE'] = df_cons['BASE'].fillna('').astype(str).str.strip().str.upper()
+                # Função para limpar textos e acentos das linhas
+                def limpar_texto(txt):
+                    if pd.isna(txt): return ''
+                    return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-                # 🔥 FILTROS LIMPOS (Removido o filtro de VENDA a pedido) 🔥
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto)
+                
+                if 'BASE' in df_cons.columns:
+                    df_cons['BASE'] = df_cons['BASE'].apply(limpar_texto)
+                else:
+                    df_cons['BASE'] = 'N/D'
+
+                # Filtros puros (Sem filtro de venda, conforme solicitado)
                 df_cons = df_cons[
-                    (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
                     (df_cons['SUPERVISOR'] != '') & 
+                    (df_cons['SUPERVISOR'] != 'N/D') & 
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
-                # 🔥 SOMA DIRETA DA COLUNA QTD_PRODUTOS 🔥
-                if 'QTD_PRODUTOS' in df_cons.columns:
-                    df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0), errors='coerce').fillna(0).astype(int)
+                # 🔥 BLINDAGEM 2: Busca a coluna de produtos dinamicamente
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+                
+                if col_qtd:
+                    # Força a conversão para número, transformando textos em 0 se falhar
+                    df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int)
                 else:
-                    df_cons['QTD_PRODUTOS'] = 0
+                    df_cons['QTD_PRODUTOS_CALC'] = 0
 
                 def classificar_supervisor_limpo(row):
-                    texto_celula = str(row.get('SUPERVISOR', ''))
+                    texto_celula = row.get('SUPERVISOR', '')
                     for oficial in SUPERVISORES_ORDENADOS:
-                        primeiro_nome = oficial.split()[0]
+                        primeiro_nome = limpar_texto(oficial.split()[0])
                         if primeiro_nome in texto_celula:
                             return oficial
                     return "DESCARTADO"
@@ -527,15 +542,12 @@ with CONTEUDO_TV.container():
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
-                # Separação por base
                 df_abc_puro = df_cons[df_cons['BASE'] == 'ABC']
                 df_sp_puro = df_cons[df_cons['BASE'] == 'SP']
 
-                # Soma total por base
-                total_realizado_abc = df_abc_puro['QTD_PRODUTOS'].sum()
-                total_realizado_sp = df_sp_puro['QTD_PRODUTOS'].sum()
+                total_realizado_abc = df_abc_puro['QTD_PRODUTOS_CALC'].sum()
+                total_realizado_sp = df_sp_puro['QTD_PRODUTOS_CALC'].sum()
 
-                # Metas e Ritmos
                 meta_mensal_abc = len(SUPS_ABC) * 350
                 meta_mensal_sp = len(SUPS_SP) * 350
 
@@ -551,7 +563,7 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_ABC:
-                        qtd_sup = df_abc_puro[df_abc_puro['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS'].sum()
+                        qtd_sup = df_abc_puro[df_abc_puro['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
@@ -587,7 +599,7 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_SP:
-                        qtd_sup = df_sp_puro[df_sp_puro['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS'].sum()
+                        qtd_sup = df_sp_puro[df_sp_puro['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
