@@ -7,6 +7,18 @@ import calendar
 import unicodedata
 from datetime import datetime, timedelta
 
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+# CSS PARA LIMPEZA DA INTERFACE
+st.markdown("""
+    <style>
+    [data-testid="stHeader"] { visibility: hidden !important; }
+    .stDeployButton { display: none !important; }
+    footer { visibility: hidden !important; }
+    #MainMenu { visibility: hidden !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 # =========================================================================
 # CONFIGURAÇÕES DA PÁGINA - MENU LATERAL ATIVO
 # =========================================================================
