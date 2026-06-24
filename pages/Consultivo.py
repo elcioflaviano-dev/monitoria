@@ -8,9 +8,10 @@ import unicodedata
 from datetime import datetime, timedelta
 
 # =========================================================================
-# CONFIGURAÇÕES DA PÁGINA 🚀
+# CONFIGURAÇÕES DA PÁGINA - MENU LATERAL ATIVO
 # =========================================================================
-st.set_page_config(page_title="Performance Consultivo", layout="wide", initial_sidebar_state="collapsed")
+# Removi o "collapsed" para permitir que o menu lateral apareça
+st.set_page_config(page_title="Performance Consultivo", layout="wide")
 
 ROOT_DIR = os.getcwd()
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
