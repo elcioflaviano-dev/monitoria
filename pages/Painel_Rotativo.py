@@ -501,14 +501,16 @@ with CONTEUDO_TV.container():
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
+               # 🔥 MOTOR DE EXTRAÇÃO REFORÇADO: CAPTURA QUALQUER SEQUÊNCIA DE 9 A 10 DÍGITOS 🔥
                 if 'OBSERVACAO' in df_cons.columns:
-                    extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'(?:NÚMERO|NUMERO|Nº|N°)(.*?)(?:DATA|HORA|$)', expand=False)
-                    apenas_numeros = extraido.str.replace(r'\D', '', regex=True).fillna('')
-                    df_cons['QTD_PRODUTOS'] = apenas_numeros.str.len().apply(lambda x: int((x + 9) // 10) if x > 0 else 0)
+                # Busca todas as sequências numéricas de 9 a 10 dígitos na string inteira
+                # Isso captura "2696504505", "500474037", etc., ignorando qualquer texto em volta
+                    matches = df_cons['OBSERVACAO'].astype(str).str.findall(r'\b\d{9,10}\b')
+                df_cons['QTD_PRODUTOS'] = matches.apply(lambda x: len(x) if isinstance(x, list) else 0)
                 elif 'QTD_PRODUTOS' in df_cons.columns:
-                    df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
+                   df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
                 else:
-                    df_cons['QTD_PRODUTOS'] = 0
+                df_cons['QTD_PRODUTOS'] = 0
 
                 def classificar_supervisor_limpo(row):
                     texto_celula = str(row.get('SUPERVISOR', ''))
