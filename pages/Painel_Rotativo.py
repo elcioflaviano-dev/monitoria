@@ -68,11 +68,11 @@ if "idx" not in st.session_state:
 agora_br = datetime.utcnow() - timedelta(hours=3)
 minutos_agora = agora_br.hour * 60 + agora_br.minute
 
-# Lógica de áudio limpa
+# Lógica de áudio corrigida
 regras_audio_ind = [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]
 permitir_audio_ind = any(inicio <= minutos_agora <= fim for inicio, fim in regras_audio_ind)
-badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇</span>'
 badge_ativo = '<span style="font-size: 14px; vertical-align: middle; background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔊</span>'
+badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇</span>'
 html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
 # Rotação de telas
@@ -90,19 +90,6 @@ if time.time() - st.session_state.last_time > espera:
     st.session_state.idx = prox_idx
     st.session_state.last_time = time.time()
     st.rerun()
-
-JS_MOTOR_AUDIO = """
-function tocarAlertaChamaAtencao() {
-    try {
-        let ctx = new (window.parent.AudioContext || window.AudioContext)();
-        let tempo = ctx.currentTime;
-        let osc1 = ctx.createOscillator(); let gain1 = ctx.createGain();
-        osc1.type = 'triangle'; osc1.frequency.setValueAtTime(880, tempo);
-        gain1.gain.setValueAtTime(0, tempo); gain1.gain.linearRampToValueAtTime(0.4, tempo + 0.05); gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
-        osc1.connect(gain1); gain1.connect(ctx.destination); osc1.start(tempo); osc1.stop(tempo + 0.6);
-    } catch(e) {}
-}
-"""
 
 CONTEUDO_TV = st.empty()
 
