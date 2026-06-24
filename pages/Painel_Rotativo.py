@@ -476,7 +476,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀 (SOMA DIRETA DO POWER QUERY)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀 (SOMA DIRETA E LIMPA)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -488,24 +488,21 @@ with CONTEUDO_TV.container():
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
                 df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
-                # Padroniza nomes das colunas para maiúsculo
                 df_cons.columns = [str(c).strip().upper() for c in df_cons.columns]
 
-                # Limpeza básica de texto
+                # Limpeza de colunas básicas
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].fillna('').astype(str).str.strip().str.upper()
                 df_cons['BASE'] = df_cons['BASE'].fillna('').astype(str).str.strip().str.upper()
-                df_cons['TIPO DE TABULAÇÃO'] = df_cons['TIPO DE TABULAÇÃO'].fillna('').astype(str).str.strip().str.upper()
 
-                # Filtros Rígidos
+                # 🔥 FILTROS LIMPOS (Removido o filtro de VENDA a pedido) 🔥
                 df_cons = df_cons[
-                (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
-                (df_cons['SUPERVISOR'] != '') & 
-                (df_cons['BASE'] != 'GRU')
+                    (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
+                    (df_cons['SUPERVISOR'] != '') & 
+                    (df_cons['BASE'] != 'GRU')
                 ].copy()
 
-                # 🔥 SOMA DIRETA DA COLUNA DO POWER QUERY 🔥
+                # 🔥 SOMA DIRETA DA COLUNA QTD_PRODUTOS 🔥
                 if 'QTD_PRODUTOS' in df_cons.columns:
-                    # Converte a coluna já calculada pelo Power Query para número inteiro
                     df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0), errors='coerce').fillna(0).astype(int)
                 else:
                     df_cons['QTD_PRODUTOS'] = 0
@@ -521,6 +518,7 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
                 df_cons = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
+                # Cálculos de Calendário
                 hoje = datetime.utcnow() - timedelta(hours=3)
                 ano, mes = hoje.year, hoje.month
                 
@@ -529,12 +527,15 @@ with CONTEUDO_TV.container():
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
+                # Separação por base
                 df_abc_puro = df_cons[df_cons['BASE'] == 'ABC']
                 df_sp_puro = df_cons[df_cons['BASE'] == 'SP']
 
+                # Soma total por base
                 total_realizado_abc = df_abc_puro['QTD_PRODUTOS'].sum()
                 total_realizado_sp = df_sp_puro['QTD_PRODUTOS'].sum()
 
+                # Metas e Ritmos
                 meta_mensal_abc = len(SUPS_ABC) * 350
                 meta_mensal_sp = len(SUPS_SP) * 350
 
@@ -550,8 +551,7 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_ABC:
-                        df_filtrado = df_abc_puro[df_abc_puro['SUPERVISOR_CLEAN'] == sup]
-                        qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
+                        qtd_sup = df_abc_puro[df_abc_puro['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS'].sum()
                         
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
@@ -587,8 +587,7 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_SP:
-                        df_filtrado = df_sp_puro[df_sp_puro['SUPERVISOR_CLEAN'] == sup]
-                        qtd_sup = df_filtrado['QTD_PRODUTOS'].sum()
+                        qtd_sup = df_sp_puro[df_sp_puro['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS'].sum()
                         
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
