@@ -67,6 +67,12 @@ st.markdown("""<style>
     .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; }
     .falta-label { font-size: 11px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
+    
+    /* 🔥 RESTAURADO: ESTILOS MAJESTOSOS DO RELÓGIO DA TV GIGANTE 🔥 */
+    .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
+    .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
+    .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
+    .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 16px; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
@@ -147,7 +153,7 @@ if st.session_state.idx == 0: espera = 60
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60  
+elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 4: espera = 2  
 
 tempo_passado = time.time() - st.session_state.last_time
@@ -315,16 +321,13 @@ with CONTEUDO_TV.container():
                 mid_sp = (len(nomes_sp) + 1) // 2
                 
                 with c1:
-                    st.markdown('<h3 style="color:#008080;">🏢 ABC (1/2)</h3>', unsafe_allow_html=True)
+                    st.markdown('<div class="tec-base-nome">🏃‍♂️ ' + n + '</div>' if 'n' in dir() else f'<div class="tec-base-nome">🏃‍♂️ {nomes_abc[0] if nomes_abc else ""}</div>', unsafe_allow_html=True)
                     for n in nomes_abc[:mid_abc]: st.markdown(f'<div class="tec-base-nome">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
                 with c2:
-                    st.markdown('<h3 style="color:#008080;">🏢 ABC (2/2)</h3>', unsafe_allow_html=True)
                     for n in nomes_abc[mid_abc:]: st.markdown(f'<div class="tec-base-nome">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
                 with c3:
-                    st.markdown('<h3 style="color:#c62828;">🏙️ SP (1/2)</h3>', unsafe_allow_html=True)
                     for n in nomes_sp[:mid_sp]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
                 with c4:
-                    st.markdown('<h3 style="color:#c62828;">🏙️ SP (2/2)</h3>', unsafe_allow_html=True)
                     for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
@@ -491,7 +494,6 @@ with CONTEUDO_TV.container():
                 df_cons['BASE'] = df_cons['BASE'].fillna('').astype(str).str.strip().str.upper()
                 df_cons['TIPO DE TABULAÇÃO'] = df_cons['TIPO DE TABULAÇÃO'].fillna('').astype(str).str.strip().str.upper()
 
-                # Filtra apenas tabulação VENDA e descarta lixo operacional / base GRU
                 df_cons = df_cons[
                     (df_cons['TIPO DE TABULAÇÃO'] == 'VENDA') & 
                     (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
@@ -499,7 +501,6 @@ with CONTEUDO_TV.container():
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
-                # 🔥 MOTOR REGEX ATUALIZADO: ABRE ESPAÇO AMPLO PARA IDENTIFICAR NÚMERO / Nº / N° 🔥
                 if 'OBSERVACAO' in df_cons.columns:
                     extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'(?:NÚMERO|NUMERO|Nº|N°)(.*?)(?:DATA|HORA|$)', expand=False)
                     apenas_numeros = extraido.str.replace(r'\D', '', regex=True).fillna('')
@@ -520,7 +521,6 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
                 df_cons = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                # --- INTELIGÊNCIA DE CALENDÁRIO ---
                 hoje = datetime.utcnow() - timedelta(hours=3)
                 ano, mes = hoje.year, hoje.month
                 
@@ -529,7 +529,6 @@ with CONTEUDO_TV.container():
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
-                # Divisão analítica por bases reais
                 df_abc_puro = df_cons[df_cons['BASE'] == 'ABC']
                 df_sp_puro = df_cons[df_cons['BASE'] == 'SP']
 
@@ -542,7 +541,6 @@ with CONTEUDO_TV.container():
                 ritmo_diario_base_abc = int(meta_mensal_abc / dias_uteis_totais) if dias_uteis_totais > 0 else 0
                 ritmo_diario_base_sp = int(meta_mensal_sp / dias_uteis_totais) if dias_uteis_totais > 0 else 0
 
-                # --- GRID EXIBIÇÃO POR REGIONAIS (ABC vs SÃO PAULO) ---
                 col_abc, col_sp = st.columns(2)
                 
                 with col_abc:
@@ -720,7 +718,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO
+    # TELA 2: HORÁRIO ⏱️ (CENTRALIZAÇÃO COMPLETA RESTAURADA)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
