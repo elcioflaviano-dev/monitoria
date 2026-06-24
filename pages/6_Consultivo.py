@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 # =========================================================================
 # CONFIGURAÇÕES DA PÁGINA 🚀
 # =========================================================================
-st.set_page_config(page_title="Performance Consultivo", layout="wide")
+st.set_page_config(page_title="Consultivo", layout="wide")
 
 ROOT_DIR = os.getcwd()
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
