@@ -654,7 +654,7 @@ with CONTEUDO_TV.container():
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
-            col_status = next((c for c in df.columns if 'STATUS' in c), None)
+            col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
             col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
             col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
             
