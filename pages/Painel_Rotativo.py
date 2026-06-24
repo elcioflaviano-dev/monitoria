@@ -501,10 +501,22 @@ with CONTEUDO_TV.container():
                     (df_cons['BASE'] != 'GRU')
                 ].copy()
 
+                # 🔥 MOTOR DE EXTRAÇÃO COM FILTRO DE DUPLICADAS (VALIDADO) 🔥
                 if 'OBSERVACAO' in df_cons.columns:
-                    extraido = df_cons['OBSERVACAO'].astype(str).str.upper().str.extract(r'(?:NÚMERO|NUMERO|Nº|N°)(.*?)(?:DATA|HORA|$)', expand=False)
-                    apenas_numeros = extraido.str.replace(r'\D', '', regex=True).fillna('')
-                    df_cons['QTD_PRODUTOS'] = apenas_numeros.str.len().apply(lambda x: int((x + 9) // 10) if x > 0 else 0)
+                    import re
+                    def contar_contratos_unicos(texto):
+                        matches = re.findall(r'\d{9,}', str(texto))
+                        contratos_unicos = set()
+                        for m in matches:
+                            if len(m) >= 18: 
+                                for i in range(0, len(m), 10):
+                                    chunk = m[i:i+10]
+                                    if len(chunk) >= 9: contratos_unicos.add(chunk)
+                            elif 9 <= len(m) <= 12:
+                                contratos_unicos.add(m)
+                        return len(contratos_unicos)
+
+                    df_cons['QTD_PRODUTOS'] = df_cons['OBSERVACAO'].apply(contar_contratos_unicos)
                 elif 'QTD_PRODUTOS' in df_cons.columns:
                     df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].fillna(0)).astype(int)
                 else:
@@ -642,7 +654,7 @@ with CONTEUDO_TV.container():
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
-            col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
+            col_status = next((c for c in df.columns if 'STATUS' in c), None)
             col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
             col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
             
