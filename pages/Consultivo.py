@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 # CONFIGURAÇÕES DA PÁGINA - MENU LATERAL ATIVO
 # =========================================================================
 # Removi o "collapsed" para permitir que o menu lateral apareça
-st.set_page_config(page_title="Performance Consultivo", layout="wide")
+# 1. Configuração da página
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 ROOT_DIR = os.getcwd()
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
