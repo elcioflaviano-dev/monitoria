@@ -166,7 +166,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         
         with col_abc:
             st.markdown(f'''<div class="box-base">
-                <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC TOTAL (Meta: {meta_mensal_abc} | Ritmo: {ritmo_diario_base_abc}/dia)</div>
+                <div class="nome-base" style="color: #2e7d32;">🏢 ABC TOTAL (Meta: {meta_mensal_abc} | Ritmo: {ritmo_diario_base_abc}/dia)</div>
                 <div class="num-base">{total_realizado_abc}</div>
             </div>''', unsafe_allow_html=True)
             
@@ -202,7 +202,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
 
         with col_sp:
             st.markdown(f'''<div class="box-base-sp">
-                <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO TOTAL (Meta: {meta_mensal_sp} | Ritmo: {ritmo_diario_base_sp}/dia)</div>
+                <div class="nome-base" style="color: #00695c;">🏙️ SÃO PAULO TOTAL (Meta: {meta_mensal_sp} | Ritmo: {ritmo_diario_base_sp}/dia)</div>
                 <div class="num-base">{total_realizado_sp}</div>
             </div>''', unsafe_allow_html=True)
             
