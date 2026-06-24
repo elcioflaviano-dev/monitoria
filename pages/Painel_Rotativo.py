@@ -498,10 +498,9 @@ with CONTEUDO_TV.container():
 
                 # Filtros Rígidos
                 df_cons = df_cons[
-                    (df_cons['TIPO DE TABULAÇÃO'] == 'VENDA') & 
-                    (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
-                    (df_cons['SUPERVISOR'] != '') & 
-                    (df_cons['BASE'] != 'GRU')
+                (~df_cons['SUPERVISOR'].str.contains('N/D', na=False)) & 
+                (df_cons['SUPERVISOR'] != '') & 
+                (df_cons['BASE'] != 'GRU')
                 ].copy()
 
                 # 🔥 SOMA DIRETA DA COLUNA DO POWER QUERY 🔥
