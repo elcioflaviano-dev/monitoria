@@ -7,7 +7,8 @@ import calendar
 import unicodedata
 from datetime import datetime, timedelta
 
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+# Mantenha o sidebar como 'auto' ou apenas não defina o initial_sidebar_state
+st.set_page_config(page_title="Consultivo", layout="wide")
 
 # CSS PARA LIMPEZA DA INTERFACE
 st.markdown("""
@@ -52,8 +53,7 @@ st.markdown("""<style>
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
     #MainMenu { visibility: hidden !important; }
-    [data-testid="stSidebar"] { display: none !important; }
-    
+        
     .stApp { background-color: #ffffff !important; }
     .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 25px; height: 100px; }
     .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; height: 100%; }
