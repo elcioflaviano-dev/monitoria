@@ -44,41 +44,86 @@ st.markdown("""<style>
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
 </style>""", unsafe_allow_html=True)
 
-# ... (MANTENHA AQUI TODO O SEU CÓDIGO DA TELA 0 E 1 IGUAL) ...
-# ... (APENAS SUBSTITUA O BLOCO DE ÁUDIO E O BLOCO DO RELÓGIO ABAIXO) ...
+SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
+SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
+SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
-# 🔕 3. FECHADURA DE ÁUDIO EXCLUSIVA PARA INDICADORES (Tela 3)
-permitir_audio_ind = False
+def obter_nome_visual(nome_completo):
+    n = str(nome_completo).upper()
+    if 'FRANCISCO' in n: return "FRANCISCO"
+    if 'MARCOS' in n: return "MARCOS ROBERTO"
+    if 'EDSON' in n: return "EDSON MARCO"
+    if 'JOAO' in n or 'MIRON' in n: return "JOÃO CARLOS"
+    if 'NELSON' in n: return "NELSON"
+    if 'ALAN' in n: return "ALAN"
+    return n.split()[0]
+
+if "idx" not in st.session_state: 
+    st.session_state.idx = 0          
+    st.session_state.last_main = 0   
+    st.session_state.last_time = time.time()
+    st.session_state.novo_ciclo = True
+    st.session_state.script_audio_atual = ""
+
+agora_br = datetime.utcnow() - timedelta(hours=3)
+minutos_agora = agora_br.hour * 60 + agora_br.minute
+
+# Lógica de áudio limpa
 regras_audio_ind = [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]
-# 🔥 CORREÇÃO: Removido o lixo de caracteres que causou o SyntaxError
-for inicio, f in regras_audio_ind:
-    if inicio <= minutos_agora <= f:
-        permitir_audio_ind = True
-        break
+permitir_audio_ind = any(inicio <= minutos_agora <= fim for inicio, fim in regras_audio_ind)
+badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇</span>'
+badge_ativo = '<span style="font-size: 14px; vertical-align: middle; background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔊</span>'
+html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
 
-# ... (MANTENHA A LÓGICA DE ROTAÇÃO ATÉ O RELÓGIO) ...
+# Rotação de telas
+if st.session_state.idx == 0: espera = 60
+elif st.session_state.idx == 1: espera = 60
+elif st.session_state.idx == 5: espera = 60
+elif st.session_state.idx == 3: espera = 45
+elif st.session_state.idx == 2: espera = 30
+elif st.session_state.idx == 4: espera = 2
 
-# -------------------------------------------------------------------------
-# TELA 2: HORÁRIO (CORRIGIDO)
-# -------------------------------------------------------------------------
-elif st.session_state.idx == 2:
-    st.markdown(f'''<div class="topo-container">
-        <div class="topo-esquerda">{logo_html}</div>
-        <div class="topo-centro">HORÁRIO</div>
-        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-    </div>''', unsafe_allow_html=True)
-
-    tempo_real = datetime.utcnow() - timedelta(hours=3)
-    st.markdown(f'''
-        <div class="relogio-container">
-            <div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div>
-            <div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div>
-        </div>
-    ''', unsafe_allow_html=True)
-    
-    if st.session_state.novo_ciclo:
-        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
-        st.session_state.novo_ciclo = False
-    st.components.v1.html(st.session_state.script_audio_atual, height=0)
-    time.sleep(1)
+if time.time() - st.session_state.last_time > espera:
+    seq = [1, 4, 5, 4, 3, 4, 2]
+    idx_atual = seq.index(st.session_state.idx) if st.session_state.idx in seq else -1
+    prox_idx = seq[(idx_atual + 1) % len(seq)]
+    st.session_state.idx = prox_idx
+    st.session_state.last_time = time.time()
     st.rerun()
+
+JS_MOTOR_AUDIO = """
+function tocarAlertaChamaAtencao() {
+    try {
+        let ctx = new (window.parent.AudioContext || window.AudioContext)();
+        let tempo = ctx.currentTime;
+        let osc1 = ctx.createOscillator(); let gain1 = ctx.createGain();
+        osc1.type = 'triangle'; osc1.frequency.setValueAtTime(880, tempo);
+        gain1.gain.setValueAtTime(0, tempo); gain1.gain.linearRampToValueAtTime(0.4, tempo + 0.05); gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
+        osc1.connect(gain1); gain1.connect(ctx.destination); osc1.start(tempo); osc1.stop(tempo + 0.6);
+    } catch(e) {}
+}
+"""
+
+CONTEUDO_TV = st.empty()
+
+with CONTEUDO_TV.container():
+    if st.session_state.idx == 4:
+        st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
+        time.sleep(1.5)
+        st.rerun()
+
+    elif st.session_state.idx == 2:
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">HORÁRIO</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>''', unsafe_allow_html=True)
+        tempo_real = datetime.utcnow() - timedelta(hours=3)
+        st.markdown(f'''
+            <div class="relogio-container">
+                <div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div>
+                <div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div>
+            </div>
+        ''', unsafe_allow_html=True)
+        time.sleep(1)
+        st.rerun()
