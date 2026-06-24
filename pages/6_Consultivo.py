@@ -126,9 +126,10 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         else:
             df_cons['QTD_PRODUTOS_CALC'] = 0
 
-        # 🔥 1. SOMA TOTAL DA BASE (EXATO DA PLANILHA) 🔥
-        total_realizado_abc = df_cons[df_cons['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
-        total_realizado_sp  = df_cons[df_cons['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
+       # 🔥 1. SOMA TOTAL DA BASE (SOMA APENAS DOS SUPERVISORES VÁLIDOS) 🔥
+                # Agora o total da base é a soma exata dos cards individuais
+                total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
+                total_realizado_sp  = df_cards[df_cards['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
 
         # 🔥 2. TRATAMENTO PARA OS CARDS INDIVIDUAIS 🔥
         df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
