@@ -476,7 +476,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀 (SOMA DIRETA E BLINDADA)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀 (BASE INDEPENDENTE DO SUPERVISOR)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -496,24 +496,25 @@ with CONTEUDO_TV.container():
                     if pd.isna(txt): return ''
                     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto)
                 if 'BASE' in df_cons.columns:
                     df_cons['BASE'] = df_cons['BASE'].apply(limpar_texto)
                 else:
                     df_cons['BASE'] = 'N/D'
-
-                # Elimina apenas as linhas vazias ou de Guarulhos
-                df_cons = df_cons[
-                    (df_cons['SUPERVISOR'] != '') & 
-                    (df_cons['SUPERVISOR'] != 'N/D') & 
-                    (df_cons['BASE'] != 'GRU')
-                ].copy()
 
                 col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
                 if col_qtd:
                     df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int)
                 else:
                     df_cons['QTD_PRODUTOS_CALC'] = 0
+
+                # 🔥 1. SOMA TOTAL DA BASE (EXATO DA PLANILHA, ANTES DE QUALQUER FILTRO) 🔥
+                total_realizado_abc = df_cons[df_cons['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
+                total_realizado_sp  = df_cons[df_cons['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
+
+                # -------------------------------------------------------------------------
+                # Agora tratamos os Supervisores para preencher os Cards Individuais
+                # -------------------------------------------------------------------------
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
 
                 def classificar_supervisor_limpo(row):
                     texto_celula = row.get('SUPERVISOR', '')
@@ -525,8 +526,8 @@ with CONTEUDO_TV.container():
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
                 
-                # Fica apenas com os supervisores mapeados (ABC e SP oficiais)
-                df_cons = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                # Para os cards, ficamos apenas com as linhas que têm supervisor válido
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 hoje = datetime.utcnow() - timedelta(hours=3)
                 ano, mes = hoje.year, hoje.month
@@ -542,10 +543,6 @@ with CONTEUDO_TV.container():
                 ritmo_diario_base_abc = int(meta_mensal_abc / dias_uteis_totais) if dias_uteis_totais > 0 else 0
                 ritmo_diario_base_sp = int(meta_mensal_sp / dias_uteis_totais) if dias_uteis_totais > 0 else 0
 
-                # 🔥 SOMA INTELIGENTE: Ignora a coluna BASE e soma direto pelo nome do Supervisor 🔥
-                total_realizado_abc = df_cons[df_cons['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]['QTD_PRODUTOS_CALC'].sum()
-                total_realizado_sp = df_cons[df_cons['SUPERVISOR_CLEAN'].isin(SUPS_SP)]['QTD_PRODUTOS_CALC'].sum()
-
                 col_abc, col_sp = st.columns(2)
                 
                 with col_abc:
@@ -555,7 +552,8 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_ABC:
-                        qtd_sup = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        # Puxa do df_cards, que já descartou os "N/D"
+                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
@@ -591,7 +589,8 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_SP:
-                        qtd_sup = df_cons[df_cons['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        # Puxa do df_cards, que já descartou os "N/D"
+                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
