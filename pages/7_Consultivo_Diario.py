@@ -36,7 +36,19 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
     df_cons.columns = [str(c).upper().replace(' ', '_') for c in df_cons.columns]
     
     # Cálculos dinâmicos
+    # --- AJUSTE DE DATA E CÁLCULO ---
     hoje = datetime.utcnow() - timedelta(hours=3)
+    hoje_str = hoje.strftime('%d/%m/%Y')  # Formato que vamos buscar
+
+    # Força a coluna DATA a ser reconhecida como texto puro para comparação exata
+    df['DATA_STR'] = df['DATA'].astype(str).str.strip()
+
+    # Filtra apenas o que é de hoje
+    # Se o seu CSV usa 2026-06-26, ajuste aqui. Se usa 26/06/2026, a linha abaixo funciona:
+    df_hoje = df[df['DATA_STR'] == hoje_str].copy()
+
+    # Cálculo por supervisor
+    qtd_hoje = df_hoje[df_hoje['SUPERVISOR'].str.contains(s.split()[0], na=False) & (df_hoje['BASE'] == base)]['QTD_PRODUTOS'].astype(float).sum()
     _, num_dias = calendar.monthrange(hoje.year, hoje.month)
     dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(hoje.year, hoje.month, d) != 6)
     
