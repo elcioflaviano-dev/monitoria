@@ -76,7 +76,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         df_cons['SUP_FINAL'] = df_cons['SUP_CLEAN'].apply(classificar_sup)
         df_cards = df_cons[df_cons['SUP_FINAL'] != 'DESCARTADO'].copy()
 
-        # 🔥 TRATAMENTO DE DATA ROBUSTO 🔥
+        # 🔥 TRATAMENTO DE DATA ROBUSTO E COMPARÁVEL 🔥
         col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
         hoje_real = datetime.utcnow() - timedelta(hours=3)
         
@@ -84,11 +84,14 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
             # Pega as strings de data originais e remove espaços
             df_cards['DATA_STR_ORIGINAL'] = df_cards[col_data].astype(str).str.strip()
             
-            # Tenta converter as datas para descobrir qual é a última
+            # Tenta converter as datas do CSV para datetime real do Pandas
             df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA_STR_ORIGINAL'], format='%d/%m/%Y', errors='coerce')
             
-            # Remove lixo ou datas com erro de digitação do futuro (Ex: 06/12/2026 será ignorado)
-            df_passado = df_cards[df_cards['DATA_DT'].dt.date <= hoje_real.date()]
+            # Formata a data de hoje para o MESMO TIPO EXATO (Timestamp)
+            hoje_pd = pd.to_datetime(hoje_real.strftime('%Y-%m-%d'))
+            
+            # Remove lixo ou datas com erro de digitação do futuro
+            df_passado = df_cards[df_cards['DATA_DT'] <= hoje_pd]
             
             if not df_passado.empty:
                 data_ref = df_passado['DATA_DT'].max()
@@ -97,8 +100,11 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                 
             hoje_str = data_ref.strftime('%d/%m/%Y')
             
-            # Filtra os dados "de hoje" baseando-se estritamente na string igual a hoje_str
+            # Filtra os dados de hoje baseando-se na string exata da data de referência
             df_hoje = df_cards[df_cards['DATA_STR_ORIGINAL'] == hoje_str].copy()
+            
+            if hoje_str != hoje_real.strftime('%d/%m/%Y'):
+                st.info(f"⏳ **Aviso:** Nenhum dado lançado para o dia de hoje. Exibindo os resultados da última data sincronizada: **{hoje_str}**")
         else:
             data_ref = hoje_real
             hoje_str = data_ref.strftime('%d/%m/%Y')
