@@ -63,7 +63,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         df_cons['BASE_CLEAN'] = df_cons[col_base].fillna('N/D').apply(limpar_texto) if col_base else 'N/D'
         df_cons['SUP_CLEAN'] = df_cons[col_sup].fillna('#N/D').apply(limpar_texto) if col_sup else ''
         
-        # Localiza dinamicamente a coluna de Quantidade (para evitar KeyErrors)
+        # Localiza dinamicamente a coluna de Quantidade
         col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUT' in c), None)
         df_cons['QTD_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0) if col_qtd else 0
 
@@ -78,33 +78,39 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
 
         # 🔥 TRATAMENTO DE DATA ROBUSTO 🔥
         col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
-        hoje = datetime.utcnow() - timedelta(hours=3)
-        hoje_str = hoje.strftime('%d/%m/%Y')
+        hoje_real = datetime.utcnow() - timedelta(hours=3)
         
         if col_data:
-            # Converte as datas da planilha para um formato de objeto data do Pandas
-            df_cards['DATA_DT'] = pd.to_datetime(df_cards[col_data], dayfirst=True, errors='coerce')
-            df_cards['DATA_STR'] = df_cards['DATA_DT'].dt.strftime('%d/%m/%Y')
+            # Pega as strings de data originais e remove espaços
+            df_cards['DATA_STR_ORIGINAL'] = df_cards[col_data].astype(str).str.strip()
             
-            # Tenta filtrar pelo dia de hoje
-            df_hoje = df_cards[df_cards['DATA_STR'] == hoje_str].copy()
+            # Tenta converter as datas para descobrir qual é a última
+            df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA_STR_ORIGINAL'], format='%d/%m/%Y', errors='coerce')
             
-            # Se não houver nenhum dado para hoje, puxa a última data que tiver na planilha
-            if df_hoje.empty and not df_cards['DATA_DT'].isna().all():
-                ultima_data = df_cards['DATA_DT'].max()
-                hoje_str = ultima_data.strftime('%d/%m/%Y')
-                df_hoje = df_cards[df_cards['DATA_STR'] == hoje_str].copy()
-                st.info(f"⏳ **Aviso:** Nenhum dado lançado para o dia de hoje. Exibindo os resultados da última data sincronizada: **{hoje_str}**")
+            # Remove lixo ou datas com erro de digitação do futuro (Ex: 06/12/2026 será ignorado)
+            df_passado = df_cards[df_cards['DATA_DT'].dt.date <= hoje_real.date()]
+            
+            if not df_passado.empty:
+                data_ref = df_passado['DATA_DT'].max()
+            else:
+                data_ref = hoje_real
+                
+            hoje_str = data_ref.strftime('%d/%m/%Y')
+            
+            # Filtra os dados "de hoje" baseando-se estritamente na string igual a hoje_str
+            df_hoje = df_cards[df_cards['DATA_STR_ORIGINAL'] == hoje_str].copy()
         else:
+            data_ref = hoje_real
+            hoje_str = data_ref.strftime('%d/%m/%Y')
             df_hoje = df_cards.copy()
 
         # Cálculo de dias úteis restantes no mês atual
-        _, num_dias = calendar.monthrange(hoje.year, hoje.month)
-        dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(hoje.year, hoje.month, d) != 6)
+        _, num_dias = calendar.monthrange(data_ref.year, data_ref.month)
+        dias_restantes = sum(1 for d in range(data_ref.day, num_dias + 1) if calendar.weekday(data_ref.year, data_ref.month, d) != 6)
         if dias_restantes == 0: dias_restantes = 1
         
         st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-            <span style="font-size: 24px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
+            <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados de Hoje ({hoje_str}) - Dias úteis restantes no mês: </span>
             <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
         </div>''', unsafe_allow_html=True)
 
