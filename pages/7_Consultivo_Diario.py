@@ -62,9 +62,9 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         hoje = datetime.utcnow() - timedelta(hours=3)
         hoje_str = hoje.strftime('%d/%m/%Y')
         
-        # Converte DATA para string para comparação
-        df_cons['DATA_STR'] = pd.to_datetime(df_cons['DATA'], dayfirst=True, errors='coerce').dt.strftime('%d/%m/%Y').fillna('')
-        df_hoje = df_cons[df_cons['DATA_STR'] == hoje_str].copy()
+        # Criação de objetos de data reais para filtros de período (Essencial para os cálculos de "Até Ontem")
+        df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA'], dayfirst=True, errors='coerce')
+        hoje_dt = pd.to_datetime(hoje.date())
         
         # Cálculos de dias úteis restantes
         _, num_dias = calendar.monthrange(hoje.year, hoje.month)
@@ -77,21 +77,29 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
             with col:
                 st.subheader(f"BASE {base}")
                 for s in sups:
-                    # Filtra supervisor por parte do nome
-                    df_sup_mes = df_cards[df_cards['SUPERVISOR'].str.contains(s.split()[0], na=False) & (df_cards['BASE'] == base)]
-                    df_sup_hoje = df_hoje[df_hoje['SUPERVISOR'].str.contains(s.split()[0], na=False) & (df_hoje['BASE'] == base)]
+                    # Filtro base por supervisor e região
+                    df_sup_total = df_cards[df_cards['SUPERVISOR'].str.contains(s.split()[0], na=False) & (df_cards['BASE'] == base)]
                     
-                    qtd_mes = df_sup_mes['QTD_PRODUTOS'].sum()
+                    # 1. Pega as vendas específicas do dia de hoje na planilha
+                    df_sup_hoje = df_sup_total[df_sup_total['DATA_DT'] == hoje_dt]
                     qtd_hoje = df_sup_hoje['QTD_PRODUTOS'].sum()
                     
-                    meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
+                    # 2. Pega as vendas acumuladas estritamente ANTES de hoje (Até Ontem)
+                    df_sup_ate_ontem = df_sup_total[df_sup_total['DATA_DT'] < hoje_dt]
+                    qtd_mes_anterior = df_sup_ate_ontem['QTD_PRODUTOS'].sum()
+                    
+                    # 3. Qtd total do mês inteiro (Acumulado Real que aparece no topo do Card)
+                    qtd_mes_total = df_sup_total['QTD_PRODUTOS'].sum()
+                    
+                    # 4. Cálculos adaptados e corrigidos utilizando o histórico anterior
+                    meta_dia = round(max(0, 350 - qtd_mes_anterior) / dias_restantes, 1)
                     falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
                     
                     st.markdown(f'''
                     <div class="sup-card">
                         <div class="sup-header">
                             <div class="sup-name">📋 {obter_nome_visual(s)}</div>
-                            <div class="badge-acumulado">Acumulado: {int(qtd_mes)}</div>
+                            <div class="badge-acumulado">Acumulado: {int(qtd_mes_total)}</div>
                         </div>
                         <div class="faltas-grid">
                             <div class="falta-box"><div class="falta-label">📦 HOJE</div><div class="falta-value">{int(qtd_hoje)}</div></div>
