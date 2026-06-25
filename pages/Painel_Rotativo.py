@@ -194,20 +194,35 @@ if tempo_passado > espera:
     st.session_state.novo_ciclo = True
     st.rerun()
 
-# 🔥 MOTOR DE ÁUDIO ATUALIZADO: com comandos de destravamento (synth.cancel()) 🔥
+# 🔥 NOVO MOTOR DE ÁUDIO: Som de Aeroporto/Shopping (Agradável e sem travamentos) 🔥
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
         let ctx = new (window.parent.AudioContext || window.AudioContext)();
         let tempo = ctx.currentTime;
-        let osc1 = ctx.createOscillator(); let gain1 = ctx.createGain();
-        osc1.type = 'triangle'; osc1.frequency.setValueAtTime(880, tempo);
-        gain1.gain.setValueAtTime(0, tempo); gain1.gain.linearRampToValueAtTime(0.4, tempo + 0.05); gain1.gain.exponentialRampToValueAtTime(0.01, tempo + 0.6);
-        osc1.connect(gain1); gain1.connect(ctx.destination); osc1.start(tempo); osc1.stop(tempo + 0.6);
-        let osc2 = ctx.createOscillator(); let gain2 = ctx.createGain();
-        osc2.type = 'triangle'; osc2.frequency.setValueAtTime(659.25, tempo + 0.4);
-        gain2.gain.setValueAtTime(0, tempo + 0.4); gain2.gain.linearRampToValueAtTime(0.4, tempo + 0.45); gain2.gain.exponentialRampToValueAtTime(0.01, tempo + 1.5);
-        osc2.connect(gain2); gain2.connect(ctx.destination); osc2.start(tempo + 0.4); osc2.stop(tempo + 1.5);
+        
+        // Função interna para tocar notinhas de sino (sine wave)
+        function tocarNota(frequencia, inicio, duracao) {
+            let osc = ctx.createOscillator();
+            let gain = ctx.createGain();
+            osc.type = 'sine'; // Som suave, como uma campainha ou sino
+            osc.frequency.setValueAtTime(frequencia, inicio);
+            
+            gain.gain.setValueAtTime(0, inicio);
+            gain.gain.linearRampToValueAtTime(0.5, inicio + 0.05); // Fade in rápido (sem estalo)
+            gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao); // Fade out suave
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(inicio);
+            osc.stop(inicio + duracao);
+        }
+
+        // Toque estilo "Aviso de Aeroporto" (Din-Don-Dan)
+        tocarNota(523.25, tempo, 0.5);        // Dó
+        tocarNota(659.25, tempo + 0.2, 0.5);  // Mi
+        tocarNota(784.00, tempo + 0.4, 0.8);  // Sol
+
     } catch(e) {}
 }
 function anunciarBase(texto, delay) {
@@ -215,7 +230,7 @@ function anunciarBase(texto, delay) {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
             let synth = window.parent.speechSynthesis || window.speechSynthesis;
-            try { synth.cancel(); } catch(e) {} // Destrava o motor caso tenha vindo bloqueado da tela anterior
+            try { synth.cancel(); } catch(e) {} 
             let m = new SpeechSynthesisUtterance(texto);
             m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
             function setVoiceAndSpeak() {
@@ -243,7 +258,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
             let synth = window.parent.speechSynthesis || window.speechSynthesis;
-            try { synth.cancel(); } catch(e) {} // Destrava o motor antes de injetar a voz do supervisor
+            try { synth.cancel(); } catch(e) {}
             let m = new SpeechSynthesisUtterance(texto);
             m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
             let voices = synth.getVoices();
@@ -487,12 +502,12 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀 (BASE INDEPENDENTE DO SUPERVISOR)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PERFORMANCE CONSULTIVO</div>
+            <div class="topo-centro">CONSULTIVOS</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
@@ -632,17 +647,16 @@ with CONTEUDO_TV.container():
                 st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
         else: 
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
-        time.slice_delay = 1
         time.sleep(1)
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 🚀 (CÁLCULO DINÂMICO PELO ACUMULADO)
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PERFORMANCE CONSULTIVO DIÁRIO</div>
+            <div class="topo-centro">CONSULTIVOS DIÁRIO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>''', unsafe_allow_html=True)
 
@@ -714,7 +728,7 @@ with CONTEUDO_TV.container():
                 
                 with col_abc:
                     st.markdown(f'''<div class="box-base">
-                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta Diária: {round(meta_dia_base_abc, 1)})</div>
+                        <div class="nome-base" style="color: #2e7d32;">🏢 ABC HOJE (Meta Diária: {round(meta_dia_base_abc, 1)})</div>
                         <div class="num-base">{total_hoje_abc}</div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -750,7 +764,7 @@ with CONTEUDO_TV.container():
 
                 with col_sp:
                     st.markdown(f'''<div class="box-base-sp">
-                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE (Meta Diária: {round(meta_dia_base_sp, 1)})</div>
+                        <div class="nome-base" style="color: #00695c;">🏙️ SÃO PAULO HOJE (Meta Diária: {round(meta_dia_base_sp, 1)})</div>
                         <div class="num-base">{total_hoje_sp}</div>
                     </div>''', unsafe_allow_html=True)
                     
