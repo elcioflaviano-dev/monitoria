@@ -53,19 +53,19 @@ def obter_nome_visual(n):
 if os.path.exists(ARQUIVO_CONSULTIVO):
     try:
         # Carrega o arquivo dinamicamente
-        df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
-        df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
+        df = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
+        df.columns = [str(c).upper().strip().replace(' ', '_') for c in df.columns]
         
         # Limpa BASE e SUPERVISOR
-        col_base = next((c for c in df_cons.columns if 'BASE' in c), None)
-        col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c), None)
+        col_base = next((c for c in df.columns if 'BASE' in c), None)
+        col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
         
-        df_cons['BASE_CLEAN'] = df_cons[col_base].fillna('N/D').apply(limpar_texto) if col_base else 'N/D'
-        df_cons['SUP_CLEAN'] = df_cons[col_sup].fillna('#N/D').apply(limpar_texto) if col_sup else ''
+        df['BASE_CLEAN'] = df[col_base].fillna('N/D').apply(limpar_texto) if col_base else 'N/D'
+        df['SUP_CLEAN'] = df[col_sup].fillna('#N/D').apply(limpar_texto) if col_sup else ''
         
         # Localiza dinamicamente a coluna de Quantidade
-        col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUT' in c), None)
-        df_cons['QTD_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0) if col_qtd else 0
+        col_qtd = next((c for c in df.columns if 'QTD' in c and 'PRODUT' in c), None)
+        df['QTD_CALC'] = pd.to_numeric(df[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0) if col_qtd else 0
 
         # Filtra apenas os supervisores conhecidos
         def classificar_sup(row):
@@ -73,38 +73,35 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                 if limpar_texto(oficial.split()[0]) in row: return oficial
             return "DESCARTADO"
         
-        df_cons['SUP_FINAL'] = df_cons['SUP_CLEAN'].apply(classificar_sup)
-        df_cards = df_cons[df_cons['SUP_FINAL'] != 'DESCARTADO'].copy()
+        df['SUP_FINAL'] = df['SUP_CLEAN'].apply(classificar_sup)
+        df_cards = df[df['SUP_FINAL'] != 'DESCARTADO'].copy()
 
-        # 🔥 TRATAMENTO DE DATA ROBUSTO E COMPARÁVEL 🔥
+        # 🔥 TRATAMENTO DE DATA INFALÍVEL 🔥
         col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
-        hoje_real = datetime.utcnow() - timedelta(hours=3)
+        hoje_real = (datetime.utcnow() - timedelta(hours=3)).date()
         
         if col_data:
-            # Pega as strings de data originais e remove espaços
-            df_cards['DATA_STR_ORIGINAL'] = df_cards[col_data].astype(str).str.strip()
+            # Converte a coluna para data do Pandas
+            df_cards['DATA_DT'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip(), dayfirst=True, errors='coerce')
             
-            # Tenta converter as datas do CSV para datetime real do Pandas
-            df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA_STR_ORIGINAL'], format='%d/%m/%Y', errors='coerce')
-            
-            # Formata a data de hoje para o MESMO TIPO EXATO (Timestamp)
-            hoje_pd = pd.to_datetime(hoje_real.strftime('%Y-%m-%d'))
-            
-            # Remove lixo ou datas com erro de digitação do futuro
-            df_passado = df_cards[df_cards['DATA_DT'] <= hoje_pd]
-            
-            if not df_passado.empty:
-                data_ref = df_passado['DATA_DT'].max()
+            # Descobre a maior data válida (que não seja data errada do futuro)
+            df_valid_dates = df_cards.dropna(subset=['DATA_DT'])
+            if not df_valid_dates.empty:
+                df_passado = df_valid_dates[df_valid_dates['DATA_DT'].dt.date <= hoje_real]
+                if not df_passado.empty:
+                    data_ref = df_passado['DATA_DT'].max().date()
+                else:
+                    data_ref = df_valid_dates['DATA_DT'].max().date() 
             else:
                 data_ref = hoje_real
-                
+            
+            # Compara datas e não textos
+            df_hoje = df_cards[df_cards['DATA_DT'].dt.date == data_ref].copy()
             hoje_str = data_ref.strftime('%d/%m/%Y')
             
-            # Filtra os dados de hoje baseando-se na string exata da data de referência
-            df_hoje = df_cards[df_cards['DATA_STR_ORIGINAL'] == hoje_str].copy()
-            
-            if hoje_str != hoje_real.strftime('%d/%m/%Y'):
-                st.info(f"⏳ **Aviso:** Nenhum dado lançado para o dia de hoje. Exibindo os resultados da última data sincronizada: **{hoje_str}**")
+            # Aviso se a planilha não foi atualizada para hoje
+            if data_ref != hoje_real:
+                st.info(f"⏳ **Aviso:** O painel não encontrou dados para hoje ({hoje_real.strftime('%d/%m/%Y')}). Exibindo o último dia disponível: **{hoje_str}**")
         else:
             data_ref = hoje_real
             hoje_str = data_ref.strftime('%d/%m/%Y')
@@ -116,7 +113,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         if dias_restantes == 0: dias_restantes = 1
         
         st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-            <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados de Hoje ({hoje_str}) - Dias úteis restantes no mês: </span>
+            <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados de {hoje_str} - Dias úteis restantes no mês: </span>
             <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
         </div>''', unsafe_allow_html=True)
 
@@ -147,7 +144,6 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                     qtd_mes = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
                     qtd_hoje = df_hoje[df_hoje['SUP_FINAL'] == sup]['QTD_CALC'].sum()
                     
-                    # Fórmulas de negócio
                     meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
                     falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
 
