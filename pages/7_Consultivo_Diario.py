@@ -46,11 +46,11 @@ def obter_nome_visual(n):
 # --- LÓGICA DE PROCESSAMENTO ---
 if os.path.exists(ARQUIVO_CONSULTIVO):
     try:
-        # Carrega o arquivo
+        # Carrega o arquivo tratando delimitadores automaticamente
         df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
         df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
         
-        # Limpeza básica
+        # Limpeza básica e conversão numérica pura
         df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].fillna('#N/D').apply(limpar_texto)
         df_cons['BASE'] = df_cons['BASE'].fillna('N/D').apply(limpar_texto)
         df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
@@ -58,15 +58,14 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         # Filtra apenas supervisores válidos
         df_cards = df_cons[df_cons['SUPERVISOR'] != 'DESCARTADO'].copy()
         
-        # Define o dia de hoje
+        # Define o dia de hoje sem frações de segundos ou horas para evitar falhas de batimento
         hoje = datetime.utcnow() - timedelta(hours=3)
-        hoje_str = hoje.strftime('%d/%m/%Y')
+        hoje_data_pura = datetime(hoje.year, hoje.month, hoje.day)
         
-        # Criação de objetos de data reais para filtros de período (Essencial para os cálculos de "Até Ontem")
-        df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA'], dayfirst=True, errors='coerce')
-        hoje_dt = pd.to_datetime(hoje.date())
+        # Converte a coluna DATA do CSV de forma segura forçando apenas a data limpa (ano-mês-dia 00:00:00)
+        df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA'], dayfirst=True, errors='coerce').dt.normalize()
         
-        # Cálculos de dias úteis restantes
+        # Cálculos de dias úteis restantes no mês
         _, num_dias = calendar.monthrange(hoje.year, hoje.month)
         dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(hoje.year, hoje.month, d) != 6)
         if dias_restantes == 0: dias_restantes = 1
@@ -77,21 +76,20 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
             with col:
                 st.subheader(f"BASE {base}")
                 for s in sups:
-                    # Filtro base por supervisor e região
-                    df_sup_total = df_cards[df_cards['SUPERVISOR'].str.contains(s.split()[0], na=False) & (df_cards['BASE'] == base)]
+                    # Filtro mestre por supervisor dentro da base correspondente
+                    primeiro_nome = s.split()[0]
+                    df_sup_total = df_cards[df_cards['SUPERVISOR'].str.contains(primeiro_nome, na=False) & (df_cards['BASE'] == base)]
                     
-                    # 1. Pega as vendas específicas do dia de hoje na planilha
-                    df_sup_hoje = df_sup_total[df_sup_total['DATA_DT'] == hoje_dt]
-                    qtd_hoje = df_sup_hoje['QTD_PRODUTOS'].sum()
+                    # 1. Agrupa e soma todas as linhas que pertencem estritamente ao dia de hoje
+                    qtd_hoje = df_sup_total[df_sup_total['DATA_DT'] == hoje_data_pura]['QTD_PRODUTOS'].sum()
                     
-                    # 2. Pega as vendas acumuladas estritamente ANTES de hoje (Até Ontem)
-                    df_sup_ate_ontem = df_sup_total[df_sup_total['DATA_DT'] < hoje_dt]
-                    qtd_mes_anterior = df_sup_ate_ontem['QTD_PRODUTOS'].sum()
+                    # 2. Agrupa e soma todas as linhas anteriores ao dia de hoje (Vendas Acumuladas de Ontem para trás)
+                    qtd_mes_anterior = df_sup_total[df_sup_total['DATA_DT'] < hoje_data_pura]['QTD_PRODUTOS'].sum()
                     
-                    # 3. Qtd total do mês inteiro (Acumulado Real que aparece no topo do Card)
+                    # 3. Exibe o Acumulado Atual do mês inteiro na interface do card
                     qtd_mes_total = df_sup_total['QTD_PRODUTOS'].sum()
                     
-                    # 4. Cálculos adaptados e corrigidos utilizando o histórico anterior
+                    # 4. Cálculo corrigido baseado no volume histórico real coletado da listagem analítica
                     meta_dia = round(max(0, 350 - qtd_mes_anterior) / dias_restantes, 1)
                     falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
                     
