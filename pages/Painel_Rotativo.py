@@ -13,28 +13,83 @@ from datetime import datetime, timedelta
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
+
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
-if not os.path.exists(ARQUIVO_LOGO): ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
+if not os.path.exists(ARQUIVO_LOGO):
+    ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# --- FUNÇÕES E VARIÁVEIS GLOBAIS ---
-def carregar_logo_html(caminho):
-    if os.path.exists(caminho):
+def carregar_logo_html(caminho_imagem):
+    if os.path.exists(caminho_imagem):
         try:
-            with open(caminho, "rb") as f:
-                enc = base64.b64encode(f.read()).decode('utf-8')
-            return f'<img src="data:image/png;base64,{enc}" style="height: 100px; width: auto; object-fit: contain; display: block;">'
+            with open(caminho_imagem, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+            return f'<img src="data:image/png;base64,{encoded_string}" style="height: 100px; width: auto; object-fit: contain; display: block;">'
         except: return '<div></div>'
     return '<div></div>'
 
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
+
+st.markdown("""<style>
+    /* 🔥 BLOQUEIO TOTAL DA MARCA D'ÁGUA DO STREAMLIT 🔥 */
+    .viewerBadge_container { display: none !important; }
+    .viewerBadge_link { display: none !important; }
+    [data-testid="viewerBadge"] { display: none !important; }
+    #viewerBadge { display: none !important; }
+    
+    /* Escondendo os menus padrão */
+    [data-testid="stHeader"] { visibility: hidden !important; }
+    .stDeployButton { display: none !important; }
+    footer { visibility: hidden !important; }
+    #MainMenu { visibility: hidden !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    
+    .stApp { background-color: #ffffff !important; }
+    .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 100px; }
+    .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; height: 100%; }
+    .topo-centro { font-size: 45px; font-weight: 900; text-align: center; white-space: nowrap; }
+    .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
+    .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
+    
+    /* FONTES AUMENTADAS NOS TOTAIS */
+    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
+    .box-base-sp { background: #e0f2f1; border-left: 10px solid #00897b; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
+    .nome-base { font-size: 26px !important; font-weight: 900; color: #333; text-transform: uppercase;}
+    .num-base { font-size: 100px !important; font-weight: 900; color: #111; line-height: 1.1; }
+    
+    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 10px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; position: relative; z-index: 1; transition: 0.3s; }
+    .box-nome { font-size: 18px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .box-num { font-size: 60px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 5px; }
+    
+    .destaque-ativo { transform: scale(1.15) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.5) !important; border-left: 12px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
+    .ind-base-title { font-size: 32px !important; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
+    .ind-base-title.abc { color: #2e7d32; }
+    .ind-base-title.sp { color: #00695c; }
+    
+    /* FONTES AUMENTADAS NOS CARDS DE SUPERVISORES */
+    .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+    .sup-name { font-size: 32px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 18px !important; font-weight: bold; border: 1px solid #ffcdd2; }
+    
+    .faltas-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; }
+    .falta-label { font-size: 14px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
+    .falta-value { font-size: 45px !important; font-weight: 900; color: #b30000; line-height: 1; }
+    
+    .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
+    .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
+    .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
+    .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 18px !important; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
+</style>""", unsafe_allow_html=True)
+
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
-def obter_nome_visual(n):
-    n = str(n).upper()
+def obter_nome_visual(nome_completo):
+    n = str(nome_completo).upper()
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'EDSON' in n: return "EDSON MARCO"
@@ -47,110 +102,218 @@ def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-# --- CSS PADRONIZADO COM FONTES GIGANTES ---
-st.markdown("""<style>
-    /* Bloqueio da Marca D'água do Streamlit */
-    .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge, .stAppDeployButton, footer, [data-testid="stHeader"], #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
-    
-    .stApp { background-color: #ffffff !important; }
-    .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 100px; }
-    .topo-centro { font-size: 45px; font-weight: 900; text-align: center; white-space: nowrap; }
-    .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
-    
-    /* Caixas Totais do Topo */
-    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
-    .box-base-sp { background: #e0f2f1; border-left: 10px solid #00897b; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
-    .nome-base { font-size: 28px !important; font-weight: 900; color: #333; text-transform: uppercase;}
-    .num-base { font-size: 110px !important; font-weight: 900; color: #111; line-height: 1.1; }
-    
-    /* Cards de Contagem Simples (Tela Pendentes) */
-    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 15px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
-    .box-nome { font-size: 20px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .box-num { font-size: 65px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 10px; }
-    
-    /* Estilos dos Cards dos Supervisores (Consultivo) */
-    .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 12px; margin-bottom: 15px; }
-    .sup-name { font-size: 34px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .badge-faltas { padding: 8px 16px; border-radius: 8px; font-size: 20px !important; font-weight: bold; border: 1px solid; }
-    
-    .faltas-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
-    .falta-box { border-radius: 8px; padding: 15px; text-align: center; border: 1px solid transparent; }
-    .falta-label { font-size: 16px !important; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; }
-    .falta-value { font-size: 55px !important; font-weight: 900; line-height: 1; }
-    
-    /* Telas Diversas */
-    .ind-base-title { font-size: 32px !important; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
-    .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
-    .hora-gigante { font-size: 200px; font-weight: 900; color: #003366; line-height: 1; letter-spacing: 5px; }
-    .tec-base-nome { background: #f8f9fa; padding: 12px 15px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 10px; font-weight: bold; font-size: 20px !important; color: #333; }
-</style>""", unsafe_allow_html=True)
-
-# Lógica de Inicialização
 if "idx" not in st.session_state: 
-    st.session_state.idx = 0
+    st.session_state.idx = 0          
+    st.session_state.last_main = 0   
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
+    st.session_state.script_audio_atual = ""
 
-# --- LÓGICA DE ÁUDIO E ÍCONES ---
-# 🔥 AUMENTO DO VOLUME: g.gain.linearRampToValueAtTime foi de 0.5 para 1.5 para o "Din-Don-Dan" tocar MUITO mais alto
+agora_br = datetime.utcnow() - timedelta(hours=3)
+alerta_fim_janela = False
+if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = True
+minutos_agora = agora_br.hour * 60 + agora_br.minute
+
+antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
+
+permitir_audio_base = False
+frase_incisiva_base = ""
+regras_audio_base = [
+    {"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."},
+    {"inicio": 8*60,      "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."},
+    {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
+]
+for regra in regras_audio_base:
+    if regra["inicio"] <= minutos_agora <= regra["fim"]:
+        permitir_audio_base = True
+        frase_incisiva_base = regra["frase"]
+        break
+
+permitir_audio_tec1 = False
+frase_incisiva_tec1 = ""
+regras_audio_tec1 = [
+    {"inicio": 11*60,      "fim": 11*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
+    {"inicio": 12*60,      "fim": 12*60 + 15, "frase": "Atenção. Fechamento de janela."},
+    {"inicio": 12*60 + 30, "fim": 12*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."},
+    {"inicio": 14*60,      "fim": 14*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
+    {"inicio": 15*60,      "fim": 15*60 + 15, "frase": "Atenção. Fechamento de janela."},
+    {"inicio": 15*60 + 30, "fim": 15*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."},
+    {"inicio": 16*60,      "fim": 16*60 + 15, "frase": "Atenção. Horário de início de monitoria de rota."},
+    {"inicio": 17*60,      "fim": 17*60 + 15, "frase": "Atenção. Fechamento de janela."},
+    {"inicio": 17*60 + 30, "fim": 17*60 + 45, "frase": "Atenção. Monitoria após o fechamento da janela."}
+]
+for regra in regras_audio_tec1:
+    if regra["inicio"] <= minutos_agora <= regra["fim"]:
+        permitir_audio_tec1 = True
+        frase_incisiva_tec1 = regra["frase"]
+        break
+
+permitir_audio_ind = False
+regras_audio_ind = [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]
+for inicio, f in regras_audio_ind:
+    if inicio <= minutos_agora <= f:
+        permitir_audio_ind = True
+        break
+
+# 🔥 ÍCONES DISCRETOS NO CANTO INFERIOR ESQUERDO 🔥
+icone_mudo = '''<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera">
+    <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="1" x2="1" y2="23"></line>
+    </svg>
+</div>'''
+
+icone_ativo = '''<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo">
+    <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+</div>'''
+
+html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
+html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
+html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
+
+# CONTROLE DE ROTAÇÃO E TEMPOS
+if st.session_state.idx == 0: espera = 60 
+elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 5: espera = 60 
+elif st.session_state.idx == 6: espera = 60 
+elif st.session_state.idx == 3: espera = 45 
+elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 4: espera = 2  
+
+tempo_passado = time.time() - st.session_state.last_time
+
+if tempo_passado > espera:
+    if antes_0830:
+        if st.session_state.idx == 0:
+            st.session_state.last_main = 0; prox_idx = 4
+        elif st.session_state.idx == 4: prox_idx = 2
+        else: prox_idx = 0
+    else:
+        if st.session_state.idx == 1:
+            st.session_state.last_main = 1; prox_idx = 4
+        elif st.session_state.idx == 5:
+            st.session_state.last_main = 5; prox_idx = 4
+        elif st.session_state.idx == 6:
+            st.session_state.last_main = 6; prox_idx = 4
+        elif st.session_state.idx == 3:
+            st.session_state.last_main = 3; prox_idx = 4
+        elif st.session_state.idx == 4: 
+            if st.session_state.last_main == 1: prox_idx = 5
+            elif st.session_state.last_main == 5: prox_idx = 6 
+            elif st.session_state.last_main == 6: prox_idx = 3 
+            elif st.session_state.last_main == 3: prox_idx = 2
+            else: prox_idx = 1
+        elif st.session_state.idx == 2:
+            prox_idx = 1
+        else:
+            prox_idx = 1
+            
+    st.session_state.idx = prox_idx
+    st.session_state.last_time = time.time()
+    st.session_state.novo_ciclo = True
+    st.rerun()
+
+# 🔥 MOTOR DE ÁUDIO SUAVE E ANTI-TRAVAMENTO 🔥
+# Volume do Sino aumentado significativamente (1.5)
+# Busca aprimorada para vozes femininas (Luciana, Maria, etc)
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
         let ctx = new (window.parent.AudioContext || window.AudioContext)();
         let tempo = ctx.currentTime;
-        function t(f, i, d) {
-            let o = ctx.createOscillator(); let g = ctx.createGain();
-            o.type = 'sine'; o.frequency.setValueAtTime(f, i);
-            g.gain.setValueAtTime(0, i); g.gain.linearRampToValueAtTime(1.5, i + 0.05); g.gain.exponentialRampToValueAtTime(0.01, i + d);
-            o.connect(g); g.connect(ctx.destination); o.start(i); o.stop(i + d);
+        
+        function tocarNota(frequencia, inicio, duracao) {
+            let osc = ctx.createOscillator();
+            let gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequencia, inicio);
+            
+            gain.gain.setValueAtTime(0, inicio);
+            gain.gain.linearRampToValueAtTime(1.5, inicio + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao);
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(inicio);
+            osc.stop(inicio + duracao);
         }
-        t(523.25, tempo, 0.5); t(659.25, tempo + 0.2, 0.5); t(784.00, tempo + 0.4, 0.8);
+
+        tocarNota(523.25, tempo, 0.5);
+        tocarNota(659.25, tempo + 0.2, 0.5);
+        tocarNota(784.00, tempo + 0.4, 0.8);
+
     } catch(e) {}
 }
-function anunciarBase(texto) {
-    tocarAlertaChamaAtencao();
+function anunciarBase(texto, delay) {
     setTimeout(() => {
-        let synth = window.parent.speechSynthesis;
-        try { synth.cancel(); } catch(e) {}
-        let m = new SpeechSynthesisUtterance(texto);
-        m.lang = 'pt-BR'; m.volume = 1.0; // O Volume da voz max é 1.0 pelo navegador
-        synth.speak(m);
-    }, 1500);
+        tocarAlertaChamaAtencao();
+        setTimeout(() => {
+            let synth = window.parent.speechSynthesis || window.speechSynthesis;
+            try { synth.cancel(); } catch(e) {} 
+            let m = new SpeechSynthesisUtterance(texto);
+            m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
+            function setVoiceAndSpeak() {
+                let voices = synth.getVoices();
+                let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.name.includes('Francisca')) || voices.find(v => v.lang.includes('pt-BR'));
+                if(voz) { m.voice = voz; } 
+                synth.speak(m);
+            }
+            if (synth.getVoices().length === 0) { synth.onvoiceschanged = setVoiceAndSpeak; } 
+            else { setVoiceAndSpeak(); }
+        }, 1500); 
+    }, delay);
+}
+function limparDestaques(total) {
+    for(let j=0; j<total; j++) {
+        let el = window.parent.document.getElementById('sup-box-' + j);
+        if(el) { el.classList.remove('destaque-ativo'); }
+    }
+}
+function animarSupervisor(texto, delay, index, totalSup) {
+    setTimeout(() => {
+        limparDestaques(totalSup);
+        let elAtual = window.parent.document.getElementById('sup-box-' + index);
+        if(elAtual) { elAtual.classList.add('destaque-ativo'); }
+        tocarAlertaChamaAtencao();
+        setTimeout(() => {
+            let synth = window.parent.speechSynthesis || window.speechSynthesis;
+            try { synth.cancel(); } catch(e) {}
+            let m = new SpeechSynthesisUtterance(texto);
+            m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
+            let voices = synth.getVoices();
+            let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.name.includes('Francisca')) || voices.find(v => v.lang.includes('pt-BR'));
+            if(voz) { m.voice = voz; }
+            synth.speak(m);
+        }, 1500);
+    }, delay);
 }
 """
-icone_mudo = '<div style="position: fixed; bottom: 20px; left: 20px; opacity: 0.2;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4zM23 9l-6 6M17 9l6 6"/></svg></div>'
-icone_ativo = '<div style="position: fixed; bottom: 20px; left: 20px; opacity: 0.8;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4zM19.07 4.93a10 10 0 0 1 0 14.14"/></svg></div>'
 
-# --- CÁLCULO GERAL DE DIAS ÚTEIS ---
-hoje = datetime.utcnow() - timedelta(hours=3)
-ano, mes = hoje.year, hoje.month
-_, num_dias = calendar.monthrange(ano, mes)
-dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
-if dias_restantes == 0: dias_restantes = 1
-
-# --- ROTINA DE ROTAÇÃO (Telas 0 a 5) ---
-espera = 60
-if time.time() - st.session_state.last_time > espera:
-    st.session_state.idx = (st.session_state.idx + 1) % 6
-    st.session_state.last_time = time.time()
-    st.rerun()
-
-# =========================================================================
-# RENDERIZAÇÃO DAS TELAS
-# =========================================================================
 CONTEUDO_TV = st.empty()
+
 with CONTEUDO_TV.container():
-    
+    # -------------------------------------------------------------------------
+    # TELA 4: TELA BRANCA DE TRANSIÇÃO
+    # -------------------------------------------------------------------------
+    if st.session_state.idx == 4:
+        st.markdown('<div style="height: 100vh; width: 100vw; background-color: #ffffff;"></div>', unsafe_allow_html=True)
+        st.components.v1.html("", height=0)
+        time.sleep(1.5)
+        st.rerun()
+
     # -------------------------------------------------------------------------
     # TELA 0: TÉCNICOS NA BASE
     # -------------------------------------------------------------------------
-    if st.session_state.idx == 0:
+    elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
             <div class="topo-centro">🚀 TÉCNICOS EM BASE</div>
-            <div class="topo-direita"></div>
-        </div>{icone_ativo}''', unsafe_allow_html=True)
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {html_audio_base}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -220,20 +383,22 @@ with CONTEUDO_TV.container():
                     for n in nomes_sp[mid_sp:]: st.markdown(f'<div class="tec-base-nome" style="border-left-color:#c62828;">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
-                    st.components.v1.html(f"<script>{JS_MOTOR_AUDIO}anunciarBase('Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.');</script>", height=0)
+                    if permitir_audio_base:
+                        script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes na base A B C, e {len(nomes_sp)} na base São Paulo.', 0);</script>"
+                    else:
+                        script_cenario = ""
+                    st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+        time.sleep(1)
+        st.rerun()
 
     # -------------------------------------------------------------------------
     # TELA 1: TEC1 (SUPERVISORES PENDENTES)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">TEC1 <span style="font-size: 32px; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px;">PENDÊNCIAS</span></div>
-            <div class="topo-direita"></div>
-        </div>{icone_ativo}''', unsafe_allow_html=True)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df.columns = [str(c).strip().upper() for c in df.columns]
@@ -260,6 +425,24 @@ with CONTEUDO_TV.container():
             df['SUPERVISOR_CLEAN'] = df.apply(resolver_supervisor, axis=1)
             col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
             
+            hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+            if hora_atual < 12: 
+                label_janela = "ATÉ 12:00"
+                fala_janela = "até as 12 horas"
+            elif 12 <= hora_atual < 15: 
+                label_janela = "ATÉ 15:00"
+                fala_janela = "até as 15 horas"
+            else: 
+                label_janela = "TURNO COMPLETO"
+                fala_janela = "do turno completo"
+            
+            st.markdown(f'''<div class="topo-container">
+                <div class="topo-esquerda">{logo_html}</div>
+                <div class="topo-centro">TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
+                <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+            </div>
+            {html_audio_tec1}''', unsafe_allow_html=True)
+            
             df_pendentes_geral = pd.DataFrame()
             
             if col_status_real:
@@ -268,7 +451,27 @@ with CONTEUDO_TV.container():
                 df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
                 df_validos = df_limpo.copy()
 
-                df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
+                col_janela = None
+                for c in df_validos.columns:
+                    if 'JANELA' in str(c) or 'INTERVALO' in str(c):
+                        col_janela = c
+                        break
+
+                if col_janela is not None and not df_validos.empty:
+                    df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
+                    def extrair_hora_limite(janela_str):
+                        try: return int(str(janela_str).replace(':', '').split('-')[1].strip()[:2])
+                        except: return 24
+                    df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(extrair_hora_limite)
+                    
+                    if hora_atual < 12: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12)
+                    elif 12 <= hora_atual < 15: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 15)
+                    else: condicao_horario = (df_validos['Hora_Limite_Janela'] <= 24)
+                    
+                    df_pendentes_geral = df_validos[condicao_horario & (df_validos['P_COUNT'] > 0)].copy()
+                else:
+                    if not df_validos.empty:
+                        df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
 
                 col_contrato = next((c for c in df_pendentes_geral.columns if 'CONTRATO' in c), None)
                 if col_contrato and not df_pendentes_geral.empty:
@@ -285,37 +488,341 @@ with CONTEUDO_TV.container():
                     for k, sup in enumerate(SUPS_ABC):
                         qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup]) if not df_pendentes_geral.empty else 0
                         with cols_sub_abc[k]:
-                            st.markdown(f'''<div class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
+                            st.markdown(f'''<div id="sup-box-{k}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
 
                 with c_sp:
                     st.markdown(f'''<div class="box-base-sp"><div class="nome-base" style="color: #00695c;">SÃO PAULO PENDENTES</div><div class="num-base">{qtd_sp}</div></div>''', unsafe_allow_html=True)
                     cols_sub_sp = st.columns(len(SUPS_SP))
                     for k, sup in enumerate(SUPS_SP):
+                        idx_global = len(SUPS_ABC) + k 
                         qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup]) if not df_pendentes_geral.empty else 0
                         with cols_sub_sp[k]:
-                            st.markdown(f'''<div class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
+                            st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
-                    st.components.v1.html(f"<script>{JS_MOTOR_AUDIO}anunciarBase('Atenção para as pendências. A B C: {qtd_abc}. São Paulo: {qtd_sp}.');</script>", height=0)
+                    if permitir_audio_tec1:
+                        script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
+                        delay_atual = 0
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. A B C: {qtd_abc} pendentes.', {delay_atual});\n"
+                        delay_atual += 7000
+                        for i, sup_full in enumerate(SUPS_ABC):
+                            qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
+                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
+                            delay_atual += 7000
+                        script_cenario += f"anunciarBase('São Paulo: {qtd_sp} pendentes.', {delay_atual});\n"
+                        delay_atual += 7000
+                        for i, sup_full in enumerate(SUPS_SP):
+                            idx = len(SUPS_ABC) + i
+                            qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
+                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {idx}, {len(SUPERVISORES_ORDENADOS)});\n"
+                            delay_atual += 7000
+                        script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n</script>"
+                    else:
+                        script_cenario = ""
+                        
+                    st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+        time.sleep(1)
+        st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO ⏱️
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL 🚀
     # -------------------------------------------------------------------------
-    elif st.session_state.idx == 2:
+    elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">HORÁRIO</div>
-            <div class="topo-direita"></div>
-        </div>{icone_ativo}''', unsafe_allow_html=True)
+            <div class="topo-centro">PERFORMANCE CONSULTIVO GERAL</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
 
-        st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{hoje.strftime("%H:%M:%S")}</div><div class="data-media">{hoje.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
-        
-        if st.session_state.novo_ciclo:
-            st.components.v1.html(f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {hoje.strftime('%H e %M')}.');</script>", height=0)
-            st.session_state.novo_ciclo = False
+        if os.path.exists(ARQUIVO_CONSULTIVO):
+            try:
+                import unicodedata
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
+                df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
+
+                def limpar_texto_local(txt):
+                    if pd.isna(txt): return ''
+                    return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
+
+                df_cons['BASE'] = df_cons['BASE'].apply(limpar_texto_local) if 'BASE' in df_cons.columns else 'N/D'
+
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
+
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto_local) if 'SUPERVISOR' in df_cons.columns else ''
+
+                def class_sup(row):
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if limpar_texto_local(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
+                    return "DESCARTADO"
+
+                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
+                
+                # 🔥 SOMA APENAS SUPERVISORES VALIDADOS (SEM #N/D)
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+
+                total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
+                total_realizado_sp  = df_cards[df_cards['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
+
+                hoje = datetime.utcnow() - timedelta(hours=3)
+                ano, mes = hoje.year, hoje.month
+                
+                _, num_dias = calendar.monthrange(ano, mes)
+                dias_uteis_totais = sum(1 for d in range(1, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+                dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+                if dias_restantes == 0: dias_restantes = 1
+
+                meta_mensal_abc = len(SUPS_ABC) * 350
+                meta_mensal_sp = len(SUPS_SP) * 350
+
+                ritmo_diario_base_abc = int(meta_mensal_abc / dias_uteis_totais) if dias_uteis_totais > 0 else 0
+                ritmo_diario_base_sp = int(meta_mensal_sp / dias_uteis_totais) if dias_uteis_totais > 0 else 0
+
+                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
+                    <span style="font-size: 24px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
+                    <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
+                </div>''', unsafe_allow_html=True)
+
+                col_abc, col_sp = st.columns(2)
+                
+                with col_abc:
+                    st.markdown(f'''<div class="box-base">
+                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC TOTAL (Meta: {meta_mensal_abc} | Ritmo: {ritmo_diario_base_abc}/dia)</div>
+                        <div class="num-base">{total_realizado_abc}</div>
+                    </div>''', unsafe_allow_html=True)
+                    
+                    for sup in SUPS_ABC:
+                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        falta_individual = max(0, 350 - qtd_sup)
+                        ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
+
+                        st.markdown(f'''
+                        <div class="sup-card">
+                            <div class="sup-header">
+                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo: 350</div>
+                            </div>
+                            <div class="faltas-grid">
+                                <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                    <div class="falta-label" style="color: #2e7d32;">📦 TOTAL PRODUTOS</div>
+                                    <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
+                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
+                                </div>
+                            </div>
+                        </div>''', unsafe_allow_html=True)
+
+                with col_sp:
+                    st.markdown(f'''<div class="box-base-sp">
+                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO TOTAL (Meta: {meta_mensal_sp} | Ritmo: {ritmo_diario_base_sp}/dia)</div>
+                        <div class="num-base">{total_realizado_sp}</div>
+                    </div>''', unsafe_allow_html=True)
+                    
+                    for sup in SUPS_SP:
+                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        falta_individual = max(0, 350 - qtd_sup)
+                        ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
+
+                        st.markdown(f'''
+                        <div class="sup-card">
+                            <div class="sup-header">
+                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Alvo: 350</div>
+                            </div>
+                            <div class="faltas-grid">
+                                <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;">
+                                    <div class="falta-label" style="color: #00695c;">📦 TOTAL PRODUTOS</div>
+                                    <div class="falta-value" style="color: #004d40;">{qtd_sup}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
+                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
+                                </div>
+                            </div>
+                        </div>''', unsafe_allow_html=True)
+
+                if st.session_state.novo_ciclo:
+                    st.session_state.script_audio_atual = ""
+                    st.session_state.novo_ciclo = False
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+            except Exception as e:
+                st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
+        else: 
+            st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+        time.sleep(1)
+        st.rerun()
+
+    # -------------------------------------------------------------------------
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 🚀 (MÉTRICAS DINÂMICAS)
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx == 6:
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">PERFORMANCE CONSULTIVO DIÁRIO</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_CONSULTIVO):
+            try:
+                import unicodedata
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
+                df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
+
+                def limpar_texto_local(txt):
+                    if pd.isna(txt): return ''
+                    return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
+
+                df_cons['BASE'] = df_cons['BASE'].apply(limpar_texto_local) if 'BASE' in df_cons.columns else 'N/D'
+
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
+
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto_local) if 'SUPERVISOR' in df_cons.columns else ''
+
+                def class_sup(row):
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if limpar_texto_local(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
+                    return "DESCARTADO"
+
+                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+
+                hoje = datetime.utcnow() - timedelta(hours=3)
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+                
+                if col_data:
+                    hoje_str = hoje.strftime('%d/%m/%Y')
+                    df_cards['_DATA_TEMP'] = pd.to_datetime(df_cards[col_data], dayfirst=True, errors='coerce').dt.strftime('%d/%m/%Y')
+                    df_hoje = df_cards[df_cards['_DATA_TEMP'] == hoje_str].copy()
+                else:
+                    df_hoje = df_cards.copy()
+
+                ano, mes = hoje.year, hoje.month
+                _, num_dias = calendar.monthrange(ano, mes)
+                dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+                if dias_restantes == 0: dias_restantes = 1
+
+                total_hoje_abc = df_hoje[df_hoje['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
+                total_hoje_sp  = df_hoje[df_hoje['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
+
+                # CÁLCULO DA META DIÁRIA DINÂMICA
+                meta_dia_base_abc = 0
+                for sup in SUPS_ABC:
+                    qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                    meta_dia_base_abc += round(max(0, 350 - qtd_m) / dias_restantes, 1)
+                
+                meta_dia_base_sp = 0
+                for sup in SUPS_SP:
+                    qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                    meta_dia_base_sp += round(max(0, 350 - qtd_m) / dias_restantes, 1)
+
+                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
+                    <span style="font-size: 24px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
+                    <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
+                </div>''', unsafe_allow_html=True)
+
+                col_abc, col_sp = st.columns(2)
+                
+                with col_abc:
+                    st.markdown(f'''<div class="box-base">
+                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta Diária: {round(meta_dia_base_abc, 1)})</div>
+                        <div class="num-base">{total_hoje_abc}</div>
+                    </div>''', unsafe_allow_html=True)
+                    
+                    for sup in SUPS_ABC:
+                        qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        
+                        falta_mes = max(0, 350 - qtd_mes)
+                        meta_dia = round(falta_mes / dias_restantes, 1)
+                        falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
+
+                        st.markdown(f'''
+                        <div class="sup-card">
+                            <div class="sup-header">
+                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Total Acumulado: {qtd_mes}</div>
+                            </div>
+                            <div class="faltas-grid">
+                                <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                    <div class="falta-label" style="color: #2e7d32;">📦 REALIZADO HOJE</div>
+                                    <div class="falta-value" style="color: #1b5e20;">{qtd_hoje}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
+                                    <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
+                                </div>
+                            </div>
+                        </div>''', unsafe_allow_html=True)
+
+                with col_sp:
+                    st.markdown(f'''<div class="box-base-sp">
+                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE (Meta Diária: {round(meta_dia_base_sp, 1)})</div>
+                        <div class="num-base">{total_hoje_sp}</div>
+                    </div>''', unsafe_allow_html=True)
+                    
+                    for sup in SUPS_SP:
+                        qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        
+                        falta_mes = max(0, 350 - qtd_mes)
+                        meta_dia = round(falta_mes / dias_restantes, 1)
+                        falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
+
+                        st.markdown(f'''
+                        <div class="sup-card">
+                            <div class="sup-header">
+                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Total Acumulado: {qtd_mes}</div>
+                            </div>
+                            <div class="faltas-grid">
+                                <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;">
+                                    <div class="falta-label" style="color: #00695c;">📦 REALIZADO HOJE</div>
+                                    <div class="falta-value" style="color: #004d40;">{qtd_hoje}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
+                                    <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
+                                </div>
+                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
+                                </div>
+                            </div>
+                        </div>''', unsafe_allow_html=True)
+
+                if st.session_state.novo_ciclo:
+                    st.session_state.script_audio_atual = ""
+                    st.session_state.novo_ciclo = False
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+            except Exception as e:
+                st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
+        else: 
+            st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+        time.sleep(1)
+        st.rerun()
 
     # -------------------------------------------------------------------------
     # TELA 3: PRINT DOS INDICADORES
@@ -324,8 +831,9 @@ with CONTEUDO_TV.container():
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
             <div class="topo-centro">PRINT DOS INDICADORES</div>
-            <div class="topo-direita"></div>
-        </div>{icone_mudo}''', unsafe_allow_html=True)
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {html_audio_ind}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -378,7 +886,7 @@ with CONTEUDO_TV.container():
                     for sup in SUPS_ABC:
                         df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
                         f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
-                        st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas" style="color: #c62828; border: 1px solid #ffcdd2; background: #ffebee;">Total Faltas: {f_35+f_ce+f_bs}</div></div>
+                        st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
                             <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 FALTAM NR35</div><div class="falta-value">{f_35}</div></div>
                             <div class="falta-box"><div class="falta-label">📜 FALTA CERTIDÃO</div><div class="falta-value">{f_ce}</div></div>
                             <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
@@ -388,179 +896,40 @@ with CONTEUDO_TV.container():
                     for sup in SUPS_SP:
                         df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
                         f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
-                        st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas" style="color: #c62828; border: 1px solid #ffcdd2; background: #ffebee;">Total Faltas: {f_35+f_ce+f_bs}</div></div>
+                        st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
                             <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 FALTAM NR35</div><div class="falta-value">{f_35}</div></div>
                             <div class="falta-box"><div class="falta-label">📜 FALTA CERTIDÃO</div><div class="falta-value">{f_ce}</div></div>
                             <div class="falta-box"><div class="falta-label">📶 FALTA BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
+
+                if st.session_state.novo_ciclo:
+                    if permitir_audio_ind:
+                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
+                    else:
+                        st.session_state.script_audio_atual = ""
+                    st.session_state.novo_ciclo = False
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+        time.sleep(1)
+        st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 4: PERFORMANCE CONSULTIVO OPERACIONAL 🚀
+    # TELA 2: HORÁRIO ⏱️ (CENTRALIZAÇÃO COMPLETA RESTAURADA)
     # -------------------------------------------------------------------------
-    elif st.session_state.idx == 4:
+    elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PERFORMANCE CONSULTIVO GERAL</div>
-            <div class="topo-direita"></div>
-        </div>{icone_mudo}''', unsafe_allow_html=True)
+            <div class="topo-centro">HORÁRIO</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {icone_ativo}''', unsafe_allow_html=True)
 
-        if os.path.exists(ARQUIVO_CONSULTIVO):
-            try:
-                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
-                df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
-
-                df_cons['BASE'] = df_cons['BASE'].apply(limpar_texto) if 'BASE' in df_cons.columns else 'N/D'
-                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
-                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
-                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
-
-                def classificar_supervisor_limpo(row):
-                    for oficial in SUPERVISORES_ORDENADOS:
-                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
-                    return "DESCARTADO"
-
-                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
-                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-
-                total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
-                total_realizado_sp  = df_cards[df_cards['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
-
-                meta_mensal_abc = len(SUPS_ABC) * 350
-                meta_mensal_sp = len(SUPS_SP) * 350
-
-                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-                    <span style="font-size: 32px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
-                    <span style="font-size: 40px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
-                </div>''', unsafe_allow_html=True)
-
-                col_abc, col_sp = st.columns(2)
-                
-                with col_abc:
-                    st.markdown(f'''<div class="box-base"><div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC (Meta: {meta_mensal_abc})</div><div class="num-base">{total_realizado_abc}</div></div>''', unsafe_allow_html=True)
-                    for sup in SUPS_ABC:
-                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        falta_individual = max(0, 350 - qtd_sup)
-                        ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
-
-                        st.markdown(f'''<div class="sup-card">
-                            <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo: 350</div>
-                            </div>
-                            <div class="faltas-grid">
-                                <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;"><div class="falta-label" style="color: #2e7d32;">📦 PRODUTOS</div><div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div></div>
-                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;"><div class="falta-label" style="color: #c62828;">📉 FALTAM</div><div class="falta-value" style="color: #b30000;">{falta_individual}</div></div>
-                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;"><div class="falta-label" style="color: #b78103;">🎯 META DIA</div><div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div></div>
-                            </div>
-                        </div>''', unsafe_allow_html=True)
-
-                with col_sp:
-                    st.markdown(f'''<div class="box-base-sp"><div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO (Meta: {meta_mensal_sp})</div><div class="num-base">{total_realizado_sp}</div></div>''', unsafe_allow_html=True)
-                    for sup in SUPS_SP:
-                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        falta_individual = max(0, 350 - qtd_sup)
-                        ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
-
-                        st.markdown(f'''<div class="sup-card">
-                            <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Alvo: 350</div>
-                            </div>
-                            <div class="faltas-grid">
-                                <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;"><div class="falta-label" style="color: #00695c;">📦 PRODUTOS</div><div class="falta-value" style="color: #004d40;">{qtd_sup}</div></div>
-                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;"><div class="falta-label" style="color: #c62828;">📉 FALTAM</div><div class="falta-value" style="color: #b30000;">{falta_individual}</div></div>
-                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;"><div class="falta-label" style="color: #b78103;">🎯 META DIA</div><div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div></div>
-                            </div>
-                        </div>''', unsafe_allow_html=True)
-            except Exception as e: st.error(f"Erro processamento: {e}")
-        else: st.warning("Aguardando sincronização...")
-
-    # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO DIÁRIO 🚀 (META DINÂMICA)
-    # -------------------------------------------------------------------------
-    elif st.session_state.idx == 5:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PERFORMANCE CONSULTIVO DIÁRIO</div>
-            <div class="topo-direita"></div>
-        </div>{icone_mudo}''', unsafe_allow_html=True)
-
-        if os.path.exists(ARQUIVO_CONSULTIVO):
-            try:
-                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
-                df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
-
-                df_cons['BASE'] = df_cons['BASE'].apply(limpar_texto) if 'BASE' in df_cons.columns else 'N/D'
-                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
-                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
-                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
-
-                def classificar_supervisor_limpo(row):
-                    for oficial in SUPERVISORES_ORDENADOS:
-                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
-                    return "DESCARTADO"
-
-                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
-                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-
-                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
-                if col_data:
-                    hoje_str = hoje.strftime('%d/%m/%Y')
-                    df_cards['_DATA_TEMP'] = pd.to_datetime(df_cards[col_data], dayfirst=True, errors='coerce').dt.strftime('%d/%m/%Y')
-                    df_hoje = df_cards[df_cards['_DATA_TEMP'] == hoje_str].copy()
-                else:
-                    df_hoje = df_cards.copy()
-
-                total_hoje_abc = df_hoje[df_hoje['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
-                total_hoje_sp  = df_hoje[df_hoje['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
-
-                meta_dia_base_abc = sum([round(max(0, 350 - df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()) / dias_restantes, 1) for sup in SUPS_ABC])
-                meta_dia_base_sp = sum([round(max(0, 350 - df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()) / dias_restantes, 1) for sup in SUPS_SP])
-
-                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-                    <span style="font-size: 32px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
-                    <span style="font-size: 40px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
-                </div>''', unsafe_allow_html=True)
-
-                col_abc, col_sp = st.columns(2)
-                with col_abc:
-                    st.markdown(f'''<div class="box-base"><div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta: {round(meta_dia_base_abc, 1)})</div><div class="num-base">{total_hoje_abc}</div></div>''', unsafe_allow_html=True)
-                    for sup in SUPS_ABC:
-                        qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
-                        falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
-
-                        st.markdown(f'''<div class="sup-card">
-                            <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Total Acumulado: {qtd_mes}</div>
-                            </div>
-                            <div class="faltas-grid">
-                                <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;"><div class="falta-label" style="color: #2e7d32;">📦 REALIZADO HOJE</div><div class="falta-value" style="color: #1b5e20;">{qtd_hoje}</div></div>
-                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;"><div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div><div class="falta-value" style="color: #b30000;">{falta_hoje}</div></div>
-                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;"><div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div><div class="falta-value" style="color: #b78103;">{meta_dia}</div></div>
-                            </div>
-                        </div>''', unsafe_allow_html=True)
-
-                with col_sp:
-                    st.markdown(f'''<div class="box-base-sp"><div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE (Meta: {round(meta_dia_base_sp, 1)})</div><div class="num-base">{total_hoje_sp}</div></div>''', unsafe_allow_html=True)
-                    for sup in SUPS_SP:
-                        qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
-                        falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
-
-                        st.markdown(f'''<div class="sup-card">
-                            <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Total Acumulado: {qtd_mes}</div>
-                            </div>
-                            <div class="faltas-grid">
-                                <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;"><div class="falta-label" style="color: #00695c;">📦 REALIZADO HOJE</div><div class="falta-value" style="color: #004d40;">{qtd_hoje}</div></div>
-                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;"><div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div><div class="falta-value" style="color: #b30000;">{falta_hoje}</div></div>
-                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;"><div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div><div class="falta-value" style="color: #b78103;">{meta_dia}</div></div>
-                            </div>
-                        </div>''', unsafe_allow_html=True)
-            except Exception as e: st.error(f"Erro processamento: {e}")
-        else: st.warning("Aguardando sincronização...")
+        tempo_real = datetime.utcnow() - timedelta(hours=3)
+        st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
+        
+        if st.session_state.novo_ciclo:
+            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
+            st.session_state.novo_ciclo = False
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+        time.sleep(1)
+        st.rerun()
