@@ -32,9 +32,13 @@ def carregar_logo_html(caminho_imagem):
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 st.markdown("""<style>
-   /* 🔥 LINHA NOVA PARA ESCONDER A MARCA D'ÁGUA DO STREAMLIT 🔥 */
+    /* 🔥 BLOQUEIO TOTAL DA MARCA D'ÁGUA DO STREAMLIT 🔥 */
     .viewerBadge_container { display: none !important; }
+    .viewerBadge_link { display: none !important; }
+    [data-testid="viewerBadge"] { display: none !important; }
+    #viewerBadge { display: none !important; }
     
+    /* Escondendo os menus padrão */
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
     footer { visibility: hidden !important; }
