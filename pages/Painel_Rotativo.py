@@ -213,6 +213,7 @@ if tempo_passado > espera:
     st.session_state.novo_ciclo = True
     st.rerun()
 
+# 🔥 MOTOR DE ÁUDIO SUAVE E ANTI-TRAVAMENTO 🔥
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -563,6 +564,8 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
+                
+                # 🔥 SOMA APENAS SUPERVISORES VALIDADOS
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
@@ -582,6 +585,12 @@ with CONTEUDO_TV.container():
                 ritmo_diario_base_abc = int(meta_mensal_abc / dias_uteis_totais) if dias_uteis_totais > 0 else 0
                 ritmo_diario_base_sp = int(meta_mensal_sp / dias_uteis_totais) if dias_uteis_totais > 0 else 0
 
+                # 🔥 BARRINHA DE DIAS ÚTEIS RESTANTES
+                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
+                    <span style="font-size: 24px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
+                    <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
+                </div>''', unsafe_allow_html=True)
+
                 col_abc, col_sp = st.columns(2)
                 
                 with col_abc:
@@ -592,29 +601,31 @@ with CONTEUDO_TV.container():
                     
                     for sup in SUPS_ABC:
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
                         if falta_individual < 0: falta_individual = 0
                         ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
 
+                        # Fontes injetadas via style inline no HTML
                         st.markdown(f'''
                         <div class="sup-card">
                             <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="sup-name" style="font-size: 32px;">📋 {obter_nome_visual(sup)}</div>
                                 <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo: 350</div>
                             </div>
                             <div class="faltas-grid">
                                 <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                    <div class="falta-label" style="color: #2e7d32;">📦 TOTAL PRODUTOS</div>
-                                    <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
+                                    <div class="falta-label" style="color: #2e7d32; font-size: 14px;">📦 TOTAL PRODUTOS</div>
+                                    <div class="falta-value" style="color: #1b5e20; font-size: 45px;">{qtd_sup}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                    <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
-                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
+                                    <div class="falta-label" style="color: #c62828; font-size: 14px;">📉 FALTA PARA META</div>
+                                    <div class="falta-value" style="color: #b30000; font-size: 45px;">{falta_individual}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
-                                    <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
+                                    <div class="falta-label" style="color: #b78103; font-size: 14px;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103; font-size: 45px;">{ritmo_diario_individual}</div>
                                 </div>
                             </div>
                         </div>''', unsafe_allow_html=True)
@@ -627,6 +638,7 @@ with CONTEUDO_TV.container():
                     
                     for sup in SUPS_SP:
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                        
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
                         if falta_individual < 0: falta_individual = 0
@@ -635,21 +647,21 @@ with CONTEUDO_TV.container():
                         st.markdown(f'''
                         <div class="sup-card">
                             <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="sup-name" style="font-size: 32px;">📋 {obter_nome_visual(sup)}</div>
                                 <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Alvo: 350</div>
                             </div>
                             <div class="faltas-grid">
                                 <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;">
-                                    <div class="falta-label" style="color: #00695c;">📦 TOTAL PRODUTOS</div>
-                                    <div class="falta-value" style="color: #004d40;">{qtd_sup}</div>
+                                    <div class="falta-label" style="color: #00695c; font-size: 14px;">📦 TOTAL PRODUTOS</div>
+                                    <div class="falta-value" style="color: #004d40; font-size: 45px;">{qtd_sup}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                    <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
-                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
+                                    <div class="falta-label" style="color: #c62828; font-size: 14px;">📉 FALTA PARA META</div>
+                                    <div class="falta-value" style="color: #b30000; font-size: 45px;">{falta_individual}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
-                                    <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
+                                    <div class="falta-label" style="color: #b78103; font-size: 14px;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103; font-size: 45px;">{ritmo_diario_individual}</div>
                                 </div>
                             </div>
                         </div>''', unsafe_allow_html=True)
@@ -730,6 +742,7 @@ with CONTEUDO_TV.container():
                 total_hoje_abc = df_hoje[df_hoje['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
                 total_hoje_sp  = df_hoje[df_hoje['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
 
+                # CÁLCULO DA META DIÁRIA DINÂMICA
                 meta_dia_base_abc = 0
                 for sup in SUPS_ABC:
                     qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
@@ -739,6 +752,11 @@ with CONTEUDO_TV.container():
                 for sup in SUPS_SP:
                     qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                     meta_dia_base_sp += round(max(0, 350 - qtd_mes) / dias_restantes, 1)
+
+                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
+                    <span style="font-size: 24px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
+                    <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
+                </div>''', unsafe_allow_html=True)
 
                 col_abc, col_sp = st.columns(2)
                 
@@ -759,21 +777,21 @@ with CONTEUDO_TV.container():
                         st.markdown(f'''
                         <div class="sup-card">
                             <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="sup-name" style="font-size: 32px;">📋 {obter_nome_visual(sup)}</div>
                                 <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Total Acumulado: {qtd_mes}</div>
                             </div>
                             <div class="faltas-grid">
                                 <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                    <div class="falta-label" style="color: #2e7d32;">📦 REALIZADO HOJE</div>
-                                    <div class="falta-value" style="color: #1b5e20;">{qtd_hoje}</div>
+                                    <div class="falta-label" style="color: #2e7d32; font-size: 14px;">📦 REALIZADO HOJE</div>
+                                    <div class="falta-value" style="color: #1b5e20; font-size: 45px;">{qtd_hoje}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
-                                    <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
+                                    <div class="falta-label" style="color: #c62828; font-size: 14px;">📉 FALTAM HOJE</div>
+                                    <div class="falta-value" style="color: #b30000; font-size: 45px;">{falta_hoje}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
-                                    <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
+                                    <div class="falta-label" style="color: #b78103; font-size: 14px;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103; font-size: 45px;">{meta_dia}</div>
                                 </div>
                             </div>
                         </div>''', unsafe_allow_html=True)
@@ -795,21 +813,21 @@ with CONTEUDO_TV.container():
                         st.markdown(f'''
                         <div class="sup-card">
                             <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                <div class="sup-name" style="font-size: 32px;">📋 {obter_nome_visual(sup)}</div>
                                 <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Total Acumulado: {qtd_mes}</div>
                             </div>
                             <div class="faltas-grid">
                                 <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;">
-                                    <div class="falta-label" style="color: #00695c;">📦 REALIZADO HOJE</div>
-                                    <div class="falta-value" style="color: #004d40;">{qtd_hoje}</div>
+                                    <div class="falta-label" style="color: #00695c; font-size: 14px;">📦 REALIZADO HOJE</div>
+                                    <div class="falta-value" style="color: #004d40; font-size: 45px;">{qtd_hoje}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
-                                    <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
+                                    <div class="falta-label" style="color: #c62828; font-size: 14px;">📉 FALTAM HOJE</div>
+                                    <div class="falta-value" style="color: #b30000; font-size: 45px;">{falta_hoje}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                    <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
-                                    <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
+                                    <div class="falta-label" style="color: #b78103; font-size: 14px;">🎯 META DIÁRIA</div>
+                                    <div class="falta-value" style="color: #b78103; font-size: 45px;">{meta_dia}</div>
                                 </div>
                             </div>
                         </div>''', unsafe_allow_html=True)
