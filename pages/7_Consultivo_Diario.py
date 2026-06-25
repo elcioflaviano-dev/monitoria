@@ -11,10 +11,16 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 # --- CSS E ESTILOS ---
 st.markdown("""<style>
     .topo-container { background: #003366; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
+    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 20px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
+    .box-base-sp { background: #e0f2f1; border-left: 10px solid #00897b; padding: 20px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
+    .nome-base { font-size: 20px; font-weight: 900; color: #333; text-transform: uppercase; margin-bottom: 10px; }
+    .num-base { font-size: 70px; font-weight: 900; color: #111; line-height: 1; }
+    
     .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-    .sup-name { font-size: 32px; font-weight: 900; color: #333; text-transform: uppercase; }
-    .badge-acumulado { background: #e8f5e9; color: #2e7d32; padding: 8px 16px; border-radius: 8px; font-size: 18px; font-weight: bold; border: 1px solid #a5d6a7; }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px; }
+    .sup-name { font-size: 28px; font-weight: 900; color: #333; text-transform: uppercase; }
+    .badge-acumulado { background: #e8f5e9; color: #2e7d32; padding: 8px 16px; border-radius: 8px; font-size: 16px; font-weight: bold; border: 1px solid #a5d6a7; }
+    
     .faltas-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
     .falta-box { border-radius: 8px; padding: 15px; text-align: center; border: 1px solid #eee; background-color: #f9f9f9; }
     .falta-label { font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; color: #666; }
@@ -23,7 +29,7 @@ st.markdown("""<style>
 
 st.markdown('<div class="topo-container"><h1>PERFORMANCE CONSULTIVO DIÁRIO</h1></div>', unsafe_allow_html=True)
 
-# --- CONFIGURAÇÕES ---
+# --- CONFIGURAÇÕES GERAIS ---
 ARQUIVO_CONSULTIVO = os.path.join(os.getcwd(), "consultivo_sincronizado.csv")
 SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
@@ -46,71 +52,120 @@ def obter_nome_visual(n):
 # --- LÓGICA DE PROCESSAMENTO ---
 if os.path.exists(ARQUIVO_CONSULTIVO):
     try:
-        # Carrega o arquivo tratando delimitadores automaticamente
+        # Carrega o arquivo dinamicamente
         df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
         df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
         
-        # Limpeza básica e conversão numérica pura
-        df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].fillna('#N/D').apply(limpar_texto)
-        df_cons['BASE'] = df_cons['BASE'].fillna('N/D').apply(limpar_texto)
-        df_cons['QTD_PRODUTOS'] = pd.to_numeric(df_cons['QTD_PRODUTOS'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+        # Limpa BASE e SUPERVISOR
+        col_base = next((c for c in df_cons.columns if 'BASE' in c), None)
+        col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c), None)
         
-        # Filtra apenas supervisores válidos
-        df_cards = df_cons[df_cons['SUPERVISOR'] != 'DESCARTADO'].copy()
+        df_cons['BASE_CLEAN'] = df_cons[col_base].fillna('N/D').apply(limpar_texto) if col_base else 'N/D'
+        df_cons['SUP_CLEAN'] = df_cons[col_sup].fillna('#N/D').apply(limpar_texto) if col_sup else ''
         
-        # Define o dia de hoje sem frações de segundos ou horas para evitar falhas de batimento
+        # Localiza dinamicamente a coluna de Quantidade (para evitar KeyErrors)
+        col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUT' in c), None)
+        df_cons['QTD_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0) if col_qtd else 0
+
+        # Filtra apenas os supervisores conhecidos
+        def classificar_sup(row):
+            for oficial in SUPERVISORES_ORDENADOS:
+                if limpar_texto(oficial.split()[0]) in row: return oficial
+            return "DESCARTADO"
+        
+        df_cons['SUP_FINAL'] = df_cons['SUP_CLEAN'].apply(classificar_sup)
+        df_cards = df_cons[df_cons['SUP_FINAL'] != 'DESCARTADO'].copy()
+
+        # 🔥 TRATAMENTO DE DATA ROBUSTO 🔥
+        col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
         hoje = datetime.utcnow() - timedelta(hours=3)
-        hoje_data_pura = datetime(hoje.year, hoje.month, hoje.day)
+        hoje_str = hoje.strftime('%d/%m/%Y')
         
-        # Converte a coluna DATA do CSV de forma segura forçando apenas a data limpa (ano-mês-dia 00:00:00)
-        df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA'], dayfirst=True, errors='coerce').dt.normalize()
-        
-        # Cálculos de dias úteis restantes no mês
+        if col_data:
+            # Converte as datas da planilha para um formato de objeto data do Pandas
+            df_cards['DATA_DT'] = pd.to_datetime(df_cards[col_data], dayfirst=True, errors='coerce')
+            df_cards['DATA_STR'] = df_cards['DATA_DT'].dt.strftime('%d/%m/%Y')
+            
+            # Tenta filtrar pelo dia de hoje
+            df_hoje = df_cards[df_cards['DATA_STR'] == hoje_str].copy()
+            
+            # Se não houver nenhum dado para hoje, puxa a última data que tiver na planilha
+            if df_hoje.empty and not df_cards['DATA_DT'].isna().all():
+                ultima_data = df_cards['DATA_DT'].max()
+                hoje_str = ultima_data.strftime('%d/%m/%Y')
+                df_hoje = df_cards[df_cards['DATA_STR'] == hoje_str].copy()
+                st.info(f"⏳ **Aviso:** Nenhum dado lançado para o dia de hoje. Exibindo os resultados da última data sincronizada: **{hoje_str}**")
+        else:
+            df_hoje = df_cards.copy()
+
+        # Cálculo de dias úteis restantes no mês atual
         _, num_dias = calendar.monthrange(hoje.year, hoje.month)
         dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(hoje.year, hoje.month, d) != 6)
         if dias_restantes == 0: dias_restantes = 1
         
+        st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
+            <span style="font-size: 24px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
+            <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
+        </div>''', unsafe_allow_html=True)
+
+        # Cálculos globais para os cards superiores
+        total_hoje_abc = df_hoje[df_hoje['BASE_CLEAN'] == 'ABC']['QTD_CALC'].sum()
+        total_hoje_sp  = df_hoje[df_hoje['BASE_CLEAN'] == 'SP']['QTD_CALC'].sum()
+
+        meta_dia_base_abc = sum([round(max(0, 350 - df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()) / dias_restantes, 1) for sup in SUPS_ABC])
+        meta_dia_base_sp = sum([round(max(0, 350 - df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()) / dias_restantes, 1) for sup in SUPS_SP])
+
+        # Renderização das Colunas
         col_abc, col_sp = st.columns(2)
         
-        def render_base(base, col, sups):
-            with col:
-                st.subheader(f"BASE {base}")
-                for s in sups:
-                    # Filtro mestre por supervisor dentro da base correspondente
-                    primeiro_nome = s.split()[0]
-                    df_sup_total = df_cards[df_cards['SUPERVISOR'].str.contains(primeiro_nome, na=False) & (df_cards['BASE'] == base)]
+        def renderizar_base(base_nome, coluna_st, sups_lista, meta_geral, total_hoje):
+            with coluna_st:
+                classe_box = "box-base" if base_nome == "ABC" else "box-base-sp"
+                cor_texto = "#2e7d32" if base_nome == "ABC" else "#00695c"
+                icone_base = "🏢" if base_nome == "ABC" else "🏙️"
+                
+                # Card Total da Base
+                st.markdown(f'''<div class="{classe_box}">
+                    <div class="nome-base" style="color: {cor_texto};">{icone_base} BASE {base_nome} HOJE (Meta Diária: {round(meta_geral, 1)})</div>
+                    <div class="num-base">{int(total_hoje)}</div>
+                </div>''', unsafe_allow_html=True)
+                
+                # Cards Individuais
+                for sup in sups_lista:
+                    qtd_mes = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
+                    qtd_hoje = df_hoje[df_hoje['SUP_FINAL'] == sup]['QTD_CALC'].sum()
                     
-                    # 1. Agrupa e soma todas as linhas que pertencem estritamente ao dia de hoje
-                    qtd_hoje = df_sup_total[df_sup_total['DATA_DT'] == hoje_data_pura]['QTD_PRODUTOS'].sum()
-                    
-                    # 2. Agrupa e soma todas as linhas anteriores ao dia de hoje (Vendas Acumuladas de Ontem para trás)
-                    qtd_mes_anterior = df_sup_total[df_sup_total['DATA_DT'] < hoje_data_pura]['QTD_PRODUTOS'].sum()
-                    
-                    # 3. Exibe o Acumulado Atual do mês inteiro na interface do card
-                    qtd_mes_total = df_sup_total['QTD_PRODUTOS'].sum()
-                    
-                    # 4. Cálculo corrigido baseado no volume histórico real coletado da listagem analítica
-                    meta_dia = round(max(0, 350 - qtd_mes_anterior) / dias_restantes, 1)
+                    # Fórmulas de negócio
+                    meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
                     falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
-                    
+
                     st.markdown(f'''
                     <div class="sup-card">
                         <div class="sup-header">
-                            <div class="sup-name">📋 {obter_nome_visual(s)}</div>
-                            <div class="badge-acumulado">Acumulado: {int(qtd_mes_total)}</div>
+                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                            <div class="badge-acumulado">Total Acumulado: {int(qtd_mes)}</div>
                         </div>
                         <div class="faltas-grid">
-                            <div class="falta-box"><div class="falta-label">📦 HOJE</div><div class="falta-value">{int(qtd_hoje)}</div></div>
-                            <div class="falta-box"><div class="falta-label">📉 FALTAM</div><div class="falta-value">{falta_hoje}</div></div>
-                            <div class="falta-box"><div class="falta-label">🎯 META DIA</div><div class="falta-value">{meta_dia}</div></div>
+                            <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                <div class="falta-label" style="color: #2e7d32;">📦 REALIZADO HOJE</div>
+                                <div class="falta-value" style="color: #1b5e20;">{int(qtd_hoje)}</div>
+                            </div>
+                            <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
+                                <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
+                            </div>
+                            <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
+                                <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
+                            </div>
                         </div>
                     </div>''', unsafe_allow_html=True)
 
-        render_base('ABC', col_abc, SUPS_ABC)
-        render_base('SP', col_sp, SUPS_SP)
+        renderizar_base('ABC', col_abc, SUPS_ABC, meta_dia_base_abc, total_hoje_abc)
+        renderizar_base('SP', col_sp, SUPS_SP, meta_dia_base_sp, total_hoje_sp)
 
     except Exception as e:
-        st.error(f"Erro ao processar os dados: {e}")
-        st.write("Verifique se as colunas 'DATA', 'SUPERVISOR', 'BASE' e 'QTD_PRODUTOS' existem no seu CSV.")
+        st.error(f"Erro ao calcular os dados da planilha: {e}")
+        st.info("Verifique se o formato da coluna DATA é DD/MM/AAAA e se existem produtos numéricos.")
 else:
-    st.error("Arquivo consultivo_sincronizado.csv não encontrado na pasta raiz.")
+    st.error("Arquivo consultivo_sincronizado.csv não encontrado no sistema.")
