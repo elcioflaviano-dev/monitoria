@@ -69,7 +69,6 @@ st.markdown("""<style>
     .falta-label { font-size: 11px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
     .falta-value { font-size: 32px; font-weight: 900; color: #b30000; line-height: 1; }
     
-    /* 🔥 RESTAURADO: ESTILOS MAJESTOSOS DO RELÓGIO DA TV GIGANTE 🔥 */
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
@@ -195,6 +194,7 @@ if tempo_passado > espera:
     st.session_state.novo_ciclo = True
     st.rerun()
 
+# 🔥 MOTOR DE ÁUDIO ATUALIZADO: com comandos de destravamento (synth.cancel()) 🔥
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
@@ -215,6 +215,7 @@ function anunciarBase(texto, delay) {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
             let synth = window.parent.speechSynthesis || window.speechSynthesis;
+            try { synth.cancel(); } catch(e) {} // Destrava o motor caso tenha vindo bloqueado da tela anterior
             let m = new SpeechSynthesisUtterance(texto);
             m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
             function setVoiceAndSpeak() {
@@ -242,6 +243,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
         tocarAlertaChamaAtencao();
         setTimeout(() => {
             let synth = window.parent.speechSynthesis || window.speechSynthesis;
+            try { synth.cancel(); } catch(e) {} // Destrava o motor antes de injetar a voz do supervisor
             let m = new SpeechSynthesisUtterance(texto);
             m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
             let voices = synth.getVoices();
@@ -516,9 +518,6 @@ with CONTEUDO_TV.container():
                 else:
                     df_cons['QTD_PRODUTOS_CALC'] = 0
 
-                # -------------------------------------------------------------------------
-                # Agora tratamos os Supervisores para preencher os Cards Individuais
-                # -------------------------------------------------------------------------
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
 
                 def classificar_supervisor_limpo(row):
@@ -531,10 +530,8 @@ with CONTEUDO_TV.container():
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
                 
-                # Para os cards, ficamos apenas com as linhas que têm supervisor válido
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                # 🔥 1. SOMA TOTAL DA BASE (AGORA USA O df_cards, SEM #N/D) 🔥
                 total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
                 total_realizado_sp  = df_cards[df_cards['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
 
@@ -561,7 +558,6 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_ABC:
-                        # Puxa do df_cards, que já descartou os "N/D"
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         meta_individual = 350
@@ -598,7 +594,6 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_SP:
-                        # Puxa do df_cards, que já descartou os "N/D"
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
                         meta_individual = 350
@@ -637,6 +632,7 @@ with CONTEUDO_TV.container():
                 st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
         else: 
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+        time.slice_delay = 1
         time.sleep(1)
         st.rerun()
 
@@ -684,10 +680,8 @@ with CONTEUDO_TV.container():
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
                 
-                # df_cards: TUDO O QUE É DO MÊS (SEM N/D) PARA CÁLCULO DA META
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                # df_hoje: APENAS O REALIZADO HOJE
                 hoje = datetime.utcnow() - timedelta(hours=3)
                 col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
                 
@@ -698,17 +692,14 @@ with CONTEUDO_TV.container():
                 else:
                     df_hoje = df_cards.copy()
 
-                # CÁLCULO DE DIAS ÚTEIS RESTANTES
                 ano, mes = hoje.year, hoje.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
-                # TOTAIS REALIZADOS HOJE (PARA O TOPO)
                 total_hoje_abc = df_hoje[df_hoje['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
                 total_hoje_sp  = df_hoje[df_hoje['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
 
-                # CÁLCULO DA META DIÁRIA DINÂMICA DA BASE INTEIRA
                 meta_dia_base_abc = 0
                 for sup in SUPS_ABC:
                     qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
@@ -728,17 +719,11 @@ with CONTEUDO_TV.container():
                     </div>''', unsafe_allow_html=True)
                     
                     for sup in SUPS_ABC:
-                        # 1. Pega acumulado do mês
                         qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        
-                        # 2. Pega apenas o que foi feito hoje
                         qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         
-                        # 3. Calcula a meta do dia dinamicamente
                         falta_mes = max(0, 350 - qtd_mes)
                         meta_dia = round(falta_mes / dias_restantes, 1)
-                        
-                        # 4. Calcula o quanto falta para bater a meta DO DIA
                         falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
 
                         st.markdown(f'''
