@@ -146,12 +146,24 @@ for inicio, f in regras_audio_ind:
         permitir_audio_ind = True
         break
 
-badge_mudo = '<span style="font-size: 14px; vertical-align: middle; background: #c62828; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔇 ÁUDIO EM ESPERA</span>'
-badge_ativo = '<span style="font-size: 14px; vertical-align: middle; background: #2e7d32; color: #fff; padding: 4px 10px; border-radius: 10px; margin-left: 15px;">🔊 ÁUDIO ATIVO</span>'
+# 🔥 NOVOS ÍCONES DISCRETOS NO CANTO INFERIOR 🔥
+icone_mudo = '''<div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera">
+    <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="1" x2="1" y2="23"></line>
+    </svg>
+</div>'''
 
-html_audio_base = badge_ativo if permitir_audio_base else badge_mudo
-html_audio_tec1 = badge_ativo if permitir_audio_tec1 else badge_mudo
-html_audio_ind = badge_ativo if permitir_audio_ind else badge_mudo
+icone_ativo = '''<div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo">
+    <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+</div>'''
+
+html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
+html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
+html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
 
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
@@ -194,23 +206,21 @@ if tempo_passado > espera:
     st.session_state.novo_ciclo = True
     st.rerun()
 
-# 🔥 NOVO MOTOR DE ÁUDIO: Som de Aeroporto/Shopping (Agradável e sem travamentos) 🔥
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
     try {
         let ctx = new (window.parent.AudioContext || window.AudioContext)();
         let tempo = ctx.currentTime;
         
-        // Função interna para tocar notinhas de sino (sine wave)
         function tocarNota(frequencia, inicio, duracao) {
             let osc = ctx.createOscillator();
             let gain = ctx.createGain();
-            osc.type = 'sine'; // Som suave, como uma campainha ou sino
+            osc.type = 'sine';
             osc.frequency.setValueAtTime(frequencia, inicio);
             
             gain.gain.setValueAtTime(0, inicio);
-            gain.gain.linearRampToValueAtTime(0.5, inicio + 0.05); // Fade in rápido (sem estalo)
-            gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao); // Fade out suave
+            gain.gain.linearRampToValueAtTime(0.5, inicio + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao);
             
             osc.connect(gain);
             gain.connect(ctx.destination);
@@ -218,10 +228,9 @@ function tocarAlertaChamaAtencao() {
             osc.stop(inicio + duracao);
         }
 
-        // Toque estilo "Aviso de Aeroporto" (Din-Don-Dan)
-        tocarNota(523.25, tempo, 0.5);        // Dó
-        tocarNota(659.25, tempo + 0.2, 0.5);  // Mi
-        tocarNota(784.00, tempo + 0.4, 0.8);  // Sol
+        tocarNota(523.25, tempo, 0.5);
+        tocarNota(659.25, tempo + 0.2, 0.5);
+        tocarNota(784.00, tempo + 0.4, 0.8);
 
     } catch(e) {}
 }
@@ -285,9 +294,10 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">🚀 TÉCNICOS EM BASE {html_audio_base}</div>
+            <div class="topo-centro">🚀 TÉCNICOS EM BASE</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>''', unsafe_allow_html=True)
+        </div>
+        {html_audio_base}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -412,9 +422,10 @@ with CONTEUDO_TV.container():
             
             st.markdown(f'''<div class="topo-container">
                 <div class="topo-esquerda">{logo_html}</div>
-                <div class="topo-centro">TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span> {html_audio_tec1}</div>
+                <div class="topo-centro">TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
                 <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-            </div>''', unsafe_allow_html=True)
+            </div>
+            {html_audio_tec1}''', unsafe_allow_html=True)
             
             df_pendentes_geral = pd.DataFrame()
             
@@ -507,9 +518,10 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONSULTIVOS</div>
+            <div class="topo-centro">PERFORMANCE CONSULTIVO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>''', unsafe_allow_html=True)
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
@@ -544,7 +556,6 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
-                
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
@@ -574,7 +585,6 @@ with CONTEUDO_TV.container():
                     
                     for sup in SUPS_ABC:
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
                         if falta_individual < 0: falta_individual = 0
@@ -610,7 +620,6 @@ with CONTEUDO_TV.container():
                     
                     for sup in SUPS_SP:
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        
                         meta_individual = 350
                         falta_individual = meta_individual - qtd_sup
                         if falta_individual < 0: falta_individual = 0
@@ -656,9 +665,10 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONSULTIVOS DIÁRIO</div>
+            <div class="topo-centro">PERFORMANCE CONSULTIVO DIÁRIO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>''', unsafe_allow_html=True)
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
@@ -693,7 +703,6 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
-                
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 hoje = datetime.utcnow() - timedelta(hours=3)
@@ -728,7 +737,7 @@ with CONTEUDO_TV.container():
                 
                 with col_abc:
                     st.markdown(f'''<div class="box-base">
-                        <div class="nome-base" style="color: #2e7d32;">🏢 ABC HOJE (Meta Diária: {round(meta_dia_base_abc, 1)})</div>
+                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta Diária: {round(meta_dia_base_abc, 1)})</div>
                         <div class="num-base">{total_hoje_abc}</div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -764,7 +773,7 @@ with CONTEUDO_TV.container():
 
                 with col_sp:
                     st.markdown(f'''<div class="box-base-sp">
-                        <div class="nome-base" style="color: #00695c;">🏙️ SÃO PAULO HOJE (Meta Diária: {round(meta_dia_base_sp, 1)})</div>
+                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE (Meta Diária: {round(meta_dia_base_sp, 1)})</div>
                         <div class="num-base">{total_hoje_sp}</div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -816,9 +825,10 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 3:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PRINT DOS INDICADORES {html_audio_ind}</div>
+            <div class="topo-centro">PRINT DOS INDICADORES</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>''', unsafe_allow_html=True)
+        </div>
+        {html_audio_ind}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -906,7 +916,8 @@ with CONTEUDO_TV.container():
             <div class="topo-esquerda">{logo_html}</div>
             <div class="topo-centro">HORÁRIO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>''', unsafe_allow_html=True)
+        </div>
+        {icone_ativo}''', unsafe_allow_html=True)
 
         tempo_real = datetime.utcnow() - timedelta(hours=3)
         st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
