@@ -154,14 +154,14 @@ for inicio, f in regras_audio_ind:
         break
 
 # 🔥 NOVOS ÍCONES DISCRETOS NO CANTO INFERIOR 🔥
-icone_mudo = '''<div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera">
+icone_mudo = '''<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera">
     <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
         <line x1="23" y1="1" x2="1" y2="23"></line>
     </svg>
 </div>'''
 
-icone_ativo = '''<div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo">
+icone_ativo = '''<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo">
     <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
         <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
