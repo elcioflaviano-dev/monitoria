@@ -531,8 +531,9 @@ with CONTEUDO_TV.container():
                 meta_mensal_abc = len(SUPS_ABC) * 350
                 meta_mensal_sp = len(SUPS_SP) * 350
 
-                ritmo_diario_base_abc = int(meta_mensal_abc / dias_restantes) if dias_restantes > 0 else 0
-                ritmo_diario_base_sp = int(meta_mensal_sp / dias_restantes) if dias_restantes > 0 else 0
+                # 🔥 ARREDONDANDO AS MÉDIAS (TELA GERAL) 🔥
+                ritmo_diario_base_abc = int(round(meta_mensal_abc / dias_restantes)) if dias_restantes > 0 else 0
+                ritmo_diario_base_sp = int(round(meta_mensal_sp / dias_restantes)) if dias_restantes > 0 else 0
 
                 st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
                     <span style="font-size: 24px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
@@ -550,7 +551,9 @@ with CONTEUDO_TV.container():
                     for sup in SUPS_ABC:
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         falta_individual = max(0, 350 - qtd_sup)
-                        ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
+                        
+                        # 🔥 ARREDONDANDO A META INDIVIDUAL 🔥
+                        ritmo_diario_individual = int(round(falta_individual / dias_restantes))
 
                         st.markdown(f'''
                         <div class="sup-card">
@@ -583,7 +586,9 @@ with CONTEUDO_TV.container():
                     for sup in SUPS_SP:
                         qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                         falta_individual = max(0, 350 - qtd_sup)
-                        ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
+                        
+                        # 🔥 ARREDONDANDO A META INDIVIDUAL 🔥
+                        ritmo_diario_individual = int(round(falta_individual / dias_restantes))
 
                         st.markdown(f'''
                         <div class="sup-card">
@@ -620,7 +625,7 @@ with CONTEUDO_TV.container():
         st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 🚀 (MÉTRICAS DINÂMICAS)
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 🚀 (ISOLADO E ARREDONDADO)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
@@ -648,51 +653,53 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                # 🔥 LÓGICA DE DATA TOTALMENTE INDEPENDENTE E EM TEXTO PURO 🔥
+                # 🔥 LÓGICA DE DATA TOTALMENTE INDEPENDENTE (Texto Puro) 🔥
                 hoje_br = datetime.utcnow() - timedelta(hours=3)
-                hoje_str = hoje_br.strftime('%d/%m/%Y')
+                hoje_str_br = hoje_br.strftime('%d/%m/%Y')
+                hoje_str_us = hoje_br.strftime('%Y-%m-%d')
 
-                # Garante que a coluna DATA seja tratada como texto e pega só os primeiros 10 caracteres (DD/MM/AAAA)
                 col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
                 if col_data:
-                    df_cards['DATA_LIMPA'] = df_cards[col_data].astype(str).str.strip().str[0:10]
-                    df_hoje = df_cards[df_cards['DATA_LIMPA'] == hoje_str].copy()
+                    df_cards['DATA_TXT'] = df_cards[col_data].astype(str).str.strip().str[:10]
+                    mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
+                    df_hoje = df_cards[mask_hoje].copy()
                 else:
                     df_hoje = pd.DataFrame() 
                 
-                # Dias restantes no mês corrente
+                # Dias restantes
                 ano, mes = hoje_br.year, hoje_br.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes <= 0: dias_restantes = 1
 
+                if df_hoje.empty:
+                     st.warning(f"⚠️ Atenção: A planilha não possui dados lançados com a data de hoje ({hoje_str_br}).")
+
                 # Totais Globais
                 total_hoje_abc = df_hoje[df_hoje['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
                 total_hoje_sp  = df_hoje[df_hoje['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
 
+                # 🔥 CÁLCULO DE MÉDIA ARREDONDADA PARA A BASE GERAL 🔥
                 meta_dia_base_abc = 0
                 for sup in SUPS_ABC:
                     qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                    meta_dia_base_abc += round(max(0, 350 - qtd_m) / dias_restantes, 1)
+                    meta_dia_base_abc += int(round(max(0, 350 - qtd_m) / dias_restantes))
                 
                 meta_dia_base_sp = 0
                 for sup in SUPS_SP:
                     qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                    meta_dia_base_sp += round(max(0, 350 - qtd_m) / dias_restantes, 1)
+                    meta_dia_base_sp += int(round(max(0, 350 - qtd_m) / dias_restantes))
 
                 st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-                    <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados de Hoje ({hoje_str}) - Dias úteis restantes: </span>
+                    <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados Isolados de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
                     <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
                 </div>''', unsafe_allow_html=True)
-
-                if df_hoje.empty:
-                     st.warning(f"⚠️ Atenção: Nenhum produto lançado hoje ({hoje_str}) na planilha. Verifique a sincronização.")
 
                 col_abc, col_sp = st.columns(2)
                 
                 with col_abc:
                     st.markdown(f'''<div class="box-base">
-                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta Diária: {round(meta_dia_base_abc, 1)})</div>
+                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta Diária: {meta_dia_base_abc})</div>
                         <div class="num-base">{total_hoje_abc}</div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -703,9 +710,9 @@ with CONTEUDO_TV.container():
                         # 2. Soma independente de Hoje
                         qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
                         
-                        # 3. Metas e Faltas
-                        meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
-                        falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
+                        # 3. Metas e Faltas (ARREDONDADAS)
+                        meta_dia = int(round(max(0, 350 - qtd_mes) / dias_restantes))
+                        falta_hoje = int(round(max(0, meta_dia - qtd_hoje)))
 
                         st.markdown(f'''
                         <div class="sup-card">
@@ -731,7 +738,7 @@ with CONTEUDO_TV.container():
 
                 with col_sp:
                     st.markdown(f'''<div class="box-base-sp">
-                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE (Meta Diária: {round(meta_dia_base_sp, 1)})</div>
+                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE (Meta Diária: {meta_dia_base_sp})</div>
                         <div class="num-base">{total_hoje_sp}</div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -742,9 +749,9 @@ with CONTEUDO_TV.container():
                         # 2. Soma independente de Hoje
                         qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
                         
-                        # 3. Metas e Faltas
-                        meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
-                        falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
+                        # 3. Metas e Faltas (ARREDONDADAS)
+                        meta_dia = int(round(max(0, 350 - qtd_mes) / dias_restantes))
+                        falta_hoje = int(round(max(0, meta_dia - qtd_hoje)))
 
                         st.markdown(f'''
                         <div class="sup-card">
