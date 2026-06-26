@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 # Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
+# --- VARIÁVEIS GLOBAIS SEGURAS (Evita NameError) ---
+icone_mudo = '<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.25;"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'
+icone_ativo = '<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.8;"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'
+
 # --- CSS E ESTILOS ---
 st.markdown("""<style>
     .topo-container { background: #003366; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
@@ -27,7 +31,10 @@ st.markdown("""<style>
     .falta-value { font-size: 45px; font-weight: 900; color: #003366; line-height: 1; }
 </style>""", unsafe_allow_html=True)
 
-st.markdown('<div class="topo-container"><h1>PERFORMANCE CONSULTIVO DIÁRIO</h1></div>', unsafe_allow_html=True)
+st.markdown('<div class="topo-container"><h1>CONSULTIVO DIÁRIO</h1></div>', unsafe_allow_html=True)
+
+# Exibe o ícone
+st.markdown(icone_mudo, unsafe_allow_html=True)
 
 # --- CONFIGURAÇÕES GERAIS ---
 ARQUIVO_CONSULTIVO = os.path.join(os.getcwd(), "consultivo_sincronizado.csv")
@@ -39,66 +46,117 @@ def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-# --- LÓGICA DE PROCESSAMENTO ---
+def obter_nome_visual(n):
+    n = str(n).upper()
+    if 'FRANCISCO' in n: return "FRANCISCO"
+    if 'MARCOS' in n: return "MARCOS ROBERTO"
+    if 'EDSON' in n: return "EDSON MARCO"
+    if 'JOAO' in n or 'MIRON' in n: return "JOÃO CARLOS"
+    if 'NELSON' in n: return "NELSON"
+    if 'ALAN' in n: return "ALAN"
+    return n.split()[0]
+
+# --- LÓGICA DE PROCESSAMENTO (ISOLANDO O DIA DE HOJE) ---
 if os.path.exists(ARQUIVO_CONSULTIVO):
     try:
-        df = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
-        df.columns = [str(c).upper().strip().replace(' ', '_') for c in df.columns]
+        # Carrega o arquivo dinamicamente
+        df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
+        df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
         
-        # Limpeza
-        df['BASE_CLEAN'] = df['BASE'].fillna('N/D').apply(limpar_texto)
-        df['SUP_CLEAN'] = df['SUPERVISOR'].fillna('#N/D').apply(limpar_texto)
-        df['QTD_CALC'] = pd.to_numeric(df['QTD_PRODUTOS'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+        # Limpa BASE e SUPERVISOR
+        col_base = next((c for c in df_cons.columns if 'BASE' in c), None)
+        col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c), None)
         
+        df_cons['BASE_CLEAN'] = df_cons[col_base].fillna('N/D').apply(limpar_texto) if col_base else 'N/D'
+        df_cons['SUP_CLEAN'] = df_cons[col_sup].fillna('#N/D').apply(limpar_texto) if col_sup else ''
+        
+        # Localiza dinamicamente a coluna de Quantidade
+        col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUT' in c), None)
+        df_cons['QTD_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0) if col_qtd else 0
+
+        # Filtra apenas os supervisores conhecidos
         def classificar_sup(row):
             for oficial in SUPERVISORES_ORDENADOS:
                 if limpar_texto(oficial.split()[0]) in row: return oficial
             return "DESCARTADO"
         
-        df['SUP_FINAL'] = df['SUP_CLEAN'].apply(classificar_sup)
-        df_cards = df[df['SUP_FINAL'] != 'DESCARTADO'].copy()
+        df_cons['SUP_FINAL'] = df_cons['SUP_CLEAN'].apply(classificar_sup)
+        df_cards = df_cons[df_cons['SUP_FINAL'] != 'DESCARTADO'].copy()
 
-        # 🔥 TRATAMENTO DE DATA ---
-        hoje_real = datetime.utcnow() - timedelta(hours=3)
-        hoje_str = hoje_real.strftime('%d/%m/%Y')
-        df['DATA_STR'] = df['DATA'].astype(str).str.strip().str[:10]
-        df_hoje = df[df['DATA_STR'] == hoje_str].copy()
+        # 🔥 LÓGICA DE DATA: BUSCA COMO TEXTO PURO 🔥
+        hoje_br = datetime.utcnow() - timedelta(hours=3)
+        hoje_str_br = hoje_br.strftime('%d/%m/%Y')   # Formato BR: 26/06/2026
+        hoje_str_us = hoje_br.strftime('%Y-%m-%d')   # Formato US: 2026-06-26 (Garantia)
+
+        col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
         
-        # Cálculos de dias úteis restantes
-        _, num_dias = calendar.monthrange(hoje_real.year, hoje_real.month)
-        dias_restantes = sum(1 for d in range(hoje_real.day, num_dias + 1) if calendar.weekday(hoje_real.year, hoje_real.month, d) != 6)
+        if col_data:
+            # Transforma a coluna da planilha em texto e corta os 10 primeiros caracteres
+            df_cards['DATA_TXT'] = df_cards[col_data].astype(str).str.strip().str[:10]
+            
+            # Filtra onde o texto for IGUAL à data de hoje (independente de como o Excel exportou)
+            mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
+            df_hoje = df_cards[mask_hoje].copy()
+        else:
+            df_hoje = pd.DataFrame() 
         
-        # 🔥 CORREÇÃO DO ERRO DE SINTAXE AQUI: usando == 0
-        if dias_restantes == 0: 
-            dias_restantes = 1
+        # Dias úteis restantes no mês corrente
+        ano, mes = hoje_br.year, hoje_br.month
+        _, num_dias = calendar.monthrange(ano, mes)
+        dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+        if dias_restantes <= 0: dias_restantes = 1
+
+        # Mostra o status para você saber exatamente o que o painel leu
+        if df_hoje.empty:
+            # Caso a planilha ainda não tenha sido atualizada hoje, mostra um aviso e as últimas datas achadas
+            datas_recentes = df_cards['DATA_TXT'].unique()[:5] if col_data else "Nenhuma"
+            st.warning(f"⚠️ Atenção: A planilha não possui dados lançados com a data de hoje ({hoje_str_br}). Datas encontradas no arquivo: {datas_recentes}")
+
+        # Totais Globais Hoje
+        total_hoje_abc = df_hoje[df_hoje['BASE_CLEAN'] == 'ABC']['QTD_CALC'].sum() if not df_hoje.empty else 0
+        total_hoje_sp  = df_hoje[df_hoje['BASE_CLEAN'] == 'SP']['QTD_CALC'].sum() if not df_hoje.empty else 0
+
+        # Cálculo da Meta Geral por Base
+        meta_dia_base_abc = 0
+        for sup in SUPS_ABC:
+            qtd_m = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
+            meta_dia_base_abc += round(max(0, 350 - qtd_m) / dias_restantes, 1)
         
+        meta_dia_base_sp = 0
+        for sup in SUPS_SP:
+            qtd_m = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
+            meta_dia_base_sp += round(max(0, 350 - qtd_m) / dias_restantes, 1)
+
         st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-            <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados de Hoje ({hoje_str}) - Dias úteis restantes: </span>
+            <span style="font-size: 24px; font-weight: bold; color: #555;">Consultivos de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
             <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
         </div>''', unsafe_allow_html=True)
 
         col_abc, col_sp = st.columns(2)
         
-        def renderizar_base(base_nome, coluna_st, sups_lista):
+        def renderizar_base(base_nome, coluna_st, sups_lista, meta_geral, total_hoje):
             with coluna_st:
-                # Totais
-                total_hoje = df_hoje[df_hoje['BASE_CLEAN'] == base_nome]['QTD_CALC'].sum()
-                
                 classe_box = "box-base" if base_nome == "ABC" else "box-base-sp"
                 cor_texto = "#2e7d32" if base_nome == "ABC" else "#00695c"
                 icone_base = "🏢" if base_nome == "ABC" else "🏙️"
                 
+                # Card Total da Base
                 st.markdown(f'''<div class="{classe_box}">
-                    <div class="nome-base" style="color: {cor_texto};">{icone_base} BASE {base_nome} HOJE</div>
+                    <div class="nome-base" style="color: {cor_texto};">{icone_base}Consultivos de HOJE da BASE {base_nome}</div>
                     <div class="num-base">{int(total_hoje)}</div>
                 </div>''', unsafe_allow_html=True)
                 
+                # Cards Individuais
                 for sup in sups_lista:
+                    # 1. Soma INTOCADA do mês (Geral)
                     qtd_mes = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
-                    qtd_hoje_sup = df_hoje[(df_hoje['SUP_FINAL'] == sup) & (df_hoje['BASE_CLEAN'] == base_nome)]['QTD_CALC'].sum()
                     
-                    meta_dia = int(round(max(0, 350 - qtd_mes) / dias_restantes))
-                    falta_hoje = int(round(max(0, meta_dia - qtd_hoje_sup)))
+                    # 2. Soma ISOLADA de Hoje
+                    qtd_hoje = df_hoje[df_hoje['SUP_FINAL'] == sup]['QTD_CALC'].sum() if not df_hoje.empty else 0
+                    
+                    # 3. Fórmulas de Negócio
+                    meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
+                    falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
 
                     st.markdown(f'''
                     <div class="sup-card">
@@ -107,16 +165,26 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                             <div class="badge-acumulado">Total Acumulado: {int(qtd_mes)}</div>
                         </div>
                         <div class="faltas-grid">
-                            <div class="falta-box"><div class="falta-label">📦 HOJE</div><div class="falta-value">{int(qtd_hoje_sup)}</div></div>
-                            <div class="falta-box"><div class="falta-label">📉 FALTAM</div><div class="falta-value">{falta_hoje}</div></div>
-                            <div class="falta-box"><div class="falta-label">🎯 META DIA</div><div class="falta-value">{meta_dia}</div></div>
+                            <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                <div class="falta-label" style="color: #2e7d32;">📦 REALIZADO HOJE</div>
+                                <div class="falta-value" style="color: #1b5e20;">{int(qtd_hoje)}</div>
+                            </div>
+                            <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
+                                <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
+                            </div>
+                            <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
+                                <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
+                            </div>
                         </div>
                     </div>''', unsafe_allow_html=True)
 
-        renderizar_base('ABC', col_abc, SUPS_ABC)
-        renderizar_base('SP', col_sp, SUPS_SP)
+        renderizar_base('ABC', col_abc, SUPS_ABC, meta_dia_base_abc, total_hoje_abc)
+        renderizar_base('SP', col_sp, SUPS_SP, meta_dia_base_sp, total_hoje_sp)
 
     except Exception as e:
-        st.error(f"Erro ao processar: {e}")
+        st.error(f"Erro ao calcular os dados da planilha: {e}")
+        st.info("Verifique se as colunas estão corretas.")
 else:
-    st.error("Arquivo consultivo_sincronizado.csv não encontrado.")
+    st.error("Arquivo consultivo_sincronizado.csv não encontrado no sistema.")
