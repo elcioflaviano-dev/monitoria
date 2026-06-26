@@ -144,6 +144,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                 st.markdown(f'''<div class="{classe_box}">
                     <div class="nome-base" style="color: {cor_texto};">{icone_base}Consultivos de HOJE da BASE {base_nome}</div>
                     <div class="num-base">{int(total_hoje)}</div>
+                    <div class="num-base">{int(total_hoje_sp)}</div>
                 </div>''', unsafe_allow_html=True)
                 
                 # Cards Individuais
