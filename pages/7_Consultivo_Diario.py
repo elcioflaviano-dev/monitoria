@@ -31,7 +31,7 @@ st.markdown("""<style>
     .falta-value { font-size: 45px; font-weight: 900; color: #003366; line-height: 1; }
 </style>""", unsafe_allow_html=True)
 
-st.markdown('<div class="topo-container"><h1>PERFORMANCE CONSULTIVO DIÁRIO</h1></div>', unsafe_allow_html=True)
+st.markdown('<div class="topo-container"><h1>CONSULTIVO DIÁRIO</h1></div>', unsafe_allow_html=True)
 
 # Exibe o ícone
 st.markdown(icone_mudo, unsafe_allow_html=True)
@@ -128,7 +128,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
             meta_dia_base_sp += round(max(0, 350 - qtd_m) / dias_restantes, 1)
 
         st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-            <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados Isolados de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
+            <span style="font-size: 24px; font-weight: bold; color: #555;">Consultivos de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
             <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
         </div>''', unsafe_allow_html=True)
 
