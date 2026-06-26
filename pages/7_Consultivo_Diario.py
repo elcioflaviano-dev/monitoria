@@ -127,17 +127,6 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
             qtd_m = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
             meta_dia_base_sp += round(max(0, 350 - qtd_m) / dias_restantes, 1)
 
-          # 🔥 CÁLCULO DE MÉDIA ARREDONDADA PARA A BASE GERAL 🔥
-                meta_dia_base_abc = 0
-                for sup in SUPS_ABC:
-                    qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                    meta_dia_base_abc += int(round(max(0, 350 - qtd_m) / dias_restantes))
-                
-                meta_dia_base_sp = 0
-                for sup in SUPS_SP:
-                    qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                    meta_dia_base_sp += int(round(max(0, 350 - qtd_m) / dias_restantes))
-
         st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
             <span style="font-size: 24px; font-weight: bold; color: #555;">Consultivos de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
             <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
