@@ -33,7 +33,7 @@ st.markdown("""<style>
 
 st.markdown('<div class="topo-container"><h1>PERFORMANCE CONSULTIVO DIÁRIO</h1></div>', unsafe_allow_html=True)
 
-# Exibe o ícone (pode ser o mudo já que essa tela não tem voz automática nativa)
+# Exibe o ícone
 st.markdown(icone_mudo, unsafe_allow_html=True)
 
 # --- CONFIGURAÇÕES GERAIS ---
@@ -83,58 +83,46 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         df_cons['SUP_FINAL'] = df_cons['SUP_CLEAN'].apply(classificar_sup)
         df_cards = df_cons[df_cons['SUP_FINAL'] != 'DESCARTADO'].copy()
 
-        # 🔥 TRATAMENTO DE DATA INFALÍVEL (FORÇANDO FORMATO BRASILEIRO) 🔥
-        col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
-        hoje_real = datetime.utcnow() - timedelta(hours=3)
-        hoje_str_real = hoje_real.strftime('%d/%m/%Y')
-        
-        if col_data:
-            # Pega as strings de data originais, remove espaços em branco
-            df_cards['DATA_STR_ORIGINAL'] = df_cards[col_data].astype(str).str.strip()
-            
-            # Converte forçando o formato DD/MM/AAAA para evitar que o Python ache que 25 é um mês inválido
-            df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA_STR_ORIGINAL'], format='%d/%m/%Y', errors='coerce')
-            
-            # Verifica se a data de hoje já existe como texto na planilha
-            if hoje_str_real in df_cards['DATA_STR_ORIGINAL'].values:
-                data_ref_dt = hoje_real
-                hoje_str = hoje_str_real
-            else:
-                # Se não tem hoje, pega a maior data válida convertida
-                valid_dates = df_cards.dropna(subset=['DATA_DT'])
-                if not valid_dates.empty:
-                    data_ref_dt = valid_dates['DATA_DT'].max()
-                    hoje_str = data_ref_dt.strftime('%d/%m/%Y')
-                    st.info(f"⏳ **Aviso:** O painel não encontrou dados com a data de hoje ({hoje_str_real}). Exibindo o último dia disponível: **{hoje_str}**")
-                else:
-                    data_ref_dt = hoje_real
-                    hoje_str = hoje_str_real
-            
-            # Filtra estritamente pelo texto da data encontrada
-            df_hoje = df_cards[df_cards['DATA_STR_ORIGINAL'] == hoje_str].copy()
-        else:
-            data_ref_dt = hoje_real
-            hoje_str = hoje_str_real
-            df_hoje = df_cards.copy()
+        # 🔥 LÓGICA DE DATA TOTALMENTE INDEPENDENTE E EM TEXTO PURO 🔥
+        hoje_br = datetime.utcnow() - timedelta(hours=3)
+        hoje_str = hoje_br.strftime('%d/%m/%Y')
 
-        # Cálculo de dias úteis restantes no mês atual
-        _, num_dias = calendar.monthrange(data_ref_dt.year, data_ref_dt.month)
-        dias_restantes = sum(1 for d in range(data_ref_dt.day, num_dias + 1) if calendar.weekday(data_ref_dt.year, data_ref_dt.month, d) != 6)
-        if dias_restantes == 0: dias_restantes = 1
+        # Garante que a coluna DATA seja tratada como texto e pega só os primeiros 10 caracteres (DD/MM/AAAA)
+        col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+        if col_data:
+            df_cards['DATA_LIMPA'] = df_cards[col_data].astype(str).str.strip().str[0:10]
+            df_hoje = df_cards[df_cards['DATA_LIMPA'] == hoje_str].copy()
+        else:
+            df_hoje = pd.DataFrame() 
         
+        # Dias restantes no mês corrente
+        ano, mes = hoje_br.year, hoje_br.month
+        _, num_dias = calendar.monthrange(ano, mes)
+        dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+        if dias_restantes <= 0: dias_restantes = 1
+
+        # Totais Globais
+        total_hoje_abc = df_hoje[df_hoje['BASE_CLEAN'] == 'ABC']['QTD_CALC'].sum() if not df_hoje.empty else 0
+        total_hoje_sp  = df_hoje[df_hoje['BASE_CLEAN'] == 'SP']['QTD_CALC'].sum() if not df_hoje.empty else 0
+
+        meta_dia_base_abc = 0
+        for sup in SUPS_ABC:
+            qtd_m = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
+            meta_dia_base_abc += round(max(0, 350 - qtd_m) / dias_restantes, 1)
+        
+        meta_dia_base_sp = 0
+        for sup in SUPS_SP:
+            qtd_m = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
+            meta_dia_base_sp += round(max(0, 350 - qtd_m) / dias_restantes, 1)
+
         st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-            <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados de {hoje_str} - Dias úteis restantes no mês: </span>
+            <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados de Hoje ({hoje_str}) - Dias úteis restantes: </span>
             <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
         </div>''', unsafe_allow_html=True)
 
-        # Cálculos globais para os cards superiores
-        total_hoje_abc = df_hoje[df_hoje['BASE_CLEAN'] == 'ABC']['QTD_CALC'].sum()
-        total_hoje_sp  = df_hoje[df_hoje['BASE_CLEAN'] == 'SP']['QTD_CALC'].sum()
+        if df_hoje.empty:
+             st.warning(f"⚠️ Atenção: Nenhum produto lançado hoje ({hoje_str}) na planilha. Verifique a sincronização.")
 
-        meta_dia_base_abc = sum([round(max(0, 350 - df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()) / dias_restantes, 1) for sup in SUPS_ABC])
-        meta_dia_base_sp = sum([round(max(0, 350 - df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()) / dias_restantes, 1) for sup in SUPS_SP])
-
-        # Renderização das Colunas
         col_abc, col_sp = st.columns(2)
         
         def renderizar_base(base_nome, coluna_st, sups_lista, meta_geral, total_hoje):
@@ -151,10 +139,13 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                 
                 # Cards Individuais
                 for sup in sups_lista:
+                    # 1. Acumulado Mês
                     qtd_mes = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
-                    qtd_hoje = df_hoje[df_hoje['SUP_FINAL'] == sup]['QTD_CALC'].sum()
                     
-                    # Fórmulas de negócio
+                    # 2. Soma independente de Hoje
+                    qtd_hoje = df_hoje[df_hoje['SUP_FINAL'] == sup]['QTD_CALC'].sum() if not df_hoje.empty else 0
+                    
+                    # 3. Metas e Faltas
                     meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
                     falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
 
@@ -185,6 +176,6 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
 
     except Exception as e:
         st.error(f"Erro ao calcular os dados da planilha: {e}")
-        st.info("Verifique se o formato da coluna DATA é DD/MM/AAAA e se existem produtos numéricos.")
+        st.info("Verifique se as colunas estão corretas.")
 else:
     st.error("Arquivo consultivo_sincronizado.csv não encontrado no sistema.")
