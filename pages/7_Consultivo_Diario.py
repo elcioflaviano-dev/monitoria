@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 # Configuração da página
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
+# --- VARIÁVEIS GLOBAIS SEGURAS (Evita NameError) ---
+icone_mudo = '<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.25;"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'
+icone_ativo = '<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.8;"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'
+
 # --- CSS E ESTILOS ---
 st.markdown("""<style>
     .topo-container { background: #003366; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
@@ -28,6 +32,9 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 st.markdown('<div class="topo-container"><h1>PERFORMANCE CONSULTIVO DIÁRIO</h1></div>', unsafe_allow_html=True)
+
+# Exibe o ícone (pode ser o mudo já que essa tela não tem voz automática nativa)
+st.markdown(icone_mudo, unsafe_allow_html=True)
 
 # --- CONFIGURAÇÕES GERAIS ---
 ARQUIVO_CONSULTIVO = os.path.join(os.getcwd(), "consultivo_sincronizado.csv")
@@ -53,19 +60,19 @@ def obter_nome_visual(n):
 if os.path.exists(ARQUIVO_CONSULTIVO):
     try:
         # Carrega o arquivo dinamicamente
-        df = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
-        df.columns = [str(c).upper().strip().replace(' ', '_') for c in df.columns]
+        df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
+        df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
         
         # Limpa BASE e SUPERVISOR
-        col_base = next((c for c in df.columns if 'BASE' in c), None)
-        col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+        col_base = next((c for c in df_cons.columns if 'BASE' in c), None)
+        col_sup = next((c for c in df_cons.columns if 'SUPERVISOR' in c), None)
         
-        df['BASE_CLEAN'] = df[col_base].fillna('N/D').apply(limpar_texto) if col_base else 'N/D'
-        df['SUP_CLEAN'] = df[col_sup].fillna('#N/D').apply(limpar_texto) if col_sup else ''
+        df_cons['BASE_CLEAN'] = df_cons[col_base].fillna('N/D').apply(limpar_texto) if col_base else 'N/D'
+        df_cons['SUP_CLEAN'] = df_cons[col_sup].fillna('#N/D').apply(limpar_texto) if col_sup else ''
         
         # Localiza dinamicamente a coluna de Quantidade
-        col_qtd = next((c for c in df.columns if 'QTD' in c and 'PRODUT' in c), None)
-        df['QTD_CALC'] = pd.to_numeric(df[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0) if col_qtd else 0
+        col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUT' in c), None)
+        df_cons['QTD_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0) if col_qtd else 0
 
         # Filtra apenas os supervisores conhecidos
         def classificar_sup(row):
@@ -73,43 +80,46 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                 if limpar_texto(oficial.split()[0]) in row: return oficial
             return "DESCARTADO"
         
-        df['SUP_FINAL'] = df['SUP_CLEAN'].apply(classificar_sup)
-        df_cards = df[df['SUP_FINAL'] != 'DESCARTADO'].copy()
+        df_cons['SUP_FINAL'] = df_cons['SUP_CLEAN'].apply(classificar_sup)
+        df_cards = df_cons[df_cons['SUP_FINAL'] != 'DESCARTADO'].copy()
 
-        # 🔥 TRATAMENTO DE DATA INFALÍVEL 🔥
+        # 🔥 TRATAMENTO DE DATA INFALÍVEL (FORÇANDO FORMATO BRASILEIRO) 🔥
         col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
-        hoje_real = (datetime.utcnow() - timedelta(hours=3)).date()
+        hoje_real = datetime.utcnow() - timedelta(hours=3)
+        hoje_str_real = hoje_real.strftime('%d/%m/%Y')
         
         if col_data:
-            # Converte a coluna para data do Pandas
-            df_cards['DATA_DT'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip(), dayfirst=True, errors='coerce')
+            # Pega as strings de data originais, remove espaços em branco
+            df_cards['DATA_STR_ORIGINAL'] = df_cards[col_data].astype(str).str.strip()
             
-            # Descobre a maior data válida (que não seja data errada do futuro)
-            df_valid_dates = df_cards.dropna(subset=['DATA_DT'])
-            if not df_valid_dates.empty:
-                df_passado = df_valid_dates[df_valid_dates['DATA_DT'].dt.date <= hoje_real]
-                if not df_passado.empty:
-                    data_ref = df_passado['DATA_DT'].max().date()
-                else:
-                    data_ref = df_valid_dates['DATA_DT'].max().date() 
+            # Converte forçando o formato DD/MM/AAAA para evitar que o Python ache que 25 é um mês inválido
+            df_cards['DATA_DT'] = pd.to_datetime(df_cards['DATA_STR_ORIGINAL'], format='%d/%m/%Y', errors='coerce')
+            
+            # Verifica se a data de hoje já existe como texto na planilha
+            if hoje_str_real in df_cards['DATA_STR_ORIGINAL'].values:
+                data_ref_dt = hoje_real
+                hoje_str = hoje_str_real
             else:
-                data_ref = hoje_real
+                # Se não tem hoje, pega a maior data válida convertida
+                valid_dates = df_cards.dropna(subset=['DATA_DT'])
+                if not valid_dates.empty:
+                    data_ref_dt = valid_dates['DATA_DT'].max()
+                    hoje_str = data_ref_dt.strftime('%d/%m/%Y')
+                    st.info(f"⏳ **Aviso:** O painel não encontrou dados com a data de hoje ({hoje_str_real}). Exibindo o último dia disponível: **{hoje_str}**")
+                else:
+                    data_ref_dt = hoje_real
+                    hoje_str = hoje_str_real
             
-            # Compara datas e não textos
-            df_hoje = df_cards[df_cards['DATA_DT'].dt.date == data_ref].copy()
-            hoje_str = data_ref.strftime('%d/%m/%Y')
-            
-            # Aviso se a planilha não foi atualizada para hoje
-            if data_ref != hoje_real:
-                st.info(f"⏳ **Aviso:** O painel não encontrou dados para hoje ({hoje_real.strftime('%d/%m/%Y')}). Exibindo o último dia disponível: **{hoje_str}**")
+            # Filtra estritamente pelo texto da data encontrada
+            df_hoje = df_cards[df_cards['DATA_STR_ORIGINAL'] == hoje_str].copy()
         else:
-            data_ref = hoje_real
-            hoje_str = data_ref.strftime('%d/%m/%Y')
+            data_ref_dt = hoje_real
+            hoje_str = hoje_str_real
             df_hoje = df_cards.copy()
 
         # Cálculo de dias úteis restantes no mês atual
-        _, num_dias = calendar.monthrange(data_ref.year, data_ref.month)
-        dias_restantes = sum(1 for d in range(data_ref.day, num_dias + 1) if calendar.weekday(data_ref.year, data_ref.month, d) != 6)
+        _, num_dias = calendar.monthrange(data_ref_dt.year, data_ref_dt.month)
+        dias_restantes = sum(1 for d in range(data_ref_dt.day, num_dias + 1) if calendar.weekday(data_ref_dt.year, data_ref_dt.month, d) != 6)
         if dias_restantes == 0: dias_restantes = 1
         
         st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
@@ -144,6 +154,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                     qtd_mes = df_cards[df_cards['SUP_FINAL'] == sup]['QTD_CALC'].sum()
                     qtd_hoje = df_hoje[df_hoje['SUP_FINAL'] == sup]['QTD_CALC'].sum()
                     
+                    # Fórmulas de negócio
                     meta_dia = round(max(0, 350 - qtd_mes) / dias_restantes, 1)
                     falta_hoje = round(max(0, meta_dia - qtd_hoje), 1)
 
