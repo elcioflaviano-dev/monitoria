@@ -699,7 +699,7 @@ with CONTEUDO_TV.container():
                 
                 with col_abc:
                     st.markdown(f'''<div class="box-base">
-                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta Diária: {meta_dia_base_abc})</div>
+                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE </div>
                         <div class="num-base">{total_hoje_abc}</div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -738,7 +738,7 @@ with CONTEUDO_TV.container():
 
                 with col_sp:
                     st.markdown(f'''<div class="box-base-sp">
-                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE (Meta Diária: {meta_dia_base_sp})</div>
+                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE </div>
                         <div class="num-base">{total_hoje_sp}</div>
                     </div>''', unsafe_allow_html=True)
                     
