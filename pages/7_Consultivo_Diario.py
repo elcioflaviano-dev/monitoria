@@ -142,7 +142,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                 
                 # Card Total da Base
                 st.markdown(f'''<div class="{classe_box}">
-                    <div class="nome-base" style="color: {cor_texto};">{icone_base} BASE {base_nome} HOJE (Meta Diária: {round(meta_geral, 1)})</div>
+                    <div class="nome-base" style="color: {cor_texto};">{icone_base} BASE {base_nome} HOJE </div>
                     <div class="num-base">{int(total_hoje)}</div>
                 </div>''', unsafe_allow_html=True)
                 
