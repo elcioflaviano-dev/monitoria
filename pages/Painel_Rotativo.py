@@ -630,7 +630,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONSULTIVO DIÁRIO</div>
+            <div class="topo-centro">PERFORMANCE CONSULTIVO DIÁRIO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -673,7 +673,8 @@ with CONTEUDO_TV.container():
                 if dias_restantes <= 0: dias_restantes = 1
 
                 if df_hoje.empty:
-                     st.warning(f"⚠️ Atenção: A planilha não possui dados lançados com a data de hoje ({hoje_str_br}).")
+                     # AVISO LIMPO E DIRETO:
+                     st.warning(f"⚠️ Atenção: Nenhum consultivo lançado para a data de hoje ({hoje_str_br}) na planilha.")
 
                 # Totais Globais
                 total_hoje_abc = df_hoje[df_hoje['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
@@ -691,7 +692,7 @@ with CONTEUDO_TV.container():
                     meta_dia_base_sp += int(round(max(0, 350 - qtd_m) / dias_restantes))
 
                 st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-                    <span style="font-size: 24px; font-weight: bold; color: #555;">Consultivos de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
+                    <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados Isolados de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
                     <span style="font-size: 32px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
                 </div>''', unsafe_allow_html=True)
 
@@ -699,7 +700,7 @@ with CONTEUDO_TV.container():
                 
                 with col_abc:
                     st.markdown(f'''<div class="box-base">
-                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE </div>
+                        <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta Diária: {meta_dia_base_abc})</div>
                         <div class="num-base">{total_hoje_abc}</div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -738,7 +739,7 @@ with CONTEUDO_TV.container():
 
                 with col_sp:
                     st.markdown(f'''<div class="box-base-sp">
-                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE </div>
+                        <div class="nome-base" style="color: #00695c;">🏙️ BASE SÃO PAULO HOJE (Meta Diária: {meta_dia_base_sp})</div>
                         <div class="num-base">{total_hoje_sp}</div>
                     </div>''', unsafe_allow_html=True)
                     
