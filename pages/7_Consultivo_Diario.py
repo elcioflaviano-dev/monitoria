@@ -110,7 +110,7 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         if df_hoje.empty:
             # Caso a planilha ainda não tenha sido atualizada hoje, mostra um aviso e as últimas datas achadas
             datas_recentes = df_cards['DATA_TXT'].unique()[:5] if col_data else "Nenhuma"
-            st.warning(f"⚠️ Atenção: A planilha não possui dados lançados com a data de hoje ({hoje_str_br})
+            st.warning(f"⚠️ Atenção: Nenhum consultivo lançado para a data de hoje ({hoje_str_br}).")
 
         # Totais Globais Hoje
         total_hoje_abc = df_hoje[df_hoje['BASE_CLEAN'] == 'ABC']['QTD_CALC'].sum() if not df_hoje.empty else 0
