@@ -8,7 +8,7 @@ import unicodedata
 from datetime import datetime, timedelta
 
 # =========================================================================
-# CONFIGURAÇÕES E PARÂMETROS OPERACIONAIS
+# CONFIGURAÇÕES E PARÂMETROS OPERACIONAIS 🚀
 # =========================================================================
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
@@ -91,9 +91,6 @@ if "idx" not in st.session_state:
     st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.session_state.script_audio_atual = ""
-if "em_transicao" not in st.session_state:
-    st.session_state.em_transicao = False
-if "prox_idx" not in st.session_state:
     st.session_state.prox_idx = 0
 
 agora_br = datetime.utcnow() - timedelta(hours=3)
@@ -167,26 +164,37 @@ elif st.session_state.idx == 5: espera = 60
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 4: espera = 2 # A TELA BRANCA FICA POR 2 SEGUNDOS
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# 🔥 LÓGICA DE TRANSIÇÃO (ATIVA A TELA DE CARREGAMENTO) 🔥
-if tempo_passado > espera and not st.session_state.em_transicao:
-    if antes_0830:
-        if st.session_state.idx == 0: prox_idx = 2
-        elif st.session_state.idx == 2: prox_idx = 0
-        else: prox_idx = 0
+# 🔥 LÓGICA DE TRANSIÇÃO FLUIDA: A TELA BRANCA AGORA É OFICIAL 🔥
+if tempo_passado > espera:
+    if st.session_state.idx == 4:
+        # Sai da tela branca e vai para o destino final
+        st.session_state.idx = st.session_state.prox_idx
+        st.session_state.last_time = time.time()
+        st.session_state.novo_ciclo = True
+        st.rerun()
     else:
-        if st.session_state.idx == 1: prox_idx = 5
-        elif st.session_state.idx == 5: prox_idx = 6 
-        elif st.session_state.idx == 6: prox_idx = 3 
-        elif st.session_state.idx == 3: prox_idx = 2
-        elif st.session_state.idx == 2: prox_idx = 1
-        else: prox_idx = 1
+        # Define qual é a próxima tela normal
+        if antes_0830:
+            if st.session_state.idx == 0: prox_idx = 2
+            elif st.session_state.idx == 2: prox_idx = 0
+            else: prox_idx = 0
+        else:
+            if st.session_state.idx == 1: prox_idx = 5
+            elif st.session_state.idx == 5: prox_idx = 6 
+            elif st.session_state.idx == 6: prox_idx = 3 
+            elif st.session_state.idx == 3: prox_idx = 2
+            elif st.session_state.idx == 2: prox_idx = 1
+            else: prox_idx = 1
             
-    st.session_state.prox_idx = prox_idx
-    st.session_state.em_transicao = True
-    st.rerun()
+        # Vai para a tela branca (idx=4) primeiro
+        st.session_state.prox_idx = prox_idx
+        st.session_state.idx = 4 
+        st.session_state.last_time = time.time()
+        st.rerun()
 
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
@@ -255,25 +263,23 @@ function animarSupervisor(texto, delay, index, totalSup) {
     }, delay);
 }
 """
+
 CONTEUDO_TV = st.empty()
 
 with CONTEUDO_TV.container():
-    # 🔥 SUBSTITUIÇÃO REAL E FÍSICA PARA EVITAR GHOSTING 🔥
-    if st.session_state.em_transicao:
+
+    # -------------------------------------------------------------------------
+    # TELA 4: TELA BRANCA DE TRANSIÇÃO 🔥 (BLINDAGEM CSS 100%)
+    # -------------------------------------------------------------------------
+    if st.session_state.idx == 4:
         st.markdown(
             """
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh;">
+            <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #ffffff; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 <h1 style="color: #003366; font-size: 50px;">🔄 Atualizando Indicadores...</h1>
             </div>
             """, 
             unsafe_allow_html=True
         )
-        time.sleep(3.0)
-        st.session_state.idx = st.session_state.prox_idx
-        st.session_state.em_transicao = False
-        st.session_state.last_time = time.time()
-        st.session_state.novo_ciclo = True
-        st.rerun()
 
     # -------------------------------------------------------------------------
     # TELA 0: TÉCNICOS NA BASE
@@ -363,8 +369,6 @@ with CONTEUDO_TV.container():
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-        time.sleep(1)
-        st.rerun()
 
     # -------------------------------------------------------------------------
     # TELA 1: TEC1 (SUPERVISORES PENDENTES)
@@ -496,8 +500,6 @@ with CONTEUDO_TV.container():
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-        time.sleep(1)
-        st.rerun()
 
     # -------------------------------------------------------------------------
     # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL 🚀
@@ -624,8 +626,6 @@ with CONTEUDO_TV.container():
                 st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
         else: 
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
-        time.sleep(1)
-        st.rerun()
 
     # -------------------------------------------------------------------------
     # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 🚀 (ISOLADO E ARREDONDADO)
@@ -656,7 +656,6 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                # Lógica de Data Isolada
                 hoje_br = datetime.utcnow() - timedelta(hours=3)
                 hoje_str_br = hoje_br.strftime('%d/%m/%Y')
                 hoje_str_us = hoje_br.strftime('%Y-%m-%d')
@@ -669,21 +668,17 @@ with CONTEUDO_TV.container():
                 else:
                     df_hoje = pd.DataFrame() 
                 
-                # Dias restantes
                 ano, mes = hoje_br.year, hoje_br.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes <= 0: dias_restantes = 1
 
                 if df_hoje.empty:
-                     # AVISO LIMPO E DIRETO:
                      st.warning(f"⚠️ Atenção: Nenhum consultivo lançado para a data de hoje ({hoje_str_br}).")
 
-                # Totais Globais
                 total_hoje_abc = df_hoje[df_hoje['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
                 total_hoje_sp  = df_hoje[df_hoje['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
 
-                # Cálculo de Média Geral
                 meta_dia_base_abc = 0
                 for sup in SUPS_ABC:
                     qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
@@ -761,7 +756,7 @@ with CONTEUDO_TV.container():
                                     <div class="falta-value" style="color: #004d40;">{int(qtd_hoje)}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
                                     <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -780,8 +775,6 @@ with CONTEUDO_TV.container():
                 st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
         else: 
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
-        time.sleep(1)
-        st.rerun()
 
     # -------------------------------------------------------------------------
     # TELA 3: PRINT DOS INDICADORES
@@ -869,11 +862,9 @@ with CONTEUDO_TV.container():
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-        time.sleep(1)
-        st.rerun()
 
     # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO ⏱️ (CENTRALIZAÇÃO COMPLETA RESTAURADA)
+    # TELA 2: HORÁRIO ⏱️
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
@@ -890,5 +881,3 @@ with CONTEUDO_TV.container():
             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        time.sleep(1)
-        st.rerun()
