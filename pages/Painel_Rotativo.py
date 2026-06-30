@@ -8,7 +8,7 @@ import unicodedata
 from datetime import datetime, timedelta
 
 # =========================================================================
-# CONFIGURAÇÕES E PARÂMETROS OPERACIONAIS 🚀
+# CONFIGURAÇÕES E PARÂMETROS OPERACIONAIS
 # =========================================================================
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
@@ -93,6 +93,8 @@ if "idx" not in st.session_state:
     st.session_state.script_audio_atual = ""
 if "em_transicao" not in st.session_state:
     st.session_state.em_transicao = False
+if "prox_idx" not in st.session_state:
+    st.session_state.prox_idx = 0
 
 agora_br = datetime.utcnow() - timedelta(hours=3)
 alerta_fim_janela = False
@@ -168,7 +170,7 @@ elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60
 
 tempo_passado = time.time() - st.session_state.last_time
 
-# 🔥 NOVA LÓGICA DE TRANSIÇÃO BLINDADA PARA CADA TELA 🔥
+# 🔥 LÓGICA DE TRANSIÇÃO (ATIVA A TELA DE CARREGAMENTO) 🔥
 if tempo_passado > espera and not st.session_state.em_transicao:
     if antes_0830:
         if st.session_state.idx == 0: prox_idx = 2
@@ -256,18 +258,17 @@ function animarSupervisor(texto, delay, index, totalSup) {
 CONTEUDO_TV = st.empty()
 
 with CONTEUDO_TV.container():
-    # 🔥 BLINDAGEM DA TRANSIÇÃO 🔥
+    # 🔥 SUBSTITUIÇÃO REAL E FÍSICA PARA EVITAR GHOSTING 🔥
     if st.session_state.em_transicao:
-        # 1. Limpa tudo que estava na tela antes de mostrar a tela branca
-        CONTEUDO_TV.empty() 
-        
-        # 2. Mostra a tela branca
-        st.markdown('<div style="position: fixed; top: 0; left: 0; height: 100vh; width: 100vw; background-color: #ffffff; z-index: 99999;"></div>', unsafe_allow_html=True)
-        
-        # 3. Pausa para o navegador "esquecer" o rastro
-        time.sleep(2.0)
-        
-        # 4. Atualiza o índice e volta ao ciclo normal
+        st.markdown(
+            """
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh;">
+                <h1 style="color: #003366; font-size: 50px;">🔄 Atualizando Indicadores...</h1>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        time.sleep(1.5)
         st.session_state.idx = st.session_state.prox_idx
         st.session_state.em_transicao = False
         st.session_state.last_time = time.time()
@@ -655,6 +656,7 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
+                # Lógica de Data Isolada
                 hoje_br = datetime.utcnow() - timedelta(hours=3)
                 hoje_str_br = hoje_br.strftime('%d/%m/%Y')
                 hoje_str_us = hoje_br.strftime('%Y-%m-%d')
@@ -667,17 +669,21 @@ with CONTEUDO_TV.container():
                 else:
                     df_hoje = pd.DataFrame() 
                 
+                # Dias restantes
                 ano, mes = hoje_br.year, hoje_br.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes <= 0: dias_restantes = 1
 
                 if df_hoje.empty:
+                     # AVISO LIMPO E DIRETO:
                      st.warning(f"⚠️ Atenção: Nenhum consultivo lançado para a data de hoje ({hoje_str_br}).")
 
+                # Totais Globais
                 total_hoje_abc = df_hoje[df_hoje['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
                 total_hoje_sp  = df_hoje[df_hoje['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
 
+                # Cálculo de Média Geral
                 meta_dia_base_abc = 0
                 for sup in SUPS_ABC:
                     qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
