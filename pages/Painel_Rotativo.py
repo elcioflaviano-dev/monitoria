@@ -268,7 +268,7 @@ with CONTEUDO_TV.container():
             """, 
             unsafe_allow_html=True
         )
-        time.sleep(1.5)
+        time.sleep(2.5)
         st.session_state.idx = st.session_state.prox_idx
         st.session_state.em_transicao = False
         st.session_state.last_time = time.time()
