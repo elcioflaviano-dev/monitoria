@@ -257,11 +257,18 @@ function animarSupervisor(texto, delay, index, totalSup) {
 CONTEUDO_TV = st.empty()
 
 with CONTEUDO_TV.container():
-    # 🔥 BLINDAGEM DA TRANSIÇÃO: SE ESTIVER EM TRANSIÇÃO, CAI NA TELA BRANCA POR 2 SEGUNDOS 🔥
+    # 🔥 BLINDAGEM DA TRANSIÇÃO 🔥
     if st.session_state.em_transicao:
+        # 1. Limpa tudo que estava na tela antes de mostrar a tela branca
+        CONTEUDO_TV.empty() 
+        
+        # 2. Mostra a tela branca
         st.markdown('<div style="position: fixed; top: 0; left: 0; height: 100vh; width: 100vw; background-color: #ffffff; z-index: 99999;"></div>', unsafe_allow_html=True)
-        st.components.v1.html("", height=0)
+        
+        # 3. Pausa para o navegador "esquecer" o rastro
         time.sleep(2.0)
+        
+        # 4. Atualiza o índice e volta ao ciclo normal
         st.session_state.idx = st.session_state.prox_idx
         st.session_state.em_transicao = False
         st.session_state.last_time = time.time()
