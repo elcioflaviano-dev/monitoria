@@ -252,7 +252,6 @@ function animarSupervisor(texto, delay, index, totalSup) {
         }, 1500);
     }, delay);
 }
-"""
 
 CONTEUDO_TV = st.empty()
 
