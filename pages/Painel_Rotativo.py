@@ -794,7 +794,7 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
             
             col_nr35 = next((c for c in reversed(df_ind.columns) if 'NR35' in c or 'NR-35' in c), None)
-            col_cert = next((c for d in reversed(df_ind.columns) if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
+            col_cert = next((c for c in reversed(df_ind.columns) if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
             col_bst  = next((c for c in reversed(df_ind.columns) if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
 
             if col_status:
