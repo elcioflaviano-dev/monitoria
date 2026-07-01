@@ -853,7 +853,7 @@ elif st.session_state.idx == 5: espera = 60
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 4: espera = 3 # A TELA BRANCA FICA POR 2 SEGUNDOS
+elif st.session_state.idx == 4: espera = 4 # A TELA BRANCA FICA POR 2 SEGUNDOS
 
 # 2. Pausa a execução do servidor para manter a tela visível e o áudio tocando
 time.sleep(espera)
