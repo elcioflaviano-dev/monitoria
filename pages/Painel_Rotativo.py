@@ -858,7 +858,7 @@ elif st.session_state.idx == 5: espera = 60
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 4: espera = 4 # A TELA BRANCA FICA POR 2 SEGUNDOS
+elif st.session_state.idx == 4: espera = 2 # A TELA BRANCA PODE VOLTAR PARA 2 SEGUNDOS
 
 # 2. Pausa a execução do servidor para manter a tela visível e o áudio tocando
 time.sleep(espera)
@@ -886,5 +886,13 @@ else:
     st.session_state.prox_idx = prox_idx
     st.session_state.idx = 4 
 
-# 4. Dispara a atualização autônoma da página
+# =========================================================================
+# 💥 A MÁGICA DEFINITIVA CONTRA O GHOSTING 💥
+# =========================================================================
+# Antes de mandar a página recarregar, nós DESTRUÍMOS o container principal.
+# Isso força o navegador a limpar o visual antigo imediatamente, impedindo o empilhamento!
+CONTEUDO_TV.empty()
+time.sleep(0.3) # Dá um terço de segundo pro Chrome respirar e ficar em branco absoluto
+
+# 4. Dispara a atualização autônoma da página para a próxima tela
 st.rerun()
