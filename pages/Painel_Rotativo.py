@@ -88,7 +88,6 @@ def limpar_texto(txt):
 # Inicialização dos estados de controle
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
-    st.session_state.last_time = time.time()
     st.session_state.novo_ciclo = True
     st.session_state.script_audio_atual = ""
     st.session_state.prox_idx = 0
@@ -156,45 +155,6 @@ icone_ativo = '''<div style="position: fixed; bottom: 20px; left: 20px; z-index:
 html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
 html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
 html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
-
-# CONTROLE DE TEMPOS DE EXIBIÇÃO
-if st.session_state.idx == 0: espera = 60 
-elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 5: espera = 60 
-elif st.session_state.idx == 6: espera = 60 
-elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 4: espera = 2 # A TELA BRANCA FICA POR 2 SEGUNDOS
-
-tempo_passado = time.time() - st.session_state.last_time
-
-# 🔥 LÓGICA DE TRANSIÇÃO FLUIDA: A TELA BRANCA AGORA É OFICIAL 🔥
-if tempo_passado > espera:
-    if st.session_state.idx == 4:
-        # Sai da tela branca e vai para o destino final
-        st.session_state.idx = st.session_state.prox_idx
-        st.session_state.last_time = time.time()
-        st.session_state.novo_ciclo = True
-        st.rerun()
-    else:
-        # Define qual é a próxima tela normal
-        if antes_0830:
-            if st.session_state.idx == 0: prox_idx = 2
-            elif st.session_state.idx == 2: prox_idx = 0
-            else: prox_idx = 0
-        else:
-            if st.session_state.idx == 1: prox_idx = 5
-            elif st.session_state.idx == 5: prox_idx = 6 
-            elif st.session_state.idx == 6: prox_idx = 3 
-            elif st.session_state.idx == 3: prox_idx = 2
-            elif st.session_state.idx == 2: prox_idx = 1
-            else: prox_idx = 1
-            
-        # Vai para a tela branca (idx=4) primeiro
-        st.session_state.prox_idx = prox_idx
-        st.session_state.idx = 4 
-        st.session_state.last_time = time.time()
-        st.rerun()
 
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
@@ -881,3 +841,45 @@ with CONTEUDO_TV.container():
             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+# =========================================================================
+# MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄 (Fora do container)
+# =========================================================================
+
+# 1. Determina o tempo de exibição da tela ATUAL
+if st.session_state.idx == 0: espera = 60 
+elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 5: espera = 60 
+elif st.session_state.idx == 6: espera = 60 
+elif st.session_state.idx == 3: espera = 45 
+elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 4: espera = 2 # A TELA BRANCA FICA POR 2 SEGUNDOS
+
+# 2. Pausa a execução do servidor para manter a tela visível e o áudio tocando
+time.sleep(espera)
+
+# 3. Lógica de Roteamento (Para qual tela o robô vai a seguir?)
+if st.session_state.idx == 4:
+    # Sai da tela branca e vai de fato para o destino final
+    st.session_state.idx = st.session_state.prox_idx
+    st.session_state.novo_ciclo = True
+else:
+    # Escolhe a próxima tela normal
+    if antes_0830:
+        if st.session_state.idx == 0: prox_idx = 2
+        elif st.session_state.idx == 2: prox_idx = 0
+        else: prox_idx = 0
+    else:
+        if st.session_state.idx == 1: prox_idx = 5
+        elif st.session_state.idx == 5: prox_idx = 6 
+        elif st.session_state.idx == 6: prox_idx = 3 
+        elif st.session_state.idx == 3: prox_idx = 2
+        elif st.session_state.idx == 2: prox_idx = 1
+        else: prox_idx = 1
+        
+    # Salva o destino final, mas engatilha a tela branca primeiro
+    st.session_state.prox_idx = prox_idx
+    st.session_state.idx = 4 
+
+# 4. Dispara a atualização autônoma da página
+st.rerun()
