@@ -33,19 +33,9 @@ def carregar_logo_html(caminho_imagem):
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 st.markdown("""<style>
-    /* TRAVA ANTI-SCROLL E ANTI-GHOST INDUSTRIAL */
-    html, body, [data-testid="stAppViewContainer"], .stApp {
-        overflow: hidden !important;
-        height: 100vh !important;
-        width: 100vw !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-    }
-    [data-testid="stVerticalBlock"] {
-        max-height: 100vh !important;
-        overflow: hidden !important;
-    }
+    /* ESCONDE A BARRA DE ROLAGEM MAS MANTÉM A TELA INTEIRA INTACTA */
+    ::-webkit-scrollbar { display: none !important; }
+    html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
     /* SEUS DEMAIS ESTILOS INTACTOS */
     .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
