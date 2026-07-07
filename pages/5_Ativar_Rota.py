@@ -63,16 +63,16 @@ if os.path.exists(ARQUIVO_ROTA_DISCO):
 
             with c1:
                 st.markdown('<h3 style="color:#008080;">🏢 ABC (1/2)</h3>', unsafe_allow_html=True)
-                for n in nomes_abc[:meio_abc]: st.markdown(f'🏃‍♂️ **{n}** ⏳')
+                for n in nomes_abc[:meio_abc]: st.markdown(f'**{n}**')
             with c2:
                 st.markdown('<h3 style="color:#008080;">🏢 ABC (2/2)</h3>', unsafe_allow_html=True)
-                for n in nomes_abc[meio_abc:]: st.markdown(f'🏃‍♂️ **{n}** ⏳')
+                for n in nomes_abc[meio_abc:]: st.markdown(f'**{n}**')
             with c3:
                 st.markdown('<h3 style="color:#c62828;">🏙️ SP (1/2)</h3>', unsafe_allow_html=True)
-                for n in nomes_sp[:meio_sp]: st.markdown(f'🏃‍♂️ **{n}** ⏳')
+                for n in nomes_sp[:meio_sp]: st.markdown(f'**{n}**')
             with c4:
                 st.markdown('<h3 style="color:#c62828;">🏙️ SP (2/2)</h3>', unsafe_allow_html=True)
-                for n in nomes_sp[meio_sp:]: st.markdown(f'🏃‍♂️ **{n}** ⏳')
+                for n in nomes_sp[meio_sp:]: st.markdown(f'**{n}**')
 
             if len(nomes_na_base) == 0:
                 if col_tipo_exata:
