@@ -315,7 +315,7 @@ with CONTEUDO_TV.container():
                 mid_sp = (len(nomes_sp) + 1) // 2
                 
                 with c1:
-                    st.markdown('<div class="tec-base-nome">🏃‍♂️ ' + n + '</div>' if 'n' in dir() else f'<div class="tec-base-nome">🏃‍♂️ {nomes_abc[0] if nomes_abc else ""}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="tec-base-nome">🏃‍♂️ ' + n + '</div>' if 'n' in dir() else f'<div class="tec-base-nome">{nomes_abc[0] if nomes_abc else ""}</div>', unsafe_allow_html=True)
                     for n in nomes_abc[:mid_abc]: st.markdown(f'<div class="tec-base-nome">{n}</div>', unsafe_allow_html=True)
                 with c2:
                     for n in nomes_abc[mid_abc:]: st.markdown(f'<div class="tec-base-nome">{n}</div>', unsafe_allow_html=True)
