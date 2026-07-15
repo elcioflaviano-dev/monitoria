@@ -104,7 +104,7 @@ if df_master is not None and not df_master.empty:
                 if "ALAN" in sup_orig: return "ALAN"
                 if "FRANCISCO" in sup_orig: return "FRANCISCO"
                 if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
-                if "EDSON" in sup_orig: return "EDSON MARCO"
+                if "MARCO" in sup_orig: return "MAICON"
                 if "NELSON" in sup_orig: return "NELSON"
                 if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
                 return sup_orig
