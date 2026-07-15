@@ -373,8 +373,8 @@ with CONTEUDO_TV.container():
                 label_janela = "ATÉ 15:00"
                 fala_janela = "até as 15 horas"
             else: 
-                label_janela = "TURNO COMPLETO"
-                fala_janela = "do turno completo"
+                label_janela = "Até 18:00"
+                fala_janela = "até as 18 horas"
             
             st.markdown(f'''<div class="topo-container">
                 <div class="topo-esquerda">{logo_html}</div>
