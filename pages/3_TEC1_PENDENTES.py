@@ -113,7 +113,7 @@ if df_master is not None and not df_master.empty:
             
             if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
                 if "MARCOS" in sup_orig and "ROBERTO" not in sup_orig: return "MARCOS ROBERTO"
-                if "MAICON" in sup_orig and "MARCO" not in sup_orig: return "MAICON"
+                if "MAICON" in sup_orig and "MAICON" not in sup_orig: return "MAICON"
                 return sup_orig
 
             return "⚠️ SEM SUPERVISOR (VERIFICAR EXCEL)"
