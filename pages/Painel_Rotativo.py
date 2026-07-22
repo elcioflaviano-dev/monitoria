@@ -473,7 +473,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PERFORMANCE CONSULTIVO GERAL</div>
+            <div class="topo-centro">CONSULTIVO GERAL</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -599,7 +599,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PERFORMANCE CONSULTIVO DIÁRIO</div>
+            <div class="topo-centro">CONSULTIVO DIÁRIO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
