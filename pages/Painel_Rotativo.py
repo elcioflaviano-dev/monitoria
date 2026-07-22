@@ -72,7 +72,7 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 # --- REGRAS GLOBAIS ---
-SUPS_ABC = ["MAICON", "MARCOS ROBERTO", "NELSON"]
+SUPS_ABC = ["EDSON MARCOS","MAICON", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
@@ -83,6 +83,7 @@ def obter_nome_visual(nome_completo):
     if 'MAICON' in n: return "MAICON"
     if 'JOAO' in n or 'MIRON' in n: return "JOÃO CARLOS"
     if 'NELSON' in n: return "NELSON"
+    if 'EDSON MARCO' in n: return "EDSON MARCO"
     if 'ALAN' in n: return "ALAN"
     return n.split()[0]
 
