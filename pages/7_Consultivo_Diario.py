@@ -38,7 +38,7 @@ st.markdown(icone_mudo, unsafe_allow_html=True)
 
 # --- CONFIGURAÇÕES GERAIS ---
 ARQUIVO_CONSULTIVO = os.path.join(os.getcwd(), "consultivo_sincronizado.csv")
-SUPS_ABC = ["EDSON MARCO", "MARCOS ROBERTO", "NELSON"]
+SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO", "NELSON"]
 SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
 
@@ -51,6 +51,7 @@ def obter_nome_visual(n):
     if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'EDSON' in n: return "EDSON MARCO"
+    if 'MAICON' in n: return "MAICON"
     if 'JOAO' in n or 'MIRON' in n: return "JOÃO CARLOS"
     if 'NELSON' in n: return "NELSON"
     if 'ALAN' in n: return "ALAN"
