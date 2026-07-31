@@ -122,14 +122,17 @@ permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 regras_audio_tec1 = [
     {"inicio": 11*60,      "fim": 11*60 + 18, "frase": "Atenção. Horário de início de monitoria de rota."},
+    {"inicio": 11*60 + 50, "fim": 11*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."},
     {"inicio": 12*60,      "fim": 12*60 + 18, "frase": "Atenção. Fechamento de janela."},
     {"inicio": 12*60 + 30, "fim": 12*60 + 48, "frase": "Atenção. Monitoria após o fechamento da janela."},
     {"inicio": 14*60,      "fim": 14*60 + 18, "frase": "Atenção. Horário de início de monitoria de rota."},
+    {"inicio": 14*60 + 50, "fim": 14*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."},
     {"inicio": 15*60,      "fim": 15*60 + 18, "frase": "Atenção. Fechamento de janela."},
     {"inicio": 15*60 + 30, "fim": 15*60 + 48, "frase": "Atenção. Monitoria após o fechamento da janela."},
     {"inicio": 16*60,      "fim": 16*60 + 18, "frase": "Atenção. Horário de início de monitoria de rota."},
     {"inicio": 17*60,      "fim": 17*60 + 18, "frase": "Atenção. Fechamento de janela."},
-    {"inicio": 17*60 + 30, "fim": 17*60 + 48, "frase": "Atenção. Monitoria após o fechamento da janela."}
+    {"inicio": 17*60 + 30, "fim": 17*60 + 48, "frase": "Atenção. Monitoria após o fechamento da janela."},
+    {"inicio": 17*60 + 50, "fim": 17*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."}
 ]
 for regra in regras_audio_tec1:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
