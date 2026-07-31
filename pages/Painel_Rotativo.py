@@ -167,24 +167,33 @@ function tocarAlertaChamaAtencao() {
     try {
         let ctx = new (window.parent.AudioContext || window.AudioContext)();
         let tempo = ctx.currentTime;
-        function tocarNota(frequencia, inicio, duracao) {
+        
+        // Função para um sino chamativo e alto (estilo aeroporto/intercom)
+        function tocarSino(frequencia, inicio, duracao) {
             let osc = ctx.createOscillator();
             let gain = ctx.createGain();
-            osc.type = 'sine';
+            
+            osc.type = 'triangle'; // Onda triangular fura o ruído do ambiente melhor que 'sine'
             osc.frequency.setValueAtTime(frequencia, inicio);
+            
+            // Controle de volume: Sobe rápido e alto, desce lentamente deixando um eco
             gain.gain.setValueAtTime(0, inicio);
-            gain.gain.linearRampToValueAtTime(1.5, inicio + 0.05);
+            gain.gain.linearRampToValueAtTime(3.0, inicio + 0.05); // Volume turbinado para chamar atenção
             gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao);
+            
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start(inicio);
-            osc.stop(inicio + duracao);
+            osc.stop(inicio + duracao + 0.1);
         }
-        tocarNota(523.25, tempo, 0.5);
-        tocarNota(659.25, tempo + 0.2, 0.5);
-        tocarNota(784.00, tempo + 0.4, 0.8);
+
+        // Toca "Ding - Dong - Dang" 
+        tocarSino(659.25, tempo, 1.5);       // Mi
+        tocarSino(523.25, tempo + 0.4, 1.5); // Dó (mais grave)
+        tocarSino(784.00, tempo + 0.8, 2.5); // Sol (mais agudo e longo)
     } catch(e) {}
 }
+
 function anunciarBase(texto, delay) {
     setTimeout(() => {
         tocarAlertaChamaAtencao();
@@ -201,15 +210,17 @@ function anunciarBase(texto, delay) {
             }
             if (synth.getVoices().length === 0) { synth.onvoiceschanged = setVoiceAndSpeak; } 
             else { setVoiceAndSpeak(); }
-        }, 1500); 
+        }, 2000); // 🚨 Espera 2 segundos para o sino tocar todo antes da voz falar 🚨
     }, delay);
 }
+
 function limparDestaques(total) {
     for(let j=0; j<total; j++) {
         let el = window.parent.document.getElementById('sup-box-' + j);
         if(el) { el.classList.remove('destaque-ativo'); }
     }
 }
+
 function animarSupervisor(texto, delay, index, totalSup) {
     setTimeout(() => {
         limparDestaques(totalSup);
@@ -225,7 +236,7 @@ function animarSupervisor(texto, delay, index, totalSup) {
             let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.name.includes('Francisca')) || voices.find(v => v.lang.includes('pt-BR'));
             if(voz) { m.voice = voz; }
             synth.speak(m);
-        }, 1500);
+        }, 2000); // 🚨 Atraso de 2s igual ao acima 🚨
     }, delay);
 }
 """
@@ -374,8 +385,8 @@ with CONTEUDO_TV.container():
                 label_janela = "ATÉ 15:00"
                 fala_janela = "até as 15 horas"
             else: 
-                label_janela = "TURNO COMPLETO"
-                fala_janela = "do turno completo"
+                label_janela = "Até 18:00"
+                fala_janela = "até as 18 horas"
             
             st.markdown(f'''<div class="topo-container">
                 <div class="topo-esquerda">{logo_html}</div>
