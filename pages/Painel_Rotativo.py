@@ -374,8 +374,8 @@ with CONTEUDO_TV.container():
                 label_janela = "ATÉ 15:00"
                 fala_janela = "até as 15 horas"
             else: 
-                label_janela = "Até 18:00"
-                fala_janela = "até as 18 horas"
+                label_janela = "TURNO COMPLETO"
+                fala_janela = "do turno completo"
             
             st.markdown(f'''<div class="topo-container">
                 <div class="topo-esquerda">{logo_html}</div>
@@ -722,7 +722,7 @@ with CONTEUDO_TV.container():
                                     <div class="falta-value" style="color: #004d40;">{int(qtd_hoje)}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                    <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
+                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM HOJE</div>
                                     <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
                                 </div>
                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -830,7 +830,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO ⏱️
+    # TELA 2: HORÁRIO ⏱️ COM SEGUNDOS PASSANDO EM TEMPO REAL 🕒
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
@@ -841,12 +841,37 @@ with CONTEUDO_TV.container():
         {icone_ativo}''', unsafe_allow_html=True)
 
         tempo_real = datetime.utcnow() - timedelta(hours=3)
-        st.markdown(f'<div class="relogio-container"><div class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div><div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div></div>', unsafe_allow_html=True)
+        
+        # NOTE O ID 'relogio-dinamico' FOI ADICIONADO NA DIV DA HORA
+        st.markdown(f'''
+        <div class="relogio-container">
+            <div id="relogio-dinamico" class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div>
+            <div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div>
+        </div>
+        ''', unsafe_allow_html=True)
         
         if st.session_state.novo_ciclo:
             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
             st.session_state.novo_ciclo = False
-        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+        
+        # JS INJETADO QUE FAZ OS SEGUNDOS PASSAREM ENQUANTO O PYTHON DORME
+        script_relogio_dinamico = """
+        <script>
+            setInterval(function() {
+                var el = window.parent.document.getElementById('relogio-dinamico');
+                if (el) {
+                    var data = new Date();
+                    var h = String(data.getHours()).padStart(2, '0');
+                    var m = String(data.getMinutes()).padStart(2, '0');
+                    var s = String(data.getSeconds()).padStart(2, '0');
+                    el.innerText = h + ":" + m + ":" + s;
+                }
+            }, 1000);
+        </script>
+        """
+        
+        # INCLUI O ÁUDIO + O RELÓGIO NA TELA
+        st.components.v1.html(st.session_state.script_audio_atual + script_relogio_dinamico, height=0)
 
 # =========================================================================
 # MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄 (Fora do container)
