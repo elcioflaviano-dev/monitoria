@@ -118,20 +118,12 @@ for regra in regras_audio_base:
         frase_incisiva_base = regra["frase"]
         break
 
+# 🔥 AVISOS DE TÉRMINO DE JANELA (11:50, 14:50 E 17:50) 🔥
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 regras_audio_tec1 = [
-    {"inicio": 11*60,      "fim": 11*60 + 18, "frase": "Atenção. Horário de início de monitoria de rota."},
     {"inicio": 11*60 + 50, "fim": 11*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."},
-    {"inicio": 12*60,      "fim": 12*60 + 18, "frase": "Atenção. Fechamento de janela."},
-    {"inicio": 12*60 + 30, "fim": 12*60 + 48, "frase": "Atenção. Monitoria após o fechamento da janela."},
-    {"inicio": 14*60,      "fim": 14*60 + 18, "frase": "Atenção. Horário de início de monitoria de rota."},
     {"inicio": 14*60 + 50, "fim": 14*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."},
-    {"inicio": 15*60,      "fim": 15*60 + 18, "frase": "Atenção. Fechamento de janela."},
-    {"inicio": 15*60 + 30, "fim": 15*60 + 48, "frase": "Atenção. Monitoria após o fechamento da janela."},
-    {"inicio": 16*60,      "fim": 16*60 + 18, "frase": "Atenção. Horário de início de monitoria de rota."},
-    {"inicio": 17*60,      "fim": 17*60 + 18, "frase": "Atenção. Fechamento de janela."},
-    {"inicio": 17*60 + 30, "fim": 17*60 + 48, "frase": "Atenção. Monitoria após o fechamento da janela."},
     {"inicio": 17*60 + 50, "fim": 17*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."}
 ]
 for regra in regras_audio_tec1:
@@ -305,10 +297,8 @@ with CONTEUDO_TV.container():
                 df_tela = df[mask_base & mask_status].copy()
                 df_tela['SUPERVISOR_CLEAN'] = df_tela.apply(resolver_supervisor, axis=1)
                 
-                # Coleta e ordena os técnicos pendentes (todos associados ao ABC)
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
 
-                # Espalha nomes em 4 colunas dinamicamente
                 cols_tec = st.columns(4)
                 for i, n in enumerate(nomes_abc):
                     with cols_tec[i % 4]:
@@ -363,7 +353,7 @@ with CONTEUDO_TV.container():
                 label_janela = "ATÉ 15:00"
                 fala_janela = "até as 15 horas"
             else: 
-                label_janela = "Até 18:00"
+                label_janela = "ATÉ 18:00"
                 fala_janela = "até as 18 horas"
             
             st.markdown(f'''<div class="topo-container">
@@ -412,7 +402,6 @@ with CONTEUDO_TV.container():
 
                 st.markdown(f'''<div class="box-base"><div class="nome-base">BASE ABC PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
-                # GRID 2x2 (Duas Colunas)
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
@@ -493,7 +482,6 @@ with CONTEUDO_TV.container():
                     <div class="num-base">{total_realizado_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
-                # GRID 2x2 (Duas Colunas)
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -601,7 +589,6 @@ with CONTEUDO_TV.container():
                     <div class="num-base">{total_hoje_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
-                # GRID 2x2 (Duas Colunas)
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -704,7 +691,6 @@ with CONTEUDO_TV.container():
 
                 st.markdown('<div class="ind-base-title abc">BASE ABC</div>', unsafe_allow_html=True)
                 
-                # GRID 2x2 (Duas Colunas)
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
