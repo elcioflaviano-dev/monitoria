@@ -41,32 +41,39 @@ st.markdown("""<style>
     .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
     [data-testid="stHeader"], .stDeployButton, footer, #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
     .stApp { background-color: #ffffff !important; }
-    .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 100px; }
+    .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 20px; height: 100px; }
     .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; height: 100%; }
     .topo-centro { font-size: 45px; font-weight: 900; text-align: center; white-space: nowrap; }
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
-    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
-    .nome-base { font-size: 26px !important; font-weight: 900; color: #333; text-transform: uppercase;}
-    .num-base { font-size: 100px !important; font-weight: 900; color: #111; line-height: 1.1; }
-    .box-contagem { background: #f0f2f6; border-left: 8px solid #cc6600; padding: 10px 5px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; position: relative; z-index: 1; transition: 0.3s; }
-    .box-nome { font-size: 18px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .box-num { font-size: 60px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 5px; }
-    .destaque-ativo { transform: scale(1.15) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.5) !important; border-left: 12px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
-    .ind-base-title { font-size: 32px !important; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; }
-    .ind-base-title.abc { color: #2e7d32; }
-    .sup-card { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-    .sup-name { font-size: 32px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 12px; border-radius: 6px; font-size: 18px !important; font-weight: bold; border: 1px solid #ffcdd2; }
-    .faltas-grid { display: flex; justify-content: space-between; gap: 10px; }
-    .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; flex: 1; }
-    .falta-label { font-size: 14px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
-    .falta-value { font-size: 45px !important; font-weight: 900; color: #b30000; line-height: 1; }
+    
+    /* CAIXA BASE GERAL (TÍTULOS GIGANTES) */
+    .box-base { background: #e8f5e9; border-left: 15px solid #2e7d32; padding: 20px 10px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); margin-bottom: 30px; }
+    .nome-base { font-size: 45px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 10px; }
+    .num-base { font-size: 150px !important; font-weight: 900; color: #111; line-height: 1; }
+    
+    /* CAIXA DOS SUPERVISORES (TEC1) */
+    .box-contagem { background: #f0f2f6; border-left: 12px solid #cc6600; padding: 25px 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; position: relative; z-index: 1; transition: 0.3s; }
+    .box-nome { font-size: 40px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .box-num { font-size: 120px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 15px; }
+    .destaque-ativo { transform: scale(1.08) !important; box-shadow: 0px 20px 40px rgba(204, 102, 0, 0.5) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
+    
+    /* CAIXAS INDICADORES E CONSULTIVO (TELA 3, 5 E 6) */
+    .ind-base-title { font-size: 60px !important; font-weight: 900; text-align: center; margin-bottom: 25px; margin-top: 10px; text-transform: uppercase; color: #2e7d32; }
+    .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+    .sup-name { font-size: 45px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 10px 25px; border-radius: 8px; font-size: 28px !important; font-weight: bold; border: 2px solid #ffcdd2; }
+    .faltas-grid { display: flex; justify-content: space-between; gap: 15px; }
+    .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 10px; padding: 20px 10px; text-align: center; margin-bottom: 5px; flex: 1; }
+    .falta-label { font-size: 22px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 10px; }
+    .falta-value { font-size: 80px !important; font-weight: 900; color: #b30000; line-height: 1; }
+    
+    /* HORA E TELA TÉCNICOS */
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
-    .hora-gigante { font-size: 180px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
-    .data-media { font-size: 40px; color: #666; font-weight: bold; margin-top: -20px; }
-    .tec-base-nome { background: #f8f9fa; padding: 8px 12px; border-left: 5px solid #008080; border-radius: 4px; margin-bottom: 8px; font-weight: bold; font-size: 18px !important; color: #333; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); }
+    .hora-gigante { font-size: 220px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
+    .data-media { font-size: 50px; color: #666; font-weight: bold; margin-top: -20px; }
+    .tec-base-nome { background: #f8f9fa; padding: 15px 20px; border-left: 8px solid #008080; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 28px !important; color: #333; box-shadow: 1px 1px 5px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
 # --- REGRAS GLOBAIS - SOMENTE ABC ---
@@ -316,7 +323,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 PENDENTES (SOMENTE ABC)
+    # TELA 1: TEC1 PENDENTES (SOMENTE ABC - 2 COLUNAS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
@@ -400,13 +407,18 @@ with CONTEUDO_TV.container():
 
                 qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]) if not df_pendentes_geral.empty else 0
 
-                st.markdown(f'''<div class="box-base"><div class="nome-base" style="color: #2e7d32;">BASE ABC PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div class="box-base"><div class="nome-base">BASE ABC PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
-                cols_sub_abc = st.columns(len(SUPS_ABC))
-                for k, sup in enumerate(SUPS_ABC):
-                    qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup]) if not df_pendentes_geral.empty else 0
-                    with cols_sub_abc[k]:
-                        st.markdown(f'''<div id="sup-box-{k}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
+                # GRID 2x2 (Duas Colunas)
+                for i in range(0, len(SUPS_ABC), 2):
+                    cols_sub_abc = st.columns(2)
+                    for j in range(2):
+                        if i + j < len(SUPS_ABC):
+                            idx_global = i + j
+                            sup = SUPS_ABC[idx_global]
+                            qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup]) if not df_pendentes_geral.empty else 0
+                            with cols_sub_abc[j]:
+                                st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_tec1:
@@ -414,7 +426,6 @@ with CONTEUDO_TV.container():
                         delay_atual = 0
                         script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. Base A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                         
-                        # Tempo aumentado para 8500 milissegundos para evitar corte de voz e som
                         delay_atual += 8500 
                         
                         for i, sup_full in enumerate(SUPS_ABC):
@@ -433,7 +444,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL (SOMENTE ABC)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL (SOMENTE ABC - 2 COLUNAS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -475,38 +486,42 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC TOTAL (Meta: {meta_mensal_abc})</div>
+                    <div class="nome-base">🏢 BASE ABC TOTAL (Meta: {meta_mensal_abc})</div>
                     <div class="num-base">{total_realizado_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
-                cols_sup = st.columns(len(SUPS_ABC))
-                for idx, sup in enumerate(SUPS_ABC):
-                    with cols_sup[idx]:
-                        qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        falta_individual = max(0, 350 - qtd_sup)
-                        ritmo_diario_individual = int(round(falta_individual / dias_restantes))
+                # GRID 2x2 (Duas Colunas)
+                for i in range(0, len(SUPS_ABC), 2):
+                    cols_sup = st.columns(2)
+                    for j in range(2):
+                        if i + j < len(SUPS_ABC):
+                            sup = SUPS_ABC[i + j]
+                            with cols_sup[j]:
+                                qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                                falta_individual = max(0, 350 - qtd_sup)
+                                ritmo_diario_individual = int(round(falta_individual / dias_restantes))
 
-                        st.markdown(f'''
-                        <div class="sup-card">
-                            <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo: 350</div>
-                            </div>
-                            <div class="faltas-grid">
-                                <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                    <div class="falta-label" style="color: #2e7d32;">📦 TOTAL</div>
-                                    <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
-                                </div>
-                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                    <div class="falta-label" style="color: #c62828;">📉 FALTA</div>
-                                    <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
-                                </div>
-                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                    <div class="falta-label" style="color: #b78103;">🎯 DIÁRIA</div>
-                                    <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
-                                </div>
-                            </div>
-                        </div>''', unsafe_allow_html=True)
+                                st.markdown(f'''
+                                <div class="sup-card">
+                                    <div class="sup-header">
+                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                        <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo: 350</div>
+                                    </div>
+                                    <div class="faltas-grid">
+                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                            <div class="falta-label" style="color: #2e7d32;">📦 TOTAL</div>
+                                            <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
+                                        </div>
+                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                            <div class="falta-label" style="color: #c62828;">📉 FALTA</div>
+                                            <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
+                                        </div>
+                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                            <div class="falta-label" style="color: #b78103;">🎯 DIÁRIA</div>
+                                            <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
+                                        </div>
+                                    </div>
+                                </div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
                     st.session_state.script_audio_atual = ""
@@ -519,7 +534,7 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO (SOMENTE ABC)
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO (SOMENTE ABC - 2 COLUNAS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
@@ -579,40 +594,44 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base" style="color: #2e7d32;">🏢 BASE ABC HOJE (Meta Diária: {meta_dia_base_abc})</div>
+                    <div class="nome-base">🏢 BASE ABC HOJE (Meta Diária: {meta_dia_base_abc})</div>
                     <div class="num-base">{total_hoje_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
-                cols_sup = st.columns(len(SUPS_ABC))
-                for idx, sup in enumerate(SUPS_ABC):
-                    with cols_sup[idx]:
-                        qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                        qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
-                        
-                        meta_dia = int(round(max(0, 350 - qtd_mes) / dias_restantes))
-                        falta_hoje = int(round(max(0, meta_dia - qtd_hoje)))
+                # GRID 2x2 (Duas Colunas)
+                for i in range(0, len(SUPS_ABC), 2):
+                    cols_sup = st.columns(2)
+                    for j in range(2):
+                        if i + j < len(SUPS_ABC):
+                            sup = SUPS_ABC[i + j]
+                            with cols_sup[j]:
+                                qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+                                qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
+                                
+                                meta_dia = int(round(max(0, 350 - qtd_mes) / dias_restantes))
+                                falta_hoje = int(round(max(0, meta_dia - qtd_hoje)))
 
-                        st.markdown(f'''
-                        <div class="sup-card">
-                            <div class="sup-header">
-                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Total Acumulado: {int(qtd_mes)}</div>
-                            </div>
-                            <div class="faltas-grid">
-                                <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                    <div class="falta-label" style="color: #2e7d32;">📦 HOJE</div>
-                                    <div class="falta-value" style="color: #1b5e20;">{int(qtd_hoje)}</div>
-                                </div>
-                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                    <div class="falta-label" style="color: #c62828;">📉 FALTAM</div>
-                                    <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
-                                </div>
-                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                    <div class="falta-label" style="color: #b78103;">🎯 DIÁRIA</div>
-                                    <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
-                                </div>
-                            </div>
-                        </div>''', unsafe_allow_html=True)
+                                st.markdown(f'''
+                                <div class="sup-card">
+                                    <div class="sup-header">
+                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                        <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Acumulado: {int(qtd_mes)}</div>
+                                    </div>
+                                    <div class="faltas-grid">
+                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                            <div class="falta-label" style="color: #2e7d32;">📦 HOJE</div>
+                                            <div class="falta-value" style="color: #1b5e20;">{int(qtd_hoje)}</div>
+                                        </div>
+                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                            <div class="falta-label" style="color: #c62828;">📉 FALTAM</div>
+                                            <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
+                                        </div>
+                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                            <div class="falta-label" style="color: #b78103;">🎯 DIÁRIA</div>
+                                            <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
+                                        </div>
+                                    </div>
+                                </div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
                     st.session_state.script_audio_atual = ""
@@ -625,7 +644,7 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 3: PRINT DOS INDICADORES (SOMENTE ABC)
+    # TELA 3: PRINT DOS INDICADORES (SOMENTE ABC - 2 COLUNAS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 3:
         st.markdown(f'''<div class="topo-container">
@@ -681,15 +700,20 @@ with CONTEUDO_TV.container():
                 df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
                 st.markdown('<div class="ind-base-title abc">BASE ABC</div>', unsafe_allow_html=True)
-                cols_sup = st.columns(len(SUPS_ABC))
-                for idx, sup in enumerate(SUPS_ABC):
-                    with cols_sup[idx]:
-                        df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
-                        f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
-                        st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
-                            <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
-                            <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
-                            <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
+                
+                # GRID 2x2 (Duas Colunas)
+                for i in range(0, len(SUPS_ABC), 2):
+                    cols_sup = st.columns(2)
+                    for j in range(2):
+                        if i + j < len(SUPS_ABC):
+                            sup = SUPS_ABC[i + j]
+                            with cols_sup[j]:
+                                df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
+                                f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
+                                st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
+                                    <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
+                                    <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
+                                    <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_ind:
