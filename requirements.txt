@@ -4,3 +4,4 @@ openpyxl
 requests
 matplotlib
 st-gsheets-connection
+starlette<1.4.0
