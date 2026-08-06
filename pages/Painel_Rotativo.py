@@ -62,7 +62,7 @@ st.markdown("""<style>
     /* CAIXAS INDICADORES E CONSULTIVO (TELA 3, 5 E 6) */
     .ind-base-title { font-size: 60px !important; font-weight: 900; text-align: center; margin-bottom: 25px; margin-top: 10px; text-transform: uppercase; color: #2e7d32; }
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
     .sup-name { font-size: 45px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
     .badge-faltas { background: #ffebee; color: #c62828; padding: 10px 25px; border-radius: 8px; font-size: 28px !important; font-weight: bold; border: 2px solid #ffcdd2; }
     .faltas-grid { display: flex; justify-content: space-between; gap: 15px; }
@@ -92,15 +92,12 @@ def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-# FUNÇÃO CORRIGIDA COM PRIORIDADE MÁXIMA PARA "O.S NE"
+# FUNÇÃO CORRIGIDA COM PRIORIDADE MÁXIMA PARA "O.S NE" E "CANCELADO"
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
     
-    # 1º Teste absoluto: O.S NE
     if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE': 
         return 'O.S NE'
-        
-    # Testes seguintes
     if 'ABERTO' in val_upper or 'PEND' in val_upper: 
         return 'Em aberto'
     if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
@@ -469,7 +466,10 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
-            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
+            
+            # ATENÇÃO: TRAVA DE SEGURANÇA PARA PEGAR A COLUNA STATUS EXATA!
+            col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -481,14 +481,9 @@ with CONTEUDO_TV.container():
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
             if col_hab and col_os and col_status:
-                
-                # CORREÇÃO 1: Remover barra e usar literal
                 cond_gpon = df_abc[col_hab].astype(str).str.contains('PON(1/100)', regex=False, na=False)
-                
-                # CORREÇÃO 2: Busca por string menor e validando com e sem cedilha
                 str_os = df_abc[col_os].astype(str).str.upper()
-                cond_os = str_os.str.contains('MUDANCA DE PACOTE', na=False) | \
-                          str_os.str.contains('MUDANÇA DE PACOTE', na=False)
+                cond_os = str_os.str.contains('MUDANCA DE PACOTE', na=False) | str_os.str.contains('MUDANÇA DE PACOTE', na=False)
                           
                 df_mig = df_abc[cond_gpon & cond_os].copy()
                 
@@ -497,23 +492,20 @@ with CONTEUDO_TV.container():
                 else:
                     df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
                     
-                    # Cálculos Globais de Teto NE
                     total_geral_mig = len(df_mig)
                     total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE'])
                     teto_ne_global = int(np.floor(total_geral_mig * 0.20))
-                    
                     cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 TETO GLOBAL DE NE (20%)</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total de Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
-                            Limite NE Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             NEs Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
                     
-                    # Layout Cards por Supervisor
                     for i in range(0, len(SUPS_ABC), 2):
                         cols_sup = st.columns(2)
                         for j in range(2):
@@ -530,11 +522,20 @@ with CONTEUDO_TV.container():
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
                                     
+                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS
+                                    total_sup = len(df_sup)
+                                    teto_sup = int(np.floor(total_sup * 0.20))
+                                    saldo_sup = teto_sup - qtd_ne
+                                    cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
+                                    
                                     st.markdown(f'''
                                     <div class="sup-card">
-                                        <div class="sup-header">
+                                        <div class="sup-header" style="margin-bottom: 5px;">
                                             <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
+                                        </div>
+                                        <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
+                                            Total Sup: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -580,7 +581,10 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
-            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
+            
+            # ATENÇÃO: TRAVA DE SEGURANÇA PARA PEGAR A COLUNA STATUS EXATA!
+            col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -593,12 +597,8 @@ with CONTEUDO_TV.container():
             
             if col_cat and col_os and col_status:
                 cond_cat = df_abc[col_cat].astype(str).str.upper().str.contains('PME', na=False)
-                
-                # CORREÇÃO 3: Busca mais eficiente e segura para as O.S
                 str_os = df_abc[col_os].astype(str).str.upper()
-                cond_os = str_os.str.contains('1 - ADES', na=False) | \
-                          str_os.str.contains('51 - ADES', na=False) | \
-                          str_os.str.contains('516 - ADES', na=False)
+                cond_os = str_os.str.contains('1 - ADES', na=False) | str_os.str.contains('51 - ADES', na=False) | str_os.str.contains('516 - ADES', na=False)
                           
                 df_pme = df_abc[cond_cat & cond_os].copy()
                 
@@ -607,23 +607,21 @@ with CONTEUDO_TV.container():
                 else:
                     df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
                     
-                    # Cálculos Globais de Teto NE
                     total_geral_pme = len(df_pme)
                     total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'O.S NE'])
                     teto_ne_global = int(np.floor(total_geral_pme * 0.20))
-                    
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 TETO GLOBAL DE NE (20%)</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME
+                        </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total de Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
-                            Limite NE Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             NEs Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
                     
-                    # Layout Cards por Supervisor
                     for i in range(0, len(SUPS_ABC), 2):
                         cols_sup = st.columns(2)
                         for j in range(2):
@@ -640,11 +638,20 @@ with CONTEUDO_TV.container():
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
                                     
+                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS
+                                    total_sup = len(df_sup)
+                                    teto_sup = int(np.floor(total_sup * 0.20))
+                                    saldo_sup = teto_sup - qtd_ne
+                                    cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
+                                    
                                     st.markdown(f'''
                                     <div class="sup-card">
-                                        <div class="sup-header">
+                                        <div class="sup-header" style="margin-bottom: 5px;">
                                             <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
+                                        </div>
+                                        <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
+                                            Total Sup: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
