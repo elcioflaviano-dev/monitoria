@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import os
 import time
 import base64
@@ -436,6 +437,146 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
+    # TELA 7: MIGRAÇÃO (NOVA TELA - ABC)
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx == 7:
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">MIGRAÇÃO GPON - ABC</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+            df.columns = [str(c).strip().upper() for c in df.columns]
+            
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+            col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c), None)
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
+            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
+            
+            def class_sup(row):
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup: return oficial
+                return "DESCARTADO"
+            
+            df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
+            df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+            
+            if col_hab and col_os and col_status:
+                cond_gpon = df_abc[col_hab].astype(str).str.contains('PON\(1/100\)', regex=False, na=False)
+                cond_os = df_abc[col_os].astype(str).str.contains('mudanca de pacote de instalação de cabo gpon', case=False, na=False)
+                df_mig = df_abc[cond_gpon & cond_os].copy()
+                
+                if df_mig.empty:
+                    st.warning("Nenhum contrato de Migração encontrado para os filtros atuais.")
+                else:
+                    df_mig['STATUS_PADRAO'] = df_mig[col_status].astype(str).str.strip()
+                    pivot_mig = pd.crosstab(index=df_mig['SUPERVISOR_CLEAN'], 
+                                            columns=df_mig['STATUS_PADRAO'], 
+                                            margins=True, margins_name="Total Geral")
+                    
+                    for col in ['cancelado', 'Em aberto', 'O.S NE', 'Produtivo']:
+                        if col not in pivot_mig.columns:
+                            pivot_mig[col] = 0
+                            
+                    # Calcula Quebra evitando divisão por zero
+                    soma_ne_produtivo = pivot_mig['O.S NE'] + pivot_mig['Produtivo']
+                    pivot_mig['QUEBRA'] = pivot_mig['O.S NE'] / np.where(soma_ne_produtivo == 0, 1, soma_ne_produtivo)
+                    
+                    # Calcula NE
+                    pivot_mig['Teto NE (20%)'] = np.floor(pivot_mig['Total Geral'] * 0.20)
+                    pivot_mig['Pode ser NE (Saldo)'] = pivot_mig['Teto NE (20%)'] - pivot_mig['O.S NE']
+                    
+                    # Exibe o dataframe estizado
+                    st.dataframe(pivot_mig[['cancelado', 'Em aberto', 'O.S NE', 'Produtivo', 'Total Geral', 'QUEBRA', 'Teto NE (20%)', 'Pode ser NE (Saldo)']].style.format({
+                        'QUEBRA': '{:.2%}',
+                        'Teto NE (20%)': '{:.0f}',
+                        'Pode ser NE (Saldo)': '{:.0f}'
+                    }), use_container_width=True, height=500)
+            else:
+                st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
+        else:
+            st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+            
+        if st.session_state.novo_ciclo:
+            st.session_state.script_audio_atual = ""
+            st.session_state.novo_ciclo = False
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+    # -------------------------------------------------------------------------
+    # TELA 8: PME (NOVA TELA - ABC)
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx == 8:
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">PME - ABC</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+            df.columns = [str(c).strip().upper() for c in df.columns]
+            
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+            col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
+            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
+            
+            def class_sup(row):
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup: return oficial
+                return "DESCARTADO"
+            
+            df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
+            df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+            
+            if col_cat and col_os and col_status:
+                cond_cat = df_abc[col_cat].astype(str).str.contains('PME', case=False, na=False)
+                tipos_os = ['1 - ADESAO - INSTALACAO DE ASSINATURA', '51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL', '516 - ADESAO ENTREGA STREAMING']
+                cond_os = df_abc[col_os].astype(str).str.strip().isin(tipos_os)
+                df_pme = df_abc[cond_cat & cond_os].copy()
+                
+                if df_pme.empty:
+                    st.warning("Nenhum contrato PME encontrado para os filtros atuais.")
+                else:
+                    df_pme['STATUS_PADRAO'] = df_pme[col_status].astype(str).str.strip()
+                    pivot_pme = pd.crosstab(index=df_pme['SUPERVISOR_CLEAN'], 
+                                            columns=df_pme['STATUS_PADRAO'], 
+                                            margins=True, margins_name="Total Geral")
+                    
+                    for col in ['Em aberto', 'O.S NE', 'Produtivo']:
+                        if col not in pivot_pme.columns:
+                            pivot_pme[col] = 0
+                            
+                    # Calcula Quebra evitando divisão por zero
+                    soma_ne_produtivo = pivot_pme['O.S NE'] + pivot_pme['Produtivo']
+                    pivot_pme['QUEBRA'] = pivot_pme['O.S NE'] / np.where(soma_ne_produtivo == 0, 1, soma_ne_produtivo)
+                    
+                    # Calcula NE
+                    pivot_pme['Teto NE (20%)'] = np.floor(pivot_pme['Total Geral'] * 0.20)
+                    pivot_pme['Pode ser NE (Saldo)'] = pivot_pme['Teto NE (20%)'] - pivot_pme['O.S NE']
+                    
+                    # Exibe o dataframe estizado
+                    st.dataframe(pivot_pme[['Em aberto', 'O.S NE', 'Produtivo', 'Total Geral', 'QUEBRA', 'Teto NE (20%)', 'Pode ser NE (Saldo)']].style.format({
+                        'QUEBRA': '{:.2%}',
+                        'Teto NE (20%)': '{:.0f}',
+                        'Pode ser NE (Saldo)': '{:.0f}'
+                    }), use_container_width=True, height=500)
+            else:
+                st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
+                
+        if st.session_state.novo_ciclo:
+            st.session_state.script_audio_atual = ""
+            st.session_state.novo_ciclo = False
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+
+    # -------------------------------------------------------------------------
     # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL (SOMENTE ABC - 2 COLUNAS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
@@ -759,8 +900,11 @@ with CONTEUDO_TV.container():
 # MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄 (Fora do container)
 # =========================================================================
 
+# Ajustes de espera de cada tela
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
+elif st.session_state.idx == 7: espera = 45 # Nova tela Migração
+elif st.session_state.idx == 8: espera = 45 # Nova tela PME
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
@@ -778,7 +922,10 @@ else:
         elif st.session_state.idx == 2: prox_idx = 0
         else: prox_idx = 0
     else:
-        if st.session_state.idx == 1: prox_idx = 5
+        # Nova ordem de rotação das telas, englobando a 7 e a 8 logo após a tela 1 (TEC1)
+        if st.session_state.idx == 1: prox_idx = 7
+        elif st.session_state.idx == 7: prox_idx = 8
+        elif st.session_state.idx == 8: prox_idx = 5
         elif st.session_state.idx == 5: prox_idx = 6 
         elif st.session_state.idx == 6: prox_idx = 3 
         elif st.session_state.idx == 3: prox_idx = 2
