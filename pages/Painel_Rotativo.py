@@ -38,7 +38,7 @@ st.markdown("""<style>
     ::-webkit-scrollbar { display: none !important; }
     html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
-    /* SEUS DEMAIS ESTILOS INTACTOS */
+    /* ESTILOS DE INTERFACE */
     .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
     [data-testid="stHeader"], .stDeployButton, footer, #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
     .stApp { background-color: #ffffff !important; }
@@ -48,18 +48,18 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* CAIXA BASE GERAL (TÍTULOS GIGANTES) */
+    /* CAIXA BASE GERAL */
     .box-base { background: #e8f5e9; border-left: 15px solid #2e7d32; padding: 20px 10px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); margin-bottom: 30px; }
     .nome-base { font-size: 45px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 10px; }
     .num-base { font-size: 150px !important; font-weight: 900; color: #111; line-height: 1; }
     
-    /* CAIXA DOS SUPERVISORES (TEC1) */
+    /* CAIXA DOS SUPERVISORES */
     .box-contagem { background: #f0f2f6; border-left: 12px solid #cc6600; padding: 25px 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; position: relative; z-index: 1; transition: 0.3s; }
     .box-nome { font-size: 40px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .box-num { font-size: 120px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 15px; }
     .destaque-ativo { transform: scale(1.08) !important; box-shadow: 0px 20px 40px rgba(204, 102, 0, 0.5) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CAIXAS INDICADORES E CONSULTIVO (TELA 3, 5 E 6) */
+    /* CAIXAS CARDS SUPERVISORES */
     .ind-base-title { font-size: 60px !important; font-weight: 900; text-align: center; margin-bottom: 25px; margin-top: 10px; text-transform: uppercase; color: #2e7d32; }
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
@@ -70,14 +70,14 @@ st.markdown("""<style>
     .falta-label { font-size: 22px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 10px; }
     .falta-value { font-size: 80px !important; font-weight: 900; color: #b30000; line-height: 1; }
     
-    /* HORA E TELA TÉCNICOS */
+    /* HORA E RELÓGIO */
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 220px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 50px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 15px 20px; border-left: 8px solid #008080; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 28px !important; color: #333; box-shadow: 1px 1px 5px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# --- REGRAS GLOBAIS - SOMENTE ABC ---
+# --- REGRAS GLOBAIS ---
 SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
@@ -92,10 +92,8 @@ def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-# FUNÇÃO CORRIGIDA COM PRIORIDADE MÁXIMA PARA "O.S NE" E "CANCELADO"
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
-    
     if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE': 
         return 'O.S NE'
     if 'ABERTO' in val_upper or 'PEND' in val_upper: 
@@ -104,10 +102,9 @@ def padronizar_status(val):
         return 'Produtivo'
     if 'CANCEL' in val_upper: 
         return 'Cancelado'
-        
     return val_upper
 
-# Inicialização dos estados de controle
+# Inicialização do estado da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.novo_ciclo = True
@@ -265,7 +262,7 @@ with CONTEUDO_TV.container():
         )
 
     # -------------------------------------------------------------------------
-    # TELA 0: TÉCNICOS NA BASE (SOMENTE ABC)
+    # TELA 0: TÉCNICOS NA BASE
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
@@ -329,7 +326,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 PENDENTES (SOMENTE ABC)
+    # TELA 1: TEC1 PENDENTES
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
@@ -449,7 +446,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 7: MIGRAÇÃO GPON (ABC) - TETO 25% + QUEBRA GLOBAL
+    # TELA 7: MIGRAÇÃO GPON (CÁLCULO POR SOMA DA COLUNA TOTAL DE TAREFAS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
@@ -464,11 +461,12 @@ with CONTEUDO_TV.container():
             df.columns = [str(c).strip().upper() for c in df.columns]
             
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-            col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c), None)
-            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
+            col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c or 'HABILIDADE' in c), None)
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
+            col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
             
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -491,9 +489,15 @@ with CONTEUDO_TV.container():
                 else:
                     df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
                     
-                    total_geral_mig = len(df_mig)
-                    total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE']) 
-                    total_prod_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'Produtivo'])
+                    # Trata a coluna de tarefas para soma de O.S
+                    if col_tarefas:
+                        df_mig['QTD_TAREFAS_NUM'] = pd.to_numeric(df_mig[col_tarefas].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    else:
+                        df_mig['QTD_TAREFAS_NUM'] = 1
+                    
+                    total_geral_mig = int(df_mig['QTD_TAREFAS_NUM'].sum())
+                    total_ne_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
+                    total_prod_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
                     
                     soma_valida_mig = total_ne_mig + total_prod_mig
                     quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_mig > 0 else 0
@@ -505,7 +509,7 @@ with CONTEUDO_TV.container():
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
+                            Total Tarefas: <span style="color:#003366">{total_geral_mig}</span> | 
                             Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
@@ -520,16 +524,15 @@ with CONTEUDO_TV.container():
                                 with cols_sup[j]:
                                     df_sup = df_mig[df_mig['SUPERVISOR_CLEAN'] == sup]
                                     
-                                    qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
-                                    qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
-                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE']) # <-- FILTRO CORRIGIDO PARA BUSCAR O.S NE INTERNAMENTE
+                                    qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'QTD_TAREFAS_NUM'].sum())
+                                    qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+                                    qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 25 else "#c62828"
                                     
-                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS (25%)
-                                    total_sup = len(df_sup)
+                                    total_sup = int(df_sup['QTD_TAREFAS_NUM'].sum())
                                     teto_sup = int(np.floor(total_sup * 0.25))
                                     saldo_sup = teto_sup - qtd_ne
                                     cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
@@ -560,7 +563,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} contratos N E, e no momento temos {total_ne_mig}."
+                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_mig}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else:
@@ -573,7 +576,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 8: PME (ABC) - TETO 20% + QUEBRA GLOBAL
+    # TELA 8: PME (CÁLCULO POR SOMA DA COLUNA TOTAL DE TAREFAS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
@@ -589,10 +592,11 @@ with CONTEUDO_TV.container():
             
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
-            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
+            col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
             
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -615,9 +619,14 @@ with CONTEUDO_TV.container():
                 else:
                     df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
                     
-                    total_geral_pme = len(df_pme)
-                    total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'O.S NE'])
-                    total_prod_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'Produtivo'])
+                    if col_tarefas:
+                        df_pme['QTD_TAREFAS_NUM'] = pd.to_numeric(df_pme[col_tarefas].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    else:
+                        df_pme['QTD_TAREFAS_NUM'] = 1
+                    
+                    total_geral_pme = int(df_pme['QTD_TAREFAS_NUM'].sum())
+                    total_ne_pme = int(df_pme.loc[df_pme['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
+                    total_prod_pme = int(df_pme.loc[df_pme['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
                     
                     soma_valida_pme = total_ne_pme + total_prod_pme
                     quebra_global_pme = (total_ne_pme / soma_valida_pme) * 100 if soma_valida_pme > 0 else 0
@@ -630,7 +639,7 @@ with CONTEUDO_TV.container():
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME (TETO 20%)
                         </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Total Tarefas: <span style="color:#003366">{total_geral_pme}</span> | 
                             Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
@@ -645,16 +654,15 @@ with CONTEUDO_TV.container():
                                 with cols_sup[j]:
                                     df_sup = df_pme[df_pme['SUPERVISOR_CLEAN'] == sup]
                                     
-                                    qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
-                                    qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
-                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE']) # <-- FILTRO CORRIGIDO PARA BUSCAR O.S NE INTERNAMENTE
+                                    qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'QTD_TAREFAS_NUM'].sum())
+                                    qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+                                    qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
                                     
-                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS
-                                    total_sup = len(df_sup)
+                                    total_sup = int(df_sup['QTD_TAREFAS_NUM'].sum())
                                     teto_sup = int(np.floor(total_sup * 0.20))
                                     saldo_sup = teto_sup - qtd_ne
                                     cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
@@ -685,7 +693,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} contratos N E, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else:
@@ -694,7 +702,6 @@ with CONTEUDO_TV.container():
         if st.session_state.novo_ciclo:
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
-
 
     # -------------------------------------------------------------------------
     # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL
@@ -895,7 +902,7 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 3: PRINT DOS INDICADORES (SOMENTE ABC)
+    # TELA 3: PRINT DOS INDICADORES
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 3:
         st.markdown(f'''<div class="topo-container">
@@ -976,7 +983,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO ⏱️ COM SEGUNDOS PASSANDO EM TEMPO REAL 🕒
+    # TELA 2: HORÁRIO ⏱️
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
@@ -1017,7 +1024,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual + script_relogio_dinamico, height=0)
 
 # =========================================================================
-# MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄 (Fora do container)
+# MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
 # =========================================================================
 
 if st.session_state.idx == 0: espera = 60 
