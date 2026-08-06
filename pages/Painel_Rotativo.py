@@ -503,7 +503,7 @@ with CONTEUDO_TV.container():
                     cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON (TETO 25%)</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
                             Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
@@ -541,7 +541,7 @@ with CONTEUDO_TV.container():
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Sup: {total_sup} | Quebras Permitido (25%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
+                                            Total Sup: {total_sup} | Quebras Permitido(25%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -627,7 +627,7 @@ with CONTEUDO_TV.container():
                     cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME (TETO 20%)
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME
                         </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
@@ -678,7 +678,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                                <div class="falta-label" style="color: #c62828;">❌ NE</div>
+                                                <div class="falta-label" style="color: #c62828;">❌ QUEBRAS</div>
                                                 <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
                                             </div>
                                         </div>
