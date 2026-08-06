@@ -270,7 +270,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">🚀 TÉCNICOS EM BASE - ABC</div>
+            <div class="topo-centro">🚀 TÉCNICOS COM STATUS BASE PENDENTE</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {html_audio_base}''', unsafe_allow_html=True)
@@ -319,7 +319,7 @@ with CONTEUDO_TV.container():
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_base:
-                        script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes na base A B C.', 0);</script>"
+                        script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>"
                     else:
                         script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
@@ -413,7 +413,7 @@ with CONTEUDO_TV.container():
 
                 qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]) if not df_pendentes_geral.empty else 0
 
-                st.markdown(f'''<div class="box-base"><div class="nome-base">BASE ABC PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div class="box-base"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
@@ -429,7 +429,7 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. Base A B C: {qtd_abc} pendentes.', {delay_atual});\n"
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. Base: {qtd_abc} pendentes.', {delay_atual});\n"
                         
                         delay_atual += 8500 
                         
@@ -449,7 +449,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 7: MIGRAÇÃO GPON (ABC) 
+    # TELA 7: MIGRAÇÃO GPON (ABC) - TETO 25% + QUEBRA GLOBAL
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
@@ -467,7 +467,6 @@ with CONTEUDO_TV.container():
             col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
             
-            # ATENÇÃO: TRAVA DE SEGURANÇA PARA PEGAR A COLUNA STATUS EXATA!
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
             
@@ -494,14 +493,21 @@ with CONTEUDO_TV.container():
                     
                     total_geral_mig = len(df_mig)
                     total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE'])
+                    total_prod_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'Produtivo'])
+                    
+                    soma_valida_mig = total_ne_mig + total_prod_mig
+                    quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_mig > 0 else 0
+                    
                     teto_ne_global = int(np.floor(total_geral_mig * 0.25))
                     cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
+                    cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON (TETO 25%)</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total de Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
-                            Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            Total Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
+                            Quebra Global: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
+                            Teto NE Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             NEs Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
@@ -520,11 +526,11 @@ with CONTEUDO_TV.container():
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
-                                    cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
+                                    cor_quebra = "#2e7d32" if quebra <= 25 else "#c62828"
                                     
-                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS
+                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS (25%)
                                     total_sup = len(df_sup)
-                                    teto_sup = int(np.floor(total_sup * 0.20))
+                                    teto_sup = int(np.floor(total_sup * 0.25))
                                     saldo_sup = teto_sup - qtd_ne
                                     cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
                                     
@@ -535,7 +541,7 @@ with CONTEUDO_TV.container():
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Sup: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
+                                            Total Sup: {total_sup} | Teto NE(25%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -552,6 +558,10 @@ with CONTEUDO_TV.container():
                                             </div>
                                         </div>
                                     </div>''', unsafe_allow_html=True)
+                    
+                    if st.session_state.novo_ciclo:
+                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} contratos N E, e no momento temos {total_ne_mig}."
+                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else:
                 st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
@@ -559,12 +569,11 @@ with CONTEUDO_TV.container():
             st.error("Ficheiro rota_sincronizada.csv não encontrado.")
             
         if st.session_state.novo_ciclo:
-            st.session_state.script_audio_atual = ""
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 8: PME (ABC)
+    # TELA 8: PME (ABC) - TETO 20% + QUEBRA GLOBAL
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
@@ -582,7 +591,6 @@ with CONTEUDO_TV.container():
             col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
             
-            # ATENÇÃO: TRAVA DE SEGURANÇA PARA PEGAR A COLUNA STATUS EXATA!
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
             
@@ -609,14 +617,22 @@ with CONTEUDO_TV.container():
                     
                     total_geral_pme = len(df_pme)
                     total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'O.S NE'])
+                    total_prod_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'Produtivo'])
+                    
+                    soma_valida_pme = total_ne_pme + total_prod_pme
+                    quebra_global_pme = (total_ne_pme / soma_valida_pme) * 100 if soma_valida_pme > 0 else 0
+                    
                     teto_ne_global = int(np.floor(total_geral_pme * 0.20))
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
+                    cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME (TETO 20%)
+                        </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total de Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
-                            Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            Total Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Quebra Global: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
+                            Teto NE Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             NEs Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
@@ -667,18 +683,21 @@ with CONTEUDO_TV.container():
                                             </div>
                                         </div>
                                     </div>''', unsafe_allow_html=True)
+                                    
+                    if st.session_state.novo_ciclo:
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} contratos N E, e no momento temos {total_ne_pme}."
+                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else:
                 st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
                 
         if st.session_state.novo_ciclo:
-            st.session_state.script_audio_atual = ""
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL (SOMENTE ABC)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -720,7 +739,7 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base">🏢 BASE ABC TOTAL (Meta: {meta_mensal_abc})</div>
+                    <div class="nome-base">🏢 TOTAL (Meta: {meta_mensal_abc})</div>
                     <div class="num-base">{total_realizado_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
@@ -767,7 +786,7 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO (SOMENTE ABC)
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
@@ -827,7 +846,7 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base">🏢 BASE ABC HOJE (Meta Diária: {meta_dia_base_abc})</div>
+                    <div class="nome-base">🏢 HOJE (Meta Diária: {meta_dia_base_abc})</div>
                     <div class="num-base">{total_hoje_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
@@ -931,7 +950,7 @@ with CONTEUDO_TV.container():
 
                 df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
-                st.markdown('<div class="ind-base-title abc">BASE ABC</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">BASE PENDÊNCIAS</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
@@ -1003,8 +1022,8 @@ with CONTEUDO_TV.container():
 
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 7: espera = 45 
-elif st.session_state.idx == 8: espera = 45 
+elif st.session_state.idx == 7: espera = 60 
+elif st.session_state.idx == 8: espera = 60 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
