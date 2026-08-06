@@ -77,8 +77,9 @@ st.markdown("""<style>
     .tec-base-nome { background: #f8f9fa; padding: 15px 20px; border-left: 8px solid #008080; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 28px !important; color: #333; box-shadow: 1px 1px 5px rgba(0,0,0,0.1); }
 </style>""", unsafe_allow_html=True)
 
-# --- REGRAS GLOBAIS ---
-SUPERVISORES = ["EDSON MARCO", "MAICON", "NELSON"]
+# --- REGRAS GLOBAIS - SOMENTE ABC ---
+SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
+SUPERVISORES_ORDENADOS = SUPS_ABC
 
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
@@ -87,16 +88,14 @@ def obter_nome_visual(nome_completo):
     if 'EDSON MARCO' in n: return "EDSON MARCO"
     return n.split()[0]
 
-def limpar_coluna(col):
-    return unicodedata.normalize('NFKD', str(col)).encode('ASCII', 'ignore').decode('utf-8').strip().upper()
-
 def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-# FUNÇÃO PARA STATUS
+# FUNÇÃO CORRIGIDA COM PRIORIDADE MÁXIMA PARA "O.S NE" E "CANCELADO"
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
+    
     if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE': 
         return 'O.S NE'
     if 'ABERTO' in val_upper or 'PEND' in val_upper: 
@@ -105,6 +104,7 @@ def padronizar_status(val):
         return 'Produtivo'
     if 'CANCEL' in val_upper: 
         return 'Cancelado'
+        
     return val_upper
 
 # Inicialização dos estados de controle
@@ -265,19 +265,19 @@ with CONTEUDO_TV.container():
         )
 
     # -------------------------------------------------------------------------
-    # TELA 0: TÉCNICOS NA BASE
+    # TELA 0: TÉCNICOS NA BASE (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">🚀 TÉCNICOS COM STATUS BASE SEM INICAR</div>
+            <div class="topo-centro">🚀 TÉCNICOS COM STATUS BASE PENDENTE</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {html_audio_base}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
-            df.columns = [limpar_coluna(c) for c in df.columns]
+            df.columns = [str(c).strip().upper() for c in df.columns]
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_status = next((c for c in df.columns if 'STATUS' in c), None)
@@ -295,7 +295,7 @@ with CONTEUDO_TV.container():
                     for _, row in df.dropna(subset=[col_recurso, col_sup]).iterrows():
                         tec = str(row[col_recurso]).upper().strip()
                         sup = str(row[col_sup]).upper().strip()
-                        for oficial in SUPERVISORES:
+                        for oficial in SUPERVISORES_ORDENADOS:
                             if oficial in sup:
                                 mapa_tecnico_sup[tec] = oficial
                                 break
@@ -303,23 +303,23 @@ with CONTEUDO_TV.container():
                 def resolver_supervisor(row):
                     tec = str(row.get(col_recurso, '')).upper().strip()
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                    for oficial in SUPERVISORES:
+                    for oficial in SUPERVISORES_ORDENADOS:
                         if oficial in sup: return oficial
                     return mapa_tecnico_sup.get(tec, "NÃO IDENTIFICADO")
 
                 df_tela = df[mask_base & mask_status].copy()
                 df_tela['SUPERVISOR_CLEAN'] = df_tela.apply(resolver_supervisor, axis=1)
                 
-                nomes_base = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
+                nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
 
                 cols_tec = st.columns(4)
-                for i, n in enumerate(nomes_base):
+                for i, n in enumerate(nomes_abc):
                     with cols_tec[i % 4]:
                         st.markdown(f'<div class="tec-base-nome">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_base:
-                        script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_base)} técnicos pendentes na base.', 0);</script>"
+                        script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>"
                     else:
                         script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
@@ -329,12 +329,12 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 PENDENTES
+    # TELA 1: TEC1 PENDENTES (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
-            df.columns = [limpar_coluna(c) for c in df.columns]
+            df.columns = [str(c).strip().upper() for c in df.columns]
             col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             
@@ -343,7 +343,7 @@ with CONTEUDO_TV.container():
                 for _, row in df.dropna(subset=[col_tecnico, col_sup]).iterrows():
                     tec = str(row[col_tecnico]).upper().strip()
                     sup = str(row[col_sup]).upper().strip()
-                    for oficial in SUPERVISORES:
+                    for oficial in SUPERVISORES_ORDENADOS:
                         if oficial in sup:
                             mapa_tecnico_sup[tec] = oficial
                             break
@@ -351,7 +351,7 @@ with CONTEUDO_TV.container():
             def resolver_supervisor(row):
                 tec = str(row.get(col_tecnico, '')).upper().strip()
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                for oficial in SUPERVISORES:
+                for oficial in SUPERVISORES_ORDENADOS:
                     if oficial in sup: return oficial
                 return mapa_tecnico_sup.get(tec, "NÃO IDENTIFICADO")
 
@@ -411,34 +411,34 @@ with CONTEUDO_TV.container():
                     df_pendentes_geral[col_contrato] = df_pendentes_geral[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
                     df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
 
-                qtd_base = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPERVISORES)]) if not df_pendentes_geral.empty else 0
+                qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]) if not df_pendentes_geral.empty else 0
 
-                st.markdown(f'''<div class="box-base"><div class="nome-base">TOTAL PENDENTES</div><div class="num-base">{qtd_base}</div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div class="box-base"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
-                for i in range(0, len(SUPERVISORES), 2):
+                for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
-                        if i + j < len(SUPERVISORES):
+                        if i + j < len(SUPS_ABC):
                             idx_global = i + j
-                            sup = SUPERVISORES[idx_global]
+                            sup = SUPS_ABC[idx_global]
                             qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup]) if not df_pendentes_geral.empty else 0
                             with cols_sub_abc[j]:
                                 st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_tec1:
-                        script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES)});\n"
+                        script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. Total da base: {qtd_base} pendentes.', {delay_atual});\n"
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. Base: {qtd_abc} pendentes.', {delay_atual});\n"
                         
                         delay_atual += 8500 
                         
-                        for i, sup_full in enumerate(SUPERVISORES):
+                        for i, sup_full in enumerate(SUPS_ABC):
                             qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
-                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPERVISORES)});\n"
+                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
                             delay_atual += 8500 
                             
-                        script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES)}) , {delay_atual});\n</script>"
+                        script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n</script>"
                     else:
                         script_cenario = ""
                         
@@ -449,224 +449,81 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 7: MIGRAÇÃO GPON (25%)
+    # TELA 7: MIGRAÇÃO GPON (ABC) 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">MIGRAÇÃO GPON</div>
+            <div class="topo-centro">MIGRAÇÃO GPON - ABC</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
-        {icone_ativo}''', unsafe_allow_html=True)
+        {icone_mudo}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
-            df.columns = [limpar_coluna(c) for c in df.columns]
+            df.columns = [str(c).strip().upper() for c in df.columns]
             
-            # Buscas baseadas exatamente nas imagens fornecidas:
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-            col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c or 'HABILIDADE' in c), None)
-            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
+            col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c), None)
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
             
-            col_tarefas = next((c for c in df.columns if 'TOTAL DE TAREFAS' in c), None)
-            if not col_tarefas: col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
-            
-            col_status = next((c for c in df.columns if c in ['STATUS CONTRATO', 'STATUS CONTRATO.1']), None)
+            # ATENÇÃO: TRAVA DE SEGURANÇA PARA PEGAR A COLUNA STATUS EXATA!
+            col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
             
-            if col_hab and col_os and col_status and col_tarefas:
-                def class_sup(row):
-                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                    for oficial in SUPERVISORES:
-                        if oficial in sup: return oficial
-                    return "DESCARTADO"
-                
-                df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
-                df_base = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-                
-                # Validação Habilidade exata (PON(1/100))
-                cond_gpon = df_base[col_hab].astype(str).str.contains('PON(1/100)', regex=False, na=False)
-                
-                str_os = df_base[col_os].astype(str).str.upper()
+            def class_sup(row):
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup: return oficial
+                return "DESCARTADO"
+            
+            df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
+            df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+            
+            if col_hab and col_os and col_status:
+                cond_gpon = df_abc[col_hab].astype(str).str.contains('PON(1/100)', regex=False, na=False)
+                str_os = df_abc[col_os].astype(str).str.upper()
                 cond_os = str_os.str.contains('MUDANCA DE PACOTE', na=False) | str_os.str.contains('MUDANÇA DE PACOTE', na=False)
                           
-                df_mig = df_base[cond_gpon & cond_os].copy()
+                df_mig = df_abc[cond_gpon & cond_os].copy()
                 
                 if df_mig.empty:
                     st.warning("Nenhum contrato de Migração encontrado para os filtros atuais.")
                 else:
                     df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
-                    df_mig[col_tarefas] = pd.to_numeric(df_mig[col_tarefas], errors='coerce').fillna(0)
                     
-                    # CÁLCULOS GLOBAIS (25%)
-                    total_geral_mig = int(df_mig[col_tarefas].sum())
-                    total_ne_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'O.S NE', col_tarefas].sum())
-                    total_prod_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'Produtivo', col_tarefas].sum())
-                    
-                    soma_valida_mig = total_ne_mig + total_prod_mig
-                    quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_mig > 0 else 0
-                    
-                    teto_ne_global = int(np.floor(total_geral_mig * 0.25))
+                    total_geral_mig = len(df_mig)
+                    total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE'])
+                    teto_ne_global = int(np.floor(total_geral_mig * 0.20))
                     cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
-                    cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 RESUMO GERAL - MIGRAÇÃO GPON (TETO 25%)</div>
-                        <div style="font-size: 30px; font-weight: bold; color: #111;">
-                            Total Tarefas: <span style="color:#003366">{total_geral_mig}</span> | 
-                            Quebra Global: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
-                            Teto NE (25%): <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO</div>
+                        <div style="font-size: 35px; font-weight: bold; color: #111;">
+                            Total de Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
+                            Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             NEs Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
                     
-                    for i in range(0, len(SUPERVISORES), 2):
+                    for i in range(0, len(SUPS_ABC), 2):
                         cols_sup = st.columns(2)
                         for j in range(2):
-                            if i + j < len(SUPERVISORES):
-                                sup = SUPERVISORES[i + j]
+                            if i + j < len(SUPS_ABC):
+                                sup = SUPS_ABC[i + j]
                                 with cols_sup[j]:
                                     df_sup = df_mig[df_mig['SUPERVISOR_CLEAN'] == sup]
                                     
-                                    qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', col_tarefas].sum())
-                                    qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', col_tarefas].sum())
-                                    qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', col_tarefas].sum())
-                                    
-                                    soma_base = qtd_ne + qtd_produtivo
-                                    quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
-                                    cor_quebra = "#2e7d32" if quebra <= 25 else "#c62828"
-                                    
-                                    total_sup = int(df_sup[col_tarefas].sum())
-                                    teto_sup = int(np.floor(total_sup * 0.25))
-                                    saldo_sup = teto_sup - qtd_ne
-                                    cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
-                                    
-                                    st.markdown(f'''
-                                    <div class="sup-card">
-                                        <div class="sup-header" style="margin-bottom: 5px;">
-                                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                            <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
-                                        </div>
-                                        <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Tarefas: {total_sup} | Teto NE(25%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
-                                        </div>
-                                        <div class="faltas-grid">
-                                            <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                                <div class="falta-label" style="color: #b78103;">⏳ ABERTO</div>
-                                                <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
-                                            </div>
-                                            <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
-                                                <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
-                                            </div>
-                                            <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                                <div class="falta-label" style="color: #c62828;">❌ NE</div>
-                                                <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
-                                            </div>
-                                        </div>
-                                    </div>''', unsafe_allow_html=True)
-
-                    if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} contratos N E, e no momento temos {total_ne_mig}."
-                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
-
-            else:
-                st.error("Colunas não encontradas. Verifique se existem colunas com as palavras: HABILIDADE DE TRABALHO, TIPO O.S 1, STATUS CONTRATO e TOTAL DE TAREFAS.")
-                st.write("Colunas disponíveis no arquivo:", df.columns.tolist())
-        else:
-            st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-            
-        if st.session_state.novo_ciclo:
-            st.session_state.novo_ciclo = False
-        st.components.v1.html(st.session_state.script_audio_atual, height=0)
-
-    # -------------------------------------------------------------------------
-    # TELA 8: PME (20%)
-    # -------------------------------------------------------------------------
-    elif st.session_state.idx == 8:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PME</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {icone_ativo}''', unsafe_allow_html=True)
-
-        if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
-            df.columns = [limpar_coluna(c) for c in df.columns]
-            
-            # Buscas baseadas exatamente nas imagens fornecidas:
-            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-            col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
-            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
-            
-            col_tarefas = next((c for c in df.columns if 'TOTAL DE TAREFAS' in c), None)
-            if not col_tarefas: col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
-            
-            col_status = next((c for c in df.columns if c in ['STATUS CONTRATO', 'STATUS CONTRATO.1']), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
-            
-            if col_cat and col_os and col_status and col_tarefas:
-                def class_sup(row):
-                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                    for oficial in SUPERVISORES:
-                        if oficial in sup: return oficial
-                    return "DESCARTADO"
-                
-                df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
-                df_base = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-                
-                cond_cat = df_base[col_cat].astype(str).str.upper().str.contains('PME', na=False)
-                str_os = df_base[col_os].astype(str).str.upper()
-                cond_os = str_os.str.contains('1 - ADES', na=False) | str_os.str.contains('51 - ADES', na=False) | str_os.str.contains('516 - ADES', na=False)
-                          
-                df_pme = df_base[cond_cat & cond_os].copy()
-                
-                if df_pme.empty:
-                    st.warning("Nenhum contrato PME encontrado para os filtros atuais.")
-                else:
-                    df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
-                    df_pme[col_tarefas] = pd.to_numeric(df_pme[col_tarefas], errors='coerce').fillna(0)
-                    
-                    # CÁLCULOS GLOBAIS (20%)
-                    total_geral_pme = int(df_pme[col_tarefas].sum())
-                    total_ne_pme = int(df_pme.loc[df_pme['STATUS_PADRAO'] == 'O.S NE', col_tarefas].sum())
-                    total_prod_pme = int(df_pme.loc[df_pme['STATUS_PADRAO'] == 'Produtivo', col_tarefas].sum())
-                    
-                    soma_valida_pme = total_ne_pme + total_prod_pme
-                    quebra_global_pme = (total_ne_pme / soma_valida_pme) * 100 if soma_valida_pme > 0 else 0
-                    
-                    teto_ne_global = int(np.floor(total_geral_pme * 0.20))
-                    cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
-                    cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
-
-                    st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 RESUMO GERAL - PME (TETO 20%)</div>
-                        <div style="font-size: 30px; font-weight: bold; color: #111;">
-                            Total Tarefas: <span style="color:#003366">{total_geral_pme}</span> | 
-                            Quebra Global: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
-                            Teto NE (20%): <span style="color:#2e7d32">{teto_ne_global}</span> | 
-                            NEs Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
-                        </div>
-                    </div>''', unsafe_allow_html=True)
-                    
-                    for i in range(0, len(SUPERVISORES), 2):
-                        cols_sup = st.columns(2)
-                        for j in range(2):
-                            if i + j < len(SUPERVISORES):
-                                sup = SUPERVISORES[i + j]
-                                with cols_sup[j]:
-                                    df_sup = df_pme[df_pme['SUPERVISOR_CLEAN'] == sup]
-                                    
-                                    qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', col_tarefas].sum())
-                                    qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', col_tarefas].sum())
-                                    qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', col_tarefas].sum())
+                                    qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
+                                    qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
+                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE'])
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
                                     
-                                    total_sup = int(df_sup[col_tarefas].sum())
+                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS
+                                    total_sup = len(df_sup)
                                     teto_sup = int(np.floor(total_sup * 0.20))
                                     saldo_sup = teto_sup - qtd_ne
                                     cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
@@ -678,7 +535,7 @@ with CONTEUDO_TV.container():
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Tarefas: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
+                                            Total Sup: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -696,20 +553,133 @@ with CONTEUDO_TV.container():
                                         </div>
                                     </div>''', unsafe_allow_html=True)
 
-                    if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} contratos N E, e no momento temos {total_ne_pme}."
-                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
-
             else:
-                st.error("Colunas não encontradas. Verifique se existem colunas com as palavras: CATEGORIAS DA CAPACIDADE, TIPO O.S 1, STATUS CONTRATO e TOTAL DE TAREFAS.")
-                st.write("Colunas disponíveis no arquivo:", df.columns.tolist())
-                
+                st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
+        else:
+            st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+            
         if st.session_state.novo_ciclo:
+            st.session_state.script_audio_atual = ""
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL
+    # TELA 8: PME (ABC)
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx == 8:
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">PME - ABC</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+            df.columns = [str(c).strip().upper() for c in df.columns]
+            
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+            col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
+            
+            # ATENÇÃO: TRAVA DE SEGURANÇA PARA PEGAR A COLUNA STATUS EXATA!
+            col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
+            
+            def class_sup(row):
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup: return oficial
+                return "DESCARTADO"
+            
+            df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
+            df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+            
+            if col_cat and col_os and col_status:
+                cond_cat = df_abc[col_cat].astype(str).str.upper().str.contains('PME', na=False)
+                str_os = df_abc[col_os].astype(str).str.upper()
+                cond_os = str_os.str.contains('1 - ADES', na=False) | str_os.str.contains('51 - ADES', na=False) | str_os.str.contains('516 - ADES', na=False)
+                          
+                df_pme = df_abc[cond_cat & cond_os].copy()
+                
+                if df_pme.empty:
+                    st.warning("Nenhum contrato PME encontrado para os filtros atuais.")
+                else:
+                    df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
+                    
+                    total_geral_pme = len(df_pme)
+                    total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'O.S NE'])
+                    teto_ne_global = int(np.floor(total_geral_pme * 0.20))
+                    cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
+
+                    st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME
+                        </div>
+                        <div style="font-size: 35px; font-weight: bold; color: #111;">
+                            Total de Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            NEs Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
+                        </div>
+                    </div>''', unsafe_allow_html=True)
+                    
+                    for i in range(0, len(SUPS_ABC), 2):
+                        cols_sup = st.columns(2)
+                        for j in range(2):
+                            if i + j < len(SUPS_ABC):
+                                sup = SUPS_ABC[i + j]
+                                with cols_sup[j]:
+                                    df_sup = df_pme[df_pme['SUPERVISOR_CLEAN'] == sup]
+                                    
+                                    qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
+                                    qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
+                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE'])
+                                    
+                                    soma_base = qtd_ne + qtd_produtivo
+                                    quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
+                                    cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
+                                    
+                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS
+                                    total_sup = len(df_sup)
+                                    teto_sup = int(np.floor(total_sup * 0.20))
+                                    saldo_sup = teto_sup - qtd_ne
+                                    cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
+                                    
+                                    st.markdown(f'''
+                                    <div class="sup-card">
+                                        <div class="sup-header" style="margin-bottom: 5px;">
+                                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                            <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
+                                        </div>
+                                        <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
+                                            Total Sup: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
+                                        </div>
+                                        <div class="faltas-grid">
+                                            <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                                <div class="falta-label" style="color: #b78103;">⏳ ABERTO</div>
+                                                <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
+                                            </div>
+                                            <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
+                                                <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
+                                            </div>
+                                            <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                                <div class="falta-label" style="color: #c62828;">❌ NE</div>
+                                                <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
+                                            </div>
+                                        </div>
+                                    </div>''', unsafe_allow_html=True)
+
+            else:
+                st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
+                
+        if st.session_state.novo_ciclo:
+            st.session_state.script_audio_atual = ""
+            st.session_state.novo_ciclo = False
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+
+    # -------------------------------------------------------------------------
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -729,21 +699,21 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
 
                 def class_sup(row):
-                    for oficial in SUPERVISORES:
+                    for oficial in SUPERVISORES_ORDENADOS:
                         if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                total_realizado_base = df_cards['QTD_PRODUTOS_CALC'].sum()
+                total_realizado_abc = df_cards['QTD_PRODUTOS_CALC'].sum()
 
                 hoje = datetime.utcnow() - timedelta(hours=3)
                 _, num_dias = calendar.monthrange(hoje.year, hoje.month)
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(hoje.year, hoje.month, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
-                meta_mensal_base = len(SUPERVISORES) * 350
+                meta_mensal_abc = len(SUPS_ABC) * 350
 
                 st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
                     <span style="font-size: 24px; font-weight: bold; color: #555;">Dias úteis restantes no mês: </span>
@@ -751,15 +721,15 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base">🏢 TOTAL (Meta: {meta_mensal_base})</div>
-                    <div class="num-base">{total_realizado_base}</div>
+                    <div class="nome-base">🏢 TOTAL (Meta: {meta_mensal_abc})</div>
+                    <div class="num-base">{total_realizado_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
-                for i in range(0, len(SUPERVISORES), 2):
+                for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
-                        if i + j < len(SUPERVISORES):
-                            sup = SUPERVISORES[i + j]
+                        if i + j < len(SUPS_ABC):
+                            sup = SUPS_ABC[i + j]
                             with cols_sup[j]:
                                 qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                                 falta_individual = max(0, 350 - qtd_sup)
@@ -798,7 +768,7 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
@@ -818,7 +788,7 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
 
                 def class_sup(row):
-                    for oficial in SUPERVISORES:
+                    for oficial in SUPERVISORES_ORDENADOS:
                         if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
                     return "DESCARTADO"
 
@@ -845,12 +815,12 @@ with CONTEUDO_TV.container():
                 if df_hoje.empty:
                      st.warning(f"⚠️ Atenção: Nenhum consultivo lançado para a data de hoje ({hoje_str_br}).")
 
-                total_hoje_base = df_hoje['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
+                total_hoje_abc = df_hoje['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
 
-                meta_dia_base = 0
-                for sup in SUPERVISORES:
+                meta_dia_base_abc = 0
+                for sup in SUPS_ABC:
                     qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                    meta_dia_base += int(round(max(0, 350 - qtd_m) / dias_restantes))
+                    meta_dia_base_abc += int(round(max(0, 350 - qtd_m) / dias_restantes))
 
                 st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
                     <span style="font-size: 24px; font-weight: bold; color: #555;">Resultados Isolados de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
@@ -858,15 +828,15 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base">🏢 HOJE (Meta Diária: {meta_dia_base})</div>
-                    <div class="num-base">{total_hoje_base}</div>
+                    <div class="nome-base">🏢 HOJE (Meta Diária: {meta_dia_base_abc})</div>
+                    <div class="num-base">{total_hoje_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
-                for i in range(0, len(SUPERVISORES), 2):
+                for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
-                        if i + j < len(SUPERVISORES):
-                            sup = SUPERVISORES[i + j]
+                        if i + j < len(SUPS_ABC):
+                            sup = SUPS_ABC[i + j]
                             with cols_sup[j]:
                                 qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                                 qtd_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
@@ -907,7 +877,7 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 3: PRINT DOS INDICADORES
+    # TELA 3: PRINT DOS INDICADORES (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 3:
         st.markdown(f'''<div class="topo-container">
@@ -948,7 +918,7 @@ with CONTEUDO_TV.container():
                     for _, row in df_ind.dropna(subset=[col_recurso, col_sup]).iterrows():
                         tec = str(row[col_recurso]).upper().strip()
                         sup = str(row[col_sup]).upper().strip()
-                        for oficial in SUPERVISORES:
+                        for oficial in SUPERVISORES_ORDENADOS:
                             if oficial in sup:
                                 mapa_tecnico_sup[tec] = oficial
                                 break
@@ -956,19 +926,19 @@ with CONTEUDO_TV.container():
                 def resolver_supervisor(row):
                     tec = str(row.get(col_recurso, '')).upper().strip()
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                    for oficial in SUPERVISORES:
+                    for oficial in SUPERVISORES_ORDENADOS:
                         if oficial in sup: return oficial
                     return mapa_tecnico_sup.get(tec, "NÃO IDENTIFICADO")
 
                 df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
-                st.markdown('<div class="ind-base-title abc">PENDÊNCIAS</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">ABC</div>', unsafe_allow_html=True)
                 
-                for i in range(0, len(SUPERVISORES), 2):
+                for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
-                        if i + j < len(SUPERVISORES):
-                            sup = SUPERVISORES[i + j]
+                        if i + j < len(SUPS_ABC):
+                            sup = SUPS_ABC[i + j]
                             with cols_sup[j]:
                                 df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
                                 f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
@@ -988,7 +958,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO ⏱️
+    # TELA 2: HORÁRIO ⏱️ COM SEGUNDOS PASSANDO EM TEMPO REAL 🕒
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
@@ -1029,14 +999,13 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual + script_relogio_dinamico, height=0)
 
 # =========================================================================
-# MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
+# MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄 (Fora do container)
 # =========================================================================
 
-# Ajustes de espera de cada tela (Migração e PME em 60 segundos)
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 7: espera = 60 
-elif st.session_state.idx == 8: espera = 60 
+elif st.session_state.idx == 7: espera = 45 
+elif st.session_state.idx == 8: espera = 45 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
