@@ -498,7 +498,7 @@ with CONTEUDO_TV.container():
                     cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 RESUMO GERAL DE NE (TETO GLOBAL DE 20%)</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total de Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
                             Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
@@ -613,8 +613,7 @@ with CONTEUDO_TV.container():
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME
-                        </div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 RESUMO GERAL DE NE (TETO GLOBAL DE 20%)</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total de Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
                             Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
@@ -932,7 +931,7 @@ with CONTEUDO_TV.container():
 
                 df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
-                st.markdown('<div class="ind-base-title abc">ABC</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">BASE ABC</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
