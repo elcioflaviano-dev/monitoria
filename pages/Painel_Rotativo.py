@@ -78,7 +78,6 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 # --- REGRAS GLOBAIS - SOMENTE ABC ---
-# MARCOS ROBERTO OCULTADO (FÉRIAS)
 SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
@@ -93,14 +92,23 @@ def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-# Função para garantir que os status sejam contados corretamente, ignorando espaços ou letras maiúsculas/minúsculas
+# FUNÇÃO CORRIGIDA COM PRIORIDADE MÁXIMA PARA "O.S NE"
 def padronizar_status(val):
-    val = str(val).upper().strip()
-    if 'ABERTO' in val or 'PEND' in val: return 'Em aberto'
-    if 'NE' in val: return 'O.S NE'
-    if 'PRODUTIVO' in val or 'CONCL' in val or 'EXEC' in val or 'INIC' in val: return 'Produtivo'
-    if 'CANCEL' in val: return 'Cancelado'
-    return val
+    val_upper = str(val).upper().strip()
+    
+    # 1º Teste absoluto: O.S NE
+    if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE': 
+        return 'O.S NE'
+        
+    # Testes seguintes
+    if 'ABERTO' in val_upper or 'PEND' in val_upper: 
+        return 'Em aberto'
+    if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
+        return 'Produtivo'
+    if 'CANCEL' in val_upper: 
+        return 'Cancelado'
+        
+    return val_upper
 
 # Inicialização dos estados de controle
 if "idx" not in st.session_state: 
@@ -444,7 +452,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 7: MIGRAÇÃO GPON (ABC) - LAYOUT DE CARDS COM META GLOBAL
+    # TELA 7: MIGRAÇÃO GPON (ABC) 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
@@ -473,8 +481,15 @@ with CONTEUDO_TV.container():
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
             if col_hab and col_os and col_status:
-                cond_gpon = df_abc[col_hab].astype(str).str.contains('PON\(1/100\)', regex=False, na=False)
-                cond_os = df_abc[col_os].astype(str).str.contains('mudanca de pacote de instalação de cabo gpon', case=False, na=False)
+                
+                # CORREÇÃO 1: Remover barra e usar literal
+                cond_gpon = df_abc[col_hab].astype(str).str.contains('PON(1/100)', regex=False, na=False)
+                
+                # CORREÇÃO 2: Busca por string menor e validando com e sem cedilha
+                str_os = df_abc[col_os].astype(str).str.upper()
+                cond_os = str_os.str.contains('MUDANCA DE PACOTE', na=False) | \
+                          str_os.str.contains('MUDANÇA DE PACOTE', na=False)
+                          
                 df_mig = df_abc[cond_gpon & cond_os].copy()
                 
                 if df_mig.empty:
@@ -548,7 +563,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 8: PME (ABC) - LAYOUT DE CARDS COM META GLOBAL
+    # TELA 8: PME (ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
@@ -577,9 +592,14 @@ with CONTEUDO_TV.container():
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
             if col_cat and col_os and col_status:
-                cond_cat = df_abc[col_cat].astype(str).str.contains('PME', case=False, na=False)
-                tipos_os = ['1 - ADESAO - INSTALACAO DE ASSINATURA', '51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL', '516 - ADESAO ENTREGA STREAMING']
-                cond_os = df_abc[col_os].astype(str).str.strip().isin(tipos_os)
+                cond_cat = df_abc[col_cat].astype(str).str.upper().str.contains('PME', na=False)
+                
+                # CORREÇÃO 3: Busca mais eficiente e segura para as O.S
+                str_os = df_abc[col_os].astype(str).str.upper()
+                cond_os = str_os.str.contains('1 - ADES', na=False) | \
+                          str_os.str.contains('51 - ADES', na=False) | \
+                          str_os.str.contains('516 - ADES', na=False)
+                          
                 df_pme = df_abc[cond_cat & cond_os].copy()
                 
                 if df_pme.empty:
@@ -975,11 +995,10 @@ with CONTEUDO_TV.container():
 # MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄 (Fora do container)
 # =========================================================================
 
-# Ajustes de espera de cada tela
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
-elif st.session_state.idx == 7: espera = 45 # Nova tela Migração
-elif st.session_state.idx == 8: espera = 45 # Nova tela PME
+elif st.session_state.idx == 7: espera = 45 
+elif st.session_state.idx == 8: espera = 45 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
@@ -997,7 +1016,6 @@ else:
         elif st.session_state.idx == 2: prox_idx = 0
         else: prox_idx = 0
     else:
-        # Rotação das telas, englobando a 7 e a 8 logo após a tela 1 (TEC1)
         if st.session_state.idx == 1: prox_idx = 7
         elif st.session_state.idx == 7: prox_idx = 8
         elif st.session_state.idx == 8: prox_idx = 5
