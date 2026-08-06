@@ -454,7 +454,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">MIGRAÇÃO GPON - ABC</div>
+            <div class="topo-centro">MIGRAÇÃO GPON</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -498,7 +498,7 @@ with CONTEUDO_TV.container():
                     cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 RESUMO GERAL DE NE (TETO GLOBAL DE 20%)</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total de Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
                             Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
@@ -569,7 +569,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PME - ABC</div>
+            <div class="topo-centro">PME</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -613,7 +613,7 @@ with CONTEUDO_TV.container():
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 RESUMO GERAL DE NE (TETO GLOBAL DE 20%)</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total de Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
                             Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
