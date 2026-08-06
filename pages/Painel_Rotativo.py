@@ -97,7 +97,6 @@ def limpar_texto(txt):
 # FUNÇÃO PARA STATUS
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
-    
     if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE': 
         return 'O.S NE'
     if 'ABERTO' in val_upper or 'PEND' in val_upper: 
@@ -106,7 +105,6 @@ def padronizar_status(val):
         return 'Produtivo'
     if 'CANCEL' in val_upper: 
         return 'Cancelado'
-        
     return val_upper
 
 # Inicialização dos estados de controle
@@ -272,7 +270,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">🚀 TÉCNICOS EM BASE</div>
+            <div class="topo-centro">🚀 TÉCNICOS COM STATUS BASE SEM INICAR</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {html_audio_base}''', unsafe_allow_html=True)
@@ -415,7 +413,7 @@ with CONTEUDO_TV.container():
 
                 qtd_base = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPERVISORES)]) if not df_pendentes_geral.empty else 0
 
-                st.markdown(f'''<div class="box-base"><div class="nome-base">BASE TOTAL PENDENTES</div><div class="num-base">{qtd_base}</div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div class="box-base"><div class="nome-base">TOTAL PENDENTES</div><div class="num-base">{qtd_base}</div></div>''', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPERVISORES), 2):
                     cols_sub_abc = st.columns(2)
@@ -451,7 +449,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 7: MIGRAÇÃO GPON (25%) COM BUSCA INTELIGENTE
+    # TELA 7: MIGRAÇÃO GPON (25%)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
@@ -465,22 +463,18 @@ with CONTEUDO_TV.container():
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df.columns = [limpar_coluna(c) for c in df.columns]
             
-            # Buscas dinâmicas super flexíveis
+            # Buscas baseadas exatamente nas imagens fornecidas:
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-            col_gpon = next((c for c in df.columns if c == 'GPON'), None)
-            col_hab = next((c for c in df.columns if 'HABILIDADE' in c), None)
-            col_os = next((c for c in df.columns if 'TIPO O' in c or 'TIPO_O' in c or 'TIPO DE O' in c), None)
+            col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c or 'HABILIDADE' in c), None)
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
             
-            col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
-            if not col_tarefas:
-                # Fallback se a coluna TAREFAS não for encontrada
-                df['QTD_TAREFAS_DUMMY'] = 1
-                col_tarefas = 'QTD_TAREFAS_DUMMY'
-                
-            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS' in c), None)
+            col_tarefas = next((c for c in df.columns if 'TOTAL DE TAREFAS' in c), None)
+            if not col_tarefas: col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
             
-            if (col_hab or col_gpon) and col_os and col_status:
+            col_status = next((c for c in df.columns if c in ['STATUS CONTRATO', 'STATUS CONTRATO.1']), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
+            
+            if col_hab and col_os and col_status and col_tarefas:
                 def class_sup(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                     for oficial in SUPERVISORES:
@@ -490,11 +484,8 @@ with CONTEUDO_TV.container():
                 df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
                 df_base = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
                 
-                # Validação GPON/Habilidade
-                if col_gpon:
-                    cond_gpon = df_base[col_gpon].astype(str).str.strip().str.upper() == 'SIM'
-                else:
-                    cond_gpon = df_base[col_hab].astype(str).str.upper().str.contains('PON', na=False) | (df_base[col_hab].astype(str).str.strip().str.upper() == 'SIM')
+                # Validação Habilidade exata (PON(1/100))
+                cond_gpon = df_base[col_hab].astype(str).str.contains('PON(1/100)', regex=False, na=False)
                 
                 str_os = df_base[col_os].astype(str).str.upper()
                 cond_os = str_os.str.contains('MUDANCA DE PACOTE', na=False) | str_os.str.contains('MUDANÇA DE PACOTE', na=False)
@@ -580,11 +571,7 @@ with CONTEUDO_TV.container():
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else:
-                faltantes = []
-                if not (col_gpon or col_hab): faltantes.append("HABILIDADE / GPON")
-                if not col_os: faltantes.append("TIPO OS")
-                if not col_status: faltantes.append("STATUS CONTRATO")
-                st.error(f"⚠️ Faltam colunas obrigatórias no Excel para esta tela: {', '.join(faltantes)}")
+                st.error("Colunas não encontradas. Verifique se existem colunas com as palavras: HABILIDADE DE TRABALHO, TIPO O.S 1, STATUS CONTRATO e TOTAL DE TAREFAS.")
                 st.write("Colunas disponíveis no arquivo:", df.columns.tolist())
         else:
             st.error("Ficheiro rota_sincronizada.csv não encontrado.")
@@ -594,7 +581,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 8: PME (20%) COM BUSCA INTELIGENTE
+    # TELA 8: PME (20%)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
@@ -608,20 +595,18 @@ with CONTEUDO_TV.container():
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df.columns = [limpar_coluna(c) for c in df.columns]
             
-            # Buscas dinâmicas super flexíveis
+            # Buscas baseadas exatamente nas imagens fornecidas:
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-            col_cat = next((c for c in df.columns if 'CAPACIDADE' in c or 'CATEGORIA' in c), None)
-            col_os = next((c for c in df.columns if 'TIPO O' in c or 'TIPO_O' in c or 'TIPO DE O' in c), None)
+            col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
             
-            col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
-            if not col_tarefas:
-                df['QTD_TAREFAS_DUMMY'] = 1
-                col_tarefas = 'QTD_TAREFAS_DUMMY'
-                
-            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS' in c), None)
+            col_tarefas = next((c for c in df.columns if 'TOTAL DE TAREFAS' in c), None)
+            if not col_tarefas: col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
             
-            if col_cat and col_os and col_status:
+            col_status = next((c for c in df.columns if c in ['STATUS CONTRATO', 'STATUS CONTRATO.1']), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
+            
+            if col_cat and col_os and col_status and col_tarefas:
                 def class_sup(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                     for oficial in SUPERVISORES:
@@ -716,11 +701,7 @@ with CONTEUDO_TV.container():
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else:
-                faltantes = []
-                if not col_cat: faltantes.append("CAPACIDADE / CATEGORIA")
-                if not col_os: faltantes.append("TIPO OS")
-                if not col_status: faltantes.append("STATUS CONTRATO")
-                st.error(f"⚠️ Faltam colunas obrigatórias no Excel para esta tela: {', '.join(faltantes)}")
+                st.error("Colunas não encontradas. Verifique se existem colunas com as palavras: CATEGORIAS DA CAPACIDADE, TIPO O.S 1, STATUS CONTRATO e TOTAL DE TAREFAS.")
                 st.write("Colunas disponíveis no arquivo:", df.columns.tolist())
                 
         if st.session_state.novo_ciclo:
@@ -770,7 +751,7 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base">🏢 BASE TOTAL (Meta: {meta_mensal_base})</div>
+                    <div class="nome-base">🏢 TOTAL (Meta: {meta_mensal_base})</div>
                     <div class="num-base">{total_realizado_base}</div>
                 </div>''', unsafe_allow_html=True)
                 
@@ -877,7 +858,7 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base">🏢 BASE HOJE (Meta Diária: {meta_dia_base})</div>
+                    <div class="nome-base">🏢 HOJE (Meta Diária: {meta_dia_base})</div>
                     <div class="num-base">{total_hoje_base}</div>
                 </div>''', unsafe_allow_html=True)
                 
@@ -981,7 +962,7 @@ with CONTEUDO_TV.container():
 
                 df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
-                st.markdown('<div class="ind-base-title abc">BASE PENDÊNCIAS</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">PENDÊNCIAS</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPERVISORES), 2):
                     cols_sup = st.columns(2)
@@ -1051,7 +1032,7 @@ with CONTEUDO_TV.container():
 # MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
 # =========================================================================
 
-# Ajustes de espera de cada tela (Migração e PME aumentados para 60 segundos)
+# Ajustes de espera de cada tela (Migração e PME em 60 segundos)
 if st.session_state.idx == 0: espera = 60 
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 7: espera = 60 
