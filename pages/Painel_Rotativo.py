@@ -78,12 +78,12 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 # --- REGRAS GLOBAIS - SOMENTE ABC ---
-SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO", "NELSON"]
+# MARCOS ROBERTO OCULTADO (FÉRIAS)
+SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
-    if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'MAICON' in n: return "MAICON"
     if 'NELSON' in n: return "NELSON"
     if 'EDSON MARCO' in n: return "EDSON MARCO"
@@ -92,6 +92,15 @@ def obter_nome_visual(nome_completo):
 def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
+
+# Função para garantir que os status sejam contados corretamente, ignorando espaços ou letras maiúsculas/minúsculas
+def padronizar_status(val):
+    val = str(val).upper().strip()
+    if 'ABERTO' in val or 'PEND' in val: return 'Em aberto'
+    if 'NE' in val: return 'O.S NE'
+    if 'PRODUTIVO' in val or 'CONCL' in val or 'EXEC' in val or 'INIC' in val: return 'Produtivo'
+    if 'CANCEL' in val: return 'Cancelado'
+    return val
 
 # Inicialização dos estados de controle
 if "idx" not in st.session_state: 
@@ -119,7 +128,6 @@ for regra in regras_audio_base:
         frase_incisiva_base = regra["frase"]
         break
 
-# 🔥 AVISOS DE TÉRMINO DE JANELA (11:50, 14:50 E 17:50) 🔥
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 regras_audio_tec1 = [
@@ -140,7 +148,6 @@ for inicio, f in regras_audio_ind:
         permitir_audio_ind = True
         break
 
-# 🔥 ÍCONES DISCRETOS NO CANTO INFERIOR ESQUERDO 🔥
 icone_mudo = '''<div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera">
     <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -317,7 +324,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 PENDENTES (SOMENTE ABC - 2 COLUNAS)
+    # TELA 1: TEC1 PENDENTES (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
@@ -437,7 +444,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 7: MIGRAÇÃO (NOVA TELA - ABC)
+    # TELA 7: MIGRAÇÃO GPON (ABC) - LAYOUT DE CARDS COM META GLOBAL
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
@@ -473,29 +480,63 @@ with CONTEUDO_TV.container():
                 if df_mig.empty:
                     st.warning("Nenhum contrato de Migração encontrado para os filtros atuais.")
                 else:
-                    df_mig['STATUS_PADRAO'] = df_mig[col_status].astype(str).str.strip()
-                    pivot_mig = pd.crosstab(index=df_mig['SUPERVISOR_CLEAN'], 
-                                            columns=df_mig['STATUS_PADRAO'], 
-                                            margins=True, margins_name="Total Geral")
+                    df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
                     
-                    for col in ['cancelado', 'Em aberto', 'O.S NE', 'Produtivo']:
-                        if col not in pivot_mig.columns:
-                            pivot_mig[col] = 0
-                            
-                    # Calcula Quebra evitando divisão por zero
-                    soma_ne_produtivo = pivot_mig['O.S NE'] + pivot_mig['Produtivo']
-                    pivot_mig['QUEBRA'] = pivot_mig['O.S NE'] / np.where(soma_ne_produtivo == 0, 1, soma_ne_produtivo)
+                    # Cálculos Globais de Teto NE
+                    total_geral_mig = len(df_mig)
+                    total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE'])
+                    teto_ne_global = int(np.floor(total_geral_mig * 0.20))
                     
-                    # Calcula NE
-                    pivot_mig['Teto NE (20%)'] = np.floor(pivot_mig['Total Geral'] * 0.20)
-                    pivot_mig['Pode ser NE (Saldo)'] = pivot_mig['Teto NE (20%)'] - pivot_mig['O.S NE']
+                    cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
+
+                    st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 TETO GLOBAL DE NE (20%)</div>
+                        <div style="font-size: 35px; font-weight: bold; color: #111;">
+                            Total de Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
+                            Limite NE Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            NEs Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
+                        </div>
+                    </div>''', unsafe_allow_html=True)
                     
-                    # Exibe o dataframe estizado
-                    st.dataframe(pivot_mig[['cancelado', 'Em aberto', 'O.S NE', 'Produtivo', 'Total Geral', 'QUEBRA', 'Teto NE (20%)', 'Pode ser NE (Saldo)']].style.format({
-                        'QUEBRA': '{:.2%}',
-                        'Teto NE (20%)': '{:.0f}',
-                        'Pode ser NE (Saldo)': '{:.0f}'
-                    }), use_container_width=True, height=500)
+                    # Layout Cards por Supervisor
+                    for i in range(0, len(SUPS_ABC), 2):
+                        cols_sup = st.columns(2)
+                        for j in range(2):
+                            if i + j < len(SUPS_ABC):
+                                sup = SUPS_ABC[i + j]
+                                with cols_sup[j]:
+                                    df_sup = df_mig[df_mig['SUPERVISOR_CLEAN'] == sup]
+                                    
+                                    qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
+                                    qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
+                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE'])
+                                    
+                                    soma_base = qtd_ne + qtd_produtivo
+                                    quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
+                                    cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
+                                    
+                                    st.markdown(f'''
+                                    <div class="sup-card">
+                                        <div class="sup-header">
+                                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                            <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
+                                        </div>
+                                        <div class="faltas-grid">
+                                            <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                                <div class="falta-label" style="color: #b78103;">⏳ ABERTO</div>
+                                                <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
+                                            </div>
+                                            <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
+                                                <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
+                                            </div>
+                                            <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                                <div class="falta-label" style="color: #c62828;">❌ NE</div>
+                                                <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
+                                            </div>
+                                        </div>
+                                    </div>''', unsafe_allow_html=True)
+
             else:
                 st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
         else:
@@ -507,7 +548,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 8: PME (NOVA TELA - ABC)
+    # TELA 8: PME (ABC) - LAYOUT DE CARDS COM META GLOBAL
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
@@ -544,29 +585,63 @@ with CONTEUDO_TV.container():
                 if df_pme.empty:
                     st.warning("Nenhum contrato PME encontrado para os filtros atuais.")
                 else:
-                    df_pme['STATUS_PADRAO'] = df_pme[col_status].astype(str).str.strip()
-                    pivot_pme = pd.crosstab(index=df_pme['SUPERVISOR_CLEAN'], 
-                                            columns=df_pme['STATUS_PADRAO'], 
-                                            margins=True, margins_name="Total Geral")
+                    df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
                     
-                    for col in ['Em aberto', 'O.S NE', 'Produtivo']:
-                        if col not in pivot_pme.columns:
-                            pivot_pme[col] = 0
-                            
-                    # Calcula Quebra evitando divisão por zero
-                    soma_ne_produtivo = pivot_pme['O.S NE'] + pivot_pme['Produtivo']
-                    pivot_pme['QUEBRA'] = pivot_pme['O.S NE'] / np.where(soma_ne_produtivo == 0, 1, soma_ne_produtivo)
+                    # Cálculos Globais de Teto NE
+                    total_geral_pme = len(df_pme)
+                    total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'O.S NE'])
+                    teto_ne_global = int(np.floor(total_geral_pme * 0.20))
                     
-                    # Calcula NE
-                    pivot_pme['Teto NE (20%)'] = np.floor(pivot_pme['Total Geral'] * 0.20)
-                    pivot_pme['Pode ser NE (Saldo)'] = pivot_pme['Teto NE (20%)'] - pivot_pme['O.S NE']
+                    cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
+
+                    st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 TETO GLOBAL DE NE (20%)</div>
+                        <div style="font-size: 35px; font-weight: bold; color: #111;">
+                            Total de Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Limite NE Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            NEs Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
+                        </div>
+                    </div>''', unsafe_allow_html=True)
                     
-                    # Exibe o dataframe estizado
-                    st.dataframe(pivot_pme[['Em aberto', 'O.S NE', 'Produtivo', 'Total Geral', 'QUEBRA', 'Teto NE (20%)', 'Pode ser NE (Saldo)']].style.format({
-                        'QUEBRA': '{:.2%}',
-                        'Teto NE (20%)': '{:.0f}',
-                        'Pode ser NE (Saldo)': '{:.0f}'
-                    }), use_container_width=True, height=500)
+                    # Layout Cards por Supervisor
+                    for i in range(0, len(SUPS_ABC), 2):
+                        cols_sup = st.columns(2)
+                        for j in range(2):
+                            if i + j < len(SUPS_ABC):
+                                sup = SUPS_ABC[i + j]
+                                with cols_sup[j]:
+                                    df_sup = df_pme[df_pme['SUPERVISOR_CLEAN'] == sup]
+                                    
+                                    qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
+                                    qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
+                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE'])
+                                    
+                                    soma_base = qtd_ne + qtd_produtivo
+                                    quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
+                                    cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
+                                    
+                                    st.markdown(f'''
+                                    <div class="sup-card">
+                                        <div class="sup-header">
+                                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                            <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
+                                        </div>
+                                        <div class="faltas-grid">
+                                            <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                                <div class="falta-label" style="color: #b78103;">⏳ ABERTO</div>
+                                                <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
+                                            </div>
+                                            <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
+                                                <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
+                                            </div>
+                                            <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                                <div class="falta-label" style="color: #c62828;">❌ NE</div>
+                                                <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
+                                            </div>
+                                        </div>
+                                    </div>''', unsafe_allow_html=True)
+
             else:
                 st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
                 
@@ -577,7 +652,7 @@ with CONTEUDO_TV.container():
 
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL (SOMENTE ABC - 2 COLUNAS)
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -666,7 +741,7 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO (SOMENTE ABC - 2 COLUNAS)
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
@@ -775,7 +850,7 @@ with CONTEUDO_TV.container():
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 3: PRINT DOS INDICADORES (SOMENTE ABC - 2 COLUNAS)
+    # TELA 3: PRINT DOS INDICADORES (SOMENTE ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 3:
         st.markdown(f'''<div class="topo-container">
@@ -790,7 +865,7 @@ with CONTEUDO_TV.container():
             df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
             col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
             col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
-            col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             
             col_nr35 = next((c for c in reversed(df_ind.columns) if 'NR35' in c or 'NR-35' in c), None)
             col_cert = next((c for c in reversed(df_ind.columns) if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
@@ -922,7 +997,7 @@ else:
         elif st.session_state.idx == 2: prox_idx = 0
         else: prox_idx = 0
     else:
-        # Nova ordem de rotação das telas, englobando a 7 e a 8 logo após a tela 1 (TEC1)
+        # Rotação das telas, englobando a 7 e a 8 logo após a tela 1 (TEC1)
         if st.session_state.idx == 1: prox_idx = 7
         elif st.session_state.idx == 7: prox_idx = 8
         elif st.session_state.idx == 8: prox_idx = 5
