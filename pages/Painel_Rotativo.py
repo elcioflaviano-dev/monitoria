@@ -270,7 +270,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">🚀 TÉCNICOS COM STATUS BASE PENDENTE</div>
+            <div class="topo-centro">🚀 TÉCNICOS EM BASE - ABC</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {html_audio_base}''', unsafe_allow_html=True)
@@ -319,7 +319,7 @@ with CONTEUDO_TV.container():
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_base:
-                        script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>"
+                        script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes na base A B C.', 0);</script>"
                     else:
                         script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
@@ -413,7 +413,7 @@ with CONTEUDO_TV.container():
 
                 qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]) if not df_pendentes_geral.empty else 0
 
-                st.markdown(f'''<div class="box-base"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div class="box-base"><div class="nome-base">BASE ABC PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
@@ -429,7 +429,7 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. Base: {qtd_abc} pendentes.', {delay_atual});\n"
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. Base A B C: {qtd_abc} pendentes.', {delay_atual});\n"
                         
                         delay_atual += 8500 
                         
@@ -720,7 +720,7 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base">🏢 TOTAL (Meta: {meta_mensal_abc})</div>
+                    <div class="nome-base">🏢 BASE ABC TOTAL (Meta: {meta_mensal_abc})</div>
                     <div class="num-base">{total_realizado_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
@@ -827,7 +827,7 @@ with CONTEUDO_TV.container():
                 </div>''', unsafe_allow_html=True)
 
                 st.markdown(f'''<div class="box-base">
-                    <div class="nome-base">🏢 HOJE (Meta Diária: {meta_dia_base_abc})</div>
+                    <div class="nome-base">🏢 BASE ABC HOJE (Meta Diária: {meta_dia_base_abc})</div>
                     <div class="num-base">{total_hoje_abc}</div>
                 </div>''', unsafe_allow_html=True)
                 
