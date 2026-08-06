@@ -865,7 +865,7 @@ with CONTEUDO_TV.container():
             df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
             col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
             col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
-            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+            col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
             
             col_nr35 = next((c for c in reversed(df_ind.columns) if 'NR35' in c or 'NR-35' in c), None)
             col_cert = next((c for c in reversed(df_ind.columns) if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
