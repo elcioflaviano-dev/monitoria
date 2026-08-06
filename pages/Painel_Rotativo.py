@@ -506,9 +506,9 @@ with CONTEUDO_TV.container():
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON (TETO 25%)</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
-                            Quebra Global: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
-                            Teto NE Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
-                            NEs Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
+                            Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
+                            Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            Quebras Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -522,7 +522,7 @@ with CONTEUDO_TV.container():
                                     
                                     qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
                                     qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
-                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE'])
+                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S Improdutivas'])
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
@@ -541,7 +541,7 @@ with CONTEUDO_TV.container():
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Sup: {total_sup} | Teto NE(25%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
+                                            Total Sup: {total_sup} | Quebras Permitido (25%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -553,7 +553,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                                <div class="falta-label" style="color: #c62828;">❌ NE</div>
+                                                <div class="falta-label" style="color: #c62828;">❌ Quebras</div>
                                                 <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
                                             </div>
                                         </div>
@@ -616,7 +616,7 @@ with CONTEUDO_TV.container():
                     df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
                     
                     total_geral_pme = len(df_pme)
-                    total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'O.S NE'])
+                    total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'Quebras'])
                     total_prod_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'Produtivo'])
                     
                     soma_valida_pme = total_ne_pme + total_prod_pme
@@ -631,9 +631,9 @@ with CONTEUDO_TV.container():
                         </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
-                            Quebra Global: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
-                            Teto NE Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
-                            NEs Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
+                            Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
+                            Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                            Quebras Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div>
                     </div>''', unsafe_allow_html=True)
                     
@@ -647,7 +647,7 @@ with CONTEUDO_TV.container():
                                     
                                     qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
                                     qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
-                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE'])
+                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'Quebras'])
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
@@ -666,7 +666,7 @@ with CONTEUDO_TV.container():
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Sup: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
+                                            Total Sup: {total_sup} | Quebras Permitido(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
