@@ -492,7 +492,7 @@ with CONTEUDO_TV.container():
                     df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
                     
                     total_geral_mig = len(df_mig)
-                    total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE'])
+                    total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE']) # <--- CORRIGIDO AQUI
                     total_prod_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'Produtivo'])
                     
                     soma_valida_mig = total_ne_mig + total_prod_mig
@@ -522,7 +522,7 @@ with CONTEUDO_TV.container():
                                     
                                     qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
                                     qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
-                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S Improdutivas'])
+                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE']) # <--- CORRIGIDO AQUI
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
@@ -553,12 +553,12 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                                <div class="falta-label" style="color: #c62828;">❌ Quebras</div>
+                                                <div class="falta-label" style="color: #c62828;">❌ O.S Improdutivas</div>
                                                 <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
                                             </div>
                                         </div>
                                     </div>''', unsafe_allow_html=True)
-                    
+                                    
                     if st.session_state.novo_ciclo:
                         texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} contratos N E, e no momento temos {total_ne_mig}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
@@ -616,7 +616,7 @@ with CONTEUDO_TV.container():
                     df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
                     
                     total_geral_pme = len(df_pme)
-                    total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'Quebras'])
+                    total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'O.S NE']) # <--- CORRIGIDO AQUI
                     total_prod_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'Produtivo'])
                     
                     soma_valida_pme = total_ne_pme + total_prod_pme
@@ -627,7 +627,7 @@ with CONTEUDO_TV.container():
                     cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME (TETO 20%)
                         </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
                             Total Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
@@ -647,7 +647,7 @@ with CONTEUDO_TV.container():
                                     
                                     qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
                                     qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
-                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'Quebras'])
+                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE']) # <--- CORRIGIDO AQUI
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
