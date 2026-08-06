@@ -92,7 +92,7 @@ def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-# FUNÇÃO CORRIGIDA COM PRIORIDADE MÁXIMA PARA "O.S NE" E "CANCELADO"
+# FUNÇÃO PARA STATUS
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
     
@@ -449,7 +449,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 7: MIGRAÇÃO GPON (ABC) 
+    # TELA 7: MIGRAÇÃO GPON (ABC) COM SOMA DA COLUNA "TOTAL DE TAREFAS"
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
@@ -466,8 +466,8 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
+            col_tarefas = next((c for c in df.columns if 'TOTAL DE TAREFAS' in c or 'TAREFAS' in c), None)
             
-            # ATENÇÃO: TRAVA DE SEGURANÇA PARA PEGAR A COLUNA STATUS EXATA!
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
             
@@ -480,7 +480,7 @@ with CONTEUDO_TV.container():
             df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
-            if col_hab and col_os and col_status:
+            if col_hab and col_os and col_status and col_tarefas:
                 cond_gpon = df_abc[col_hab].astype(str).str.contains('PON(1/100)', regex=False, na=False)
                 str_os = df_abc[col_os].astype(str).str.upper()
                 cond_os = str_os.str.contains('MUDANCA DE PACOTE', na=False) | str_os.str.contains('MUDANÇA DE PACOTE', na=False)
@@ -491,16 +491,19 @@ with CONTEUDO_TV.container():
                     st.warning("Nenhum contrato de Migração encontrado para os filtros atuais.")
                 else:
                     df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
+                    # CONVERTE A COLUNA TOTAL DE TAREFAS PARA NÚMERO
+                    df_mig[col_tarefas] = pd.to_numeric(df_mig[col_tarefas], errors='coerce').fillna(0)
                     
-                    total_geral_mig = len(df_mig)
-                    total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE'])
+                    # Cálculos Globais usando SOMA das tarefas
+                    total_geral_mig = int(df_mig[col_tarefas].sum())
+                    total_ne_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'O.S NE', col_tarefas].sum())
                     teto_ne_global = int(np.floor(total_geral_mig * 0.20))
                     cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO</div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 RESUMO GERAL DE NE (TETO GLOBAL DE 20%)</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total de Contratos: <span style="color:#003366">{total_geral_mig}</span> | 
+                            Total Tarefas: <span style="color:#003366">{total_geral_mig}</span> | 
                             Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             NEs Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                         </div>
@@ -514,16 +517,15 @@ with CONTEUDO_TV.container():
                                 with cols_sup[j]:
                                     df_sup = df_mig[df_mig['SUPERVISOR_CLEAN'] == sup]
                                     
-                                    qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
-                                    qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
-                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE'])
+                                    qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', col_tarefas].sum())
+                                    qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', col_tarefas].sum())
+                                    qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', col_tarefas].sum())
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
                                     
-                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS
-                                    total_sup = len(df_sup)
+                                    total_sup = int(df_sup[col_tarefas].sum())
                                     teto_sup = int(np.floor(total_sup * 0.20))
                                     saldo_sup = teto_sup - qtd_ne
                                     cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
@@ -535,7 +537,7 @@ with CONTEUDO_TV.container():
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Sup: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
+                                            Total Tarefas: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -554,7 +556,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
 
             else:
-                st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
+                st.error("Colunas necessárias (Habilidade, Tipo OS, Status, Total de Tarefas) não encontradas.")
         else:
             st.error("Ficheiro rota_sincronizada.csv não encontrado.")
             
@@ -564,7 +566,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 8: PME (ABC)
+    # TELA 8: PME (ABC) COM SOMA DA COLUNA "TOTAL DE TAREFAS"
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
@@ -581,8 +583,8 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c), None)
+            col_tarefas = next((c for c in df.columns if 'TOTAL DE TAREFAS' in c or 'TAREFAS' in c), None)
             
-            # ATENÇÃO: TRAVA DE SEGURANÇA PARA PEGAR A COLUNA STATUS EXATA!
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c), None)
             
@@ -595,7 +597,7 @@ with CONTEUDO_TV.container():
             df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
-            if col_cat and col_os and col_status:
+            if col_cat and col_os and col_status and col_tarefas:
                 cond_cat = df_abc[col_cat].astype(str).str.upper().str.contains('PME', na=False)
                 str_os = df_abc[col_os].astype(str).str.upper()
                 cond_os = str_os.str.contains('1 - ADES', na=False) | str_os.str.contains('51 - ADES', na=False) | str_os.str.contains('516 - ADES', na=False)
@@ -606,17 +608,19 @@ with CONTEUDO_TV.container():
                     st.warning("Nenhum contrato PME encontrado para os filtros atuais.")
                 else:
                     df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
+                    # CONVERTE A COLUNA TOTAL DE TAREFAS PARA NÚMERO
+                    df_pme[col_tarefas] = pd.to_numeric(df_pme[col_tarefas], errors='coerce').fillna(0)
                     
-                    total_geral_pme = len(df_pme)
-                    total_ne_pme = len(df_pme[df_pme['STATUS_PADRAO'] == 'O.S NE'])
+                    # Cálculos Globais usando SOMA das tarefas
+                    total_geral_pme = int(df_pme[col_tarefas].sum())
+                    total_ne_pme = int(df_pme.loc[df_pme['STATUS_PADRAO'] == 'O.S NE', col_tarefas].sum())
                     teto_ne_global = int(np.floor(total_geral_pme * 0.20))
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME
-                        </div>
+                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 RESUMO GERAL DE NE (TETO GLOBAL DE 20%)</div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total de Contratos: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Total Tarefas: <span style="color:#003366">{total_geral_pme}</span> | 
                             Teto NE Base: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             NEs Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div>
@@ -630,16 +634,15 @@ with CONTEUDO_TV.container():
                                 with cols_sup[j]:
                                     df_sup = df_pme[df_pme['SUPERVISOR_CLEAN'] == sup]
                                     
-                                    qtd_aberto = len(df_sup[df_sup['STATUS_PADRAO'] == 'Em aberto'])
-                                    qtd_produtivo = len(df_sup[df_sup['STATUS_PADRAO'] == 'Produtivo'])
-                                    qtd_ne = len(df_sup[df_sup['STATUS_PADRAO'] == 'O.S NE'])
+                                    qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', col_tarefas].sum())
+                                    qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', col_tarefas].sum())
+                                    qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', col_tarefas].sum())
                                     
                                     soma_base = qtd_ne + qtd_produtivo
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
                                     
-                                    # CÁLCULOS INDIVIDUAIS DESMEMBRADOS
-                                    total_sup = len(df_sup)
+                                    total_sup = int(df_sup[col_tarefas].sum())
                                     teto_sup = int(np.floor(total_sup * 0.20))
                                     saldo_sup = teto_sup - qtd_ne
                                     cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
@@ -651,7 +654,7 @@ with CONTEUDO_TV.container():
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Sup: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
+                                            Total Tarefas: {total_sup} | Teto NE(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -670,7 +673,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
 
             else:
-                st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
+                st.error("Colunas necessárias (Categorias, Tipo OS, Status, Total de Tarefas) não encontradas.")
                 
         if st.session_state.novo_ciclo:
             st.session_state.script_audio_atual = ""
