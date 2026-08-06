@@ -494,7 +494,7 @@ with CONTEUDO_TV.container():
                     
                     total_geral_mig = len(df_mig)
                     total_ne_mig = len(df_mig[df_mig['STATUS_PADRAO'] == 'O.S NE'])
-                    teto_ne_global = int(np.floor(total_geral_mig * 0.20))
+                    teto_ne_global = int(np.floor(total_geral_mig * 0.25))
                     cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
