@@ -718,7 +718,7 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
 
                 def class_sup(row):
-                    for oficial in SUPERVISORES_ORDENADOS:
+                    for oficial in SUPERVISORES:
                         if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
                     return "DESCARTADO"
 
@@ -807,7 +807,7 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
 
                 def class_sup(row):
-                    for oficial in SUPERVISORES_ORDENADOS:
+                    for oficial in SUPERVISORES:
                         if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
                     return "DESCARTADO"
 
@@ -937,7 +937,7 @@ with CONTEUDO_TV.container():
                     for _, row in df_ind.dropna(subset=[col_recurso, col_sup]).iterrows():
                         tec = str(row[col_recurso]).upper().strip()
                         sup = str(row[col_sup]).upper().strip()
-                        for oficial in SUPERVISORES_ORDENADOS:
+                        for oficial in SUPERVISORES:
                             if oficial in sup:
                                 mapa_tecnico_sup[tec] = oficial
                                 break
@@ -945,7 +945,7 @@ with CONTEUDO_TV.container():
                 def resolver_supervisor(row):
                     tec = str(row.get(col_recurso, '')).upper().strip()
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                    for oficial in SUPERVISORES_ORDENADOS:
+                    for oficial in SUPERVISORES:
                         if oficial in sup: return oficial
                     return mapa_tecnico_sup.get(tec, "NÃO IDENTIFICADO")
 
