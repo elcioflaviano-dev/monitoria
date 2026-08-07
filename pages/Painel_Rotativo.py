@@ -95,15 +95,21 @@ def limpar_texto(txt):
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
     
+    # 1. Regra para QUEBRA (O.S NE, Cancelado, Ausente, etc)
     if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE' or 'CANCEL' in val_upper or 'QUEBRA' in val_upper: 
         return 'O.S NE'
+        
+    # 2. Regra para ABERTO
     if 'ABERTO' in val_upper or 'PEND' in val_upper: 
         return 'Em aberto'
+        
+    # 3. Regra para PRODUTIVO
     if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
         return 'Produtivo'
         
     return val_upper
 
+# Inicialização do estado da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.novo_ciclo = True
@@ -247,6 +253,9 @@ CONTEUDO_TV = st.empty()
 
 with CONTEUDO_TV.container():
 
+    # -------------------------------------------------------------------------
+    # TELA 4: TELA BRANCA DE TRANSIÇÃO
+    # -------------------------------------------------------------------------
     if st.session_state.idx == 4:
         st.markdown(
             """
@@ -257,6 +266,9 @@ with CONTEUDO_TV.container():
             unsafe_allow_html=True
         )
 
+    # -------------------------------------------------------------------------
+    # TELA 0: TÉCNICOS NA BASE
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
@@ -318,6 +330,9 @@ with CONTEUDO_TV.container():
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
+    # -------------------------------------------------------------------------
+    # TELA 1: TEC1 PENDENTES
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -435,6 +450,9 @@ with CONTEUDO_TV.container():
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
+    # -------------------------------------------------------------------------
+    # TELA 7: MIGRAÇÃO GPON
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
@@ -455,13 +473,13 @@ with CONTEUDO_TV.container():
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
             
-            def class_sup_gpon(row):
+            def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                 for oficial in SUPERVISORES_ORDENADOS:
                     if oficial in sup: return oficial
                 return "DESCARTADO"
             
-            df['SUPERVISOR_CLEAN'] = df.apply(class_sup_gpon, axis=1)
+            df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
             if col_hab and col_os and col_status:
@@ -561,6 +579,9 @@ with CONTEUDO_TV.container():
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
+    # -------------------------------------------------------------------------
+    # TELA 8: PME 
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
@@ -581,13 +602,13 @@ with CONTEUDO_TV.container():
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
             
-            def class_sup_pme(row):
+            def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                 for oficial in SUPERVISORES_ORDENADOS:
                     if oficial in sup: return oficial
                 return "DESCARTADO"
             
-            df['SUPERVISOR_CLEAN'] = df.apply(class_sup_pme, axis=1)
+            df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
             if col_cat and col_os and col_status:
@@ -708,8 +729,6 @@ with CONTEUDO_TV.container():
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS DA ATIVIDADE' in c), None)
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
             
-            col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c), None)
-
             def class_sup_9(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                 for oficial in SUPERVISORES_ORDENADOS:
@@ -722,10 +741,68 @@ with CONTEUDO_TV.container():
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
 
+                # Busca blindada para não pegar a coluna errada de Tarefa e contar linhas em vez de somar valores
+                col_tarefas = next((c for c in df_rota.columns if c in ['TOTAL DE TAREFAS', 'TOTAL TAREFAS', 'TOTAL TAREFA']), None)
+                if not col_tarefas: col_tarefas = next((c for c in df_rota.columns if 'TOTAL' in c and 'TAREFA' in c), None)
+                if not col_tarefas: col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c), None)
+
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
                 else:
                     df_proj['VALOR_TAREFA'] = 1
+
+                # ---> INÍCIO DA CRIAÇÃO DO BANNER TOTAL GERAL <---
+                df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
+                em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+                os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+                produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+
+                total_tarefas_op = em_aberto_op + os_ne_op + produtivo_op
+                total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
+                if total_tecnicos_op == 0: total_tecnicos_op = 1
+
+                denom_quebra_op = os_ne_op + produtivo_op
+                quebra_op = (os_ne_op / denom_quebra_op) if denom_quebra_op > 0 else 0
+                eficiencia_op = 1 - quebra_op
+                projecao_op = produtivo_op + (em_aberto_op * eficiencia_op)
+                media_equipe_op = total_tarefas_op / total_tecnicos_op
+
+                cor_q_op = "#c62828" if quebra_op > 0.20 else "#2e7d32"
+
+                st.markdown(f'''
+                <div class="box-base" style="padding: 20px 10px; margin-bottom: 25px; border-left: 15px solid #003366; background: #e3f2fd;">
+                    <div class="nome-base" style="font-size: 35px !important; margin-bottom: 15px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 TOTAL GERAL DA OPERAÇÃO</div>
+                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
+                            <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #666;">PROJEÇÃO</div>
+                            <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
+                            <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1%}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #666;">QUEBRAS</div>
+                            <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1%}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 20px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
+                            <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 24px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
+                        <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
+                        <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
+                        <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
+                        <span>👷 TÉCNICOS: <span style="color:#003366;">{total_tecnicos_op}</span></span>
+                    </div>
+                </div>
+                ''', unsafe_allow_html=True)
+                # ---> FIM DO BANNER TOTAL GERAL <---
 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
@@ -790,6 +867,9 @@ with CONTEUDO_TV.container():
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
+    # -------------------------------------------------------------------------
+    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
@@ -876,6 +956,9 @@ with CONTEUDO_TV.container():
         else: 
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
+    # -------------------------------------------------------------------------
+    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
@@ -982,6 +1065,9 @@ with CONTEUDO_TV.container():
         else: 
             st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
+    # -------------------------------------------------------------------------
+    # TELA 3: PRINT DOS INDICADORES
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 3:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
@@ -1060,6 +1146,9 @@ with CONTEUDO_TV.container():
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
+    # -------------------------------------------------------------------------
+    # TELA 2: HORÁRIO ⏱️ COM SEGUNDOS PASSANDO EM TEMPO REAL 🕒
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
