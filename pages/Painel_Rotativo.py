@@ -774,7 +774,7 @@ with CONTEUDO_TV.container():
 
                                 cor_q = "#c62828" if quebra > 0.20 else "#2e7d32"
 
-                                st.markdown(f'''
+                               st.markdown(f'''
                                 <div class="sup-card">
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
@@ -795,6 +795,10 @@ with CONTEUDO_TV.container():
                                         <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
                                             <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
                                             <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
+                                        </div>
+                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                            <div class="falta-label" style="color: #c62828;">❌ QUEBRAS</div>
+                                            <div class="falta-value" style="color: #b30000;">{int(os_ne)}</div>
                                         </div>
                                         <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
                                             <div class="falta-label" style="color: #00838f;">🚀 PROJEÇÃO</div>
