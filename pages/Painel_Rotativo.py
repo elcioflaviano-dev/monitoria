@@ -95,7 +95,7 @@ def limpar_texto(txt):
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
     
-    # 1. Regra para QUEBRA (O.S NE, Cancelado, Ausente, etc)
+    # 1. Regra para QUEBRA
     if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE' or 'CANCEL' in val_upper or 'QUEBRA' in val_upper: 
         return 'O.S NE'
         
@@ -254,7 +254,7 @@ CONTEUDO_TV = st.empty()
 with CONTEUDO_TV.container():
 
     # -------------------------------------------------------------------------
-    # TELA 4: TELA BRANCA DE TRANSIÇÃO
+    # TELA 4: TRANSIÇÃO
     # -------------------------------------------------------------------------
     if st.session_state.idx == 4:
         st.markdown(
@@ -262,12 +262,11 @@ with CONTEUDO_TV.container():
             <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #ffffff; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 <h1 style="color: #003366; font-size: 50px;">🔄 Atualizando Indicadores...</h1>
             </div>
-            """, 
-            unsafe_allow_html=True
+            """, unsafe_allow_html=True
         )
 
     # -------------------------------------------------------------------------
-    # TELA 0: TÉCNICOS NA BASE
+    # TELA 0: BASE
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(f'''<div class="topo-container">
@@ -322,8 +321,7 @@ with CONTEUDO_TV.container():
                 if st.session_state.novo_ciclo:
                     if permitir_audio_base:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>"
-                    else:
-                        script_cenario = ""
+                    else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -331,7 +329,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 PENDENTES
+    # TELA 1: TEC1
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
@@ -361,15 +359,9 @@ with CONTEUDO_TV.container():
             col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
             
             hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
-            if hora_atual < 12: 
-                label_janela = "ATÉ 12:00"
-                fala_janela = "até as 12 horas"
-            elif 12 <= hora_atual < 15: 
-                label_janela = "ATÉ 15:00"
-                fala_janela = "até as 15 horas"
-            else: 
-                label_janela = "ATÉ 18:00"
-                fala_janela = "até as 18 horas"
+            if hora_atual < 12: label_janela = "ATÉ 12:00"
+            elif 12 <= hora_atual < 15: label_janela = "ATÉ 15:00"
+            else: label_janela = "ATÉ 18:00"
             
             st.markdown(f'''<div class="topo-container">
                 <div class="topo-esquerda">{logo_html}</div>
@@ -432,18 +424,13 @@ with CONTEUDO_TV.container():
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                         delay_atual = 0
                         script_cenario += f"anunciarBase('{frase_incisiva_tec1} Base: {qtd_abc} pendentes.', {delay_atual});\n"
-                        
                         delay_atual += 8500 
-                        
                         for i, sup_full in enumerate(SUPS_ABC):
                             qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]) if not df_pendentes_geral.empty else 0
                             script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPERVISORES_ORDENADOS)});\n"
                             delay_atual += 8500 
-                            
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPERVISORES_ORDENADOS)}) , {delay_atual});\n</script>"
-                    else:
-                        script_cenario = ""
-                        
+                    else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -469,17 +456,12 @@ with CONTEUDO_TV.container():
             col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c or 'HABILIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
             
-            # Busca Blindada da Coluna Total de Tarefas
+            # Busca Blindada
             col_tarefas = None
             for c in df.columns:
-                c_clean = str(c).upper().strip()
-                if 'TOTAL' in c_clean and 'TAREFA' in c_clean:
-                    col_tarefas = c
-                    break
-            if not col_tarefas:
-                for c in df.columns:
-                    c_clean = str(c).upper().strip()
-                    if 'TAREFA' in c_clean:
+                c_clean = unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').upper().strip()
+                if 'TAREFA' in c_clean or 'QTD' in c_clean:
+                    if 'GERAL' not in c_clean and 'TECNICO' not in c_clean:
                         col_tarefas = c
                         break
             
@@ -509,8 +491,8 @@ with CONTEUDO_TV.container():
                     
                     if col_tarefas:
                         df_mig['QTD_TAREFAS_NUM'] = pd.to_numeric(df_mig[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    else:
-                        df_mig['QTD_TAREFAS_NUM'] = 1
+                        if df_mig['QTD_TAREFAS_NUM'].sum() == 0 and len(df_mig) > 0: df_mig['QTD_TAREFAS_NUM'] = 1
+                    else: df_mig['QTD_TAREFAS_NUM'] = 1
                     
                     total_geral_mig = int(df_mig['QTD_TAREFAS_NUM'].sum())
                     total_ne_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
@@ -583,13 +565,10 @@ with CONTEUDO_TV.container():
                         texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_mig}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
-            else:
-                st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
-        else:
-            st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+            else: st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
             
-        if st.session_state.novo_ciclo:
-            st.session_state.novo_ciclo = False
+        if st.session_state.novo_ciclo: st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
@@ -611,17 +590,11 @@ with CONTEUDO_TV.container():
             col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
             
-            # Busca Blindada da Coluna Total de Tarefas
             col_tarefas = None
             for c in df.columns:
-                c_clean = str(c).upper().strip()
-                if 'TOTAL' in c_clean and 'TAREFA' in c_clean:
-                    col_tarefas = c
-                    break
-            if not col_tarefas:
-                for c in df.columns:
-                    c_clean = str(c).upper().strip()
-                    if 'TAREFA' in c_clean:
+                c_clean = unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').upper().strip()
+                if 'TAREFA' in c_clean or 'QTD' in c_clean:
+                    if 'GERAL' not in c_clean and 'TECNICO' not in c_clean:
                         col_tarefas = c
                         break
             
@@ -651,8 +624,8 @@ with CONTEUDO_TV.container():
                     
                     if col_tarefas:
                         df_pme['QTD_TAREFAS_NUM'] = pd.to_numeric(df_pme[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    else:
-                        df_pme['QTD_TAREFAS_NUM'] = 1
+                        if df_pme['QTD_TAREFAS_NUM'].sum() == 0 and len(df_pme) > 0: df_pme['QTD_TAREFAS_NUM'] = 1
+                    else: df_pme['QTD_TAREFAS_NUM'] = 1
                     
                     total_geral_pme = int(df_pme['QTD_TAREFAS_NUM'].sum())
                     total_ne_pme = int(df_pme.loc[df_pme['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
@@ -726,15 +699,13 @@ with CONTEUDO_TV.container():
                         texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
-            else:
-                st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
+            else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
                 
-        if st.session_state.novo_ciclo:
-            st.session_state.novo_ciclo = False
+        if st.session_state.novo_ciclo: st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 9: VISÃO GERAL DA ROTA & PROJEÇÃO (NOVA TELA) 🚀
+    # TELA 9: VISÃO GERAL DA ROTA E PROJEÇÃO (NOVA TELA) 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 9:
         st.markdown(f'''<div class="topo-container">
@@ -755,17 +726,12 @@ with CONTEUDO_TV.container():
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS DA ATIVIDADE' in c), None)
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
             
-            # Busca Blindada da Coluna Total de Tarefas (Mais Robusta)
+            # --- BUSCA BLINDADA DA COLUNA DE TAREFAS ---
             col_tarefas = None
             for c in df_rota.columns:
-                c_clean = str(c).upper().strip()
-                if 'TOTAL' in c_clean and 'TAREFA' in c_clean:
-                    col_tarefas = c
-                    break
-            if not col_tarefas:
-                for c in df_rota.columns:
-                    c_clean = str(c).upper().strip()
-                    if 'TAREFA' in c_clean:
+                c_clean = unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').upper().strip()
+                if 'TAREFA' in c_clean or 'QTD' in c_clean:
+                    if 'GERAL' not in c_clean and 'TECNICO' not in c_clean:
                         col_tarefas = c
                         break
 
@@ -781,13 +747,17 @@ with CONTEUDO_TV.container():
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
 
-                # Tratamento do Valor da Tarefa (Garante o cálculo real e idêntico ao Excel)
+                # Tratamento do Valor da Tarefa (Garante o cálculo real idêntico ao Excel)
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                    # Se zerou tudo (falha no texto da coluna), força contar linhas
+                    if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0:
+                        df_proj['VALOR_TAREFA'] = 1
                 else:
                     df_proj['VALOR_TAREFA'] = 1
+                    st.error(f"⚠️ COLUNA DE TAREFAS NÃO ENCONTRADA! A TV está contando apenas 1 por linha. Colunas no CSV: {', '.join(df_rota.columns)}")
 
-                # ---> INÍCIO DA CRIAÇÃO DO BANNER TOTAL GERAL <---
+                # ---> INÍCIO DO BANNER TOTAL GERAL <---
                 df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
@@ -904,7 +874,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL
+    # TELA 5: CONSULTIVO GERAL
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
         st.markdown(f'''<div class="topo-container">
@@ -987,13 +957,11 @@ with CONTEUDO_TV.container():
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
-            except Exception as e:
-                st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
-        else: 
-            st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+            except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
+        else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
-    # TELA 6: PAINEL DO CONSULTIVO DIÁRIO 
+    # TELA 6: CONSULTIVO DIÁRIO 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
         st.markdown(f'''<div class="topo-container">
@@ -1037,8 +1005,7 @@ with CONTEUDO_TV.container():
                 dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes <= 0: dias_restantes = 1
 
-                if df_hoje.empty:
-                     st.warning(f"⚠️ Atenção: Nenhum consultivo lançado para a data de hoje ({hoje_str_br}).")
+                if df_hoje.empty: st.warning(f"⚠️ Atenção: Nenhum consultivo lançado para a data de hoje ({hoje_str_br}).")
 
                 total_hoje_abc = df_hoje['QTD_PRODUTOS_CALC'].sum() if not df_hoje.empty else 0
 
@@ -1096,10 +1063,8 @@ with CONTEUDO_TV.container():
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
-            except Exception as e:
-                st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
-        else: 
-            st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+            except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
+        else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
 
     # -------------------------------------------------------------------------
     # TELA 3: PRINT DOS INDICADORES
@@ -1175,15 +1140,14 @@ with CONTEUDO_TV.container():
                 if st.session_state.novo_ciclo:
                     if permitir_audio_ind:
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
-                    else:
-                        st.session_state.script_audio_atual = ""
+                    else: st.session_state.script_audio_atual = ""
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO ⏱️ COM SEGUNDOS PASSANDO EM TEMPO REAL 🕒
+    # TELA 2: HORÁRIO
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
