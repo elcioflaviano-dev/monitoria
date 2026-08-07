@@ -94,14 +94,19 @@ def limpar_texto(txt):
 
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
-    if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE': 
+    
+    # 1. Regra para QUEBRA (O.S NE, Cancelado, Ausente, etc)
+    if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE' or 'CANCEL' in val_upper or 'QUEBRA' in val_upper: 
         return 'O.S NE'
+        
+    # 2. Regra para ABERTO
     if 'ABERTO' in val_upper or 'PEND' in val_upper: 
         return 'Em aberto'
+        
+    # 3. Regra para PRODUTIVO
     if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
         return 'Produtivo'
-    if 'CANCEL' in val_upper: 
-        return 'Cancelado'
+        
     return val_upper
 
 # Inicialização do estado da sessão
@@ -720,8 +725,9 @@ with CONTEUDO_TV.container():
             col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
             
-            # Ajuste dinâmico para pegar a coluna de Status correta
-            col_status = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
+            # Ajuste dinâmico para pegar a coluna de Status correta (prioriza a tratada)
+            col_status = next((c for c in df_rota.columns if 'STATUS_TV' in c or 'STATUS TV' in c), None)
+            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS DA ATIVIDADE' in c), None)
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
             
             col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c), None)
