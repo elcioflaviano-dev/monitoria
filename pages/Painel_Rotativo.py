@@ -468,7 +468,20 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c or 'HABILIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
-            col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
+            
+            # Busca Blindada da Coluna Total de Tarefas
+            col_tarefas = None
+            for c in df.columns:
+                c_clean = str(c).upper().strip()
+                if 'TOTAL' in c_clean and 'TAREFA' in c_clean:
+                    col_tarefas = c
+                    break
+            if not col_tarefas:
+                for c in df.columns:
+                    c_clean = str(c).upper().strip()
+                    if 'TAREFA' in c_clean:
+                        col_tarefas = c
+                        break
             
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
@@ -495,7 +508,7 @@ with CONTEUDO_TV.container():
                     df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
                     
                     if col_tarefas:
-                        df_mig['QTD_TAREFAS_NUM'] = pd.to_numeric(df_mig[col_tarefas].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                        df_mig['QTD_TAREFAS_NUM'] = pd.to_numeric(df_mig[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
                     else:
                         df_mig['QTD_TAREFAS_NUM'] = 1
                     
@@ -556,7 +569,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -597,7 +610,20 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
-            col_tarefas = next((c for c in df.columns if 'TAREFA' in c), None)
+            
+            # Busca Blindada da Coluna Total de Tarefas
+            col_tarefas = None
+            for c in df.columns:
+                c_clean = str(c).upper().strip()
+                if 'TOTAL' in c_clean and 'TAREFA' in c_clean:
+                    col_tarefas = c
+                    break
+            if not col_tarefas:
+                for c in df.columns:
+                    c_clean = str(c).upper().strip()
+                    if 'TAREFA' in c_clean:
+                        col_tarefas = c
+                        break
             
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
@@ -624,7 +650,7 @@ with CONTEUDO_TV.container():
                     df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
                     
                     if col_tarefas:
-                        df_pme['QTD_TAREFAS_NUM'] = pd.to_numeric(df_pme[col_tarefas].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                        df_pme['QTD_TAREFAS_NUM'] = pd.to_numeric(df_pme[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
                     else:
                         df_pme['QTD_TAREFAS_NUM'] = 1
                     
@@ -686,7 +712,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -729,6 +755,20 @@ with CONTEUDO_TV.container():
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS DA ATIVIDADE' in c), None)
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
             
+            # Busca Blindada da Coluna Total de Tarefas (Mais Robusta)
+            col_tarefas = None
+            for c in df_rota.columns:
+                c_clean = str(c).upper().strip()
+                if 'TOTAL' in c_clean and 'TAREFA' in c_clean:
+                    col_tarefas = c
+                    break
+            if not col_tarefas:
+                for c in df_rota.columns:
+                    c_clean = str(c).upper().strip()
+                    if 'TAREFA' in c_clean:
+                        col_tarefas = c
+                        break
+
             def class_sup_9(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                 for oficial in SUPERVISORES_ORDENADOS:
@@ -741,13 +781,9 @@ with CONTEUDO_TV.container():
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
 
-                # Busca blindada para não pegar a coluna errada de Tarefa e contar linhas em vez de somar valores
-                col_tarefas = next((c for c in df_rota.columns if c in ['TOTAL DE TAREFAS', 'TOTAL TAREFAS', 'TOTAL TAREFA']), None)
-                if not col_tarefas: col_tarefas = next((c for c in df_rota.columns if 'TOTAL' in c and 'TAREFA' in c), None)
-                if not col_tarefas: col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c), None)
-
+                # Tratamento do Valor da Tarefa (Garante o cálculo real e idêntico ao Excel)
                 if col_tarefas:
-                    df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
                 else:
                     df_proj['VALOR_TAREFA'] = 1
 
