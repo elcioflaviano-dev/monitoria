@@ -426,7 +426,7 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPERVISORES_ORDENADOS)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Contratos pendentes {fala_janela}. Base: {qtd_abc} pendentes.', {delay_atual});\n"
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Base: {qtd_abc} pendentes.', {delay_atual});\n"
                         
                         delay_atual += 8500 
                         
@@ -446,7 +446,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 7: MIGRAÇÃO GPON (CÁLCULO POR SOMA DA COLUNA TOTAL DE TAREFAS)
+    # TELA 7: MIGRAÇÃO GPON
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
         st.markdown(f'''<div class="topo-container">
@@ -489,7 +489,6 @@ with CONTEUDO_TV.container():
                 else:
                     df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
                     
-                    # Trata a coluna de tarefas para soma de O.S
                     if col_tarefas:
                         df_mig['QTD_TAREFAS_NUM'] = pd.to_numeric(df_mig[col_tarefas].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
                     else:
@@ -576,7 +575,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 8: PME (CÁLCULO POR SOMA DA COLUNA TOTAL DE TAREFAS)
+    # TELA 8: PME 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
@@ -702,6 +701,107 @@ with CONTEUDO_TV.container():
         if st.session_state.novo_ciclo:
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+    # -------------------------------------------------------------------------
+    # TELA 9: VISÃO GERAL DA ROTA & PROJEÇÃO (NOVA TELA) 🚀
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx == 9:
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">VISÃO GERAL DA ROTA E PROJEÇÃO</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+            df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
+
+            col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
+            col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
+            
+            # Ajuste dinâmico para pegar a coluna de Status correta
+            col_status = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
+            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
+            
+            col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c), None)
+
+            def class_sup_9(row):
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                for oficial in SUPERVISORES_ORDENADOS:
+                    if oficial in sup: return oficial
+                return "DESCARTADO"
+
+            if col_status:
+                df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_9, axis=1)
+                df_proj = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+
+                df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
+
+                # Usa a coluna de tarefas; caso não exista, considera cada linha como 1 Tarefa
+                if col_tarefas:
+                    df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                else:
+                    df_proj['VALOR_TAREFA'] = 1
+
+                for i in range(0, len(SUPS_ABC), 2):
+                    cols_sup = st.columns(2)
+                    for j in range(2):
+                        if i + j < len(SUPS_ABC):
+                            sup = SUPS_ABC[i + j]
+                            with cols_sup[j]:
+                                df_sup = df_proj[df_proj['SUPERVISOR_CLEAN'] == sup]
+
+                                em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+                                os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+                                produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+
+                                total_tarefas = em_aberto + os_ne + produtivo
+                                total_tecnicos = df_sup[col_tecnico].nunique() if col_tecnico in df_sup.columns else 1
+                                if total_tecnicos == 0: total_tecnicos = 1
+
+                                denom_quebra = os_ne + produtivo
+                                quebra = (os_ne / denom_quebra) if denom_quebra > 0 else 0
+                                eficiencia = 1 - quebra
+                                projecao = produtivo + (em_aberto * eficiencia)
+                                media_equipe = total_tarefas / total_tecnicos
+
+                                cor_q = "#c62828" if quebra > 0.20 else "#2e7d32"
+
+                                st.markdown(f'''
+                                <div class="sup-card">
+                                    <div class="sup-header">
+                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                        <div class="badge-faltas" style="background: #e3f2fd; color: #006064; border-color: #006064;">
+                                            Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 26px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #eee;">
+                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp;
+                                        QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp;
+                                        EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
+                                    </div>
+                                    <div class="faltas-grid">
+                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                            <div class="falta-label" style="color: #b78103;">⏳ ABERTO</div>
+                                            <div class="falta-value" style="color: #b78103;">{int(em_aberto)}</div>
+                                        </div>
+                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                            <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                            <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
+                                        </div>
+                                        <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
+                                            <div class="falta-label" style="color: #00838f;">🚀 PROJEÇÃO</div>
+                                            <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
+                                        </div>
+                                    </div>
+                                </div>''', unsafe_allow_html=True)
+                if st.session_state.novo_ciclo:
+                    st.session_state.script_audio_atual = ""
+                    st.session_state.novo_ciclo = False
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            else: st.error("Coluna Status não encontrada na base de dados da rota.")
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
     # TELA 5: PAINEL DO CONSULTIVO OPERACIONAL GERAL
@@ -983,7 +1083,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO ⏱️
+    # TELA 2: HORÁRIO ⏱️ COM SEGUNDOS PASSANDO EM TEMPO REAL 🕒
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
         st.markdown(f'''<div class="topo-container">
@@ -1031,6 +1131,7 @@ if st.session_state.idx == 0: espera = 60
 elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 7: espera = 60 
 elif st.session_state.idx == 8: espera = 60 
+elif st.session_state.idx == 9: espera = 60 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
@@ -1050,7 +1151,8 @@ else:
     else:
         if st.session_state.idx == 1: prox_idx = 7
         elif st.session_state.idx == 7: prox_idx = 8
-        elif st.session_state.idx == 8: prox_idx = 5
+        elif st.session_state.idx == 8: prox_idx = 9
+        elif st.session_state.idx == 9: prox_idx = 5
         elif st.session_state.idx == 5: prox_idx = 6 
         elif st.session_state.idx == 6: prox_idx = 3 
         elif st.session_state.idx == 3: prox_idx = 2
