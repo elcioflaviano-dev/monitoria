@@ -457,12 +457,12 @@ with CONTEUDO_TV.container():
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
             
             # Busca Blindada
-            col_s = None
+            col_tarefas = None
             for c in df.columns:
                 c_clean = unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').upper().strip()
-                if '' in c_clean or 'QTD' in c_clean:
+                if 'TAREFA' in c_clean or 'QTD' in c_clean:
                     if 'GERAL' not in c_clean and 'TECNICO' not in c_clean:
-                        col_s = c
+                        col_tarefas = c
                         break
             
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
@@ -489,9 +489,9 @@ with CONTEUDO_TV.container():
                 else:
                     df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
                     
-                    if col_s:
-                        df_mig['QTD_S_NUM'] = pd.to_numeric(df_mig[col_s].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                        if df_mig['QTD_S_NUM'].sum() == 0 and len(df_mig) > 0: df_mig['QTD_S_NUM'] = 1
+                    if col_tarefas:
+                        df_mig['QTD_TAREFAS_NUM'] = pd.to_numeric(df_mig[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                        if df_mig['QTD_TAREFAS_NUM'].sum() == 0 and len(df_mig) > 0: df_mig['QTD_TAREFAS_NUM'] = 1
                     else: df_mig['QTD_TAREFAS_NUM'] = 1
                     
                     total_geral_mig = int(df_mig['QTD_TAREFAS_NUM'].sum())
@@ -551,7 +551,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -562,7 +562,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS improdutivas, e no momento temos {total_ne_mig}."
+                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_mig}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
@@ -685,7 +685,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -696,7 +696,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS impodutivas, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -705,7 +705,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
-    # TELA 9: VISÃO GERAL DA ROTA E PROJEÇÃO 🚀
+    # TELA 9: VISÃO GERAL DA ROTA E PROJEÇÃO (NOVA TELA) 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 9:
         st.markdown(f'''<div class="topo-container">
