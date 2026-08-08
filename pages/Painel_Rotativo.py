@@ -96,16 +96,15 @@ def padronizar_status(val):
     val_upper = str(val).upper().strip()
     
     # 1. Regra para QUEBRA
-    if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE' or 'NÃO CONCLUÍDO' in val_upper or 'NAO CONCLUIDO' in val_upper or 'QUEBRA' in val_upper: 
+    if 'NE' in val_upper or 'NÃO CONCLUÍDO' in val_upper or 'NAO CONCLUIDO' in val_upper or 'QUEBRA' in val_upper or 'CANCEL' in val_upper: 
         return 'O.S NE'
         
-    # 2. Regra para ABERTO
-    if 'ABERTO' in val_upper or 'PEND' in val_upper or 'EM ROTA' in val_upper: 
-        return 'Em aberto'
-        
-    # 3. Regra para PRODUTIVO
+    # 2. Regra para PRODUTIVO
     if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
         return 'Produtivo'
+        
+    # 3. Regra para ABERTO (Tudo que não for Quebra nem Produtivo cai aqui)
+    return 'Em aberto'
         
     return val_upper
 
