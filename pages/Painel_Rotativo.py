@@ -95,15 +95,12 @@ def limpar_texto(txt):
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
     
-    # 1. Regra para QUEBRA
-    if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE' or 'CANCEL' in val_upper or 'QUEBRA' in val_upper: 
+    if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE' or 'NÃO CONCLUÍDO' in val_upper or 'NAO CONCLUIDO' in val_upper or 'QUEBRA' in val_upper: 
         return 'O.S NE'
         
-    # 2. Regra para ABERTO
-    if 'ABERTO' in val_upper or 'PEND' in val_upper: 
+    if 'ABERTO' in val_upper or 'PEND' in val_upper or 'EM ROTA' in val_upper: 
         return 'Em aberto'
         
-    # 3. Regra para PRODUTIVO
     if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
         return 'Produtivo'
         
@@ -550,7 +547,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -561,7 +558,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS improdutivas, e no momento temos {total_ne_mig}."
+                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_mig}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
@@ -684,7 +681,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -695,7 +692,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS improdutivas, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -721,14 +718,36 @@ with CONTEUDO_TV.container():
             col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
             
+            # ---> INTELIGÊNCIA DOS FILTROS DA TABELA DINÂMICA <---
+            
+            # 1. Filtro Cidade (Apenas DIADEMA, SANTO ANDRE, SAO BERNARDO DO CAMPO)
+            col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
+            if col_cidade:
+                df_rota = df_rota[df_rota[col_cidade].notna()]
+                df_rota = df_rota[df_rota[col_cidade].astype(str).str.strip() != '']
+                cond_cidade = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
+                df_rota = df_rota[cond_cidade]
+
+            # 2. Filtro Tipo de Atividade3 (Ignorar vazios e "Retorno Credenciada")
+            col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
+            if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
+            if col_tipo_os:
+                df_rota = df_rota[df_rota[col_tipo_os].notna()]
+                df_rota = df_rota[df_rota[col_tipo_os].astype(str).str.strip() != '']
+                df_rota = df_rota[~df_rota[col_tipo_os].astype(str).str.upper().str.contains('RETORNO CREDENCIADA', na=False)]
+
+            # 3. Filtro Status (Ignorar vazios, Cancelado e Suspenso)
             col_status = next((c for c in df_rota.columns if 'STATUS_TV' in c or 'STATUS TV' in c), None)
-            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS DA ATIVIDADE' in c), None)
+            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
+            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c), None)
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
             
-            # --- BUSCA DA COLUNA TIPO OS PARA TIRAR RETORNOS ---
-            col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
-            if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'ATIVIDADE' in c), None)
-            
+            if col_status:
+                df_rota = df_rota[df_rota[col_status].notna()]
+                df_rota = df_rota[df_rota[col_status].astype(str).str.strip() != '']
+                str_status = df_rota[col_status].astype(str).str.upper()
+                df_rota = df_rota[~str_status.str.contains('CANCELADO|SUSPENSO', na=False)]
+
             # --- BUSCA BLINDADA DA COLUNA DE TAREFAS ---
             col_tarefas = None
             for c in df_rota.columns:
@@ -748,13 +767,9 @@ with CONTEUDO_TV.container():
                 df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_9, axis=1)
                 df_proj = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                # *** TIRANDO OS RETORNOS DA PROJEÇÃO GERAL ***
-                if col_tipo_os:
-                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
-
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
 
-                # Garantindo soma de TAREFAS e não contagem de linhas
+                # Garantindo soma de TAREFAS
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
                     if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0:
@@ -766,12 +781,10 @@ with CONTEUDO_TV.container():
                 # ---> INÍCIO DO BANNER TOTAL GERAL <---
                 df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
-                # BLINDAGEM MATEMÁTICA: O Total dita a regra, o resto se ajusta!
+                # BLINDAGEM MATEMÁTICA
                 total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                
-                # Tudo que sobrar (Aberto, Cancelado sem leitura, etc) cai automaticamente como Aberto/Pendente
                 em_aberto_op = total_tarefas_op - os_ne_op - produtivo_op 
 
                 total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
@@ -1010,7 +1023,7 @@ with CONTEUDO_TV.container():
                 else:
                     df_hoje = pd.DataFrame() 
                 
-                ano, mes = hoje_br.year, hoje_br.month
+                ano, mes = hoje_br.year, down_month = hoje_br.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes <= 0: dias_restantes = 1
