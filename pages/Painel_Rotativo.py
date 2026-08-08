@@ -62,9 +62,9 @@ st.markdown("""<style>
     /* CAIXAS CARDS SUPERVISORES */
     .ind-base-title { font-size: 60px !important; font-weight: 900; text-align: center; margin-bottom: 25px; margin-top: 10px; text-transform: uppercase; color: #2e7d32; }
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
     .sup-name { font-size: 45px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .badge-faltas { background: #ffebee; color: #c62828; padding: 15px 35px; border-radius: 10px; font-size: 35px !important; font-weight: 900; border: 3px solid #ffcdd2; }
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 10px 25px; border-radius: 8px; font-size: 28px !important; font-weight: bold; border: 2px solid #ffcdd2; }
     .faltas-grid { display: flex; justify-content: space-between; gap: 15px; }
     .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 10px; padding: 20px 10px; text-align: center; margin-bottom: 5px; flex: 1; }
     .falta-label { font-size: 22px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 10px; }
@@ -93,14 +93,18 @@ def limpar_texto(txt):
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
 def padronizar_status(val):
-    val_upper = str(val).upper().strip()
+    # Usa o limpar_texto para destruir acentos e garantir que "NÃO" seja lido como "NAO"
+    val_clean = limpar_texto(str(val))
     
-    if 'NE' in val_upper or 'NÃO CONCLUÍDO' in val_upper or 'NAO CONCLUIDO' in val_upper or 'QUEBRA' in val_upper or 'CANCEL' in val_upper: 
+    # 1. Regra Absoluta para QUEBRA
+    if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'CANCEL' in val_clean: 
         return 'O.S NE'
         
-    if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
+    # 2. Regra para PRODUTIVO (Iniciado e Em Rota não entram mais aqui)
+    if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
         return 'Produtivo'
         
+    # 3. Tudo que não bateu com Produtivo e Quebra é ABERTO
     return 'Em aberto'
 
 # Inicialização do estado da sessão
@@ -501,7 +505,7 @@ with CONTEUDO_TV.container():
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total OS: <span style="color:#003366">{total_geral_mig}</span> | 
+                            Total Tarefas: <span style="color:#003366">{total_geral_mig}</span> | 
                             Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
@@ -526,9 +530,9 @@ with CONTEUDO_TV.container():
                                     
                                     st.markdown(f'''
                                     <div class="sup-card">
-                                        <div class="sup-header">
+                                        <div class="sup-header" style="margin-bottom: 5px;">
                                             <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                            <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 12px 25px; border-radius: 8px; font-size: 30px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -536,7 +540,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -627,7 +631,7 @@ with CONTEUDO_TV.container():
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME (TETO 20%)
                         </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total OS: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Total Tarefas: <span style="color:#003366">{total_geral_pme}</span> | 
                             Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
@@ -654,7 +658,7 @@ with CONTEUDO_TV.container():
                                     <div class="sup-card">
                                         <div class="sup-header" style="margin-bottom: 5px;">
                                             <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                            <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 12px 25px; border-radius: 8px; font-size: 30px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -771,7 +775,7 @@ with CONTEUDO_TV.container():
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
                 
-                # Tudo que sobrar (Aberto, Cancelado sem leitura, etc) cai automaticamente como Aberto/Pendente
+                # Tudo que sobrar cai automaticamente como Aberto/Pendente
                 em_aberto_op = total_tarefas_op - os_ne_op - produtivo_op 
 
                 total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
@@ -846,16 +850,14 @@ with CONTEUDO_TV.container():
 
                                 st.markdown(f'''
                                 <div class="sup-card">
-                                    <div class="sup-header">
+                                    <div class="sup-header" style="margin-bottom: 5px;">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                         <div class="badge-faltas" style="background: #e3f2fd; color: #006064; border-color: #006064;">
                                             Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}
                                         </div>
                                     </div>
-                                    <div style="font-size: 26px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #eee;">
-                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp;
-                                        QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp;
-                                        EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
+                                    <div style="font-size: 18px; color: #666; text-align: center; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">
+                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
                                     </div>
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
