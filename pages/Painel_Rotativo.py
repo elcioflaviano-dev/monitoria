@@ -506,7 +506,7 @@ with CONTEUDO_TV.container():
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total Tarefas: <span style="color:#003366">{total_geral_mig}</span> | 
+                            Total OS: <span style="color:#003366">{total_geral_mig}</span> | 
                             Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
