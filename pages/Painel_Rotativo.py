@@ -1150,7 +1150,7 @@ with CONTEUDO_TV.container():
 
                 df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
-                st.markdown('<div class="ind-base-title abc">BASE PENDÊNCIAS</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">PENDÊNCIAS INDICADORES</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
