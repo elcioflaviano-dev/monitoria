@@ -95,12 +95,15 @@ def limpar_texto(txt):
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
     
+    # 1. Regra para QUEBRA
     if 'O.S NE' in val_upper or 'O.S. NE' in val_upper or ' OS NE' in val_upper or val_upper == 'NE' or 'NÃO CONCLUÍDO' in val_upper or 'NAO CONCLUIDO' in val_upper or 'QUEBRA' in val_upper: 
         return 'O.S NE'
         
+    # 2. Regra para ABERTO
     if 'ABERTO' in val_upper or 'PEND' in val_upper or 'EM ROTA' in val_upper: 
         return 'Em aberto'
         
+    # 3. Regra para PRODUTIVO
     if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
         return 'Produtivo'
         
@@ -927,8 +930,10 @@ with CONTEUDO_TV.container():
                 total_realizado_abc = df_cards['QTD_PRODUTOS_CALC'].sum()
 
                 hoje = datetime.utcnow() - timedelta(hours=3)
-                _, num_dias = calendar.monthrange(hoje.year, hoje.month)
-                dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(hoje.year, hoje.month, d) != 6)
+                ano = hoje.year
+                mes = hoje.month
+                _, num_dias = calendar.monthrange(ano, mes)
+                dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
                 meta_mensal_abc = len(SUPS_ABC) * 350
@@ -1023,7 +1028,8 @@ with CONTEUDO_TV.container():
                 else:
                     df_hoje = pd.DataFrame() 
                 
-                ano, mes = hoje_br.year, down_month = hoje_br.month
+                ano = hoje_br.year
+                mes = hoje_br.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes <= 0: dias_restantes = 1
