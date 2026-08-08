@@ -540,7 +540,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -631,7 +631,7 @@ with CONTEUDO_TV.container():
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME (TETO 20%)
                         </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total Tarefas: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Total OS: <span style="color:#003366">{total_geral_pme}</span> | 
                             Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
@@ -666,7 +666,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -857,7 +857,7 @@ with CONTEUDO_TV.container():
                                         </div>
                                     </div>
                                     <div style="font-size: 18px; color: #666; text-align: center; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">
-                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
+                                        TOTAL OS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
                                     </div>
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
