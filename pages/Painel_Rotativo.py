@@ -640,7 +640,7 @@ with CONTEUDO_TV.container():
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME (TETO 20%)
                         </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total Tarefas: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Total OS: <span style="color:#003366">{total_geral_pme}</span> | 
                             Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
