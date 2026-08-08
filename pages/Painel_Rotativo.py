@@ -456,7 +456,6 @@ with CONTEUDO_TV.container():
             col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c or 'HABILIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
             
-            # Busca Blindada
             col_tarefas = None
             for c in df.columns:
                 c_clean = unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').upper().strip()
@@ -508,7 +507,7 @@ with CONTEUDO_TV.container():
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total OS: <span style="color:#003366">{total_geral_mig}</span> | 
+                            Total Tarefas: <span style="color:#003366">{total_geral_mig}</span> | 
                             Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
@@ -551,7 +550,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -562,7 +561,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS improdutivas, e no momento temos {total_ne_mig}."
+                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_mig}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
@@ -642,7 +641,7 @@ with CONTEUDO_TV.container():
                         <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 PME (TETO 20%)
                         </div>
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total OS: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Total Tarefas: <span style="color:#003366">{total_geral_pme}</span> | 
                             Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
@@ -665,7 +664,7 @@ with CONTEUDO_TV.container():
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
                                     
-                                    total_sup = int(df_sup['QTD_TAREFAS_NUM'].sum())
+                                    total_sup = int(df_pme['QTD_TAREFAS_NUM'].sum())
                                     teto_sup = int(np.floor(total_sup * 0.20))
                                     saldo_sup = teto_sup - qtd_ne
                                     cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
@@ -685,7 +684,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -696,7 +695,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS improdutivas, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} tarefas N E, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -726,6 +725,10 @@ with CONTEUDO_TV.container():
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS DA ATIVIDADE' in c), None)
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
             
+            # --- BUSCA DA COLUNA TIPO OS PARA TIRAR RETORNOS ---
+            col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
+            if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'ATIVIDADE' in c), None)
+            
             # --- BUSCA BLINDADA DA COLUNA DE TAREFAS ---
             col_tarefas = None
             for c in df_rota.columns:
@@ -745,25 +748,32 @@ with CONTEUDO_TV.container():
                 df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_9, axis=1)
                 df_proj = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
+                # *** TIRANDO OS RETORNOS DA PROJEÇÃO GERAL ***
+                if col_tipo_os:
+                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
 
-                # Tratamento do Valor da Tarefa (Garante o cálculo real idêntico ao Excel)
+                # Garantindo soma de TAREFAS e não contagem de linhas
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    # Se zerou tudo (falha no texto da coluna), força contar linhas
                     if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0:
                         df_proj['VALOR_TAREFA'] = 1
                 else:
                     df_proj['VALOR_TAREFA'] = 1
-                    st.error(f"⚠️ COLUNA DE TAREFAS NÃO ENCONTRADA! A TV está contando apenas 1 por linha. Colunas no CSV: {', '.join(df_rota.columns)}")
+                    st.error(f"⚠️ COLUNA DE TAREFAS NÃO ENCONTRADA! Contando 1 por linha. Colunas lidas: {', '.join(df_rota.columns)}")
 
                 # ---> INÍCIO DO BANNER TOTAL GERAL <---
                 df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
-                em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+                
+                # BLINDAGEM MATEMÁTICA: O Total dita a regra, o resto se ajusta!
+                total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+                
+                # Tudo que sobrar (Aberto, Cancelado sem leitura, etc) cai automaticamente como Aberto/Pendente
+                em_aberto_op = total_tarefas_op - os_ne_op - produtivo_op 
 
-                total_tarefas_op = em_aberto_op + os_ne_op + produtivo_op
                 total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
                 if total_tecnicos_op == 0: total_tecnicos_op = 1
 
@@ -780,7 +790,7 @@ with CONTEUDO_TV.container():
                     <div class="nome-base" style="font-size: 35px !important; margin-bottom: 15px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 TOTAL GERAL DA OPERAÇÃO</div>
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 20px; font-weight: bold; color: #666;">TOTAL OS</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
                             <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -818,11 +828,11 @@ with CONTEUDO_TV.container():
                             with cols_sup[j]:
                                 df_sup = df_proj[df_proj['SUPERVISOR_CLEAN'] == sup]
 
-                                em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+                                total_tarefas = df_sup['VALOR_TAREFA'].sum()
                                 os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                                 produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+                                em_aberto = total_tarefas - os_ne - produtivo
 
-                                total_tarefas = em_aberto + os_ne + produtivo
                                 total_tecnicos = df_sup[col_tecnico].nunique() if col_tecnico in df_sup.columns else 1
                                 if total_tecnicos == 0: total_tecnicos = 1
 
@@ -843,7 +853,7 @@ with CONTEUDO_TV.container():
                                         </div>
                                     </div>
                                     <div style="font-size: 26px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #eee;">
-                                        TOTAL OS: {int(total_tarefas)} &nbsp;|&nbsp;
+                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp;
                                         QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp;
                                         EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
                                     </div>
