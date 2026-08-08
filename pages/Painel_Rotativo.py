@@ -551,7 +551,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -685,7 +685,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
