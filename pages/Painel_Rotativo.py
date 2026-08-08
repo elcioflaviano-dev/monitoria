@@ -62,9 +62,9 @@ st.markdown("""<style>
     /* CAIXAS CARDS SUPERVISORES */
     .ind-base-title { font-size: 60px !important; font-weight: 900; text-align: center; margin-bottom: 25px; margin-top: 10px; text-transform: uppercase; color: #2e7d32; }
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
     .sup-name { font-size: 45px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .badge-faltas { background: #ffebee; color: #c62828; padding: 10px 25px; border-radius: 8px; font-size: 28px !important; font-weight: bold; border: 2px solid #ffcdd2; }
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 15px 35px; border-radius: 10px; font-size: 35px !important; font-weight: 900; border: 3px solid #ffcdd2; }
     .faltas-grid { display: flex; justify-content: space-between; gap: 15px; }
     .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 10px; padding: 20px 10px; text-align: center; margin-bottom: 5px; flex: 1; }
     .falta-label { font-size: 22px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 10px; }
@@ -95,18 +95,13 @@ def limpar_texto(txt):
 def padronizar_status(val):
     val_upper = str(val).upper().strip()
     
-    # 1. Regra para QUEBRA
     if 'NE' in val_upper or 'NÃO CONCLUÍDO' in val_upper or 'NAO CONCLUIDO' in val_upper or 'QUEBRA' in val_upper or 'CANCEL' in val_upper: 
         return 'O.S NE'
         
-    # 2. Regra para PRODUTIVO
     if 'PRODUTIVO' in val_upper or 'CONCL' in val_upper or 'EXEC' in val_upper or 'INIC' in val_upper: 
         return 'Produtivo'
         
-    # 3. Regra para ABERTO (Tudo que não for Quebra nem Produtivo cai aqui)
     return 'Em aberto'
-        
-    return val_upper
 
 # Inicialização do estado da sessão
 if "idx" not in st.session_state: 
@@ -529,19 +524,11 @@ with CONTEUDO_TV.container():
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 25 else "#c62828"
                                     
-                                    total_sup = int(df_sup['QTD_TAREFAS_NUM'].sum())
-                                    teto_sup = int(np.floor(total_sup * 0.25))
-                                    saldo_sup = teto_sup - qtd_ne
-                                    cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
-                                    
                                     st.markdown(f'''
                                     <div class="sup-card">
-                                        <div class="sup-header" style="margin-bottom: 5px;">
+                                        <div class="sup-header">
                                             <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
-                                        </div>
-                                        <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Sup: {total_sup} | Quebras Permitido(25%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -663,19 +650,11 @@ with CONTEUDO_TV.container():
                                     quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
                                     cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
                                     
-                                    total_sup = int(df_pme['QTD_TAREFAS_NUM'].sum())
-                                    teto_sup = int(np.floor(total_sup * 0.20))
-                                    saldo_sup = teto_sup - qtd_ne
-                                    cor_saldo = "#2e7d32" if saldo_sup >= 0 else "#c62828"
-                                    
                                     st.markdown(f'''
                                     <div class="sup-card">
                                         <div class="sup-header" style="margin-bottom: 5px;">
                                             <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                             <div class="badge-faltas" style="background: #f3f3f3; color: {cor_quebra}; border-color: {cor_quebra};">Quebra: {quebra:.1f}%</div>
-                                        </div>
-                                        <div style="font-size: 20px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px solid #eee;">
-                                            Total Sup: {total_sup} | Quebras Permitido(20%): <span style="color:#2e7d32">{teto_sup}</span> | Saldo: <span style="color:{cor_saldo}">{saldo_sup}</span>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -683,7 +662,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -769,9 +748,13 @@ with CONTEUDO_TV.container():
                 df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_9, axis=1)
                 df_proj = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
+                # *** TIRANDO OS RETORNOS DA PROJEÇÃO GERAL ***
+                if col_tipo_os:
+                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
 
-                # Garantindo soma de TAREFAS
+                # Garantindo soma de TAREFAS e não contagem de linhas
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
                     if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0:
@@ -783,10 +766,12 @@ with CONTEUDO_TV.container():
                 # ---> INÍCIO DO BANNER TOTAL GERAL <---
                 df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
-                # BLINDAGEM MATEMÁTICA
+                # BLINDAGEM MATEMÁTICA: O Total dita a regra, o resto se ajusta!
                 total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+                
+                # Tudo que sobrar (Aberto, Cancelado sem leitura, etc) cai automaticamente como Aberto/Pendente
                 em_aberto_op = total_tarefas_op - os_ne_op - produtivo_op 
 
                 total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
@@ -805,7 +790,7 @@ with CONTEUDO_TV.container():
                     <div class="nome-base" style="font-size: 35px !important; margin-bottom: 15px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 TOTAL GERAL DA OPERAÇÃO</div>
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 20px; font-weight: bold; color: #666;">TOTAL OS</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
                             <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -868,7 +853,7 @@ with CONTEUDO_TV.container():
                                         </div>
                                     </div>
                                     <div style="font-size: 26px; color: #444; text-align: center; margin-bottom: 20px; font-weight: bold; background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #eee;">
-                                        TOTAL OS: {int(total_tarefas)} &nbsp;|&nbsp;
+                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp;
                                         QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp;
                                         EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
                                     </div>
