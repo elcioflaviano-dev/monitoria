@@ -838,7 +838,7 @@ with CONTEUDO_TV.container():
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
-                    <div class="nome-base" style="font-size: 30px !important; margin-bottom: 10px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 TOTAL GERAL DA OPERAÇÃO</div>
+                    <div class="nome-base" style="font-size: 30px !important; margin-bottom: 10px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 ROTA ATUAL</div>
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
                             <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
