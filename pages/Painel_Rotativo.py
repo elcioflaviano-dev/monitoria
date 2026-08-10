@@ -34,41 +34,50 @@ def carregar_logo_html(caminho_imagem):
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 st.markdown("""<style>
+    /* Ajuste do container principal para caber tudo na tela da TV e dar espaço pro ticker */
+    .block-container { padding-top: 1rem !important; padding-bottom: 70px !important; max-width: 98% !important; }
+
     /* ESCONDE A BARRA DE ROLAGEM MAS MANTÉM A TELA INTEIRA INTACTA */
     ::-webkit-scrollbar { display: none !important; }
-    html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+    html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow: hidden !important; }
 
     /* ESTILOS DE INTERFACE */
     .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
     [data-testid="stHeader"], .stDeployButton, footer, #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
     .stApp { background-color: #ffffff !important; }
-    .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 20px; height: 100px; }
+    .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 80px; }
     .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; height: 100%; }
-    .topo-centro { font-size: 45px; font-weight: 900; text-align: center; white-space: nowrap; }
+    .topo-centro { font-size: 40px; font-weight: 900; text-align: center; white-space: nowrap; }
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* CAIXA BASE GERAL */
-    .box-base { background: #e8f5e9; border-left: 15px solid #2e7d32; padding: 20px 10px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); margin-bottom: 30px; }
-    .nome-base { font-size: 45px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 10px; }
-    .num-base { font-size: 150px !important; font-weight: 900; color: #111; line-height: 1; }
+    /* BOTÃO PRÓXIMA FLUTUANTE NA BARRA SUPERIOR */
+    div.stButton > button {
+        position: fixed !important; top: 20px !important; right: 150px !important; background-color: transparent !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 5px !important; padding: 5px 15px !important; font-size: 18px !important; font-weight: bold !important; z-index: 999999 !important; transition: 0.3s !important;
+    }
+    div.stButton > button:hover { background-color: #ffffff !important; color: #003366 !important; }
+
+    /* CAIXA BASE GERAL - COMPACTADA */
+    .box-base { background: #e8f5e9; border-left: 15px solid #2e7d32; padding: 10px 10px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); margin-bottom: 15px; }
+    .nome-base { font-size: 35px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 5px; }
+    .num-base { font-size: 110px !important; font-weight: 900; color: #111; line-height: 1; }
     
     /* CAIXA DOS SUPERVISORES */
-    .box-contagem { background: #f0f2f6; border-left: 12px solid #cc6600; padding: 25px 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; position: relative; z-index: 1; transition: 0.3s; }
-    .box-nome { font-size: 40px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .box-num { font-size: 120px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 15px; }
-    .destaque-ativo { transform: scale(1.08) !important; box-shadow: 0px 20px 40px rgba(204, 102, 0, 0.5) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
+    .box-contagem { background: #f0f2f6; border-left: 12px solid #cc6600; padding: 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
+    .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .box-num { font-size: 90px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 10px; }
+    .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 20px 40px rgba(204, 102, 0, 0.5) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CAIXAS CARDS SUPERVISORES */
-    .ind-base-title { font-size: 60px !important; font-weight: 900; text-align: center; margin-bottom: 25px; margin-top: 10px; text-transform: uppercase; color: #2e7d32; }
-    .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
-    .sup-name { font-size: 45px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .badge-faltas { background: #ffebee; color: #c62828; padding: 15px 35px; border-radius: 10px; font-size: 35px !important; font-weight: 900; border: 3px solid #ffcdd2; }
-    .faltas-grid { display: flex; justify-content: space-between; gap: 15px; }
-    .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 10px; padding: 20px 10px; text-align: center; margin-bottom: 5px; flex: 1; }
-    .falta-label { font-size: 22px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 10px; }
-    .falta-value { font-size: 80px !important; font-weight: 900; color: #b30000; line-height: 1; }
+    /* CAIXAS CARDS SUPERVISORES - COMPACTADA */
+    .ind-base-title { font-size: 50px !important; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; color: #2e7d32; }
+    .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+    .sup-name { font-size: 35px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 8px 20px; border-radius: 10px; font-size: 26px !important; font-weight: 900; border: 3px solid #ffcdd2; }
+    .faltas-grid { display: flex; justify-content: space-between; gap: 10px; }
+    .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 10px; padding: 10px 5px; text-align: center; margin-bottom: 5px; flex: 1; }
+    .falta-label { font-size: 18px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
+    .falta-value { font-size: 65px !important; font-weight: 900; color: #b30000; line-height: 1; }
     
     /* HORA E RELÓGIO */
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
@@ -78,40 +87,11 @@ st.markdown("""<style>
 
     /* TICKER FINANCEIRO (RODAPÉ) */
     .ticker-wrap {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        overflow: hidden;
-        height: 55px;
-        background-color: #002244; 
-        box-sizing: border-box;
-        z-index: 99999;
-        border-top: 3px solid #ff8800;
-        display: flex;
-        align-items: center;
-        box-shadow: 0px -5px 15px rgba(0,0,0,0.3);
+        position: fixed; bottom: 0; left: 0; width: 100%; overflow: hidden; height: 55px; background-color: #002244; box-sizing: border-box; z-index: 99999; border-top: 3px solid #ff8800; display: flex; align-items: center; box-shadow: 0px -5px 15px rgba(0,0,0,0.3);
     }
-    .ticker {
-        display: inline-block;
-        white-space: nowrap;
-        padding-right: 100%;
-        box-sizing: content-box;
-        animation: ticker 45s linear infinite;
-    }
-    .ticker__item {
-        display: inline-block;
-        padding: 0 15px;
-        font-size: 22px;
-        color: #ffffff;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    @keyframes ticker {
-        0% { transform: translate3d(0, 0, 0); }
-        100% { transform: translate3d(-100%, 0, 0); }
-    }
+    .ticker { display: inline-block; white-space: nowrap; padding-right: 100%; box-sizing: content-box; animation: ticker 45s linear infinite; }
+    .ticker__item { display: inline-block; padding: 0 15px; font-size: 22px; color: #ffffff; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+    @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
 </style>""", unsafe_allow_html=True)
 
 # --- REGRAS GLOBAIS ---
@@ -498,6 +478,7 @@ with CONTEUDO_TV.container():
             
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             
+            # --- NOVA INTELIGÊNCIA GPON CONFORME EXCEL ---
             col_gpon = next((c for c in df.columns if 'GPON' in c), None)
             cols_os = [c for c in df.columns if 'TIPO O.S' in c or 'TIPO OS' in c or 'ATIVIDADE' in c]
             
@@ -575,9 +556,9 @@ with CONTEUDO_TV.container():
                                         
                                         st.markdown(f'''
                                         <div class="sup-card">
-                                            <div class="sup-header">
+                                            <div class="sup-header" style="margin-bottom: 5px;">
                                                 <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                                <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 12px 25px; border-radius: 8px; font-size: 30px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
+                                                <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 10px 20px; border-radius: 8px; font-size: 26px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
                                             </div>
                                             <div class="faltas-grid">
                                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -585,7 +566,7 @@ with CONTEUDO_TV.container():
                                                     <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                                 </div>
                                                 <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                    <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                    <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                     <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                                 </div>
                                                 <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -596,7 +577,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -705,7 +686,7 @@ with CONTEUDO_TV.container():
                                     <div class="sup-card">
                                         <div class="sup-header" style="margin-bottom: 5px;">
                                             <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                            <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 12px 25px; border-radius: 8px; font-size: 30px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 10px 20px; border-radius: 8px; font-size: 26px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -724,7 +705,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -840,31 +821,31 @@ with CONTEUDO_TV.container():
                 st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
-                <div class="box-base" style="padding: 20px 10px; margin-bottom: 25px; border-left: 15px solid #003366; background: #e3f2fd;">
-                    <div class="nome-base" style="font-size: 35px !important; margin-bottom: 15px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 TOTAL GERAL DA OPERAÇÃO</div>
-                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px;">
+                <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
+                    <div class="nome-base" style="font-size: 30px !important; margin-bottom: 10px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 TOTAL GERAL DA OPERAÇÃO</div>
+                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 20px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
+                            <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 20px; font-weight: bold; color: #666;">PROJEÇÃO</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">PROJEÇÃO</div>
+                            <div style="font-size: 40px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 20px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
+                            <div style="font-size: 40px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 20px; font-weight: bold; color: #666;">QUEBRAS</div>
-                            <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">QUEBRAS</div>
+                            <div style="font-size: 40px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 20px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
+                            <div style="font-size: 40px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
                         </div>
                     </div>
-                    <div style="font-size: 24px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
+                    <div style="font-size: 22px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
                         <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
                         <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
                         <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
@@ -903,10 +884,10 @@ with CONTEUDO_TV.container():
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                         <div style="display: flex; gap: 15px; align-items: center;">
-                                            <div style="background: #e3f2fd; color: #006064; border: 3px solid #006064; padding: 12px 20px; border-radius: 8px; font-size: 22px; font-weight: bold; white-space: nowrap;">Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}</div>
+                                            <div style="background: #e3f2fd; color: #006064; border: 3px solid #006064; padding: 8px 15px; border-radius: 8px; font-size: 20px; font-weight: bold; white-space: nowrap;">Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
                                     </div>
-                                    <div style="font-size: 18px; color: #666; text-align: center; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">
+                                    <div style="font-size: 16px; color: #666; text-align: center; margin-bottom: 10px; font-weight: bold; text-transform: uppercase;">
                                         TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1f}%</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1f}%</span>
                                     </div>
                                     <div class="faltas-grid">
@@ -1295,7 +1276,25 @@ elif st.session_state.idx == 3: espera = 45
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 4: espera = 2 
 
-time.sleep(espera)
+# Controle interativo (JS + Python)
+pular = st.button("PRÓXIMA ➡️")
+
+if not pular:
+    js_timer = f"""
+    <script>
+    setTimeout(function() {{
+        var buttons = window.parent.document.querySelectorAll('button');
+        for (var i=0; i<buttons.length; i++) {{
+            if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
+                buttons[i].click();
+                break;
+            }}
+        }}
+    }}, {espera * 1000});
+    </script>
+    """
+    st.components.v1.html(js_timer, height=0)
+    st.stop()
 
 if st.session_state.idx == 4:
     st.session_state.idx = st.session_state.prox_idx
@@ -1320,6 +1319,4 @@ else:
     st.session_state.idx = 4 
 
 CONTEUDO_TV.empty()
-time.sleep(0.3) 
-
 st.rerun()
