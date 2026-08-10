@@ -62,9 +62,9 @@ st.markdown("""<style>
     /* CAIXAS CARDS SUPERVISORES */
     .ind-base-title { font-size: 60px !important; font-weight: 900; text-align: center; margin-bottom: 25px; margin-top: 10px; text-transform: uppercase; color: #2e7d32; }
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
     .sup-name { font-size: 45px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .badge-faltas { background: #ffebee; color: #c62828; padding: 10px 25px; border-radius: 8px; font-size: 28px !important; font-weight: bold; border: 2px solid #ffcdd2; }
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 15px 35px; border-radius: 10px; font-size: 35px !important; font-weight: 900; border: 3px solid #ffcdd2; }
     .faltas-grid { display: flex; justify-content: space-between; gap: 15px; }
     .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 10px; padding: 20px 10px; text-align: center; margin-bottom: 5px; flex: 1; }
     .falta-label { font-size: 22px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 10px; }
@@ -451,16 +451,10 @@ with CONTEUDO_TV.container():
             df.columns = [str(c).strip().upper() for c in df.columns]
             
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-            col_hab = next((c for c in df.columns if 'HABILIDADE DE TRABALHO' in c or 'HABILIDADE' in c), None)
-            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
             
-            col_tarefas = None
-            for c in df.columns:
-                c_clean = unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').upper().strip()
-                if 'TAREFA' in c_clean or 'QTD' in c_clean:
-                    if 'GERAL' not in c_clean and 'TECNICO' not in c_clean:
-                        col_tarefas = c
-                        break
+            # --- NOVA INTELIGÊNCIA GPON CONFORME EXCEL ---
+            col_gpon = next((c for c in df.columns if 'GPON' in c), None)
+            cols_os = [c for c in df.columns if 'TIPO O.S' in c or 'TIPO OS' in c or 'ATIVIDADE' in c]
             
             col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
             if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
@@ -474,87 +468,95 @@ with CONTEUDO_TV.container():
             df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
-            if col_hab and col_os and col_status:
-                cond_gpon = df_abc[col_hab].astype(str).str.contains('PON(1/100)', regex=False, na=False)
-                str_os = df_abc[col_os].astype(str).str.upper()
-                cond_os = str_os.str.contains('MUDANCA DE PACOTE', na=False) | str_os.str.contains('MUDANÇA DE PACOTE', na=False)
-                          
-                df_mig = df_abc[cond_gpon & cond_os].copy()
+            if col_gpon and len(cols_os) > 0 and col_status:
+                # 1. Filtra coluna DV GPON = SIM
+                cond_gpon = df_abc[col_gpon].astype(str).str.strip().str.upper() == 'SIM'
+                df_gpon = df_abc[cond_gpon].copy()
                 
-                if df_mig.empty:
-                    st.warning("Nenhum contrato de Migração encontrado para os filtros atuais.")
+                if df_gpon.empty:
+                    st.warning("Nenhum contrato marcado como SIM na coluna GPON encontrado para os supervisores atuais.")
                 else:
-                    df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
+                    # 2. Simulando o UNIRTEXTO (Junta todas as colunas de OS)
+                    df_gpon['TODAS_OS_JUNTAS'] = df_gpon[cols_os].fillna('').astype(str).agg('  '.join, axis=1).str.upper()
                     
-                    if col_tarefas:
-                        df_mig['QTD_TAREFAS_NUM'] = pd.to_numeric(df_mig[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                        if df_mig['QTD_TAREFAS_NUM'].sum() == 0 and len(df_mig) > 0: df_mig['QTD_TAREFAS_NUM'] = 1
-                    else: df_mig['QTD_TAREFAS_NUM'] = 1
+                    # 3. Contagem: "24 -" e "191 -" idêntico ao Excel
+                    count_24 = df_gpon['TODAS_OS_JUNTAS'].str.count('24 -')
+                    count_191 = df_gpon['TODAS_OS_JUNTAS'].str.count('191 -')
+                    df_gpon['QTD_MIGRACAO_CALC'] = count_24 + count_191
                     
-                    total_geral_mig = int(df_mig['QTD_TAREFAS_NUM'].sum())
-                    total_ne_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
-                    total_prod_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+                    # Filtra quem tem de fato a OS
+                    df_mig = df_gpon[df_gpon['QTD_MIGRACAO_CALC'] > 0].copy()
                     
-                    soma_valida_mig = total_ne_mig + total_prod_mig
-                    quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_mig > 0 else 0
-                    
-                    teto_ne_global = int(np.floor(total_geral_mig * 0.25))
-                    cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
-                    cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
+                    if df_mig.empty:
+                        st.warning("Nenhuma O.S do tipo '24 -' ou '191 -' encontrada na base GPON.")
+                    else:
+                        df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
+                        df_mig['QTD_TAREFAS_NUM'] = df_mig['QTD_MIGRACAO_CALC']
+                        
+                        total_geral_mig = int(df_mig['QTD_TAREFAS_NUM'].sum())
+                        total_ne_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
+                        total_prod_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+                        
+                        soma_valida_mig = total_ne_mig + total_prod_mig
+                        quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_mig > 0 else 0
+                        
+                        teto_ne_global = int(np.floor(total_geral_mig * 0.25))
+                        cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
+                        cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                    st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON </div>
-                        <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total Tarefas: <span style="color:#003366">{total_geral_mig}</span> | 
-                            Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
-                            Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
-                            Quebras Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
-                        </div>
-                    </div>''', unsafe_allow_html=True)
-                    
-                    for i in range(0, len(SUPS_ABC), 2):
-                        cols_sup = st.columns(2)
-                        for j in range(2):
-                            if i + j < len(SUPS_ABC):
-                                sup = SUPS_ABC[i + j]
-                                with cols_sup[j]:
-                                    df_sup = df_mig[df_mig['SUPERVISOR_CLEAN'] == sup]
-                                    
-                                    qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'QTD_TAREFAS_NUM'].sum())
-                                    qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
-                                    qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
-                                    
-                                    soma_base = qtd_ne + qtd_produtivo
-                                    quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
-                                    cor_quebra = "#2e7d32" if quebra <= 25 else "#c62828"
-                                    
-                                    st.markdown(f'''
-                                    <div class="sup-card">
-                                        <div class="sup-header" style="margin-bottom: 5px;">
-                                            <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                            <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 12px 25px; border-radius: 8px; font-size: 30px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
-                                        </div>
-                                        <div class="faltas-grid">
-                                            <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                                <div class="falta-label" style="color: #b78103;">⏳ ABERTO</div>
-                                                <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
+                        st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
+                            <div class="nome-base" style="font-size: 28px !important; margin-bottom: 5px;">📊 MIGRAÇÃO GPON </div>
+                            <div style="font-size: 35px; font-weight: bold; color: #111;">
+                                Total OS: <span style="color:#003366">{total_geral_mig}</span> | 
+                                Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
+                                Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
+                                Quebras Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
+                            </div>
+                        </div>''', unsafe_allow_html=True)
+                        
+                        for i in range(0, len(SUPS_ABC), 2):
+                            cols_sup = st.columns(2)
+                            for j in range(2):
+                                if i + j < len(SUPS_ABC):
+                                    sup = SUPS_ABC[i + j]
+                                    with cols_sup[j]:
+                                        df_sup = df_mig[df_mig['SUPERVISOR_CLEAN'] == sup]
+                                        
+                                        qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'QTD_TAREFAS_NUM'].sum())
+                                        qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+                                        qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
+                                        
+                                        soma_base = qtd_ne + qtd_produtivo
+                                        quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
+                                        cor_quebra = "#2e7d32" if quebra <= 25 else "#c62828"
+                                        
+                                        st.markdown(f'''
+                                        <div class="sup-card">
+                                            <div class="sup-header">
+                                                <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                                <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 12px 25px; border-radius: 8px; font-size: 30px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
                                             </div>
-                                            <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
-                                                <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
+                                            <div class="faltas-grid">
+                                                <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                                    <div class="falta-label" style="color: #b78103;">⏳ ABERTO</div>
+                                                    <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
+                                                </div>
+                                                <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                                    <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                    <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
+                                                </div>
+                                                <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                                    <div class="falta-label" style="color: #c62828;">❌ QUEBRAS</div>
+                                                    <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
+                                                </div>
                                             </div>
-                                            <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                                <div class="falta-label" style="color: #c62828;">❌ QUEBRAS</div>
-                                                <div class="falta-value" style="color: #b30000;">{qtd_ne}</div>
-                                            </div>
-                                        </div>
-                                    </div>''', unsafe_allow_html=True)
-                                    
-                    if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
-                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
+                                        </div>''', unsafe_allow_html=True)
+                                        
+                        if st.session_state.novo_ciclo:
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
+                            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
-            else: st.error("Colunas necessárias (Habilidade, Tipo OS, Status) não encontradas no arquivo.")
+            else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
             
         if st.session_state.novo_ciclo: st.session_state.novo_ciclo = False
@@ -850,14 +852,14 @@ with CONTEUDO_TV.container():
 
                                 st.markdown(f'''
                                 <div class="sup-card">
-                                    <div class="sup-header" style="margin-bottom: 5px;">
+                                    <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                         <div class="badge-faltas" style="background: #e3f2fd; color: #006064; border-color: #006064;">
                                             Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}
                                         </div>
                                     </div>
                                     <div style="font-size: 18px; color: #666; text-align: center; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">
-                                        TOTAL OS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
+                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
                                     </div>
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
