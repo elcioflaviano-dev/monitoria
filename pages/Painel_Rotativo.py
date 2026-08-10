@@ -132,12 +132,15 @@ def limpar_texto(txt):
 def padronizar_status(val):
     val_clean = limpar_texto(str(val))
     
+    # 1. Regra Absoluta para QUEBRA
     if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'CANCEL' in val_clean or 'O.S NE' in val_clean: 
         return 'O.S NE'
         
+    # 2. Regra para PRODUTIVO 
     if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
         return 'Produtivo'
         
+    # 3. Tudo que não bateu com Produtivo e Quebra é ABERTO
     return 'Em aberto'
 
 # Inicialização do estado da sessão
@@ -350,7 +353,6 @@ with CONTEUDO_TV.container():
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
                 qtd_abc_base = len(nomes_abc)
 
-                # Salva no Ticker
                 st.session_state.ticker_data[0] = f"🚀 BASE: {qtd_abc_base} TÉCS PENDENTES"
 
                 cols_tec = st.columns(4)
@@ -447,7 +449,6 @@ with CONTEUDO_TV.container():
 
                 qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]) if not df_pendentes_geral.empty else 0
 
-                # Salva no Ticker
                 st.session_state.ticker_data[1] = f"⏰ TEC1: {qtd_abc} PENDENTES"
 
                 st.markdown(f'''<div class="box-base"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
@@ -497,7 +498,6 @@ with CONTEUDO_TV.container():
             
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             
-            # --- NOVA INTELIGÊNCIA GPON CONFORME EXCEL ---
             col_gpon = next((c for c in df.columns if 'GPON' in c), None)
             cols_os = [c for c in df.columns if 'TIPO O.S' in c or 'TIPO OS' in c or 'ATIVIDADE' in c]
             
@@ -545,7 +545,6 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        # Salva no Ticker
                         st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} OS | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
@@ -576,7 +575,7 @@ with CONTEUDO_TV.container():
                                         
                                         st.markdown(f'''
                                         <div class="sup-card">
-                                            <div class="sup-header" style="margin-bottom: 5px;">
+                                            <div class="sup-header">
                                                 <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                                 <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 12px 25px; border-radius: 8px; font-size: 30px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
                                             </div>
@@ -673,7 +672,6 @@ with CONTEUDO_TV.container():
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
                     cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
 
-                    # Salva no Ticker
                     st.session_state.ticker_data[8] = f"📊 PME: {total_geral_pme} OS | QUEBRAS: {quebra_global_pme:.1f}%"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
@@ -832,15 +830,14 @@ with CONTEUDO_TV.container():
                 if total_tecnicos_op == 0: total_tecnicos_op = 1
 
                 denom_quebra_op = os_ne_op + produtivo_op
-                quebra_op = (os_ne_op / denom_quebra_op) if denom_quebra_op > 0 else 0
-                eficiencia_op = 1 - quebra_op
-                projecao_op = produtivo_op + (em_aberto_op * eficiencia_op)
+                quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
+                eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
+                projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
                 media_equipe_op = total_tarefas_op / total_tecnicos_op
 
-                cor_q_op = "#c62828" if quebra_op > 0.20 else "#2e7d32"
+                cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
-                # Salva no Ticker
-                st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1%} | EFIC: {eficiencia_op:.1%}"
+                st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 20px 10px; margin-bottom: 25px; border-left: 15px solid #003366; background: #e3f2fd;">
@@ -856,11 +853,11 @@ with CONTEUDO_TV.container():
                         </div>
                         <div style="text-align: center;">
                             <div style="font-size: 20px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1%}</div>
+                            <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
                         </div>
                         <div style="text-align: center;">
                             <div style="font-size: 20px; font-weight: bold; color: #666;">QUEBRAS</div>
-                            <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1%}</div>
+                            <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
                         </div>
                         <div style="text-align: center;">
                             <div style="font-size: 20px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
@@ -894,23 +891,23 @@ with CONTEUDO_TV.container():
                                 if total_tecnicos == 0: total_tecnicos = 1
 
                                 denom_quebra = os_ne + produtivo
-                                quebra = (os_ne / denom_quebra) if denom_quebra > 0 else 0
-                                eficiencia = 1 - quebra
-                                projecao = produtivo + (em_aberto * eficiencia)
+                                quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
+                                eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
+                                projecao = produtivo + (em_aberto * (eficiencia / 100))
                                 media_equipe = total_tarefas / total_tecnicos
 
-                                cor_q = "#c62828" if quebra > 0.20 else "#2e7d32"
+                                cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
 
                                 st.markdown(f'''
                                 <div class="sup-card">
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div class="badge-faltas" style="background: #e3f2fd; color: #006064; border-color: #006064;">
-                                            Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}
+                                        <div style="display: flex; gap: 15px; align-items: center;">
+                                            <div style="background: #e3f2fd; color: #006064; border: 3px solid #006064; padding: 12px 20px; border-radius: 8px; font-size: 22px; font-weight: bold; white-space: nowrap;">Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
                                     </div>
                                     <div style="font-size: 18px; color: #666; text-align: center; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">
-                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
+                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1f}%</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1f}%</span>
                                     </div>
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -978,7 +975,6 @@ with CONTEUDO_TV.container():
 
                 meta_mensal_abc = len(SUPS_ABC) * 350
 
-                # Salva no Ticker
                 st.session_state.ticker_data[5] = f"📈 CONSULTIVO MÊS: {total_realizado_abc} (META: {meta_mensal_abc})"
 
                 st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
@@ -1086,7 +1082,6 @@ with CONTEUDO_TV.container():
                     qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                     meta_dia_base_abc += int(round(max(0, 350 - qtd_m) / dias_restantes))
 
-                # Salva no Ticker
                 st.session_state.ticker_data[6] = f"📉 CONSULTIVO HOJE: {total_hoje_abc} (META: {meta_dia_base_abc})"
 
                 st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
@@ -1200,7 +1195,7 @@ with CONTEUDO_TV.container():
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
                 st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
-                st.markdown('<div class="ind-base-title abc">PRINTS PENDENTES</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">PENDÊNCIAS INDICADORES</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
@@ -1212,7 +1207,7 @@ with CONTEUDO_TV.container():
                                 f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
                                 st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
                                     <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
-                                    <div class="falta-box"><div class="falta-label">📜 CERT. ATEND.</div><div class="falta-value">{f_ce}</div></div>
+                                    <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
                                     <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
@@ -1265,10 +1260,9 @@ with CONTEUDO_TV.container():
         
         st.components.v1.html(st.session_state.script_audio_atual + script_relogio_dinamico, height=0)
 
-    # ---> RENDERIZADOR DO TICKER FINANCEIRO (Roda fora do IF principal para aparecer em todas as telas ativas) <---
+    # ---> RENDERIZADOR DO TICKER FINANCEIRO <---
     if st.session_state.idx != 4:  
         ticker_items = []
-        # Monta a lista de resumos, escondendo a tela que o usuário já está vendo
         for k, v in st.session_state.ticker_data.items():
             if k != st.session_state.idx:
                 ticker_items.append(f'<span class="ticker__item">{v}</span>')
@@ -1276,7 +1270,6 @@ with CONTEUDO_TV.container():
         if ticker_items:
             separator = '<span style="color:#ff9800; font-weight:bold; font-size:24px;">&nbsp;&nbsp;•&nbsp;&nbsp;</span>'
             joined_items = separator.join(ticker_items)
-            # Repete a string para garantir o efeito infinito no CSS
             ticker_content = f"{joined_items}{separator}{joined_items}{separator}{joined_items}"
             
             st.markdown(f'''
