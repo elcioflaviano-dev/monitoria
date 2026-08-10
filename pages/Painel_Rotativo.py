@@ -455,8 +455,8 @@ with CONTEUDO_TV.container():
             col_gpon = next((c for c in df.columns if 'GPON' in c), None)
             cols_os = [c for c in df.columns if 'TIPO O.S' in c or 'TIPO OS' in c or 'ATIVIDADE' in c]
             
-            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS' in c), None)
+            col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -548,7 +548,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} O.S quebrados, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -584,8 +584,8 @@ with CONTEUDO_TV.container():
                         col_tarefas = c
                         break
             
-            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS' in c), None)
+            col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -674,7 +674,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P  M  E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} O.S quebrados, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -691,7 +691,7 @@ with CONTEUDO_TV.container():
             <div class="topo-centro">VISÃO GERAL DA ROTA E PROJEÇÃO</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
-        {icone_mudo}''', unsafe_allow_html=True)
+        {html_audio_ind}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -710,21 +710,21 @@ with CONTEUDO_TV.container():
                 cond_cidade = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
                 df_rota = df_rota[cond_cidade]
 
-            # 2. Filtro de Cancelados e Suspensos (Coluna Status da Atividade)
-            col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
-            if col_status_ativ:
-                df_rota = df_rota[df_rota[col_status_ativ].notna()]
-                df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
-                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
-                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
-
-            # 3. Filtro Tipo de Atividade (Remover Retorno Credenciada)
+            # 2. Filtro Tipo de Atividade3 (Ignorar vazios e "Retorno Credenciada")
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
             if col_tipo_os:
                 df_rota = df_rota[df_rota[col_tipo_os].notna()]
                 df_rota = df_rota[df_rota[col_tipo_os].astype(str).str.strip() != '']
                 df_rota = df_rota[~df_rota[col_tipo_os].astype(str).str.upper().str.contains('RETORNO CREDENCIADA', na=False)]
+
+            # 3. Filtro Status Atividade (Ignorar vazios, Cancelado e Suspenso)
+            col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
+            if col_status_ativ:
+                df_rota = df_rota[df_rota[col_status_ativ].notna()]
+                df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
+                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
+                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             # 4. Define a coluna oficial de leitura do agrupamento (A absoluta é a STATUS CONTRATO)
             col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
@@ -752,7 +752,6 @@ with CONTEUDO_TV.container():
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
 
-                # Garantindo soma de TAREFAS e não contagem de linhas
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
                     if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0:
@@ -788,7 +787,7 @@ with CONTEUDO_TV.container():
                     <div class="nome-base" style="font-size: 35px !important; margin-bottom: 15px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 TOTAL GERAL DA OPERAÇÃO</div>
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 20px; font-weight: bold; color: #666;">TOTAL OS</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
                             <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -844,14 +843,12 @@ with CONTEUDO_TV.container():
 
                                 st.markdown(f'''
                                 <div class="sup-card">
-                                    <div class="sup-header">
+                                    <div class="sup-header" style="margin-bottom: 5px;">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div class="badge-faltas" style="background: #e3f2fd; color: #006064; border-color: #006064;">
-                                            Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}
+                                        <div style="display: flex; gap: 15px; align-items: center;">
+                                            <div style="background: #f3f3f3; color: {cor_q}; border: 3px solid {cor_q}; padding: 12px 25px; border-radius: 8px; font-size: 30px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #e3f2fd; color: #006064; border: 3px solid #006064; padding: 12px 20px; border-radius: 8px; font-size: 22px; font-weight: bold; white-space: nowrap;">Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
-                                    </div>
-                                    <div style="font-size: 18px; color: #666; text-align: center; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">
-                                        TOTAL OS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1%}</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1%}</span>
                                     </div>
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -873,7 +870,8 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} tarefas. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
