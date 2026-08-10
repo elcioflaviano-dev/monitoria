@@ -96,8 +96,7 @@ def padronizar_status(val):
     val_clean = limpar_texto(str(val))
     
     # 1. Regra Absoluta para QUEBRA
-    # Adicionado 'O.S NE' e variações baseadas no print anterior e na explicação.
-    if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'CANCEL' in val_clean or 'O.S NE' in val_clean or 'O.S. NE' in val_clean: 
+    if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'CANCEL' in val_clean or 'O.S NE' in val_clean: 
         return 'O.S NE'
         
     # 2. Regra para PRODUTIVO 
@@ -456,8 +455,8 @@ with CONTEUDO_TV.container():
             col_gpon = next((c for c in df.columns if 'GPON' in c), None)
             cols_os = [c for c in df.columns if 'TIPO O.S' in c or 'TIPO OS' in c or 'ATIVIDADE' in c]
             
-            col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
+            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -469,22 +468,18 @@ with CONTEUDO_TV.container():
             df_abc = df[df['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
             
             if col_gpon and len(cols_os) > 0 and col_status:
-                # 1. Filtra coluna DV GPON = SIM
                 cond_gpon = df_abc[col_gpon].astype(str).str.strip().str.upper() == 'SIM'
                 df_gpon = df_abc[cond_gpon].copy()
                 
                 if df_gpon.empty:
                     st.warning("Nenhum contrato marcado como SIM na coluna GPON encontrado para os supervisores atuais.")
                 else:
-                    # 2. Simulando o UNIRTEXTO (Junta todas as colunas de OS)
                     df_gpon['TODAS_OS_JUNTAS'] = df_gpon[cols_os].fillna('').astype(str).agg('  '.join, axis=1).str.upper()
                     
-                    # 3. Contagem: "24 -" e "191 -" idêntico ao Excel
                     count_24 = df_gpon['TODAS_OS_JUNTAS'].str.count('24 -')
                     count_191 = df_gpon['TODAS_OS_JUNTAS'].str.count('191 -')
                     df_gpon['QTD_MIGRACAO_CALC'] = count_24 + count_191
                     
-                    # Filtra quem tem de fato a OS
                     df_mig = df_gpon[df_gpon['QTD_MIGRACAO_CALC'] > 0].copy()
                     
                     if df_mig.empty:
@@ -553,7 +548,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrasdos, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -589,8 +584,8 @@ with CONTEUDO_TV.container():
                         col_tarefas = c
                         break
             
-            col_status = next((c for c in df.columns if c == 'STATUS CONTRATO' or c == 'STATUS CONTRATO.1'), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS' in c), None)
+            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
+            if not col_status: col_status = next((c for c in df.columns if 'STATUS' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -668,7 +663,7 @@ with CONTEUDO_TV.container():
                                                 <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
+                                                <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
                                                 <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                             </div>
                                             <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -679,7 +674,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrasdos, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -715,7 +710,15 @@ with CONTEUDO_TV.container():
                 cond_cidade = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
                 df_rota = df_rota[cond_cidade]
 
-            # 2. Filtro Tipo de Atividade3 (Ignorar vazios e "Retorno Credenciada")
+            # 2. Filtro de Cancelados e Suspensos (Coluna Status da Atividade)
+            col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
+            if col_status_ativ:
+                df_rota = df_rota[df_rota[col_status_ativ].notna()]
+                df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
+                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
+                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
+
+            # 3. Filtro Tipo de Atividade (Remover Retorno Credenciada)
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
             if col_tipo_os:
@@ -723,17 +726,10 @@ with CONTEUDO_TV.container():
                 df_rota = df_rota[df_rota[col_tipo_os].astype(str).str.strip() != '']
                 df_rota = df_rota[~df_rota[col_tipo_os].astype(str).str.upper().str.contains('RETORNO CREDENCIADA', na=False)]
 
-            # 3. Filtro Status (Ignorar vazios, Cancelado e Suspenso)
-            col_status = next((c for c in df_rota.columns if 'STATUS_TV' in c or 'STATUS TV' in c), None)
-            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
-            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c), None)
+            # 4. Define a coluna oficial de leitura do agrupamento (A absoluta é a STATUS CONTRATO)
+            col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
+            if not col_status: col_status = col_status_ativ
             if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
-            
-            if col_status:
-                df_rota = df_rota[df_rota[col_status].notna()]
-                df_rota = df_rota[df_rota[col_status].astype(str).str.strip() != '']
-                str_status = df_rota[col_status].astype(str).str.upper()
-                df_rota = df_rota[~str_status.str.contains('SUSPENSO', na=False)]
 
             # --- BUSCA BLINDADA DA COLUNA DE TAREFAS ---
             col_tarefas = None
@@ -753,10 +749,6 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_9, axis=1)
                 df_proj = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-
-                # *** TIRANDO OS RETORNOS DA PROJEÇÃO GERAL ***
-                if col_tipo_os:
-                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
 
