@@ -51,25 +51,34 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* BOTÃO PRÓXIMA FLUTUANTE NO RODAPÉ */
-    div.stButton > button {
-        position: fixed !important; 
-        bottom: 75px !important; 
-        right: 20px !important; 
-        background-color: #003366 !important; 
-        color: #ffffff !important; 
-        border: 2px solid #003366 !important; 
-        border-radius: 8px !important; 
-        padding: 8px 20px !important; 
-        font-size: 18px !important; 
-        font-weight: bold !important; 
-        z-index: 999999 !important; 
-        transition: 0.3s !important;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.2) !important;
+    /* BOTÃO PRÓXIMA "FANTASMA" NO CANTO DIREITO INFERIOR */
+    div[data-testid="stButton"] {
+        position: fixed !important;
+        bottom: 75px !important; /* Acima do ticker financeiro */
+        right: 20px !important;
+        z-index: 999999 !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        width: auto !important;
     }
-    div.stButton > button:hover { 
-        background-color: #ffffff !important; 
-        color: #003366 !important; 
+    div[data-testid="stButton"] > button {
+        background-color: #003366 !important;
+        color: #ffffff !important;
+        border: 2px solid #ffffff !important;
+        border-radius: 30px !important;
+        padding: 8px 20px !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        opacity: 0.03 !important; /* Quase 100% transparente para ficar despercebido */
+        transition: all 0.4s ease-in-out !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stButton"] > button:hover {
+        opacity: 1.0 !important; /* Mostra totalmente ao passar o mouse */
+        background-color: #ff9800 !important; /* Fica laranja para mostrar que está ativo */
+        border-color: #ffffff !important;
+        box-shadow: 0px 5px 15px rgba(0,0,0,0.5) !important;
+        transform: scale(1.05) !important;
     }
 
     /* CAIXA BASE GERAL - COMPACTADA */
@@ -587,7 +596,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -715,7 +724,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -1329,6 +1338,4 @@ else:
     st.session_state.idx = 4 
 
 CONTEUDO_TV.empty()
-time.sleep(0.3) 
-
 st.rerun()
