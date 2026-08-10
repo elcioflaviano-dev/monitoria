@@ -51,11 +51,26 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* BOTÃO PRÓXIMA FLUTUANTE NA BARRA SUPERIOR */
+    /* BOTÃO PRÓXIMA FLUTUANTE NO RODAPÉ */
     div.stButton > button {
-        position: fixed !important; top: 20px !important; right: 150px !important; background-color: transparent !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 5px !important; padding: 5px 15px !important; font-size: 18px !important; font-weight: bold !important; z-index: 999999 !important; transition: 0.3s !important;
+        position: fixed !important; 
+        bottom: 75px !important; 
+        right: 20px !important; 
+        background-color: #003366 !important; 
+        color: #ffffff !important; 
+        border: 2px solid #003366 !important; 
+        border-radius: 8px !important; 
+        padding: 8px 20px !important; 
+        font-size: 18px !important; 
+        font-weight: bold !important; 
+        z-index: 999999 !important; 
+        transition: 0.3s !important;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.2) !important;
     }
-    div.stButton > button:hover { background-color: #ffffff !important; color: #003366 !important; }
+    div.stButton > button:hover { 
+        background-color: #ffffff !important; 
+        color: #003366 !important; 
+    }
 
     /* CAIXA BASE GERAL - COMPACTADA */
     .box-base { background: #e8f5e9; border-left: 15px solid #2e7d32; padding: 10px 10px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); margin-bottom: 15px; }
@@ -112,15 +127,12 @@ def limpar_texto(txt):
 def padronizar_status(val):
     val_clean = limpar_texto(str(val))
     
-    # 1. Regra Absoluta para QUEBRA
     if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'CANCEL' in val_clean or 'O.S NE' in val_clean: 
         return 'O.S NE'
         
-    # 2. Regra para PRODUTIVO 
     if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
         return 'Produtivo'
         
-    # 3. Tudo que não bateu com Produtivo e Quebra é ABERTO
     return 'Em aberto'
 
 # Inicialização do estado da sessão
@@ -173,7 +185,6 @@ for inicio, f in regras_audio_ind:
         permitir_audio_ind = True
         break
 
-# Ajuste da posição do Ícone de Áudio para não conflitar com o Ticker (bottom: 75px)
 icone_mudo = '''<div style="position: fixed; bottom: 75px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera">
     <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -478,7 +489,6 @@ with CONTEUDO_TV.container():
             
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             
-            # --- NOVA INTELIGÊNCIA GPON CONFORME EXCEL ---
             col_gpon = next((c for c in df.columns if 'GPON' in c), None)
             cols_os = [c for c in df.columns if 'TIPO O.S' in c or 'TIPO OS' in c or 'ATIVIDADE' in c]
             
@@ -566,7 +576,7 @@ with CONTEUDO_TV.container():
                                                     <div class="falta-value" style="color: #b78103;">{qtd_aberto}</div>
                                                 </div>
                                                 <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                                    <div class="falta-label" style="color: #2e7d32;">✅ PRODUT</div>
+                                                    <div class="falta-label" style="color: #2e7d32;">✅ PRODUTIVO</div>
                                                     <div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div>
                                                 </div>
                                                 <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
@@ -577,7 +587,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -705,7 +715,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -1319,4 +1329,6 @@ else:
     st.session_state.idx = 4 
 
 CONTEUDO_TV.empty()
+time.sleep(0.3) 
+
 st.rerun()
