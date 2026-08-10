@@ -735,7 +735,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 9:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">VISÃO GERAL DA ROTA E PROJEÇÃO - TÉCNICOS ESCALADOS</div>
+            <div class="topo-centro">VISÃO GERAL DA ROTA - TÉCNICOS ESCALADOS</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {html_audio_ind}''', unsafe_allow_html=True)
