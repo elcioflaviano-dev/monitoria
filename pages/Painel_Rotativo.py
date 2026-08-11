@@ -143,16 +143,12 @@ def limpar_texto(txt):
 
 def padronizar_status(val):
     val_clean = limpar_texto(str(val))
-    
     if 'CANCEL' in val_clean or 'SUSP' in val_clean:
         return 'Cancelado'
-        
     if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'O.S NE' in val_clean: 
         return 'O.S NE'
-        
     if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
         return 'Produtivo'
-        
     return 'Em aberto'
 
 # Inicialização do estado da sessão
@@ -228,30 +224,24 @@ function tocarAlertaChamaAtencao() {
     try {
         let ctx = new (window.parent.AudioContext || window.AudioContext)();
         let tempo = ctx.currentTime;
-        
         function tocarSino(frequencia, inicio, duracao) {
             let osc = ctx.createOscillator();
             let gain = ctx.createGain();
-            
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(frequencia, inicio);
-            
             gain.gain.setValueAtTime(0, inicio);
             gain.gain.linearRampToValueAtTime(3.0, inicio + 0.05); 
             gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao);
-            
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start(inicio);
             osc.stop(inicio + duracao + 0.1);
         }
-
         tocarSino(659.25, tempo, 1.5);       
         tocarSino(523.25, tempo + 0.4, 1.5); 
         tocarSino(784.00, tempo + 0.8, 2.5); 
     } catch(e) {}
 }
-
 function anunciarBase(texto, delay) {
     setTimeout(() => {
         tocarAlertaChamaAtencao();
@@ -271,14 +261,12 @@ function anunciarBase(texto, delay) {
         }, 2000); 
     }, delay);
 }
-
 function limparDestaques(total) {
     for(let j=0; j<total; j++) {
         let el = window.parent.document.getElementById('sup-box-' + j);
         if(el) { el.classList.remove('destaque-ativo'); }
     }
 }
-
 function animarSupervisor(texto, delay, index, totalSup) {
     setTimeout(() => {
         limparDestaques(totalSup);
@@ -543,6 +531,9 @@ with CONTEUDO_TV.container():
                         st.warning("Nenhuma O.S do tipo '24 -' ou '191 -' encontrada na base GPON.")
                     else:
                         df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
+                        # Remove os cancelados do dataset para não afetar as quebras, mantendo lógica limpa
+                        df_mig = df_mig[df_mig['STATUS_PADRAO'] != 'Cancelado'].copy()
+
                         df_mig['QTD_TAREFAS_NUM'] = df_mig['QTD_MIGRACAO_CALC']
                         
                         total_geral_mig = int(df_mig['QTD_TAREFAS_NUM'].sum())
@@ -606,7 +597,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -665,6 +656,7 @@ with CONTEUDO_TV.container():
                     st.warning("Nenhum contrato PME encontrado para os filtros atuais.")
                 else:
                     df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
+                    df_pme = df_pme[df_pme['STATUS_PADRAO'] != 'Cancelado'].copy()
                     
                     if col_tarefas:
                         df_pme['QTD_TAREFAS_NUM'] = pd.to_numeric(df_pme[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
@@ -732,7 +724,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -769,8 +761,6 @@ with CONTEUDO_TV.container():
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
-                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
-                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -805,6 +795,7 @@ with CONTEUDO_TV.container():
                     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
+                df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Cancelado'].copy()
 
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
@@ -828,7 +819,6 @@ with CONTEUDO_TV.container():
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
                 
-                # Nova regra: media apenas do real (Produtivo + Aberto)
                 os_reais_op = produtivo_op + em_aberto_op
                 media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
@@ -840,7 +830,7 @@ with CONTEUDO_TV.container():
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL O.S</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
                             <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -890,7 +880,6 @@ with CONTEUDO_TV.container():
                                 eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
                                 projecao = produtivo + (em_aberto * (eficiencia / 100))
                                 
-                                # Nova regra: media apenas do real (Produtivo + Aberto)
                                 os_reais = produtivo + em_aberto
                                 media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
 
@@ -926,7 +915,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} tarefas. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
                     st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -961,8 +950,6 @@ with CONTEUDO_TV.container():
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
-                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
-                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -997,6 +984,7 @@ with CONTEUDO_TV.container():
                     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
+                df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Cancelado'].copy()
 
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
@@ -1019,7 +1007,6 @@ with CONTEUDO_TV.container():
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
                 
-                # Nova regra: media apenas do real (Produtivo + Aberto)
                 os_reais_op = produtivo_op + em_aberto_op
                 media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
@@ -1075,7 +1062,6 @@ with CONTEUDO_TV.container():
 
                                 total_tecnicos = QTD_TECNICOS_MONTADOS.get(sup, 1)
 
-                                # Nova regra: media apenas do real (Produtivo + Aberto)
                                 os_reais = produtivo + em_aberto
                                 media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
 
@@ -1227,7 +1213,8 @@ with CONTEUDO_TV.container():
                         layers=[scatter_layer, text_layer], 
                         initial_view_state=view_state, 
                         map_style='mapbox://styles/mapbox/light-v9',
-                        tooltip={"text": "{NOME_TECNICO}\\nSupervisor: {SUPERVISOR_CLEAN}"}
+                        tooltip={"text": "{NOME_TECNICO}\\nSupervisor: {SUPERVISOR_CLEAN}"},
+                        height=750
                     )
                     
                     st.pydeck_chart(r, use_container_width=True)
