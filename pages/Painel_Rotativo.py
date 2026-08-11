@@ -6,6 +6,7 @@ import time
 import base64
 import calendar
 import unicodedata
+import pydeck as pdk
 from datetime import datetime, timedelta
 
 # =========================================================================
@@ -555,7 +556,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} OS | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} OS | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -605,7 +606,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -620,7 +621,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">P M E</div>
+            <div class="topo-centro">PME (TETO 20%)</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -731,7 +732,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -827,7 +828,7 @@ with CONTEUDO_TV.container():
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
                 
-                # Média baseada apenas no Produtivo + Aberto
+                # Nova regra: media apenas do real (Produtivo + Aberto)
                 os_reais_op = produtivo_op + em_aberto_op
                 media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
@@ -839,7 +840,7 @@ with CONTEUDO_TV.container():
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL OS</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
                             <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -925,7 +926,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} tarefas. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
                     st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1146,8 +1147,15 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
             col_x = next((c for c in df_rota.columns if 'COORDENADA X' in c or 'LONG' in c), None)
             col_y = next((c for c in df_rota.columns if 'COORDENADA Y' in c or 'LATI' in c), None)
+            col_tec = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
+            col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
             
             if col_sup and col_x and col_y:
+                if col_cidade:
+                    df_rota = df_rota[df_rota[col_cidade].notna()]
+                    cond_cidade = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
+                    df_rota = df_rota[cond_cidade]
+
                 def class_sup_mapa(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                     for oficial in SUPERVISORES_ORDENADOS:
@@ -1155,21 +1163,21 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
                 
                 df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_mapa, axis=1)
-                
                 df_mapa = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
                 
                 df_mapa['LAT'] = pd.to_numeric(df_mapa[col_y].astype(str).str.replace(',', '.'), errors='coerce')
                 df_mapa['LON'] = pd.to_numeric(df_mapa[col_x].astype(str).str.replace(',', '.'), errors='coerce')
-                
                 df_mapa = df_mapa.dropna(subset=['LAT', 'LON'])
                 
-                def cor_sup(sup):
-                    if sup == "MAICON": return "#FF1493" # Rosa
-                    if sup == "NELSON": return "#008000" # Verde
-                    if sup == "EDSON MARCO": return "#800080" # Roxo
-                    return "#000000"
+                df_mapa['NOME_TECNICO'] = df_mapa[col_tec].fillna('Desconhecido').astype(str).apply(lambda x: x.split()[0].upper())
+                
+                def cor_sup_rgb(sup):
+                    if sup == "MAICON": return [255, 20, 147] 
+                    if sup == "NELSON": return [0, 128, 0]    
+                    if sup == "EDSON MARCO": return [128, 0, 128] 
+                    return [0, 0, 0]
                     
-                df_mapa['COLOR'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup)
+                df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
                 
                 if st.session_state.idx == 12:
                     df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
@@ -1180,16 +1188,52 @@ with CONTEUDO_TV.container():
                     
                 if not df_mapa.empty:
                     st.markdown('''
-                    <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; font-size: 20px; font-weight: bold;">
+                    <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;">
                         <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%;"></span> EDSON MARCO</div>
                         <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%;"></span> MAICON</div>
                         <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%;"></span> NELSON</div>
                     </div>
                     ''', unsafe_allow_html=True)
                     
-                    st.map(df_mapa, latitude='LAT', longitude='LON', color='COLOR', zoom=9)
+                    scatter_layer = pdk.Layer(
+                        'ScatterplotLayer',
+                        data=df_mapa,
+                        get_position='[LON, LAT]',
+                        get_color='COLOR_RGB',
+                        get_radius=150,
+                        pickable=True,
+                        opacity=0.8
+                    )
+                    
+                    text_layer = pdk.Layer(
+                        "TextLayer",
+                        data=df_mapa,
+                        get_position="[LON, LAT]",
+                        get_text="NOME_TECNICO",
+                        get_size=16,
+                        get_color=[0, 0, 0],
+                        get_alignment_baseline="'bottom'",
+                        get_offset="[0, -15]"
+                    )
+                    
+                    view_state = pdk.ViewState(
+                        latitude=df_mapa['LAT'].mean(), 
+                        longitude=df_mapa['LON'].mean(), 
+                        zoom=11, 
+                        pitch=0
+                    )
+                    
+                    r = pdk.Deck(
+                        layers=[scatter_layer, text_layer], 
+                        initial_view_state=view_state, 
+                        map_style='mapbox://styles/mapbox/light-v9',
+                        tooltip={"text": "{NOME_TECNICO}\\nSupervisor: {SUPERVISOR_CLEAN}"}
+                    )
+                    
+                    st.pydeck_chart(r, use_container_width=True)
+                    
                 else:
-                    st.warning("Nenhuma coordenada válida encontrada para este filtro.")
+                    st.warning("Nenhuma coordenada válida encontrada para este filtro nas cidades atendidas.")
                 
                 st.session_state.ticker_data[st.session_state.idx] = f"📍 {titulos_mapa[st.session_state.idx]} VISUALIZADO"
             else:
