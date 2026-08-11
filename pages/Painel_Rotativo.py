@@ -556,7 +556,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} OS | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} OS | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -835,7 +835,7 @@ with CONTEUDO_TV.container():
 
                 cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
-                st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
+                st.session_state.ticker_data[9] = f"🌍 ROTA ATUAL: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
@@ -1026,7 +1026,7 @@ with CONTEUDO_TV.container():
 
                 cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
-                st.session_state.ticker_data[10] = f"🌍 MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
+                st.session_state.ticker_data[10] = f"🌍 ROTA COM MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
