@@ -1367,7 +1367,7 @@ with CONTEUDO_TV.container():
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
                 st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
-                st.markdown('<div class="ind-base-title abc">PENDÊNCIAS INDICADORES</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
