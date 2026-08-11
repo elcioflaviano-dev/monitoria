@@ -142,10 +142,17 @@ def limpar_texto(txt):
 
 def padronizar_status(val):
     val_clean = limpar_texto(str(val))
-    if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'CANCEL' in val_clean or 'O.S NE' in val_clean: 
+    
+    # Isola Cancelados e Suspensos para que não caiam em Quebra (O.S NE) nem Em Aberto
+    if 'CANCEL' in val_clean or 'SUSP' in val_clean:
+        return 'Cancelado'
+        
+    if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'O.S NE' in val_clean: 
         return 'O.S NE'
+        
     if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
         return 'Produtivo'
+        
     return 'Em aberto'
 
 # Inicialização do estado da sessão
@@ -811,7 +818,8 @@ with CONTEUDO_TV.container():
                 total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                em_aberto_op = total_tarefas_op - os_ne_op - produtivo_op 
+                
+                em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
                 total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
                 if total_tecnicos_op == 0: total_tecnicos_op = 1
@@ -821,7 +829,7 @@ with CONTEUDO_TV.container():
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
                 
-                # Nova regra: media apenas do real (Produtivo + Aberto)
+                # Média baseada apenas no Produtivo + Aberto
                 os_reais_op = produtivo_op + em_aberto_op
                 media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
@@ -873,19 +881,19 @@ with CONTEUDO_TV.container():
                                 total_tarefas = df_sup['VALOR_TAREFA'].sum()
                                 os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                                 produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                                em_aberto = total_tarefas - os_ne - produtivo
+                                em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
                                 total_tecnicos = df_sup[col_tecnico].nunique() if col_tecnico in df_sup.columns else 1
                                 if total_tecnicos == 0: total_tecnicos = 1
-
-                                # Nova regra: media apenas do real (Produtivo + Aberto)
-                                os_reais = produtivo + em_aberto
-                                media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
 
                                 denom_quebra = os_ne + produtivo
                                 quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
                                 eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
                                 projecao = produtivo + (em_aberto * (eficiencia / 100))
+                                
+                                # Nova regra: media apenas do real (Produtivo + Aberto)
+                                os_reais = produtivo + em_aberto
+                                media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
 
                                 cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
 
@@ -1003,7 +1011,7 @@ with CONTEUDO_TV.container():
                 total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                em_aberto_op = total_tarefas_op - os_ne_op - produtivo_op 
+                em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
                 total_tecnicos_op = sum(QTD_TECNICOS_MONTADOS.values())
 
@@ -1064,7 +1072,7 @@ with CONTEUDO_TV.container():
                                 total_tarefas = df_sup['VALOR_TAREFA'].sum()
                                 os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                                 produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                                em_aberto = total_tarefas - os_ne - produtivo
+                                em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
                                 total_tecnicos = QTD_TECNICOS_MONTADOS.get(sup, 1)
 
