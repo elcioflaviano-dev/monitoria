@@ -26,7 +26,7 @@ QTD_TECNICOS_MONTADOS = {
     "NELSON": 20
 }
 
-# --- REGRAS GLOBAIS DE SUPERVISORES (MOVIDO PARA O TOPO) ---
+# --- REGRAS GLOBAIS DE SUPERVISORES ---
 SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
@@ -751,8 +751,6 @@ with CONTEUDO_TV.container():
             col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
             
-            # ---> INTELIGÊNCIA DOS FILTROS DA TABELA DINÂMICA <---
-            
             col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
             if col_cidade:
                 df_rota = df_rota[df_rota[col_cidade].notna()]
@@ -813,7 +811,6 @@ with CONTEUDO_TV.container():
                 total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                
                 em_aberto_op = total_tarefas_op - os_ne_op - produtivo_op 
 
                 total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
@@ -823,7 +820,10 @@ with CONTEUDO_TV.container():
                 quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
-                media_equipe_op = total_tarefas_op / total_tecnicos_op
+                
+                # Nova regra: media apenas do real (Produtivo + Aberto)
+                os_reais_op = produtivo_op + em_aberto_op
+                media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
                 cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
@@ -878,11 +878,14 @@ with CONTEUDO_TV.container():
                                 total_tecnicos = df_sup[col_tecnico].nunique() if col_tecnico in df_sup.columns else 1
                                 if total_tecnicos == 0: total_tecnicos = 1
 
+                                # Nova regra: media apenas do real (Produtivo + Aberto)
+                                os_reais = produtivo + em_aberto
+                                media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
+
                                 denom_quebra = os_ne + produtivo
                                 quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
                                 eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
                                 projecao = produtivo + (em_aberto * (eficiencia / 100))
-                                media_equipe = total_tarefas / total_tecnicos
 
                                 cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
 
@@ -1010,7 +1013,7 @@ with CONTEUDO_TV.container():
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
                 
                 # Nova regra: media apenas do real (Produtivo + Aberto)
-                os_reais_op = total_tarefas_op - os_ne_op
+                os_reais_op = produtivo_op + em_aberto_op
                 media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
                 cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
@@ -1066,7 +1069,7 @@ with CONTEUDO_TV.container():
                                 total_tecnicos = QTD_TECNICOS_MONTADOS.get(sup, 1)
 
                                 # Nova regra: media apenas do real (Produtivo + Aberto)
-                                os_reais = total_tarefas - os_ne
+                                os_reais = produtivo + em_aberto
                                 media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
 
                                 denom_quebra = os_ne + produtivo
@@ -1371,7 +1374,7 @@ with CONTEUDO_TV.container():
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
                 st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
-                st.markdown('<div class="ind-base-title abc">PENDÊNCIAS INDICADORES</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
@@ -1505,7 +1508,6 @@ else:
         elif st.session_state.idx == 7: prox_idx = 8
         elif st.session_state.idx == 8: prox_idx = 9
         elif st.session_state.idx == 9: prox_idx = 10
-        elif st.session_state.idx == 10: prox_idx = 5
         elif st.session_state.idx == 10: prox_idx = 5
         elif st.session_state.idx == 5: prox_idx = 6 
         elif st.session_state.idx == 6: prox_idx = 3 
