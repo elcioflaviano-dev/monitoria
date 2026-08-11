@@ -61,7 +61,7 @@ st.markdown("""<style>
     /* BOTÃO PRÓXIMA "FANTASMA" NO CANTO DIREITO INFERIOR */
     div[data-testid="stButton"] {
         position: fixed !important;
-        bottom: 75px !important; /* Acima do ticker financeiro */
+        bottom: 75px !important; 
         right: 20px !important;
         z-index: 999999 !important;
         display: flex !important;
@@ -76,13 +76,13 @@ st.markdown("""<style>
         padding: 8px 20px !important;
         font-size: 18px !important;
         font-weight: bold !important;
-        opacity: 0.03 !important; /* Quase 100% transparente para ficar despercebido */
+        opacity: 0.03 !important; 
         transition: all 0.4s ease-in-out !important;
         box-shadow: none !important;
     }
     div[data-testid="stButton"] > button:hover {
-        opacity: 1.0 !important; /* Mostra totalmente ao passar o mouse */
-        background-color: #ff9800 !important; /* Fica laranja para mostrar que está ativo */
+        opacity: 1.0 !important; 
+        background-color: #ff9800 !important; 
         border-color: #ffffff !important;
         box-shadow: 0px 5px 15px rgba(0,0,0,0.5) !important;
         transform: scale(1.05) !important;
@@ -142,10 +142,13 @@ def limpar_texto(txt):
 
 def padronizar_status(val):
     val_clean = limpar_texto(str(val))
+    
     if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'CANCEL' in val_clean or 'O.S NE' in val_clean: 
         return 'O.S NE'
+        
     if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
         return 'Produtivo'
+        
     return 'Em aberto'
 
 # Inicialização do estado da sessão
@@ -155,6 +158,7 @@ if "idx" not in st.session_state:
     st.session_state.script_audio_atual = ""
     st.session_state.prox_idx = 0
 
+# Cofre do Ticker Financeiro
 if "ticker_data" not in st.session_state:
     st.session_state.ticker_data = {}
 
@@ -220,24 +224,30 @@ function tocarAlertaChamaAtencao() {
     try {
         let ctx = new (window.parent.AudioContext || window.AudioContext)();
         let tempo = ctx.currentTime;
+        
         function tocarSino(frequencia, inicio, duracao) {
             let osc = ctx.createOscillator();
             let gain = ctx.createGain();
+            
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(frequencia, inicio);
+            
             gain.gain.setValueAtTime(0, inicio);
             gain.gain.linearRampToValueAtTime(3.0, inicio + 0.05); 
             gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao);
+            
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start(inicio);
             osc.stop(inicio + duracao + 0.1);
         }
+
         tocarSino(659.25, tempo, 1.5);       
         tocarSino(523.25, tempo + 0.4, 1.5); 
         tocarSino(784.00, tempo + 0.8, 2.5); 
     } catch(e) {}
 }
+
 function anunciarBase(texto, delay) {
     setTimeout(() => {
         tocarAlertaChamaAtencao();
@@ -257,12 +267,14 @@ function anunciarBase(texto, delay) {
         }, 2000); 
     }, delay);
 }
+
 function limparDestaques(total) {
     for(let j=0; j<total; j++) {
         let el = window.parent.document.getElementById('sup-box-' + j);
         if(el) { el.classList.remove('destaque-ativo'); }
     }
 }
+
 function animarSupervisor(texto, delay, index, totalSup) {
     setTimeout(() => {
         limparDestaques(totalSup);
@@ -883,12 +895,11 @@ with CONTEUDO_TV.container():
                                 <div class="sup-card">
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div style="display: flex; gap: 15px; align-items: center;">
-                                            <div style="background: #e3f2fd; color: #006064; border: 3px solid #006064; padding: 8px 15px; border-radius: 8px; font-size: 20px; font-weight: bold; white-space: nowrap;">Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}</div>
+                                        <div style="display: flex; gap: 10px; align-items: center;">
+                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">OS: {int(total_tarefas)}</div>
+                                            <div style="background: #ffebee; color: {cor_q}; border: 2px solid {cor_q}; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #e3f2fd; color: #006064; border: 2px solid #006064; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Técs: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
-                                    </div>
-                                    <div style="font-size: 16px; color: #666; text-align: center; margin-bottom: 10px; font-weight: bold; text-transform: uppercase;">
-                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1f}%</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1f}%</span>
                                     </div>
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -932,10 +943,7 @@ with CONTEUDO_TV.container():
             df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
 
-            col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
-            
-            # ---> INTELIGÊNCIA DOS FILTROS DA TABELA DINÂMICA <---
             
             col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
             if col_cidade:
@@ -956,8 +964,6 @@ with CONTEUDO_TV.container():
             if col_tipo_os:
                 df_rota = df_rota[df_rota[col_tipo_os].notna()]
                 df_rota = df_rota[df_rota[col_tipo_os].astype(str).str.strip() != '']
-                cond_montado = df_rota[col_tipo_os].astype(str).str.upper().str.contains('MONTADO', na=False)
-                df_rota = df_rota[cond_montado]
                 df_rota = df_rota[~df_rota[col_tipo_os].astype(str).str.upper().str.contains('RETORNO CREDENCIADA', na=False)]
 
             col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
@@ -995,7 +1001,6 @@ with CONTEUDO_TV.container():
                     df_proj['VALOR_TAREFA'] = 1
                     st.error(f"⚠️ COLUNA DE TAREFAS NÃO ENCONTRADA! Contando 1 por linha. Colunas lidas: {', '.join(df_rota.columns)}")
 
-                # ---> INÍCIO DO BANNER TOTAL GERAL <---
                 df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
                 total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
@@ -1048,7 +1053,6 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>
                 ''', unsafe_allow_html=True)
-                # ---> FIM DO BANNER TOTAL GERAL <---
 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
@@ -1077,12 +1081,11 @@ with CONTEUDO_TV.container():
                                 <div class="sup-card">
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div style="display: flex; gap: 15px; align-items: center;">
-                                            <div style="background: #e3f2fd; color: #006064; border: 3px solid #006064; padding: 8px 15px; border-radius: 8px; font-size: 20px; font-weight: bold; white-space: nowrap;">Técnicos: {total_tecnicos} | Média: {media_equipe:.2f}</div>
+                                        <div style="display: flex; gap: 10px; align-items: center;">
+                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">OS: {int(total_tarefas)}</div>
+                                            <div style="background: #ffebee; color: {cor_q}; border: 2px solid {cor_q}; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #e3f2fd; color: #006064; border: 2px solid #006064; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Técs: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
-                                    </div>
-                                    <div style="font-size: 16px; color: #666; text-align: center; margin-bottom: 10px; font-weight: bold; text-transform: uppercase;">
-                                        TOTAL TAREFAS: {int(total_tarefas)} &nbsp;|&nbsp; QUEBRA: <span style="color:{cor_q}">{quebra:.1f}%</span> &nbsp;|&nbsp; EFICIÊNCIA: <span style="color:#2e7d32">{eficiencia:.1f}%</span>
                                     </div>
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
