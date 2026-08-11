@@ -560,7 +560,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} OS | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -625,7 +625,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">P M E</div>
+            <div class="topo-centro">PME (TETO 20%)</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -687,7 +687,7 @@ with CONTEUDO_TV.container():
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
                     cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
 
-                    st.session_state.ticker_data[8] = f"📊 PME: {total_geral_pme} OS | QUEBRAS: {quebra_global_pme:.1f}%"
+                    st.session_state.ticker_data[8] = f"📊 PME: {total_geral_pme} O.S. | QUEBRAS: {quebra_global_pme:.1f}%"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -774,8 +774,6 @@ with CONTEUDO_TV.container():
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
-                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
-                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -834,12 +832,13 @@ with CONTEUDO_TV.container():
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
                 
+                # Média baseada apenas no Produtivo + Aberto
                 os_reais_op = produtivo_op + em_aberto_op
                 media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
                 cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
-                st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
+                st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} O.S. | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
@@ -965,8 +964,6 @@ with CONTEUDO_TV.container():
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
-                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
-                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -1126,14 +1123,16 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELAS 11, 12, 13, 14: MAPAS DE LOCALIZAÇÃO 🗺️
+    # TELAS 11, 12, 13, 14, 15, 16: MAPAS DE LOCALIZAÇÃO 🗺️
     # -------------------------------------------------------------------------
-    elif st.session_state.idx in [11, 12, 13, 14]:
+    elif st.session_state.idx in [11, 12, 13, 14, 15, 16]:
         titulos_mapa = {
-            11: "MAPA GERAL DA OPERAÇÃO",
-            12: "MAPA - EDSON MARCO",
-            13: "MAPA - MAICON",
-            14: "MAPA - NELSON"
+            11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
+            12: "MAPA DA ROTA - SANTO ANDRÉ",
+            13: "MAPA DA ROTA - DIADEMA",
+            14: "MAPA DA ROTA - EDSON MARCO",
+            15: "MAPA DA ROTA - MAICON",
+            16: "MAPA DA ROTA - NELSON"
         }
         
         st.markdown(f'''<div class="topo-container">
@@ -1156,8 +1155,8 @@ with CONTEUDO_TV.container():
             if col_sup and col_x and col_y:
                 if col_cidade:
                     df_rota = df_rota[df_rota[col_cidade].notna()]
-                    cond_cidade = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
-                    df_rota = df_rota[cond_cidade]
+                    cond_cidade_base = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
+                    df_rota = df_rota[cond_cidade_base]
 
                 def class_sup_mapa(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -1182,21 +1181,38 @@ with CONTEUDO_TV.container():
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
                 
-                if st.session_state.idx == 12:
-                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
+                # Aplicação dos filtros específicos por tela (Cidades ou Supervisores)
+                if st.session_state.idx == 11:
+                    df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
+                elif st.session_state.idx == 12:
+                    df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('SANTO ANDRE', regex=True)]
                 elif st.session_state.idx == 13:
-                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MAICON"]
+                    df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('DIADEMA', regex=True)]
                 elif st.session_state.idx == 14:
+                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
+                elif st.session_state.idx == 15:
+                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MAICON"]
+                elif st.session_state.idx == 16:
                     df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
                     
                 if not df_mapa.empty:
-                    st.markdown('''
-                    <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;">
-                        <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%;"></span> EDSON MARCO</div>
-                        <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%;"></span> MAICON</div>
-                        <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%;"></span> NELSON</div>
-                    </div>
-                    ''', unsafe_allow_html=True)
+                    # Legenda baseada na tela atual
+                    if st.session_state.idx in [11, 12, 13]:
+                        legenda_html = '''
+                        <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;">
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%;"></span> EDSON MARCO</div>
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%;"></span> MAICON</div>
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%;"></span> NELSON</div>
+                        </div>
+                        '''
+                    elif st.session_state.idx == 14:
+                        legenda_html = '<div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%;"></span> EDSON MARCO</div></div>'
+                    elif st.session_state.idx == 15:
+                        legenda_html = '<div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%;"></span> MAICON</div></div>'
+                    else:
+                        legenda_html = '<div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%;"></span> NELSON</div></div>'
+
+                    st.markdown(legenda_html, unsafe_allow_html=True)
                     
                     scatter_layer = pdk.Layer(
                         'ScatterplotLayer',
@@ -1575,7 +1591,7 @@ with CONTEUDO_TV.container():
     if st.session_state.idx != 4:  
         ticker_items = []
         for k, v in st.session_state.ticker_data.items():
-            if k != st.session_state.idx:
+            if k not in [0, 11, 12, 13, 14, 15, 16] and k != st.session_state.idx:
                 ticker_items.append(f'<span class="ticker__item">{v}</span>')
         
         if ticker_items:
@@ -1601,7 +1617,7 @@ elif st.session_state.idx == 7: espera = 60
 elif st.session_state.idx == 8: espera = 60 
 elif st.session_state.idx == 9: espera = 60 
 elif st.session_state.idx == 10: espera = 60 
-elif st.session_state.idx in [11, 12, 13, 14]: espera = 60 
+elif st.session_state.idx in [11, 12, 13, 14, 15, 16]: espera = 60 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
@@ -1645,7 +1661,9 @@ else:
         elif st.session_state.idx == 11: prox_idx = 12
         elif st.session_state.idx == 12: prox_idx = 13
         elif st.session_state.idx == 13: prox_idx = 14
-        elif st.session_state.idx == 14: prox_idx = 5
+        elif st.session_state.idx == 14: prox_idx = 15
+        elif st.session_state.idx == 15: prox_idx = 16
+        elif st.session_state.idx == 16: prox_idx = 5
         elif st.session_state.idx == 5: prox_idx = 6 
         elif st.session_state.idx == 6: prox_idx = 3 
         elif st.session_state.idx == 3: prox_idx = 2
