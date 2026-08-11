@@ -840,7 +840,7 @@ with CONTEUDO_TV.container():
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL O.S</div>
                             <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -926,7 +926,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} tarefas. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
                     st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
