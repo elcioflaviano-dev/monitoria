@@ -93,12 +93,20 @@ st.markdown("""<style>
         transform: scale(1.05) !important;
     }
 
+    /* FORÇAR ALTURA DO MAPA PYDECK */
+    [data-testid="stDeckGlJsonChart"] {
+        height: 72vh !important;
+        min-height: 600px !important;
+        border-radius: 12px;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.15);
+    }
+
     /* CAIXA BASE GERAL - COMPACTADA */
     .box-base { background: #e8f5e9; border-left: 15px solid #2e7d32; padding: 10px 10px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); margin-bottom: 15px; }
     .nome-base { font-size: 35px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 5px; }
     .num-base { font-size: 110px !important; font-weight: 900; color: #111; line-height: 1; }
     
-    /* CAIXA DOS SUPERVISORES (TEC1 E OUTROS) - AJUSTADO COM BORDA */
+    /* CAIXA DOS SUPERVISORES (TEC1 E OUTROS) */
     .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
     .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .box-num { font-size: 90px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 10px; }
@@ -224,24 +232,30 @@ function tocarAlertaChamaAtencao() {
     try {
         let ctx = new (window.parent.AudioContext || window.AudioContext)();
         let tempo = ctx.currentTime;
+        
         function tocarSino(frequencia, inicio, duracao) {
             let osc = ctx.createOscillator();
             let gain = ctx.createGain();
+            
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(frequencia, inicio);
+            
             gain.gain.setValueAtTime(0, inicio);
             gain.gain.linearRampToValueAtTime(3.0, inicio + 0.05); 
             gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao);
+            
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start(inicio);
             osc.stop(inicio + duracao + 0.1);
         }
+
         tocarSino(659.25, tempo, 1.5);       
         tocarSino(523.25, tempo + 0.4, 1.5); 
         tocarSino(784.00, tempo + 0.8, 2.5); 
     } catch(e) {}
 }
+
 function anunciarBase(texto, delay) {
     setTimeout(() => {
         tocarAlertaChamaAtencao();
@@ -261,12 +275,14 @@ function anunciarBase(texto, delay) {
         }, 2000); 
     }, delay);
 }
+
 function limparDestaques(total) {
     for(let j=0; j<total; j++) {
         let el = window.parent.document.getElementById('sup-box-' + j);
         if(el) { el.classList.remove('destaque-ativo'); }
     }
 }
+
 function animarSupervisor(texto, delay, index, totalSup) {
     setTimeout(() => {
         limparDestaques(totalSup);
@@ -351,8 +367,6 @@ with CONTEUDO_TV.container():
                 
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
                 qtd_abc_base = len(nomes_abc)
-
-                st.session_state.ticker_data[0] = f"🚀 BASE: {qtd_abc_base} TÉCS PENDENTES"
 
                 cols_tec = st.columns(4)
                 for i, n in enumerate(nomes_abc):
@@ -531,7 +545,6 @@ with CONTEUDO_TV.container():
                         st.warning("Nenhuma O.S do tipo '24 -' ou '191 -' encontrada na base GPON.")
                     else:
                         df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
-                        # Remove os cancelados do dataset para não afetar as quebras, mantendo lógica limpa
                         df_mig = df_mig[df_mig['STATUS_PADRAO'] != 'Cancelado'].copy()
 
                         df_mig['QTD_TAREFAS_NUM'] = df_mig['QTD_MIGRACAO_CALC']
@@ -551,7 +564,7 @@ with CONTEUDO_TV.container():
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
-                                Total OS: <span style="color:#003366">{total_geral_mig}</span> | 
+                                Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | 
                                 Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
                                 Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                                 Quebras Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
@@ -597,7 +610,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -678,7 +691,7 @@ with CONTEUDO_TV.container():
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
-                            Total OS: <span style="color:#003366">{total_geral_pme}</span> | 
+                            Total de O.S.: <span style="color:#003366">{total_geral_pme}</span> | 
                             Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
                             Quebras Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
@@ -724,7 +737,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -761,6 +774,8 @@ with CONTEUDO_TV.container():
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
+                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
+                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -830,7 +845,7 @@ with CONTEUDO_TV.container():
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
                             <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -875,13 +890,13 @@ with CONTEUDO_TV.container():
                                 total_tecnicos = df_sup[col_tecnico].nunique() if col_tecnico in df_sup.columns else 1
                                 if total_tecnicos == 0: total_tecnicos = 1
 
+                                os_reais = produtivo + em_aberto
+                                media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
+
                                 denom_quebra = os_ne + produtivo
                                 quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
                                 eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
                                 projecao = produtivo + (em_aberto * (eficiencia / 100))
-                                
-                                os_reais = produtivo + em_aberto
-                                media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
 
                                 cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
 
@@ -890,7 +905,7 @@ with CONTEUDO_TV.container():
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                         <div style="display: flex; gap: 10px; align-items: center;">
-                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">OS: {int(total_tarefas)}</div>
+                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
                                             <div style="background: #ffebee; color: {cor_q}; border: 2px solid {cor_q}; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
                                             <div style="background: #e3f2fd; color: #006064; border: 2px solid #006064; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Técs: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
@@ -915,7 +930,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} tarefas. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
                     st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -950,6 +965,8 @@ with CONTEUDO_TV.container():
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
+                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
+                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -1018,7 +1035,7 @@ with CONTEUDO_TV.container():
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL OS</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
                             <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -1077,7 +1094,7 @@ with CONTEUDO_TV.container():
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
                                         <div style="display: flex; gap: 10px; align-items: center;">
-                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">OS: {int(total_tarefas)}</div>
+                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
                                             <div style="background: #ffebee; color: {cor_q}; border: 2px solid {cor_q}; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
                                             <div style="background: #e3f2fd; color: #006064; border: 2px solid #006064; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Técs: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
@@ -1212,9 +1229,9 @@ with CONTEUDO_TV.container():
                     r = pdk.Deck(
                         layers=[scatter_layer, text_layer], 
                         initial_view_state=view_state, 
-                        map_style='mapbox://styles/mapbox/light-v9',
-                        tooltip={"text": "{NOME_TECNICO}\\nSupervisor: {SUPERVISOR_CLEAN}"},
-                        height=750
+                        map_provider='carto',
+                        map_style='light',
+                        tooltip={"text": "{NOME_TECNICO}\\nSupervisor: {SUPERVISOR_CLEAN}"}
                     )
                     
                     st.pydeck_chart(r, use_container_width=True)
@@ -1222,7 +1239,6 @@ with CONTEUDO_TV.container():
                 else:
                     st.warning("Nenhuma coordenada válida encontrada para este filtro nas cidades atendidas.")
                 
-                st.session_state.ticker_data[st.session_state.idx] = f"📍 {titulos_mapa[st.session_state.idx]} VISUALIZADO"
             else:
                 st.error("Colunas de Coordenada X, Coordenada Y ou Supervisor não encontradas.")
                 
