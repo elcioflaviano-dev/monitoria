@@ -602,7 +602,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -728,7 +728,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -753,8 +753,6 @@ with CONTEUDO_TV.container():
 
             col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
-            
-            # ---> INTELIGÊNCIA DOS FILTROS DA TABELA DINÂMICA <---
             
             col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
             if col_cidade:
@@ -835,7 +833,6 @@ with CONTEUDO_TV.container():
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
-                    <div class="nome-base" style="font-size: 30px !important; margin-bottom: 10px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 ROTA ATUAL - ESCALADOS</div>
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
                             <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL DE OS</div>
@@ -934,10 +931,10 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 10:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">VISÃO GERAL DA ROTA - MONTADOS</div>
+            <div class="topo-centro">VISÃO GERAL DA ROTA - EQUIPE FIXA</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
-        {html_audio_ind}''', unsafe_allow_html=True)
+        {icone_mudo}''', unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -999,7 +996,6 @@ with CONTEUDO_TV.container():
                         df_proj['VALOR_TAREFA'] = 1
                 else:
                     df_proj['VALOR_TAREFA'] = 1
-                    st.error(f"⚠️ COLUNA DE TAREFAS NÃO ENCONTRADA! Contando 1 por linha. Colunas lidas: {', '.join(df_rota.columns)}")
 
                 df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
@@ -1022,7 +1018,6 @@ with CONTEUDO_TV.container():
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
-                    <div class="nome-base" style="font-size: 30px !important; margin-bottom: 10px; color: #003366; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">🌍 ROTA MONTADOS (EQUIPE FIXA)</div>
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
                             <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL OS</div>
@@ -1107,8 +1102,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_10 = f"Atenção para a Visão da Rota dos Montados. O total da operação é de {int(total_tarefas_op)} O.S. Com a projeção em {int(round(projecao_op))}."
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>"
+                    st.session_state.script_audio_atual = ""
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
@@ -1371,9 +1365,9 @@ with CONTEUDO_TV.container():
                 df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 PRINTS: {int(total_faltas_ind)} FALTAS"
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
-                st.markdown('<div class="ind-base-title abc">FALTAM PRINTS</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">PENDÊNCIAS INDICADORES</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
