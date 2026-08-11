@@ -774,6 +774,8 @@ with CONTEUDO_TV.container():
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
+                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
+                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -832,7 +834,6 @@ with CONTEUDO_TV.container():
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
                 
-                # Média baseada apenas no Produtivo + Aberto
                 os_reais_op = produtivo_op + em_aberto_op
                 media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
@@ -964,6 +965,8 @@ with CONTEUDO_TV.container():
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
+                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
+                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -1219,7 +1222,7 @@ with CONTEUDO_TV.container():
                         data=df_mapa,
                         get_position='[LON, LAT]',
                         get_color='COLOR_RGB',
-                        get_radius=150,
+                        get_radius=120,
                         pickable=True,
                         opacity=0.8
                     )
@@ -1235,10 +1238,25 @@ with CONTEUDO_TV.container():
                         get_offset="[0, -15]"
                     )
                     
+                    # --- ZOOM INTELIGENTE ---
+                    lat_min, lat_max = df_mapa['LAT'].min(), df_mapa['LAT'].max()
+                    lon_min, lon_max = df_mapa['LON'].min(), df_mapa['LON'].max()
+                    
+                    max_diff = max(lat_max - lat_min, lon_max - lon_min)
+                    
+                    if max_diff <= 0.05:
+                        zoom_dinamico = 13.5
+                    elif max_diff <= 0.1:
+                        zoom_dinamico = 12.5
+                    elif max_diff <= 0.2:
+                        zoom_dinamico = 11.5
+                    else:
+                        zoom_dinamico = 10.5
+                        
                     view_state = pdk.ViewState(
                         latitude=df_mapa['LAT'].mean(), 
                         longitude=df_mapa['LON'].mean(), 
-                        zoom=11, 
+                        zoom=zoom_dinamico, 
                         pitch=0
                     )
                     
