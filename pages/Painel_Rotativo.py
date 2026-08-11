@@ -1200,20 +1200,21 @@ with CONTEUDO_TV.container():
                     
                 if not df_mapa.empty:
                     # Legenda baseada na tela atual
+                    base_style = "display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 24px; font-weight: 900; color: #000000 !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);"
                     if st.session_state.idx in [11, 12, 13]:
-                        legenda_html = '''
-                        <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;">
-                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%;"></span> EDSON MARCO</div>
-                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%;"></span> MAICON</div>
-                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%;"></span> NELSON</div>
+                        legenda_html = f'''
+                        <div style="{base_style}">
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>
                         </div>
                         '''
                     elif st.session_state.idx == 14:
-                        legenda_html = '<div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%;"></span> EDSON MARCO</div></div>'
+                        legenda_html = f'<div style="{base_style}"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div></div>'
                     elif st.session_state.idx == 15:
-                        legenda_html = '<div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%;"></span> MAICON</div></div>'
+                        legenda_html = f'<div style="{base_style}"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div></div>'
                     else:
-                        legenda_html = '<div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 20px; font-weight: bold;"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%;"></span> NELSON</div></div>'
+                        legenda_html = f'<div style="{base_style}"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div></div>'
 
                     st.markdown(legenda_html, unsafe_allow_html=True)
                     
