@@ -143,7 +143,6 @@ def limpar_texto(txt):
 def padronizar_status(val):
     val_clean = limpar_texto(str(val))
     
-    # Isola Cancelados e Suspensos para que não caiam em Quebra (O.S NE) nem Em Aberto
     if 'CANCEL' in val_clean or 'SUSP' in val_clean:
         return 'Cancelado'
         
@@ -621,7 +620,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">P M E</div>
+            <div class="topo-centro">PME (TETO 20%)</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -818,7 +817,6 @@ with CONTEUDO_TV.container():
                 total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
                 os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                
                 em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
                 total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
@@ -835,7 +833,7 @@ with CONTEUDO_TV.container():
 
                 cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
-                st.session_state.ticker_data[9] = f"🌍 ROTA ATUAL: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
+                st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
@@ -927,7 +925,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S no momento."
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
                     st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1026,7 +1024,7 @@ with CONTEUDO_TV.container():
 
                 cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
-                st.session_state.ticker_data[10] = f"🌍 ROTA COM MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
+                st.session_state.ticker_data[10] = f"🌍 MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
@@ -1122,6 +1120,85 @@ with CONTEUDO_TV.container():
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+    # -------------------------------------------------------------------------
+    # TELAS 11, 12, 13, 14: MAPAS DE LOCALIZAÇÃO 🗺️
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx in [11, 12, 13, 14]:
+        titulos_mapa = {
+            11: "MAPA GERAL DA OPERAÇÃO",
+            12: "MAPA - EDSON MARCO",
+            13: "MAPA - MAICON",
+            14: "MAPA - NELSON"
+        }
+        
+        st.markdown(f'''<div class="topo-container">
+            <div class="topo-esquerda">{logo_html}</div>
+            <div class="topo-centro">{titulos_mapa[st.session_state.idx]}</div>
+            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+        </div>
+        {icone_mudo}''', unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+            df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
+            
+            col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
+            col_x = next((c for c in df_rota.columns if 'COORDENADA X' in c or 'LONG' in c), None)
+            col_y = next((c for c in df_rota.columns if 'COORDENADA Y' in c or 'LATI' in c), None)
+            
+            if col_sup and col_x and col_y:
+                def class_sup_mapa(row):
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup: return oficial
+                    return "DESCARTADO"
+                
+                df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_mapa, axis=1)
+                
+                df_mapa = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                
+                df_mapa['LAT'] = pd.to_numeric(df_mapa[col_y].astype(str).str.replace(',', '.'), errors='coerce')
+                df_mapa['LON'] = pd.to_numeric(df_mapa[col_x].astype(str).str.replace(',', '.'), errors='coerce')
+                
+                df_mapa = df_mapa.dropna(subset=['LAT', 'LON'])
+                
+                def cor_sup(sup):
+                    if sup == "MAICON": return "#FF1493" # Rosa
+                    if sup == "NELSON": return "#008000" # Verde
+                    if sup == "EDSON MARCO": return "#800080" # Roxo
+                    return "#000000"
+                    
+                df_mapa['COLOR'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup)
+                
+                if st.session_state.idx == 12:
+                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
+                elif st.session_state.idx == 13:
+                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MAICON"]
+                elif st.session_state.idx == 14:
+                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
+                    
+                if not df_mapa.empty:
+                    st.markdown('''
+                    <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; font-size: 20px; font-weight: bold;">
+                        <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%;"></span> EDSON MARCO</div>
+                        <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%;"></span> MAICON</div>
+                        <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%;"></span> NELSON</div>
+                    </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    st.map(df_mapa, latitude='LAT', longitude='LON', color='COLOR', zoom=9)
+                else:
+                    st.warning("Nenhuma coordenada válida encontrada para este filtro.")
+                
+                st.session_state.ticker_data[st.session_state.idx] = f"📍 {titulos_mapa[st.session_state.idx]} VISUALIZADO"
+            else:
+                st.error("Colunas de Coordenada X, Coordenada Y ou Supervisor não encontradas.")
+                
+            if st.session_state.novo_ciclo:
+                st.session_state.script_audio_atual = ""
+                st.session_state.novo_ciclo = False
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
     # TELA 5: CONSULTIVO GERAL
@@ -1380,7 +1457,7 @@ with CONTEUDO_TV.container():
                 df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
 
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 FALTAM PRINTS: {int(total_faltas_ind)} FALTAS"
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
                 st.markdown('<div class="ind-base-title abc">FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
@@ -1477,6 +1554,7 @@ elif st.session_state.idx == 7: espera = 60
 elif st.session_state.idx == 8: espera = 60 
 elif st.session_state.idx == 9: espera = 60 
 elif st.session_state.idx == 10: espera = 60 
+elif st.session_state.idx in [11, 12, 13, 14]: espera = 60 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
@@ -1516,7 +1594,11 @@ else:
         elif st.session_state.idx == 7: prox_idx = 8
         elif st.session_state.idx == 8: prox_idx = 9
         elif st.session_state.idx == 9: prox_idx = 10
-        elif st.session_state.idx == 10: prox_idx = 5
+        elif st.session_state.idx == 10: prox_idx = 11
+        elif st.session_state.idx == 11: prox_idx = 12
+        elif st.session_state.idx == 12: prox_idx = 13
+        elif st.session_state.idx == 13: prox_idx = 14
+        elif st.session_state.idx == 14: prox_idx = 5
         elif st.session_state.idx == 5: prox_idx = 6 
         elif st.session_state.idx == 6: prox_idx = 3 
         elif st.session_state.idx == 3: prox_idx = 2
