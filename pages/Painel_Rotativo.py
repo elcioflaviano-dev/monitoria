@@ -26,6 +26,10 @@ QTD_TECNICOS_MONTADOS = {
     "NELSON": 20
 }
 
+# --- REGRAS GLOBAIS DE SUPERVISORES (MOVIDO PARA O TOPO) ---
+SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
+SUPERVISORES_ORDENADOS = SUPS_ABC
+
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
 # --- FUNÇÕES GLOBAIS E CSS ---
@@ -125,10 +129,6 @@ st.markdown("""<style>
     @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
 </style>""", unsafe_allow_html=True)
 
-# --- REGRAS GLOBAIS ---
-SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
-SUPERVISORES_ORDENADOS = SUPS_ABC
-
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
     if 'MAICON' in n: return "MAICON"
@@ -142,13 +142,10 @@ def limpar_texto(txt):
 
 def padronizar_status(val):
     val_clean = limpar_texto(str(val))
-    
     if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'CANCEL' in val_clean or 'O.S NE' in val_clean: 
         return 'O.S NE'
-        
     if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
         return 'Produtivo'
-        
     return 'Em aberto'
 
 # Inicialização do estado da sessão
@@ -552,7 +549,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} OS | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} OS | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -602,7 +599,7 @@ with CONTEUDO_TV.container():
                                         </div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_mig}."
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_mig}."
                             st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (GPON, TIPO OS, Status) não encontradas no arquivo.")
@@ -617,7 +614,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PME</div>
+            <div class="topo-centro">PME (TETO 20%)</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -728,7 +725,7 @@ with CONTEUDO_TV.container():
                                     </div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras, e no momento temos {total_ne_pme}."
+                        texto_audio = f"Atenção para a P M E. A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} OS quebrados, e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
@@ -753,6 +750,8 @@ with CONTEUDO_TV.container():
 
             col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
+            
+            # ---> INTELIGÊNCIA DOS FILTROS DA TABELA DINÂMICA <---
             
             col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
             if col_cidade:
@@ -808,7 +807,6 @@ with CONTEUDO_TV.container():
                         df_proj['VALOR_TAREFA'] = 1
                 else:
                     df_proj['VALOR_TAREFA'] = 1
-                    st.error(f"⚠️ COLUNA DE TAREFAS NÃO ENCONTRADA! Contando 1 por linha. Colunas lidas: {', '.join(df_rota.columns)}")
 
                 df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
@@ -835,7 +833,7 @@ with CONTEUDO_TV.container():
                 <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL DE OS</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL TAREFAS</div>
                             <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
@@ -918,7 +916,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} tarefas. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras no momento."
                     st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1010,7 +1008,10 @@ with CONTEUDO_TV.container():
                 quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
-                media_equipe_op = total_tarefas_op / total_tecnicos_op
+                
+                # Nova regra: media apenas do real (Produtivo + Aberto)
+                os_reais_op = total_tarefas_op - os_ne_op
+                media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
                 cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
@@ -1064,11 +1065,14 @@ with CONTEUDO_TV.container():
 
                                 total_tecnicos = QTD_TECNICOS_MONTADOS.get(sup, 1)
 
+                                # Nova regra: media apenas do real (Produtivo + Aberto)
+                                os_reais = total_tarefas - os_ne
+                                media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
+
                                 denom_quebra = os_ne + produtivo
                                 quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
                                 eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
                                 projecao = produtivo + (em_aberto * (eficiencia / 100))
-                                media_equipe = total_tarefas / total_tecnicos
 
                                 cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
 
@@ -1367,7 +1371,7 @@ with CONTEUDO_TV.container():
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
                 st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
-                st.markdown('<div class="ind-base-title abc">FALTAM PRINTS</div>', unsafe_allow_html=True)
+                st.markdown('<div class="ind-base-title abc">PENDÊNCIAS INDICADORES</div>', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
@@ -1501,6 +1505,7 @@ else:
         elif st.session_state.idx == 7: prox_idx = 8
         elif st.session_state.idx == 8: prox_idx = 9
         elif st.session_state.idx == 9: prox_idx = 10
+        elif st.session_state.idx == 10: prox_idx = 5
         elif st.session_state.idx == 10: prox_idx = 5
         elif st.session_state.idx == 5: prox_idx = 6 
         elif st.session_state.idx == 6: prox_idx = 3 
