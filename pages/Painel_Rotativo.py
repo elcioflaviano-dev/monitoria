@@ -1161,6 +1161,16 @@ with CONTEUDO_TV.container():
                     cond_cidade_base = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
                     df_rota = df_rota[cond_cidade_base]
 
+                # >>> NOVA REGRA: APENAS PENDENTES <<<
+                col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
+                col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
+                if not col_status: col_status = col_status_ativ
+                if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
+                
+                if col_status:
+                    df_rota['STATUS_PADRAO'] = df_rota[col_status].apply(padronizar_status)
+                    df_rota = df_rota[df_rota['STATUS_PADRAO'] == 'Em aberto']
+
                 def class_sup_mapa(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                     for oficial in SUPERVISORES_ORDENADOS:
@@ -1272,7 +1282,7 @@ with CONTEUDO_TV.container():
                     st.pydeck_chart(r, use_container_width=True)
                     
                 else:
-                    st.warning("Nenhuma coordenada válida encontrada para este filtro nas cidades atendidas.")
+                    st.warning("Nenhum contrato pendente com coordenada válida encontrada para este filtro.")
                 
             else:
                 st.error("Colunas de Coordenada X, Coordenada Y ou Supervisor não encontradas.")
