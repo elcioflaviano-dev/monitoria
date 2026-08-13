@@ -672,7 +672,7 @@ with CONTEUDO_TV.container():
     # TELA 8: PME 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
-        st.markdown(render_topo("PME (TETO 20%)") + icone_mudo, unsafe_allow_html=True)
+        st.markdown(render_topo("P M E") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
