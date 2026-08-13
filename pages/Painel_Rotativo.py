@@ -1130,12 +1130,12 @@ with CONTEUDO_TV.container():
     # -------------------------------------------------------------------------
     elif st.session_state.idx in [11, 12, 13, 14, 15, 16]:
         titulos_mapa = {
-            11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
-            12: "MAPA DA ROTA - SANTO ANDRÉ",
-            13: "MAPA DA ROTA - DIADEMA",
-            14: "MAPA DA ROTA - EDSON MARCO",
-            15: "MAPA DA ROTA - MAICON",
-            16: "MAPA DA ROTA - NELSON"
+            11: "MAPA DA ROTA - PENDENTES - SÃO BERNARDO DO CAMPO",
+            12: "MAPA DA ROTA - PENDENTES - SANTO ANDRÉ",
+            13: "MAPA DA ROTA - PENDENTES - DIADEMA",
+            14: "MAPA DA ROTA - PENDENTES - EDSON MARCO",
+            15: "MAPA DA ROTA - PENDENTES - MAICON",
+            16: "MAPA DA ROTA - PENDENTES - NELSON"
         }
         
         st.markdown(f'''<div class="topo-container">
