@@ -453,7 +453,7 @@ with CONTEUDO_TV.container():
                     df_pendentes_geral = df_validos[condicao_horario & (df_validos['P_COUNT'] > 0)].copy()
                 else:
                     if not df_validos.empty:
-                        df_pendentes_geral = df_validos[df_pendentes_geral['P_COUNT'] > 0].copy()
+                        df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
 
                 col_contrato = next((c for c in df_pendentes_geral.columns if 'CONTRATO' in c), None)
                 if col_contrato and not df_pendentes_geral.empty:
@@ -1088,6 +1088,165 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
+    # TELAS 11, 12, 13, 14, 15, 16: MAPAS DE LOCALIZAÇÃO 🗺️
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx in [11, 12, 13, 14, 15, 16]:
+        titulos_mapa = {
+            11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
+            12: "MAPA DA ROTA - SANTO ANDRÉ",
+            13: "MAPA DA ROTA - DIADEMA",
+            14: "MAPA DA ROTA - EDSON MARCO",
+            15: "MAPA DA ROTA - MAICON",
+            16: "MAPA DA ROTA - NELSON"
+        }
+        
+        st.markdown(render_topo(titulos_mapa[st.session_state.idx]) + icone_mudo, unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
+            df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
+            
+            col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
+            col_x = next((c for c in df_rota.columns if 'COORDENADA X' in c or 'LONG' in c), None)
+            col_y = next((c for c in df_rota.columns if 'COORDENADA Y' in c or 'LATI' in c), None)
+            col_tec = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
+            col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
+            
+            if col_sup and col_x and col_y:
+                if col_cidade:
+                    df_rota = df_rota[df_rota[col_cidade].notna()]
+                    cond_cidade_base = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
+                    df_rota = df_rota[cond_cidade_base]
+
+                col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
+                col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
+                if not col_status: col_status = col_status_ativ
+                if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
+                
+                if col_status:
+                    df_rota['STATUS_PADRAO'] = df_rota[col_status].apply(padronizar_status)
+                    df_rota = df_rota[df_rota['STATUS_PADRAO'] == 'Em aberto']
+
+                def class_sup_mapa(row):
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup: return oficial
+                    return "DESCARTADO"
+                
+                df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_mapa, axis=1)
+                df_mapa = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                
+                df_mapa['LAT'] = pd.to_numeric(df_mapa[col_y].astype(str).str.replace(',', '.'), errors='coerce')
+                df_mapa['LON'] = pd.to_numeric(df_mapa[col_x].astype(str).str.replace(',', '.'), errors='coerce')
+                df_mapa = df_mapa.dropna(subset=['LAT', 'LON'])
+                
+                df_mapa['NOME_TECNICO'] = df_mapa[col_tec].fillna('Desconhecido').astype(str).apply(lambda x: x.split()[0].upper())
+                
+                def cor_sup_rgb(sup):
+                    if sup == "MAICON": return [255, 20, 147] 
+                    if sup == "NELSON": return [0, 128, 0]    
+                    if sup == "EDSON MARCO": return [128, 0, 128] 
+                    return [0, 0, 0]
+                    
+                df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
+                
+                # Aplicação dos filtros específicos por tela (Cidades ou Supervisores)
+                if st.session_state.idx == 11:
+                    df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
+                elif st.session_state.idx == 12:
+                    df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('SANTO ANDRE', regex=True)]
+                elif st.session_state.idx == 13:
+                    df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('DIADEMA', regex=True)]
+                elif st.session_state.idx == 14:
+                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
+                elif st.session_state.idx == 15:
+                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MAICON"]
+                elif st.session_state.idx == 16:
+                    df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
+                    
+                if not df_mapa.empty:
+                    base_style = "display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 24px; font-weight: 900; color: #000000 !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);"
+                    if st.session_state.idx in [11, 12, 13]:
+                        legenda_html = f'''
+                        <div style="{base_style}">
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>
+                            <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>
+                        </div>
+                        '''
+                    elif st.session_state.idx == 14:
+                        legenda_html = f'<div style="{base_style}"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div></div>'
+                    elif st.session_state.idx == 15:
+                        legenda_html = f'<div style="{base_style}"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div></div>'
+                    else:
+                        legenda_html = f'<div style="{base_style}"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div></div>'
+
+                    st.markdown(legenda_html, unsafe_allow_html=True)
+                    
+                    scatter_layer = pdk.Layer(
+                        'ScatterplotLayer',
+                        data=df_mapa,
+                        get_position='[LON, LAT]',
+                        get_color='COLOR_RGB',
+                        get_radius=120,
+                        pickable=True,
+                        opacity=0.8
+                    )
+                    
+                    text_layer = pdk.Layer(
+                        "TextLayer",
+                        data=df_mapa,
+                        get_position="[LON, LAT]",
+                        get_text="NOME_TECNICO",
+                        get_size=16,
+                        get_color=[0, 0, 0],
+                        get_alignment_baseline="'bottom'",
+                        get_offset="[0, -15]"
+                    )
+                    
+                    lat_min, lat_max = df_mapa['LAT'].min(), df_mapa['LAT'].max()
+                    lon_min, lon_max = df_mapa['LON'].min(), df_mapa['LON'].max()
+                    
+                    max_diff = max(lat_max - lat_min, lon_max - lon_min)
+                    
+                    if max_diff <= 0.05:
+                        zoom_dinamico = 13.5
+                    elif max_diff <= 0.1:
+                        zoom_dinamico = 12.5
+                    elif max_diff <= 0.2:
+                        zoom_dinamico = 11.5
+                    else:
+                        zoom_dinamico = 10.5
+                        
+                    view_state = pdk.ViewState(
+                        latitude=df_mapa['LAT'].mean(), 
+                        longitude=df_mapa['LON'].mean(), 
+                        zoom=zoom_dinamico, 
+                        pitch=0
+                    )
+                    
+                    r = pdk.Deck(
+                        layers=[scatter_layer, text_layer], 
+                        initial_view_state=view_state, 
+                        map_provider='carto',
+                        map_style='light',
+                        tooltip={"text": "{NOME_TECNICO}\\nSupervisor: {SUPERVISOR_CLEAN}"}
+                    )
+                    
+                    st.pydeck_chart(r, use_container_width=True)
+                    
+                else:
+                    st.warning("Nenhum contrato pendente com coordenada válida encontrada para este filtro.")
+                
+            else:
+                st.error("Colunas de Coordenada X, Coordenada Y ou Supervisor não encontradas.")
+                
+            if st.session_state.novo_ciclo:
+                st.session_state.script_audio_atual = ""
+                st.session_state.novo_ciclo = False
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+    # -------------------------------------------------------------------------
     # TELA 5: CONSULTIVO GERAL
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
@@ -1453,10 +1612,10 @@ with CONTEUDO_TV.container():
             ''', unsafe_allow_html=True)
 
 # =========================================================================
-# CONTROLES DE NAVEGAÇÃO 🕹️
+# CONTROLES DE NAVEGAÇÃO E PAUSA 🕹️
 # =========================================================================
 
-pular = st.button("PRÓXIMA ➡️")
+pular = st.button("PRÓXIMA ➡️", type="secondary")
 
 # =========================================================================
 # MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
@@ -1478,7 +1637,7 @@ if not pular:
     js_timer = f"""
     <script>
     setTimeout(function() {{
-        var buttons = window.parent.document.querySelectorAll('button');
+        var buttons = window.parent.document.querySelectorAll('button[kind="secondary"]');
         for (var i=0; i<buttons.length; i++) {{
             if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
                 buttons[i].click();
@@ -1487,6 +1646,7 @@ if not pular:
         }}
     }}, {espera * 1000});
     </script>
+    """
     st.components.v1.html(js_timer, height=0)
     st.stop()
 
