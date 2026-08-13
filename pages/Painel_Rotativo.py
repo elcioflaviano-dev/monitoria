@@ -560,7 +560,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -625,7 +625,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 8:
         st.markdown(f'''<div class="topo-container">
             <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">P M E</div>
+            <div class="topo-centro">PME (TETO 20%)</div>
             <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
         </div>
         {icone_mudo}''', unsafe_allow_html=True)
@@ -762,20 +762,11 @@ with CONTEUDO_TV.container():
 
             col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
-            
-            col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
-            if col_cidade:
-                df_rota = df_rota[df_rota[col_cidade].notna()]
-                df_rota = df_rota[df_rota[col_cidade].astype(str).str.strip() != '']
-                cond_cidade = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
-                df_rota = df_rota[cond_cidade]
 
             col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
-                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
-                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -954,19 +945,10 @@ with CONTEUDO_TV.container():
 
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
             
-            col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
-            if col_cidade:
-                df_rota = df_rota[df_rota[col_cidade].notna()]
-                df_rota = df_rota[df_rota[col_cidade].astype(str).str.strip() != '']
-                cond_cidade = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
-                df_rota = df_rota[cond_cidade]
-
             col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
                 df_rota = df_rota[df_rota[col_status_ativ].astype(str).str.strip() != '']
-                str_status_ativ = df_rota[col_status_ativ].astype(str).str.upper()
-                df_rota = df_rota[~str_status_ativ.str.contains('CANCELADO|SUSPENSO', na=False)]
 
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
@@ -1130,12 +1112,12 @@ with CONTEUDO_TV.container():
     # -------------------------------------------------------------------------
     elif st.session_state.idx in [11, 12, 13, 14, 15, 16]:
         titulos_mapa = {
-            11: "MAPA DA ROTA - PENDENTES - SÃO BERNARDO DO CAMPO",
-            12: "MAPA DA ROTA - PENDENTES - SANTO ANDRÉ",
-            13: "MAPA DA ROTA - PENDENTES - DIADEMA",
-            14: "MAPA DA ROTA - PENDENTES - EDSON MARCO",
-            15: "MAPA DA ROTA - PENDENTES - MAICON",
-            16: "MAPA DA ROTA - PENDENTES - NELSON"
+            11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
+            12: "MAPA DA ROTA - SANTO ANDRÉ",
+            13: "MAPA DA ROTA - DIADEMA",
+            14: "MAPA DA ROTA - EDSON MARCO",
+            15: "MAPA DA ROTA - MAICON",
+            16: "MAPA DA ROTA - NELSON"
         }
         
         st.markdown(f'''<div class="topo-container">
@@ -1161,7 +1143,6 @@ with CONTEUDO_TV.container():
                     cond_cidade_base = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
                     df_rota = df_rota[cond_cidade_base]
 
-                # >>> NOVA REGRA: APENAS PENDENTES <<<
                 col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
                 col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
                 if not col_status: col_status = col_status_ativ
@@ -1194,7 +1175,6 @@ with CONTEUDO_TV.container():
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
                 
-                # Aplicação dos filtros específicos por tela (Cidades ou Supervisores)
                 if st.session_state.idx == 11:
                     df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
                 elif st.session_state.idx == 12:
@@ -1209,7 +1189,6 @@ with CONTEUDO_TV.container():
                     df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
                     
                 if not df_mapa.empty:
-                    # Legenda baseada na tela atual
                     base_style = "display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 24px; font-weight: 900; color: #000000 !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);"
                     if st.session_state.idx in [11, 12, 13]:
                         legenda_html = f'''
@@ -1249,7 +1228,6 @@ with CONTEUDO_TV.container():
                         get_offset="[0, -15]"
                     )
                     
-                    # --- ZOOM INTELIGENTE ---
                     lat_min, lat_max = df_mapa['LAT'].min(), df_mapa['LAT'].max()
                     lon_min, lon_max = df_mapa['LON'].min(), df_mapa['LON'].max()
                     
