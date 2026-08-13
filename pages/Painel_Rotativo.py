@@ -1487,7 +1487,6 @@ if not pular:
         }}
     }}, {espera * 1000});
     </script>
-    """
     st.components.v1.html(js_timer, height=0)
     st.stop()
 
