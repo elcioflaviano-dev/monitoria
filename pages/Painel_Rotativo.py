@@ -104,18 +104,12 @@ st.markdown("""<style>
         animation: piscar 1.5s infinite;
     }
     @keyframes piscar { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-    
-    /* ZERAR DIV DOS BOTÕES PARA NÃO INTERFERIR */
-    div[data-testid="stButton"] {
-        width: auto !important;
-        display: inline-block !important;
-    }
 
     /* BOTÃO PAUSA - CANTO ESQUERDO */
     button[kind="primary"] {
         position: fixed !important;
         bottom: 75px !important; 
-        left: 70px !important;
+        left: 20px !important;
         z-index: 999999 !important;
         background-color: #b30000 !important;
         color: #ffffff !important;
@@ -127,6 +121,11 @@ st.markdown("""<style>
         opacity: 0.8 !important; 
         transition: all 0.3s ease-in-out !important;
         box-shadow: 2px 2px 10px rgba(0,0,0,0.5) !important;
+        width: 220px !important; /* TRAVA A LARGURA */
+        max-width: 220px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
     }
     button[kind="primary"]:hover {
         opacity: 1.0 !important; 
@@ -158,6 +157,11 @@ st.markdown("""<style>
         opacity: 0.03 !important; 
         transition: all 0.4s ease-in-out !important;
         box-shadow: none !important;
+        width: 180px !important; /* TRAVA A LARGURA */
+        max-width: 180px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
     }
     button[kind="secondary"]:hover {
         opacity: 1.0 !important; 
@@ -180,13 +184,13 @@ st.markdown("""<style>
     .nome-base { font-size: 35px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 5px; }
     .num-base { font-size: 110px !important; font-weight: 900; color: #111; line-height: 1; }
     
-    /* CAIXA DOS SUPERVISORES */
+    /* CAIXA DOS SUPERVISORES (TEC1 E OUTROS) */
     .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
     .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .box-num { font-size: 90px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 10px; }
     .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 20px 40px rgba(204, 102, 0, 0.5) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CAIXAS CARDS SUPERVISORES */
+    /* CAIXAS CARDS SUPERVISORES - COMPACTADA */
     .ind-base-title { font-size: 50px !important; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; color: #2e7d32; }
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
@@ -203,7 +207,7 @@ st.markdown("""<style>
     .data-media { font-size: 50px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 15px 20px; border-left: 8px solid #008080; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 28px !important; color: #333; box-shadow: 1px 1px 5px rgba(0,0,0,0.1); }
 
-    /* TICKER FINANCEIRO */
+    /* TICKER FINANCEIRO (RODAPÉ) */
     .ticker-wrap {
         position: fixed; bottom: 0; left: 0; width: 100%; overflow: hidden; height: 55px; background-color: #002244; box-sizing: border-box; z-index: 99999; border-top: 3px solid #ff8800; display: flex; align-items: center; box-shadow: 0px -5px 15px rgba(0,0,0,0.3);
     }
@@ -516,8 +520,6 @@ with CONTEUDO_TV.container():
 
                 qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]) if not df_pendentes_geral.empty else 0
 
-                st.session_state.ticker_data[1] = f"⏰ TEC1: {qtd_abc} PENDENTES"
-
                 st.markdown(f'''<div class="box-base"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
                 for i in range(0, len(SUPS_ABC), 2):
@@ -608,8 +610,6 @@ with CONTEUDO_TV.container():
                         teto_ne_global = int(np.floor(total_geral_mig * 0.25))
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
-
-                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -730,8 +730,6 @@ with CONTEUDO_TV.container():
                     teto_ne_global = int(np.floor(total_geral_pme * 0.20))
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
                     cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
-
-                    st.session_state.ticker_data[8] = f"📊 PME: {total_geral_pme} O.S. | QUEBRAS: {quebra_global_pme:.1f}%"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -1204,6 +1202,7 @@ with CONTEUDO_TV.container():
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
                 
+                # Aplicação dos filtros específicos por tela (Cidades ou Supervisores)
                 if st.session_state.idx == 11:
                     df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
                 elif st.session_state.idx == 12:
