@@ -33,6 +33,63 @@ SUPERVISORES_ORDENADOS = SUPS_ABC
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
+# Inicialização dos estados da sessão (INCLUINDO PAUSA)
+if "idx" not in st.session_state: 
+    st.session_state.idx = 0          
+    st.session_state.novo_ciclo = True
+    st.session_state.script_audio_atual = ""
+    st.session_state.prox_idx = 0
+
+if "ticker_data" not in st.session_state:
+    st.session_state.ticker_data = {}
+
+if "pausado" not in st.session_state:
+    st.session_state.pausado = False
+
+# =========================================================================
+# MENU DE CONTROLE LATERAL (SUPERVISÃO) 🎮
+# =========================================================================
+with st.sidebar:
+    st.markdown("## 🎮 CONTROLE DO PAINEL")
+    st.markdown("Use os botões abaixo para pausar a tela ou pular direto para um mapa específico.")
+    st.markdown("---")
+    
+    if st.session_state.pausado:
+        st.warning("⚠️ A rotação da TV está PAUSADA.")
+        if st.button("▶️ RETOMAR ROTAÇÃO AUTOMÁTICA", use_container_width=True):
+            st.session_state.pausado = False
+            st.rerun()
+    else:
+        st.success("✅ A TV está rodando automaticamente.")
+        if st.button("⏸️ PAUSAR NESTA TELA", use_container_width=True):
+            st.session_state.pausado = True
+            st.rerun()
+            
+    st.markdown("---")
+    st.markdown("### 📍 ACESSO RÁPIDO AOS MAPAS")
+    st.markdown("*(O painel será pausado automaticamente)*")
+    
+    if st.button("🟣 Mapa - EDSON MARCO", use_container_width=True):
+        st.session_state.idx = 14
+        st.session_state.pausado = True
+        st.session_state.novo_ciclo = True
+        st.rerun()
+    if st.button("💗 Mapa - MAICON", use_container_width=True):
+        st.session_state.idx = 15
+        st.session_state.pausado = True
+        st.session_state.novo_ciclo = True
+        st.rerun()
+    if st.button("🟢 Mapa - NELSON", use_container_width=True):
+        st.session_state.idx = 16
+        st.session_state.pausado = True
+        st.session_state.novo_ciclo = True
+        st.rerun()
+    if st.button("🌍 Mapa - GERAL", use_container_width=True):
+        st.session_state.idx = 11  # Rota SBC que engloba geral do filtro nas lógicas
+        st.session_state.pausado = True
+        st.session_state.novo_ciclo = True
+        st.rerun()
+
 # --- FUNÇÕES GLOBAIS E CSS ---
 def carregar_logo_html(caminho_imagem):
     if os.path.exists(caminho_imagem):
@@ -45,23 +102,46 @@ def carregar_logo_html(caminho_imagem):
 
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
+def render_topo(titulo):
+    """Função inteligente para renderizar o topo azul com o status de PAUSADO caso ativo."""
+    status_pausa = '<span class="alerta-pausa">⏸️ PAUSADO</span>' if st.session_state.pausado else ''
+    return f'''<div class="topo-container">
+        <div class="topo-esquerda">{logo_html}</div>
+        <div class="topo-centro">{titulo}</div>
+        <div class="topo-direita">{status_pausa}<a href="/" class="botao-home">🏠 HOME</a></div>
+    </div>'''
+
 st.markdown("""<style>
-    /* Ajuste do container principal para caber tudo na tela da TV e dar espaço pro ticker */
+    /* Ajuste do container principal para caber tudo na tela da TV */
     .block-container { padding-top: 1rem !important; padding-bottom: 70px !important; max-width: 98% !important; }
 
     /* ESCONDE A BARRA DE ROLAGEM MAS MANTÉM A TELA INTEIRA INTACTA */
     ::-webkit-scrollbar { display: none !important; }
     html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow: hidden !important; }
 
-    /* ESTILOS DE INTERFACE */
+    /* ESTILOS DE INTERFACE (A Barra Lateral continua ativa, apenas oculta botão de deploy) */
     .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
-    [data-testid="stHeader"], .stDeployButton, footer, #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
+    [data-testid="stHeader"], .stDeployButton, footer, #MainMenu { display: none !important; visibility: hidden !important; }
     .stApp { background-color: #ffffff !important; }
+    
     .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 80px; }
     .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; height: 100%; }
     .topo-centro { font-size: 40px; font-weight: 900; text-align: center; white-space: nowrap; }
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
+    
+    /* PISCAR ALERTA DE PAUSADO */
+    .alerta-pausa {
+        color: #ffeb3b; 
+        font-size: 22px; 
+        font-weight: 900; 
+        margin-right: 20px; 
+        background: #b30000; 
+        padding: 5px 15px; 
+        border-radius: 8px;
+        animation: piscar 1.5s infinite;
+    }
+    @keyframes piscar { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     
     /* BOTÃO PRÓXIMA "FANTASMA" NO CANTO DIREITO INFERIOR */
     div[data-testid="stButton"] {
@@ -158,17 +238,6 @@ def padronizar_status(val):
     if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
         return 'Produtivo'
     return 'Em aberto'
-
-# Inicialização do estado da sessão
-if "idx" not in st.session_state: 
-    st.session_state.idx = 0          
-    st.session_state.novo_ciclo = True
-    st.session_state.script_audio_atual = ""
-    st.session_state.prox_idx = 0
-
-# Cofre do Ticker Financeiro
-if "ticker_data" not in st.session_state:
-    st.session_state.ticker_data = {}
 
 agora_br = datetime.utcnow() - timedelta(hours=3)
 alerta_fim_janela = False
@@ -323,12 +392,7 @@ with CONTEUDO_TV.container():
     # TELA 0: BASE
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">🚀 TÉCNICOS COM STATUS BASE PENDENTE</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {html_audio_base}''', unsafe_allow_html=True)
+        st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -367,6 +431,8 @@ with CONTEUDO_TV.container():
                 
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
                 qtd_abc_base = len(nomes_abc)
+
+                st.session_state.ticker_data[0] = f"🚀 BASE: {qtd_abc_base} TÉCS PENDENTES"
 
                 cols_tec = st.columns(4)
                 for i, n in enumerate(nomes_abc):
@@ -418,12 +484,8 @@ with CONTEUDO_TV.container():
             elif 12 <= hora_atual < 15: label_janela = "ATÉ 15:00"
             else: label_janela = "ATÉ 18:00"
             
-            st.markdown(f'''<div class="topo-container">
-                <div class="topo-esquerda">{logo_html}</div>
-                <div class="topo-centro">TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span></div>
-                <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-            </div>
-            {html_audio_tec1}''', unsafe_allow_html=True)
+            titulo_tec1 = f'TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{label_janela}</span>'
+            st.markdown(render_topo(titulo_tec1) + html_audio_tec1, unsafe_allow_html=True)
             
             df_pendentes_geral = pd.DataFrame()
             
@@ -498,12 +560,7 @@ with CONTEUDO_TV.container():
     # TELA 7: MIGRAÇÃO GPON
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 7:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">MIGRAÇÃO GPON</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {icone_mudo}''', unsafe_allow_html=True)
+        st.markdown(render_topo("MIGRAÇÃO GPON") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -560,7 +617,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -623,12 +680,7 @@ with CONTEUDO_TV.container():
     # TELA 8: PME 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PME (TETO 20%)</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {icone_mudo}''', unsafe_allow_html=True)
+        st.markdown(render_topo("PME (TETO 20%)") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -749,12 +801,7 @@ with CONTEUDO_TV.container():
     # TELA 9: VISÃO GERAL DA ROTA E PROJEÇÃO (ESCALADOS / CSV) 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 9:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">VISÃO GERAL DA ROTA - TÉCNICOS ESCALADOS</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {html_audio_ind}''', unsafe_allow_html=True)
+        st.markdown(render_topo("VISÃO GERAL DA ROTA - TÉCNICOS ESCALADOS") + html_audio_ind, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -932,19 +979,14 @@ with CONTEUDO_TV.container():
     # TELA 10: VISÃO DA ROTA DOS MONTADOS (TELA NOVA - VALORES FIXOS) 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 10:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">VISÃO GERAL DA ROTA - EQUIPE FIXA</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {icone_mudo}''', unsafe_allow_html=True)
+        st.markdown(render_topo("VISÃO GERAL DA ROTA - EQUIPE FIXA") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
 
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
-            
+
             col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
             if col_status_ativ:
                 df_rota = df_rota[df_rota[col_status_ativ].notna()]
@@ -1112,20 +1154,15 @@ with CONTEUDO_TV.container():
     # -------------------------------------------------------------------------
     elif st.session_state.idx in [11, 12, 13, 14, 15, 16]:
         titulos_mapa = {
-            11: "MAPA DA ROTA - PENDENTE - SÃO BERNARDO DO CAMPO",
-            12: "MAPA DA ROTA - PENDENTE - SANTO ANDRÉ",
-            13: "MAPA DA ROTA - PENDENTE - DIADEMA",
-            14: "MAPA DA ROTA - PENDENTE - EDSON MARCO",
-            15: "MAPA DA ROTA - PENDENTE - MAICON",
-            16: "MAPA DA ROTA - PENDENTE - NELSON"
+            11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
+            12: "MAPA DA ROTA - SANTO ANDRÉ",
+            13: "MAPA DA ROTA - DIADEMA",
+            14: "MAPA DA ROTA - EDSON MARCO",
+            15: "MAPA DA ROTA - MAICON",
+            16: "MAPA DA ROTA - NELSON"
         }
         
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">{titulos_mapa[st.session_state.idx]}</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {icone_mudo}''', unsafe_allow_html=True)
+        st.markdown(render_topo(titulos_mapa[st.session_state.idx]) + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -1175,6 +1212,7 @@ with CONTEUDO_TV.container():
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
                 
+                # Aplicação dos filtros específicos por tela (Cidades ou Supervisores)
                 if st.session_state.idx == 11:
                     df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
                 elif st.session_state.idx == 12:
@@ -1274,12 +1312,7 @@ with CONTEUDO_TV.container():
     # TELA 5: CONSULTIVO GERAL
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 5:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONSULTIVO GERAL</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {icone_mudo}''', unsafe_allow_html=True)
+        st.markdown(render_topo("CONSULTIVO GERAL") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
@@ -1365,12 +1398,7 @@ with CONTEUDO_TV.container():
     # TELA 6: CONSULTIVO DIÁRIO 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 6:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">CONSULTIVO DIÁRIO</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {icone_mudo}''', unsafe_allow_html=True)
+        st.markdown(render_topo("CONSULTIVO DIÁRIO") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
@@ -1474,12 +1502,7 @@ with CONTEUDO_TV.container():
     # TELA 3: PRINT DOS INDICADORES
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 3:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">PRINT DOS INDICADORES</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {html_audio_ind}''', unsafe_allow_html=True)
+        st.markdown(render_topo("PRINT DOS INDICADORES") + html_audio_ind, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -1557,12 +1580,7 @@ with CONTEUDO_TV.container():
     # TELA 2: HORÁRIO
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 2:
-        st.markdown(f'''<div class="topo-container">
-            <div class="topo-esquerda">{logo_html}</div>
-            <div class="topo-centro">HORÁRIO</div>
-            <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
-        </div>
-        {icone_ativo}''', unsafe_allow_html=True)
+        st.markdown(render_topo("HORÁRIO") + icone_ativo, unsafe_allow_html=True)
 
         tempo_real = datetime.utcnow() - timedelta(hours=3)
         
@@ -1635,20 +1653,21 @@ elif st.session_state.idx == 4: espera = 2
 pular = st.button("PRÓXIMA ➡️")
 
 if not pular:
-    js_timer = f"""
-    <script>
-    setTimeout(function() {{
-        var buttons = window.parent.document.querySelectorAll('button');
-        for (var i=0; i<buttons.length; i++) {{
-            if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
-                buttons[i].click();
-                break;
+    if not st.session_state.pausado:
+        js_timer = f"""
+        <script>
+        setTimeout(function() {{
+            var buttons = window.parent.document.querySelectorAll('button');
+            for (var i=0; i<buttons.length; i++) {{
+                if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
+                    buttons[i].click();
+                    break;
+                }}
             }}
-        }}
-    }}, {espera * 1000});
-    </script>
-    """
-    st.components.v1.html(js_timer, height=0)
+        }}, {espera * 1000});
+        </script>
+        """
+        st.components.v1.html(js_timer, height=0)
     st.stop()
 
 if st.session_state.idx == 4:
