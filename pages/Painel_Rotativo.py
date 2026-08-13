@@ -33,7 +33,7 @@ SUPERVISORES_ORDENADOS = SUPS_ABC
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Inicialização dos estados da sessão (INCLUINDO PAUSA)
+# Inicialização dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.novo_ciclo = True
@@ -46,49 +46,12 @@ if "ticker_data" not in st.session_state:
 if "pausado" not in st.session_state:
     st.session_state.pausado = False
 
-# =========================================================================
-# MENU DE CONTROLE LATERAL (SUPERVISÃO) 🎮
-# =========================================================================
-with st.sidebar:
-    st.markdown("## 🎮 CONTROLE DO PAINEL")
-    st.markdown("Use os botões abaixo para pausar a tela ou pular direto para um mapa específico.")
-    st.markdown("---")
-    
-    if st.session_state.pausado:
-        st.warning("⚠️ A rotação da TV está PAUSADA.")
-        if st.button("▶️ RETOMAR ROTAÇÃO AUTOMÁTICA", use_container_width=True):
-            st.session_state.pausado = False
-            st.rerun()
-    else:
-        st.success("✅ A TV está rodando automaticamente.")
-        if st.button("⏸️ PAUSAR NESTA TELA", use_container_width=True):
-            st.session_state.pausado = True
-            st.rerun()
-            
-    st.markdown("---")
-    st.markdown("### 📍 ACESSO RÁPIDO AOS MAPAS")
-    st.markdown("*(O painel será pausado automaticamente)*")
-    
-    if st.button("🟣 Mapa - EDSON MARCO", use_container_width=True):
-        st.session_state.idx = 14
-        st.session_state.pausado = True
-        st.session_state.novo_ciclo = True
-        st.rerun()
-    if st.button("💗 Mapa - MAICON", use_container_width=True):
-        st.session_state.idx = 15
-        st.session_state.pausado = True
-        st.session_state.novo_ciclo = True
-        st.rerun()
-    if st.button("🟢 Mapa - NELSON", use_container_width=True):
-        st.session_state.idx = 16
-        st.session_state.pausado = True
-        st.session_state.novo_ciclo = True
-        st.rerun()
-    if st.button("🌍 Mapa - GERAL", use_container_width=True):
-        st.session_state.idx = 11  # Rota SBC que engloba geral do filtro nas lógicas
-        st.session_state.pausado = True
-        st.session_state.novo_ciclo = True
-        st.rerun()
+# Callbacks para o Botão de Pausa
+def toggle_pausa():
+    st.session_state.pausado = not st.session_state.pausado
+
+def reset_pausa():
+    st.session_state.pausado = False
 
 # --- FUNÇÕES GLOBAIS E CSS ---
 def carregar_logo_html(caminho_imagem):
@@ -103,7 +66,6 @@ def carregar_logo_html(caminho_imagem):
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 def render_topo(titulo):
-    """Função inteligente para renderizar o topo azul com o status de PAUSADO caso ativo."""
     status_pausa = '<span class="alerta-pausa">⏸️ PAUSADO</span>' if st.session_state.pausado else ''
     return f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
@@ -119,9 +81,9 @@ st.markdown("""<style>
     ::-webkit-scrollbar { display: none !important; }
     html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow: hidden !important; }
 
-    /* ESTILOS DE INTERFACE (A Barra Lateral continua ativa, apenas oculta botão de deploy) */
+    /* ESTILOS DE INTERFACE */
     .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
-    [data-testid="stHeader"], .stDeployButton, footer, #MainMenu { display: none !important; visibility: hidden !important; }
+    [data-testid="stHeader"], .stDeployButton, footer, #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
     .stApp { background-color: #ffffff !important; }
     
     .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 80px; }
@@ -143,17 +105,49 @@ st.markdown("""<style>
     }
     @keyframes piscar { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     
-    /* BOTÃO PRÓXIMA "FANTASMA" NO CANTO DIREITO INFERIOR */
+    /* ZERAR DIV DOS BOTÕES PARA NÃO INTERFERIR */
     div[data-testid="stButton"] {
+        width: auto !important;
+        display: inline-block !important;
+    }
+
+    /* BOTÃO PAUSA - CANTO ESQUERDO */
+    button[kind="primary"] {
+        position: fixed !important;
+        bottom: 75px !important; 
+        left: 70px !important;
+        z-index: 999999 !important;
+        background-color: #b30000 !important;
+        color: #ffffff !important;
+        border: 2px solid #ffffff !important;
+        border-radius: 30px !important;
+        padding: 8px 20px !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        opacity: 0.8 !important; 
+        transition: all 0.3s ease-in-out !important;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.5) !important;
+    }
+    button[kind="primary"]:hover {
+        opacity: 1.0 !important; 
+        background-color: #ff0000 !important; 
+        transform: scale(1.05) !important;
+    }
+    
+    /* BOTÃO RETOMAR - FICA VERDE */
+    button[kind="primary"]:has(div:contains("RETOMAR")) {
+        background-color: #2e7d32 !important;
+    }
+    button[kind="primary"]:has(div:contains("RETOMAR")):hover {
+        background-color: #1b5e20 !important;
+    }
+
+    /* BOTÃO PRÓXIMA "FANTASMA" - CANTO DIREITO */
+    button[kind="secondary"] {
         position: fixed !important;
         bottom: 75px !important; 
         right: 20px !important;
         z-index: 999999 !important;
-        display: flex !important;
-        justify-content: flex-end !important;
-        width: auto !important;
-    }
-    div[data-testid="stButton"] > button {
         background-color: #003366 !important;
         color: #ffffff !important;
         border: 2px solid #ffffff !important;
@@ -165,7 +159,7 @@ st.markdown("""<style>
         transition: all 0.4s ease-in-out !important;
         box-shadow: none !important;
     }
-    div[data-testid="stButton"] > button:hover {
+    button[kind="secondary"]:hover {
         opacity: 1.0 !important; 
         background-color: #ff9800 !important; 
         border-color: #ffffff !important;
@@ -186,13 +180,13 @@ st.markdown("""<style>
     .nome-base { font-size: 35px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 5px; }
     .num-base { font-size: 110px !important; font-weight: 900; color: #111; line-height: 1; }
     
-    /* CAIXA DOS SUPERVISORES (TEC1 E OUTROS) */
+    /* CAIXA DOS SUPERVISORES */
     .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
     .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .box-num { font-size: 90px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 10px; }
     .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 20px 40px rgba(204, 102, 0, 0.5) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CAIXAS CARDS SUPERVISORES - COMPACTADA */
+    /* CAIXAS CARDS SUPERVISORES */
     .ind-base-title { font-size: 50px !important; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; color: #2e7d32; }
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
@@ -209,7 +203,7 @@ st.markdown("""<style>
     .data-media { font-size: 50px; color: #666; font-weight: bold; margin-top: -20px; }
     .tec-base-nome { background: #f8f9fa; padding: 15px 20px; border-left: 8px solid #008080; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 28px !important; color: #333; box-shadow: 1px 1px 5px rgba(0,0,0,0.1); }
 
-    /* TICKER FINANCEIRO (RODAPÉ) */
+    /* TICKER FINANCEIRO */
     .ticker-wrap {
         position: fixed; bottom: 0; left: 0; width: 100%; overflow: hidden; height: 55px; background-color: #002244; box-sizing: border-box; z-index: 99999; border-top: 3px solid #ff8800; display: flex; align-items: center; box-shadow: 0px -5px 15px rgba(0,0,0,0.3);
     }
@@ -431,8 +425,6 @@ with CONTEUDO_TV.container():
                 
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
                 qtd_abc_base = len(nomes_abc)
-
-                st.session_state.ticker_data[0] = f"🚀 BASE: {qtd_abc_base} TÉCS PENDENTES"
 
                 cols_tec = st.columns(4)
                 for i, n in enumerate(nomes_abc):
@@ -1212,7 +1204,6 @@ with CONTEUDO_TV.container():
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
                 
-                # Aplicação dos filtros específicos por tela (Cidades ou Supervisores)
                 if st.session_state.idx == 11:
                     df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
                 elif st.session_state.idx == 12:
@@ -1633,6 +1624,20 @@ with CONTEUDO_TV.container():
             ''', unsafe_allow_html=True)
 
 # =========================================================================
+# CONTROLES DE NAVEGAÇÃO E PAUSA 🕹️
+# =========================================================================
+
+if st.session_state.idx in [11, 12, 13, 14, 15, 16]:
+    if st.session_state.pausado:
+        st.button("▶️ RETOMAR MAPA", type="primary", on_click=toggle_pausa)
+    else:
+        st.button("⏸️ PAUSAR MAPA", type="primary", on_click=toggle_pausa)
+else:
+    st.session_state.pausado = False
+
+pular = st.button("PRÓXIMA ➡️", type="secondary", on_click=reset_pausa)
+
+# =========================================================================
 # MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
 # =========================================================================
 
@@ -1642,22 +1647,19 @@ elif st.session_state.idx == 7: espera = 60
 elif st.session_state.idx == 8: espera = 60 
 elif st.session_state.idx == 9: espera = 60 
 elif st.session_state.idx == 10: espera = 60 
-elif st.session_state.idx in [11, 12, 13, 14, 15, 16]: espera = 60 
+elif st.session_state.idx in [11, 12, 13, 14, 15, 16]: espera = 20 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 4: espera = 2 
 
-# Controle interativo (JS + Python)
-pular = st.button("PRÓXIMA ➡️")
-
 if not pular:
     if not st.session_state.pausado:
         js_timer = f"""
         <script>
         setTimeout(function() {{
-            var buttons = window.parent.document.querySelectorAll('button');
+            var buttons = window.parent.document.querySelectorAll('button[kind="secondary"]');
             for (var i=0; i<buttons.length; i++) {{
                 if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
                     buttons[i].click();
