@@ -43,16 +43,6 @@ if "idx" not in st.session_state:
 if "ticker_data" not in st.session_state:
     st.session_state.ticker_data = {}
 
-if "pausado" not in st.session_state:
-    st.session_state.pausado = False
-
-# Callbacks para o Botão de Pausa
-def toggle_pausa():
-    st.session_state.pausado = not st.session_state.pausado
-
-def reset_pausa():
-    st.session_state.pausado = False
-
 # --- FUNÇÕES GLOBAIS E CSS ---
 def carregar_logo_html(caminho_imagem):
     if os.path.exists(caminho_imagem):
@@ -66,11 +56,10 @@ def carregar_logo_html(caminho_imagem):
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
 def render_topo(titulo):
-    status_pausa = '<span class="alerta-pausa">⏸️ PAUSADO</span>' if st.session_state.pausado else ''
     return f'''<div class="topo-container">
         <div class="topo-esquerda">{logo_html}</div>
         <div class="topo-centro">{titulo}</div>
-        <div class="topo-direita">{status_pausa}<a href="/" class="botao-home">🏠 HOME</a></div>
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
     </div>'''
 
 st.markdown("""<style>
@@ -92,61 +81,17 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
-    /* PISCAR ALERTA DE PAUSADO */
-    .alerta-pausa {
-        color: #ffeb3b; 
-        font-size: 22px; 
-        font-weight: 900; 
-        margin-right: 20px; 
-        background: #b30000; 
-        padding: 5px 15px; 
-        border-radius: 8px;
-        animation: piscar 1.5s infinite;
-    }
-    @keyframes piscar { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
-    /* BOTÃO PAUSA - CANTO ESQUERDO */
-    button[kind="primary"] {
-        position: fixed !important;
-        bottom: 75px !important; 
-        left: 20px !important;
-        z-index: 999999 !important;
-        background-color: #b30000 !important;
-        color: #ffffff !important;
-        border: 2px solid #ffffff !important;
-        border-radius: 30px !important;
-        padding: 8px 20px !important;
-        font-size: 18px !important;
-        font-weight: bold !important;
-        opacity: 0.8 !important; 
-        transition: all 0.3s ease-in-out !important;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.5) !important;
-        width: 220px !important; /* TRAVA A LARGURA */
-        max-width: 220px !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-    }
-    button[kind="primary"]:hover {
-        opacity: 1.0 !important; 
-        background-color: #ff0000 !important; 
-        transform: scale(1.05) !important;
-    }
-    
-    /* BOTÃO RETOMAR - FICA VERDE */
-    button[kind="primary"]:has(div:contains("RETOMAR")) {
-        background-color: #2e7d32 !important;
-    }
-    button[kind="primary"]:has(div:contains("RETOMAR")):hover {
-        background-color: #1b5e20 !important;
-    }
-
-    /* BOTÃO PRÓXIMA "FANTASMA" - CANTO DIREITO */
-    button[kind="secondary"] {
+    /* BOTÃO PRÓXIMA "FANTASMA" NO CANTO DIREITO INFERIOR */
+    div[data-testid="stButton"] {
         position: fixed !important;
         bottom: 75px !important; 
         right: 20px !important;
         z-index: 999999 !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        width: auto !important;
+    }
+    div[data-testid="stButton"] > button {
         background-color: #003366 !important;
         color: #ffffff !important;
         border: 2px solid #ffffff !important;
@@ -157,13 +102,8 @@ st.markdown("""<style>
         opacity: 0.03 !important; 
         transition: all 0.4s ease-in-out !important;
         box-shadow: none !important;
-        width: 180px !important; /* TRAVA A LARGURA */
-        max-width: 180px !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
     }
-    button[kind="secondary"]:hover {
+    div[data-testid="stButton"] > button:hover {
         opacity: 1.0 !important; 
         background-color: #ff9800 !important; 
         border-color: #ffffff !important;
@@ -430,6 +370,8 @@ with CONTEUDO_TV.container():
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
                 qtd_abc_base = len(nomes_abc)
 
+                st.session_state.ticker_data[0] = f"🚀 BASE: {qtd_abc_base} TÉCS PENDENTES"
+
                 cols_tec = st.columns(4)
                 for i, n in enumerate(nomes_abc):
                     with cols_tec[i % 4]:
@@ -519,6 +461,8 @@ with CONTEUDO_TV.container():
                     df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
 
                 qtd_abc = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]) if not df_pendentes_geral.empty else 0
+
+                st.session_state.ticker_data[1] = f"⏰ TEC1: {qtd_abc} PENDENTES"
 
                 st.markdown(f'''<div class="box-base"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
@@ -611,6 +555,8 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
+
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
                                 Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | 
@@ -672,7 +618,7 @@ with CONTEUDO_TV.container():
     # TELA 8: PME 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
-        st.markdown(render_topo("P M E") + icone_mudo, unsafe_allow_html=True)
+        st.markdown(render_topo("PME (TETO 20%)") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -730,6 +676,8 @@ with CONTEUDO_TV.container():
                     teto_ne_global = int(np.floor(total_geral_pme * 0.20))
                     cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
                     cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
+
+                    st.session_state.ticker_data[8] = f"📊 PME: {total_geral_pme} O.S. | QUEBRAS: {quebra_global_pme:.1f}%"
 
                     st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                         <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -1623,18 +1571,10 @@ with CONTEUDO_TV.container():
             ''', unsafe_allow_html=True)
 
 # =========================================================================
-# CONTROLES DE NAVEGAÇÃO E PAUSA 🕹️
+# CONTROLES DE NAVEGAÇÃO 🕹️
 # =========================================================================
 
-if st.session_state.idx in [11, 12, 13, 14, 15, 16]:
-    if st.session_state.pausado:
-        st.button("▶️ RETOMAR MAPA", type="primary", on_click=toggle_pausa)
-    else:
-        st.button("⏸️ PAUSAR MAPA", type="primary", on_click=toggle_pausa)
-else:
-    st.session_state.pausado = False
-
-pular = st.button("PRÓXIMA ➡️", type="secondary", on_click=reset_pausa)
+pular = st.button("PRÓXIMA ➡️")
 
 # =========================================================================
 # MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
@@ -1654,21 +1594,20 @@ elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60
 elif st.session_state.idx == 4: espera = 2 
 
 if not pular:
-    if not st.session_state.pausado:
-        js_timer = f"""
-        <script>
-        setTimeout(function() {{
-            var buttons = window.parent.document.querySelectorAll('button[kind="secondary"]');
-            for (var i=0; i<buttons.length; i++) {{
-                if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
-                    buttons[i].click();
-                    break;
-                }}
+    js_timer = f"""
+    <script>
+    setTimeout(function() {{
+        var buttons = window.parent.document.querySelectorAll('button');
+        for (var i=0; i<buttons.length; i++) {{
+            if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
+                buttons[i].click();
+                break;
             }}
-        }}, {espera * 1000});
-        </script>
-        """
-        st.components.v1.html(js_timer, height=0)
+        }}
+    }}, {espera * 1000});
+    </script>
+    """
+    st.components.v1.html(js_timer, height=0)
     st.stop()
 
 if st.session_state.idx == 4:
