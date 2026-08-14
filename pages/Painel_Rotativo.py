@@ -1173,7 +1173,6 @@ with CONTEUDO_TV.container():
                             <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>
                             <div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>
                         </div>
-                        '''
                     elif st.session_state.idx == 14:
                         legenda_html = f'<div style="{base_style}"><div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div></div>'
                     elif st.session_state.idx == 15:
