@@ -23,6 +23,7 @@ ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
     ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
+# 📌 ALTERE AQUI A QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 21,
     "MAICON": 21,
@@ -30,18 +31,24 @@ QTD_TECNICOS_MONTADOS = {
     "NELSON": 20
 }
 
+# --- REGRAS GLOBAIS DE SUPERVISORES ---
 SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Inicialização Blindada dos estados da sessão
-if "idx" not in st.session_state: st.session_state.idx = 0          
-if "novo_ciclo" not in st.session_state: st.session_state.novo_ciclo = True
-if "script_audio_atual" not in st.session_state: st.session_state.script_audio_atual = ""
-if "prox_idx" not in st.session_state: st.session_state.prox_idx = 0
-if "ticker_data" not in st.session_state: st.session_state.ticker_data = {0:"", 1:"", 3:"", 5:"", 6:"", 7:"", 8:"", 9:"", 10:""}
-if "ultima_sincronizacao" not in st.session_state: st.session_state.ultima_sincronizacao = time.time()
+# Inicialização dos estados da sessão
+if "idx" not in st.session_state: 
+    st.session_state.idx = 0          
+    st.session_state.novo_ciclo = True
+    st.session_state.script_audio_atual = ""
+    st.session_state.prox_idx = 0
+
+if "ticker_data" not in st.session_state:
+    st.session_state.ticker_data = {}
+
+if "ultima_sincronizacao" not in st.session_state:
+    st.session_state.ultima_sincronizacao = time.time()
 
 # =========================================================================
 # MOTOR DE SINCRONIZAÇÃO AUTÔNOMA DA TV (5 EM 5 MINUTOS) ☁️
@@ -285,16 +292,11 @@ with CONTEUDO_TV.container():
                 df_tela = df_tela[df_tela['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
-                
-                if len(nomes_abc) > 0:
-                    st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
+                st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
 
-                    cols_tec = st.columns(4)
-                    for i, n in enumerate(nomes_abc):
-                        with cols_tec[i % 4]: st.markdown(f'<div class="tec-base-nome">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
-                else:
-                    st.session_state.ticker_data[0] = "🚀 BASE: 0 TÉCS PENDENTES"
-                    st.success("✅ Excelente! Nenhum técnico pendente na base neste momento.")
+                cols_tec = st.columns(4)
+                for i, n in enumerate(nomes_abc):
+                    with cols_tec[i % 4]: st.markdown(f'<div class="tec-base-nome">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
                     script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>" if permitir_audio_base else ""
@@ -363,6 +365,7 @@ with CONTEUDO_TV.container():
 
                 st.markdown(f'''<div class="box-base" style="padding: 10px;"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
+                # --- RETORNO PARA DUAS COLUNAS GRANDES NO TEC1 ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
@@ -593,6 +596,7 @@ with CONTEUDO_TV.container():
                                 Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                             </div></div>''', unsafe_allow_html=True)
                         
+                        # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                         for i in range(0, len(SUPS_ABC), 2):
                             cols_sup = st.columns(2)
                             for j in range(2):
@@ -673,6 +677,7 @@ with CONTEUDO_TV.container():
                             Total de O.S.: <span style="color:#003366">{total_geral_pme}</span> | Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div></div>''', unsafe_allow_html=True)
                     
+                    # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                     for i in range(0, len(SUPS_ABC), 2):
                         cols_sup = st.columns(2)
                         for j in range(2):
@@ -801,6 +806,7 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -961,6 +967,7 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -1016,7 +1023,8 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
@@ -1079,6 +1087,7 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -1155,10 +1164,11 @@ with CONTEUDO_TV.container():
                 hoje_str_br = hoje_br.strftime('%d/%m/%Y')
                 hoje_str_us = hoje_br.strftime('%Y-%m-%d')
 
-                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
-                
-                # BLINDAGEM DA VARIÁVEL df_hoje PARA EVITAR ERROS SE NÃO HOUVER DATA
+                # ========================================================
+                # 🛡️ BLINDAGEM DA VARIÁVEL df_hoje PARA O EXCEL SEM DATAS
+                # ========================================================
                 df_hoje = pd.DataFrame()
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
                 if col_data:
                     df_cards['DATA_TXT'] = df_cards[col_data].astype(str).str.strip().str[:10]
                     mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
@@ -1378,7 +1388,7 @@ with CONTEUDO_TV.container():
 pular = st.button("PRÓXIMA ➡️", type="secondary")
 
 # =========================================================================
-# MOTOR DE TRANSIÇÃO E LOOP INFINITO (COM MAPAS INCLUSOS) 🔄
+# MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
 # =========================================================================
 agora_loop = datetime.utcnow() - timedelta(hours=3)
 alerta_fim_janela_loop = False
