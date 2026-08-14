@@ -6,6 +6,8 @@ import time
 import base64
 import calendar
 import unicodedata
+import requests
+import io
 import pydeck as pdk
 from datetime import datetime, timedelta
 
@@ -15,6 +17,7 @@ from datetime import datetime, timedelta
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
+URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
 
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
@@ -42,6 +45,84 @@ if "idx" not in st.session_state:
 
 if "ticker_data" not in st.session_state:
     st.session_state.ticker_data = {}
+
+# Controle da última sincronização automática (5 minutos)
+if "ultima_sincronizacao" not in st.session_state:
+    st.session_state.ultima_sincronizacao = time.time()
+
+# =========================================================================
+# MOTOR DE SINCRONIZAÇÃO AUTÔNOMA DA TV (5 EM 5 MINUTOS) ☁️
+# =========================================================================
+def baixar_dados_nuvem_background():
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': '*/*'
+        }
+        sessao = requests.Session()
+        resposta = sessao.get(URL_PLANILHA_MASTER, headers=headers, allow_redirects=True, timeout=20)
+        
+        if resposta.status_code == 200:
+            ficheiro_excel = io.BytesIO(resposta.content)
+            
+            # Processa ABA CONSULTIVO
+            try:
+                df_cons_bruto = pd.read_excel(ficheiro_excel, sheet_name='CONSULTIVO', engine='openpyxl')
+                if not df_cons_bruto.empty:
+                    df_cons_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_cons_bruto.columns]
+                    df_cons_bruto.to_csv(ARQUIVO_CONSULTIVO, index=False)
+            except:
+                pass
+
+            ficheiro_excel.seek(0)
+
+            # Processa ABA ROTA
+            try:
+                df_bruto = pd.read_excel(ficheiro_excel, sheet_name='ROTA', engine='openpyxl')
+                if not df_bruto.empty:
+                    df_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_bruto.columns]
+                    
+                    cols_sup = [c for c in df_bruto.columns if 'SUPERV' in str(c).upper()]
+                    valores_supervisor = df_bruto[cols_sup[-1]].values if cols_sup else None
+                    
+                    cols_base = [c for c in df_bruto.columns if 'BASE' in str(c).upper() or 'REGIAO' in str(c).upper() or 'REGIÃO' in str(c).upper()]
+                    valores_base = df_bruto[cols_base[-1]].values if cols_base else None
+
+                    colunas_mapeadas = {}
+                    for col in list(df_bruto.columns):
+                        col_upper = str(col).upper()
+                        if col_upper in ['LOGIN DO TÉCNICO', 'LOGIN DO TECNICO', 'LOGIN']: colunas_mapeadas[col] = 'Login do Técnico'
+                        elif 'STATUS' in col_upper and 'ATIVIDADE' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
+                        elif 'TIPO' in col_upper and 'ATIVIDADE' in col_upper:
+                            if '3' in col_upper: colunas_mapeadas[col] = 'Tipo de Atividade3'
+                            else: colunas_mapeadas[col] = 'Tipo de Atividade'
+                        elif col_upper in ['RECURSO', 'RECURS', 'TECNICO', 'NOME', 'TÉCNICO']: colunas_mapeadas[col] = 'Recurso'
+                        elif 'TOTAL DE TAREFAS' in col_upper: colunas_mapeadas[col] = 'QTD_OS_COL'
+                    
+                    df_final = df_bruto.rename(columns=colunas_mapeadas)
+                    df_final = df_final.loc[:, ~df_final.columns.duplicated(keep='first')]
+                    
+                    if valores_supervisor is not None: df_final['SUPERVISOR'] = valores_supervisor
+                    else: df_final['SUPERVISOR'] = 'NÃO IDENTIFICADO'
+
+                    if valores_base is not None: df_final['REGIAO_BASE'] = valores_base
+                    else: df_final['REGIAO_BASE'] = 'GERAL'
+
+                    df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('NÃO IDENTIFICADO').astype(str).str.strip().str.upper()
+                    df_final['SUPERVISOR'] = df_final['SUPERVISOR'].replace(['NAN', 'N/A', 'NULL', '', '-', '0', '0.0'], 'NÃO IDENTIFICADO')
+
+                    df_final['REGIAO_BASE'] = df_final['REGIAO_BASE'].fillna('NÃO DEFINIDA').astype(str).str.strip().str.upper()
+                    df_final['REGIAO_BASE'] = df_final['REGIAO_BASE'].replace(['NAN', 'N/A', 'NULL', '', '-', '0', '0.0'], 'NÃO DEFINIDA')
+
+                    if 'Recurso' not in df_final.columns and 'Login do Técnico' in df_final.columns:
+                        df_final['Recurso'] = df_final['Login do Técnico']
+
+                    df_final.to_csv(ARQUIVO_ROTA_DISCO, index=False)
+            except:
+                pass
+    except:
+        pass
+
 
 # --- FUNÇÕES GLOBAIS E CSS ---
 def carregar_logo_html(caminho_imagem):
@@ -124,13 +205,13 @@ st.markdown("""<style>
     .nome-base { font-size: 35px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 5px; }
     .num-base { font-size: 110px !important; font-weight: 900; color: #111; line-height: 1; }
     
-    /* CAIXA DOS SUPERVISORES (TEC1 E OUTROS) */
+    /* CAIXA DOS SUPERVISORES */
     .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
     .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .box-num { font-size: 90px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 10px; }
     .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 20px 40px rgba(204, 102, 0, 0.5) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CAIXAS CARDS SUPERVISORES - COMPACTADA */
+    /* CAIXAS CARDS SUPERVISORES */
     .ind-base-title { font-size: 50px !important; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; color: #2e7d32; }
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
@@ -315,7 +396,7 @@ CONTEUDO_TV = st.empty()
 with CONTEUDO_TV.container():
 
     # -------------------------------------------------------------------------
-    # TELA 4: TRANSIÇÃO
+    # TELA 4: TRANSIÇÃO E SINCRONIZAÇÃO AUTOMÁTICA
     # -------------------------------------------------------------------------
     if st.session_state.idx == 4:
         st.markdown(
@@ -325,6 +406,12 @@ with CONTEUDO_TV.container():
             </div>
             """, unsafe_allow_html=True
         )
+        
+        # A MÁGICA ACONTECE AQUI: Sincronização invisível de 5 em 5 minutos!
+        if time.time() - st.session_state.ultima_sincronizacao > 300:
+            st.markdown('<div style="position: fixed; top: 60%; left: 0; width: 100%; text-align: center; color: #ff9800; font-size: 24px; font-weight: bold; z-index: 999999;">Baixando dados da nuvem... ☁️</div>', unsafe_allow_html=True)
+            baixar_dados_nuvem_background()
+            st.session_state.ultima_sincronizacao = time.time()
 
     # -------------------------------------------------------------------------
     # TELA 0: BASE
@@ -555,7 +642,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
                             <div style="font-size: 35px; font-weight: bold; color: #111;">
@@ -618,7 +705,7 @@ with CONTEUDO_TV.container():
     # TELA 8: PME 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
-        st.markdown(render_topo("P M E") + icone_mudo, unsafe_allow_html=True)
+        st.markdown(render_topo("PME (TETO 20%)") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
@@ -1150,7 +1237,6 @@ with CONTEUDO_TV.container():
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
                 
-                # Aplicação dos filtros específicos por tela (Cidades ou Supervisores)
                 if st.session_state.idx == 11:
                     df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
                 elif st.session_state.idx == 12:
@@ -1269,7 +1355,6 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-                # Busca coluna de Contrato para não duplicar se houver
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x):
                     return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
@@ -1612,7 +1697,7 @@ with CONTEUDO_TV.container():
             ''', unsafe_allow_html=True)
 
 # =========================================================================
-# CONTROLES DE NAVEGAÇÃO E PAUSA 🕹️
+# CONTROLES DE NAVEGAÇÃO 🕹️
 # =========================================================================
 
 pular = st.button("PRÓXIMA ➡️", type="secondary")
@@ -1627,6 +1712,7 @@ elif st.session_state.idx == 7: espera = 60
 elif st.session_state.idx == 8: espera = 60 
 elif st.session_state.idx == 9: espera = 60 
 elif st.session_state.idx == 10: espera = 60 
+elif st.session_state.idx in [11, 12, 13, 14, 15, 16]: espera = 20 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
@@ -1663,7 +1749,13 @@ else:
         elif st.session_state.idx == 7: prox_idx = 8
         elif st.session_state.idx == 8: prox_idx = 9
         elif st.session_state.idx == 9: prox_idx = 10
-        elif st.session_state.idx == 10: prox_idx = 5
+        elif st.session_state.idx == 10: prox_idx = 11
+        elif st.session_state.idx == 11: prox_idx = 12
+        elif st.session_state.idx == 12: prox_idx = 13
+        elif st.session_state.idx == 13: prox_idx = 14
+        elif st.session_state.idx == 14: prox_idx = 15
+        elif st.session_state.idx == 15: prox_idx = 16
+        elif st.session_state.idx == 16: prox_idx = 5
         elif st.session_state.idx == 5: prox_idx = 6 
         elif st.session_state.idx == 6: prox_idx = 3 
         elif st.session_state.idx == 3: prox_idx = 2
