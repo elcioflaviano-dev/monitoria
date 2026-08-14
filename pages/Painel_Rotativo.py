@@ -264,7 +264,6 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            # LENDO O CSV DE FORMA BLINDADA CONTRA ERROS DO EXCEL
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
@@ -306,10 +305,22 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1
+    # TELA 1: TEC1 (COM NOVO DESIGN DE ALINHAMENTO DO TOPO) 🚀
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
-        titulo_tec1 = f'TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{( "ATÉ 12:00" if (datetime.utcnow() - timedelta(hours=3)).hour < 12 else ("ATÉ 15:00" if 12 <= (datetime.utcnow() - timedelta(hours=3)).hour < 15 else "ATÉ 18:00") )}</span>'
+        hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+        label_janela = "ATÉ 12:00" if hora_atual < 12 else ("ATÉ 15:00" if 12 <= hora_atual < 15 else "ATÉ 18:00")
+        
+        # ALINHAMENTO E NOVO DESIGN DO CABEÇALHO (FLEXBOX)
+        titulo_tec1 = f'''
+        <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+            <span>TEC1</span>
+            <div style="background: linear-gradient(135deg, #d84315, #f57c00); border: 2px solid #ffcc80; padding: 4px 20px; border-radius: 30px; font-size: 24px; font-weight: 900; color: #ffffff; box-shadow: 0px 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; line-height: 1.2;">
+                ⏳ {label_janela}
+            </div>
+        </div>
+        '''
+        
         st.markdown(render_topo(titulo_tec1) + html_audio_tec1, unsafe_allow_html=True)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
@@ -325,7 +336,6 @@ with CONTEUDO_TV.container():
 
             df['SUPERVISOR_CLEAN'] = df.apply(resolver_supervisor, axis=1)
             col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
-            hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
             
             df_pendentes_geral = pd.DataFrame()
             if col_status_real:
@@ -354,6 +364,7 @@ with CONTEUDO_TV.container():
 
                 st.markdown(f'''<div class="box-base" style="padding: 10px;"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
+                # --- RETORNO PARA DUAS COLUNAS GRANDES NO TEC1 ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
@@ -434,6 +445,7 @@ with CONTEUDO_TV.container():
                                 Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                             </div></div>''', unsafe_allow_html=True)
                         
+                        # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                         for i in range(0, len(SUPS_ABC), 2):
                             cols_sup = st.columns(2)
                             for j in range(2):
@@ -514,6 +526,7 @@ with CONTEUDO_TV.container():
                             Total de O.S.: <span style="color:#003366">{total_geral_pme}</span> | Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div></div>''', unsafe_allow_html=True)
                     
+                    # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                     for i in range(0, len(SUPS_ABC), 2):
                         cols_sup = st.columns(2)
                         for j in range(2):
@@ -642,6 +655,7 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -802,6 +816,7 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -857,7 +872,8 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
