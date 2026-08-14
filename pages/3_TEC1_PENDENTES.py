@@ -101,7 +101,7 @@ if df_master is not None and not df_master.empty:
         df_tela = df_validos[df_validos['P_COUNT'] > 0].copy()
 
     if df_tela.empty:
-        st.success("🎉 Nenhum contrato pendente para esta janela!")
+        st.success("🎉 Nenhum contrato pendente para esta janela no ABC!")
     else:
         if col_supervisor in df_tela.columns:
             df_tela['SUPERVISOR_MOSTRAR'] = df_tela[col_supervisor].fillna('').astype(str).str.upper().str.strip()
@@ -110,43 +110,31 @@ if df_master is not None and not df_master.empty:
 
         def vincular_supervisor_tecnico(row):
             sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
-            
             if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
                 if "MARCOS" in sup_orig and "ROBERTO" not in sup_orig: return "MARCOS ROBERTO"
                 if "MAICON" in sup_orig and "MAICON" not in sup_orig: return "MAICON"
                 return sup_orig
-
             return "⚠️ SEM SUPERVISOR (VERIFICAR EXCEL)"
 
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
+        # Filtra as equipes de São Paulo
         cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
-        df_sp = df_tela[cond_sp].copy()
         df_abc = df_tela[~cond_sp].copy()
 
-        col_coluna_abc, col_coluna_sp = st.columns(2)
-        
-        with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
-            if not df_abc.empty:
-                for supervisor in sorted(df_abc['SUPERVISOR_MOSTRAR'].unique()):
-                    df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
-                    classe_css = "super-bar super-bar-erro" if "⚠️" in supervisor else "super-bar"
+        st.markdown('<div class="title-abc-sp">REGIONAL ABC</div>', unsafe_allow_html=True)
+        if not df_abc.empty:
+            cols = st.columns(4)
+            for i, supervisor in enumerate(sorted(df_abc['SUPERVISOR_MOSTRAR'].unique())):
+                df_super = df_abc[df_abc['SUPERVISOR_MOSTRAR'] == supervisor]
+                classe_css = "super-bar super-bar-erro" if "⚠️" in supervisor else "super-bar"
+                
+                with cols[i % 4]:
                     st.markdown(f'<div class="{classe_css}">👤 {supervisor} <span class="super-total">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
                     for _, linha in df_super.iterrows():
                         st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
-            else: 
-                st.info("Nenhum pendente no ABC para esta janela.")
+        else: 
+            st.info("Nenhum pendente no ABC para esta janela.")
 
-        with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp">SÃO PAULO</div>', unsafe_allow_html=True)
-            if not df_sp.empty:
-                for supervisor in sorted(df_sp['SUPERVISOR_MOSTRAR'].unique()):
-                    df_super = df_sp[df_sp['SUPERVISOR_MOSTRAR'] == supervisor]
-                    st.markdown(f'<div class="super-bar">👤 {supervisor} <span class="super-total">Pendentes: {len(df_super)}</span></div>', unsafe_allow_html=True)
-                    for _, linha in df_super.iterrows():
-                        st.markdown(f'<div class="item-linha">📄 <span class="item-contrato">{linha.get("Contrato", "N/A")}</span> <span class="divisor-item">|</span> 👤 {str(linha.get(col_tecnico_check, "TÉCNICO")).upper()}</div>', unsafe_allow_html=True)
-            else: 
-                st.info("Nenhum pendente em SP para esta janela.")
 else: 
     st.warning("👈 Insira os arquivos na página inicial primeiro.")
