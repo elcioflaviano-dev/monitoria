@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# CSS PARA LIMPEZA DA INTERFACE
 st.markdown("""
     <style>
     [data-testid="stHeader"] { visibility: hidden !important; }
@@ -110,34 +109,32 @@ if df_master is not None and not df_master.empty:
         else:
             df_tela['SUPERVISOR_MOSTRAR'] = ''
 
-        # 🔥 NOVO RAIO-X DE SUPERVISORES 🔥
         def vincular_supervisor_tecnico(row):
             sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
-            
-            # Se veio válido do Excel, assumimos!
             if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A']:
                 if "MARCOS" in sup_orig and "ROBERTO" not in sup_orig: return "MARCOS ROBERTO"
                 if "MAICON" in sup_orig and "MAICON" not in sup_orig: return "MAICON"
                 return sup_orig
-
-            # Se o Excel mandou vazio, não escondemos mais no Edson Marco. Mostramos a verdade!
-            return "⚠️ SEM SUPERVISOR (VERIFICAR EXCEL)"
+            return "⚠️ SEM SUPERVISOR"
 
         df_tela['SUPERVISOR_MOSTRAR'] = df_tela.apply(vincular_supervisor_tecnico, axis=1)
 
+        # Filtra e mantém apenas os supervisores do ABC
         cond_sp = df_tela['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
-        df_sp = df_tela[cond_sp].copy()
-        df_abc = df_tela[~cond_sp].copy() # Os que têm falha no Excel vão aparecer aqui temporariamente
+        df_abc = df_tela[~cond_sp].copy()
 
-        col_coluna_abc, col_coluna_sp = st.columns(2)
+        st.markdown('<div class="title-abc-sp" style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #008080; text-align: center;">REGIONAL ABC</div>', unsafe_allow_html=True)
         
-        with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp" style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #008080; text-align: center;">ABC</div>', unsafe_allow_html=True)
-            if not df_abc.empty:
-                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
-                for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
+        if not df_abc.empty:
+            matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
+            cols = st.columns(len(matriz_abc) if len(matriz_abc) > 0 else 1)
+            
+            for i, supervisor in enumerate(sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique())):
+                with cols[i]:
                     dados_super = matriz_abc[matriz_abc['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
-                    pendentes, em_rota, iniciados = int(dados_super['P_COUNT']), int(dados_super['R_COUNT']), int(dados_super['I_COUNT'])
+                    pendentes = int(dados_super['P_COUNT'])
+                    em_rota = int(dados_super['R_COUNT'])
+                    iniciados = int(dados_super['I_COUNT'])
                     total_real = pendentes + em_rota + iniciados
                     
                     cor_borda = "#b30000" if "⚠️" in supervisor else "#008080"
@@ -147,25 +144,7 @@ if df_master is not None and not df_master.empty:
                         with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{pendentes}</div></div>', unsafe_allow_html=True)
                         with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
                         with m3: st.metric(label="🟢 INICIADO", value=iniciados)
-            else:
-                st.info("Nenhum contrato ativo para o ABC nesta janela.")
-
-        with col_coluna_sp:
-            st.markdown('<div style="font-size:18px; font-weight: bold; margin-bottom: 10px; color: #b30000; text-align: center;">SÃO PAULO</div>', unsafe_allow_html=True)
-            if not df_sp.empty:
-                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['P_COUNT', 'R_COUNT', 'I_COUNT']].sum().reset_index()
-                for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
-                    dados_super = matriz_sp[matriz_sp['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
-                    pendentes, em_rota, iniciados = int(dados_super['P_COUNT']), int(dados_super['R_COUNT']), int(dados_super['I_COUNT'])
-                    total_real = pendentes + em_rota + iniciados
-                    
-                    with st.container(border=True):
-                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px; border-left: 5px solid #b30000; padding-left: 10px;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#e1f5fe; padding:2px 8px; border-radius:4px; color:#0288d1;">Total Contratos: {total_real}</span></div>', unsafe_allow_html=True)
-                        m1, m2, m3 = st.columns(3)
-                        with m1: st.markdown(f'<div class="custom-pendente-box"><div class="custom-pendente-label">🔴 PENDENTES</div><div class="custom-pendente-value">{pendentes}</div></div>', unsafe_allow_html=True)
-                        with m2: st.metric(label="🟣 EM ROTA", value=em_rota)
-                        with m3: st.metric(label="🟢 INICIADO", value=iniciados)
-            else:
-                st.info("Nenhum contrato ativo para SP nesta janela.")
+        else:
+            st.info("Nenhum contrato ativo para o ABC nesta janela.")
 else:
     st.warning("👈 Por favor, aguarde a sincronização na página inicial primeiro.")
