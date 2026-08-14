@@ -363,7 +363,6 @@ with CONTEUDO_TV.container():
 
                 st.markdown(f'''<div class="box-base" style="padding: 10px;"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
-                # --- RETORNO PARA DUAS COLUNAS GRANDES NO TEC1 ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
@@ -444,7 +443,6 @@ with CONTEUDO_TV.container():
                                 Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                             </div></div>''', unsafe_allow_html=True)
                         
-                        # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                         for i in range(0, len(SUPS_ABC), 2):
                             cols_sup = st.columns(2)
                             for j in range(2):
@@ -525,7 +523,6 @@ with CONTEUDO_TV.container():
                             Total de O.S.: <span style="color:#003366">{total_geral_pme}</span> | Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div></div>''', unsafe_allow_html=True)
                     
-                    # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                     for i in range(0, len(SUPS_ABC), 2):
                         cols_sup = st.columns(2)
                         for j in range(2):
@@ -654,7 +651,6 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
 
-                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -815,7 +811,6 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
 
-                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -871,7 +866,8 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
@@ -934,7 +930,6 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
-                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
