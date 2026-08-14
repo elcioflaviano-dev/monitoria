@@ -23,17 +23,20 @@ ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
     ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
+# 📌 ALTERE AQUI A QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 21,
     "MAICON": 21,
     "NELSON": 20
 }
 
+# --- REGRAS GLOBAIS DE SUPERVISORES ---
 SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
+# Inicialização dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.novo_ciclo = True
@@ -182,10 +185,14 @@ def padronizar_status(val):
     if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: return 'Produtivo'
     return 'Em aberto'
 
+# =========================================================================
+# CONTROLE DE HORÁRIO E REGRAS DE ÁUDIO
+# =========================================================================
 agora_br = datetime.utcnow() - timedelta(hours=3)
 alerta_fim_janela = False
 if agora_br.hour in [11, 14, 17] and agora_br.minute >= 40: alerta_fim_janela = True
 minutos_agora = agora_br.hour * 60 + agora_br.minute
+antes_0830 = (agora_br.hour < 8) or (agora_br.hour == 8 and agora_br.minute < 30)
 
 permitir_audio_base = False
 frase_incisiva_base = ""
@@ -1153,7 +1160,6 @@ with CONTEUDO_TV.container():
 # =========================================================================
 # CONTROLES DE NAVEGAÇÃO 🕹️
 # =========================================================================
-
 pular = st.button("PRÓXIMA ➡️", type="secondary")
 
 # =========================================================================
@@ -1171,6 +1177,7 @@ elif st.session_state.idx == 6: espera = 60
 elif st.session_state.idx == 3: espera = 45 
 elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela else 60 
 elif st.session_state.idx == 4: espera = 2 
+else: espera = 60 # TRAVA DE SEGURANÇA CONTRA ERROS DE ÍNDICE INEXISTENTE NA TV
 
 if not pular:
     js_timer = f"""
