@@ -228,73 +228,14 @@ html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
 
 JS_MOTOR_AUDIO = """
 function tocarAlertaChamaAtencao() {
-    try {
-        let ctx = new (window.parent.AudioContext || window.AudioContext)();
-        let tempo = ctx.currentTime;
-        function tocarSino(frequencia, inicio, duracao) {
-            let osc = ctx.createOscillator();
-            let gain = ctx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(frequencia, inicio);
-            gain.gain.setValueAtTime(0, inicio);
-            gain.gain.linearRampToValueAtTime(3.0, inicio + 0.05); 
-            gain.gain.exponentialRampToValueAtTime(0.01, inicio + duracao);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(inicio);
-            osc.stop(inicio + duracao + 0.1);
-        }
-        tocarSino(659.25, tempo, 1.5);       
-        tocarSino(523.25, tempo + 0.4, 1.5); 
-        tocarSino(784.00, tempo + 0.8, 2.5); 
+    try { let ctx = new (window.parent.AudioContext || window.AudioContext)(); let tempo = ctx.currentTime;
+        function tocarSino(f, i, d) { let osc = ctx.createOscillator(); let gain = ctx.createGain(); osc.type = 'triangle'; osc.frequency.setValueAtTime(f, i); gain.gain.setValueAtTime(0, i); gain.gain.linearRampToValueAtTime(3.0, i + 0.05); gain.gain.exponentialRampToValueAtTime(0.01, i + d); osc.connect(gain); gain.connect(ctx.destination); osc.start(i); osc.stop(i + d + 0.1); }
+        tocarSino(659.25, tempo, 1.5); tocarSino(523.25, tempo + 0.4, 1.5); tocarSino(784.00, tempo + 0.8, 2.5); 
     } catch(e) {}
 }
-
-function anunciarBase(texto, delay) {
-    setTimeout(() => {
-        tocarAlertaChamaAtencao();
-        setTimeout(() => {
-            let synth = window.parent.speechSynthesis || window.speechSynthesis;
-            try { synth.cancel(); } catch(e) {} 
-            let m = new SpeechSynthesisUtterance(texto);
-            m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
-            function setVoiceAndSpeak() {
-                let voices = synth.getVoices();
-                let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.name.includes('Francisca')) || voices.find(v => v.lang.includes('pt-BR'));
-                if(voz) { m.voice = voz; } 
-                synth.speak(m);
-            }
-            if (synth.getVoices().length === 0) { synth.onvoiceschanged = setVoiceAndSpeak; } 
-            else { setVoiceAndSpeak(); }
-        }, 2000); 
-    }, delay);
-}
-
-function limparDestaques(total) {
-    for(let j=0; j<total; j++) {
-        let el = window.parent.document.getElementById('sup-box-' + j);
-        if(el) { el.classList.remove('destaque-ativo'); }
-    }
-}
-
-function animarSupervisor(texto, delay, index, totalSup) {
-    setTimeout(() => {
-        limparDestaques(totalSup);
-        let elAtual = window.parent.document.getElementById('sup-box-' + index);
-        if(elAtual) { elAtual.classList.add('destaque-ativo'); }
-        tocarAlertaChamaAtencao();
-        setTimeout(() => {
-            let synth = window.parent.speechSynthesis || window.speechSynthesis;
-            try { synth.cancel(); } catch(e) {}
-            let m = new SpeechSynthesisUtterance(texto);
-            m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; 
-            let voices = synth.getVoices();
-            let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.name.includes('Maria')) || voices.find(v => v.name.includes('Francisca')) || voices.find(v => v.lang.includes('pt-BR'));
-            if(voz) { m.voice = voz; }
-            synth.speak(m);
-        }, 2000); 
-    }, delay);
-}
+function anunciarBase(texto, delay) { setTimeout(() => { tocarAlertaChamaAtencao(); setTimeout(() => { let synth = window.parent.speechSynthesis || window.speechSynthesis; try { synth.cancel(); } catch(e) {} let m = new SpeechSynthesisUtterance(texto); m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; function setVoiceAndSpeak() { let voices = synth.getVoices(); let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.lang.includes('pt-BR')); if(voz) { m.voice = voz; } synth.speak(m); } if (synth.getVoices().length === 0) { synth.onvoiceschanged = setVoiceAndSpeak; } else { setVoiceAndSpeak(); } }, 2000); }, delay); }
+function limparDestaques(total) { for(let j=0; j<total; j++) { let el = window.parent.document.getElementById('sup-box-' + j); if(el) { el.classList.remove('destaque-ativo'); } } }
+function animarSupervisor(texto, delay, index, totalSup) { setTimeout(() => { limparDestaques(totalSup); let elAtual = window.parent.document.getElementById('sup-box-' + index); if(elAtual) { elAtual.classList.add('destaque-ativo'); } tocarAlertaChamaAtencao(); setTimeout(() => { let synth = window.parent.speechSynthesis || window.speechSynthesis; try { synth.cancel(); } catch(e) {} let m = new SpeechSynthesisUtterance(texto); m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; let voices = synth.getVoices(); let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.lang.includes('pt-BR')); if(voz) { m.voice = voz; } synth.speak(m); }, 2000); }, delay); }
 """
 
 CONTEUDO_TV = st.empty()
@@ -1167,65 +1108,65 @@ with CONTEUDO_TV.container():
         st.markdown(render_topo("PRINT DOS INDICADORES") + html_audio_ind, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
-            df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
-            col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
-            col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
-            col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
-            
-            col_nr35 = next((c for c in reversed(df_ind.columns) if 'NR35' in c or 'NR-35' in c), None)
-            col_cert = next((c for c in reversed(df_ind.columns) if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
-            col_bst  = next((c for c in reversed(df_ind.columns) if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
-
-            if col_status:
-                df_ind['Status_Atividade_Upper'] = df_ind[col_status].fillna('').astype(str).str.upper().str.strip()
-                df_produtivo = df_ind[df_ind['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
+            try:
+                df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+                df.columns = [str(c).strip().upper() for c in df.columns]
+                col_status = next((c for c in df.columns if 'STATUS' in c), None)
+                col_recurso = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
+                col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
                 
-                if 'CONTRATO' in df_produtivo.columns and not df_produtivo.empty:
-                    df_produtivo['CONTRATO'] = df_produtivo['CONTRATO'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
-                    df_produtivo = df_produtivo[df_produtivo['CONTRATO'] != ''].drop_duplicates(subset=['CONTRATO'])
+                col_nr35 = next((c for c in reversed(df.columns) if 'NR35' in c or 'NR-35' in c), None)
+                col_cert = next((c for c in reversed(df.columns) if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
+                col_bst  = next((c for c in reversed(df.columns) if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
 
-                df_produtivo['FALTA_NR35'] = 0
-                if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
-                df_produtivo['FALTA_CERT'] = 0
-                if col_cert: df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
-                df_produtivo['FALTA_BST'] = 0
-                if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+                if col_status:
+                    df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
+                    df_produtivo = df[df['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
+                    
+                    if 'CONTRATO' in df_produtivo.columns and not df_produtivo.empty:
+                        df_produtivo['CONTRATO'] = df_produtivo['CONTRATO'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+                        df_produtivo = df_produtivo[df_produtivo['CONTRATO'] != ''].drop_duplicates(subset=['CONTRATO'])
 
-                def resolver_supervisor(row):
-                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                    for oficial in SUPERVISORES_ORDENADOS:
-                        if oficial in sup: return oficial
-                    return "DESCARTADO"
+                    df_produtivo['FALTA_NR35'] = 0
+                    if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+                    df_produtivo['FALTA_CERT'] = 0
+                    if col_cert: df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+                    df_produtivo['FALTA_BST'] = 0
+                    if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
 
-                df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
-                df_produtivo = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
+                    def resolver_supervisor(row):
+                        sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                        for oficial in SUPERVISORES_ORDENADOS:
+                            if oficial in sup: return oficial
+                        return "DESCARTADO"
 
-                total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
+                    df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
+                    df_produtivo = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
 
-                st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
-                
-                for i in range(0, len(SUPS_ABC), 2):
-                    cols_sup = st.columns(2)
-                    for j in range(2):
-                        if i + j < len(SUPS_ABC):
-                            sup = SUPS_ABC[i + j]
-                            with cols_sup[j]:
-                                df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
-                                f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
-                                st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
-                                    <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
-                                    <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
-                                    <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
+                    total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
+                    st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
-                if st.session_state.novo_ciclo:
-                    if permitir_audio_ind:
-                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
-                    else: st.session_state.script_audio_atual = ""
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            else: st.error("Coluna Status não encontrada.")
+                    st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
+                    
+                    cols_sup = st.columns(3) # 3 COLUNAS
+                    for i, sup in enumerate(SUPS_ABC):
+                        with cols_sup[i % 3]:
+                            df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
+                            f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
+                            st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
+                                <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
+                                <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
+                                <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
+
+                    if st.session_state.novo_ciclo:
+                        if permitir_audio_ind:
+                            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
+                        else: st.session_state.script_audio_atual = ""
+                        st.session_state.novo_ciclo = False
+                    st.components.v1.html(st.session_state.script_audio_atual, height=0)
+                else: st.error("Coluna Status não encontrada.")
+            except Exception as e:
+                st.error(f"Erro ao processar dados de indicadores: {e}")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -1289,7 +1230,7 @@ with CONTEUDO_TV.container():
 pular = st.button("PRÓXIMA ➡️", type="secondary")
 
 # =========================================================================
-# MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
+# MOTOR DE TRANSIÇÃO E LOOP INFINITO (COM VARIÁVEIS BLINDADAS AO FINAL) 🔄
 # =========================================================================
 agora_loop = datetime.utcnow() - timedelta(hours=3)
 alerta_fim_janela_loop = False
