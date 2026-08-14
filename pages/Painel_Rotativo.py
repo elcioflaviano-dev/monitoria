@@ -130,7 +130,7 @@ def carregar_logo_html(caminho_imagem):
         try:
             with open(caminho_imagem, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-            return f'<img src="data:image/png;base64,{encoded_string}" style="height: 100px; width: auto; object-fit: contain; display: block;">'
+            return f'<img src="data:image/png;base64,{encoded_string}" style="height: 80px; width: auto; object-fit: contain; display: block;">'
         except: return '<div></div>'
     return '<div></div>'
 
@@ -144,89 +144,65 @@ def render_topo(titulo):
     </div>'''
 
 st.markdown("""<style>
-    /* Ajuste do container principal para caber tudo na tela da TV */
-    .block-container { padding-top: 1rem !important; padding-bottom: 70px !important; max-width: 98% !important; }
+    /* COMPRESSÃO DE ESPAÇOS PARA CABER TUDO NA TV SEM CORTAR */
+    .block-container { padding-top: 0.5rem !important; padding-bottom: 60px !important; max-width: 98% !important; }
 
-    /* ESCONDE A BARRA DE ROLAGEM MAS MANTÉM A TELA INTEIRA INTACTA */
     ::-webkit-scrollbar { display: none !important; }
     html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow: hidden !important; }
 
-    /* ESTILOS DE INTERFACE */
     .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
     [data-testid="stHeader"], .stDeployButton, footer, #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
     .stApp { background-color: #ffffff !important; }
     
-    .topo-container { background: #003366; color: white; padding: 0px 30px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 80px; }
+    .topo-container { background: #003366; color: white; padding: 0px 20px; border-radius: 0 0 15px 15px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 70px; }
     .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; height: 100%; }
-    .topo-centro { font-size: 40px; font-weight: 900; text-align: center; white-space: nowrap; }
+    .topo-centro { font-size: 32px; font-weight: 900; text-align: center; white-space: nowrap; }
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
-    .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
+    .botao-home { color: #fff; font-size: 16px; font-weight: bold; border: 2px solid #fff; padding: 6px 12px; border-radius: 5px; text-decoration: none; }
     
-    /* BOTÃO PRÓXIMA "FANTASMA" NO CANTO DIREITO INFERIOR */
+    /* BOTÃO PRÓXIMA "FANTASMA" */
     div[data-testid="stButton"] {
-        position: fixed !important;
-        bottom: 75px !important; 
-        right: 20px !important;
-        z-index: 999999 !important;
-        display: flex !important;
-        justify-content: flex-end !important;
-        width: auto !important;
+        position: fixed !important; bottom: 70px !important; right: 20px !important; z-index: 999999 !important;
+        display: flex !important; justify-content: flex-end !important; width: auto !important;
     }
     div[data-testid="stButton"] > button {
-        background-color: #003366 !important;
-        color: #ffffff !important;
-        border: 2px solid #ffffff !important;
-        border-radius: 30px !important;
-        padding: 8px 20px !important;
-        font-size: 18px !important;
-        font-weight: bold !important;
-        opacity: 0.03 !important; 
-        transition: all 0.4s ease-in-out !important;
-        box-shadow: none !important;
+        background-color: #003366 !important; color: #ffffff !important; border: 2px solid #ffffff !important;
+        border-radius: 30px !important; padding: 6px 15px !important; font-size: 16px !important; font-weight: bold !important;
+        opacity: 0.03 !important; transition: all 0.4s ease-in-out !important; box-shadow: none !important;
     }
     div[data-testid="stButton"] > button:hover {
-        opacity: 1.0 !important; 
-        background-color: #ff9800 !important; 
-        border-color: #ffffff !important;
-        box-shadow: 0px 5px 15px rgba(0,0,0,0.5) !important;
-        transform: scale(1.05) !important;
+        opacity: 1.0 !important; background-color: #ff9800 !important; border-color: #ffffff !important;
+        box-shadow: 0px 5px 15px rgba(0,0,0,0.5) !important; transform: scale(1.05) !important;
     }
 
-    /* FORÇAR ALTURA DO MAPA PYDECK */
-    [data-testid="stDeckGlJsonChart"] {
-        height: 72vh !important;
-        min-height: 600px !important;
-        border-radius: 12px;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.15);
-    }
+    [data-testid="stDeckGlJsonChart"] { height: 72vh !important; min-height: 600px !important; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); }
 
     /* CAIXA BASE GERAL - COMPACTADA */
-    .box-base { background: #e8f5e9; border-left: 15px solid #2e7d32; padding: 10px 10px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); margin-bottom: 15px; }
-    .nome-base { font-size: 35px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 5px; }
-    .num-base { font-size: 110px !important; font-weight: 900; color: #111; line-height: 1; }
+    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 5px 10px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
+    .nome-base { font-size: 28px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 2px; }
+    .num-base { font-size: 80px !important; font-weight: 900; color: #111; line-height: 1; }
     
     /* CAIXA DOS SUPERVISORES */
-    .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
-    .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .box-num { font-size: 90px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 10px; }
-    .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 20px 40px rgba(204, 102, 0, 0.5) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
+    .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 10px solid #cc6600; padding: 10px; text-align: center; border-radius: 10px; box-shadow: 2px 2px 6px rgba(0,0,0,0.1); margin-bottom: 10px; position: relative; z-index: 1; transition: 0.3s; }
+    .box-nome { font-size: 26px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .box-num { font-size: 70px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 5px; }
+    .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 10px 20px rgba(204, 102, 0, 0.4) !important; border-left: 14px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
-    /* CAIXAS CARDS SUPERVISORES */
-    .ind-base-title { font-size: 50px !important; font-weight: 900; text-align: center; margin-bottom: 15px; margin-top: 5px; text-transform: uppercase; color: #2e7d32; }
-    .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
-    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-    .sup-name { font-size: 35px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .badge-faltas { background: #ffebee; color: #c62828; padding: 8px 20px; border-radius: 10px; font-size: 26px !important; font-weight: 900; border: 3px solid #ffcdd2; }
-    .faltas-grid { display: flex; justify-content: space-between; gap: 10px; }
-    .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 10px; padding: 10px 5px; text-align: center; margin-bottom: 5px; flex: 1; }
-    .falta-label { font-size: 18px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
-    .falta-value { font-size: 65px !important; font-weight: 900; color: #b30000; line-height: 1; }
+    /* CAIXAS CARDS SUPERVISORES - SUPER COMPACTADA PARA CABER O NELSON */
+    .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 10px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
+    .sup-name { font-size: 28px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 15px; border-radius: 8px; font-size: 20px !important; font-weight: 900; border: 2px solid #ffcdd2; }
+    .faltas-grid { display: flex; justify-content: space-between; gap: 8px; }
+    .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 8px; padding: 5px; text-align: center; margin-bottom: 0px; flex: 1; }
+    .falta-label { font-size: 14px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 2px; }
+    .falta-value { font-size: 50px !important; font-weight: 900; color: #b30000; line-height: 1; }
     
     /* HORA E RELÓGIO */
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
     .hora-gigante { font-size: 220px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
     .data-media { font-size: 50px; color: #666; font-weight: bold; margin-top: -20px; }
-    .tec-base-nome { background: #f8f9fa; padding: 15px 20px; border-left: 8px solid #008080; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 28px !important; color: #333; box-shadow: 1px 1px 5px rgba(0,0,0,0.1); }
+    .tec-base-nome { background: #f8f9fa; padding: 12px 15px; border-left: 6px solid #008080; border-radius: 6px; margin-bottom: 10px; font-weight: bold; font-size: 24px !important; color: #333; box-shadow: 1px 1px 4px rgba(0,0,0,0.1); }
 
     /* TICKER FINANCEIRO (RODAPÉ) */
     .ticker-wrap {
@@ -644,8 +620,8 @@ with CONTEUDO_TV.container():
 
                         st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
 
-                        st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                            <div style="font-size: 35px; font-weight: bold; color: #111;">
+                        st.markdown(f'''<div class="box-base" style="padding: 5px 10px; margin-bottom: 15px;">
+                            <div style="font-size: 28px; font-weight: bold; color: #111;">
                                 Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | 
                                 Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | 
                                 Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
@@ -673,7 +649,7 @@ with CONTEUDO_TV.container():
                                         <div class="sup-card">
                                             <div class="sup-header" style="margin-bottom: 5px;">
                                                 <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                                <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 10px 20px; border-radius: 8px; font-size: 26px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
+                                                <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 5px 10px; border-radius: 8px; font-size: 20px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
                                             </div>
                                             <div class="faltas-grid">
                                                 <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -766,8 +742,8 @@ with CONTEUDO_TV.container():
 
                     st.session_state.ticker_data[8] = f"📊 PME: {total_geral_pme} O.S. | QUEBRAS: {quebra_global_pme:.1f}%"
 
-                    st.markdown(f'''<div class="box-base" style="padding: 10px; margin-bottom: 25px;">
-                        <div style="font-size: 35px; font-weight: bold; color: #111;">
+                    st.markdown(f'''<div class="box-base" style="padding: 5px 10px; margin-bottom: 15px;">
+                        <div style="font-size: 28px; font-weight: bold; color: #111;">
                             Total de O.S.: <span style="color:#003366">{total_geral_pme}</span> | 
                             Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | 
                             Quebras Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | 
@@ -795,7 +771,7 @@ with CONTEUDO_TV.container():
                                     <div class="sup-card">
                                         <div class="sup-header" style="margin-bottom: 5px;">
                                             <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                            <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 10px 20px; border-radius: 8px; font-size: 26px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 5px 10px; border-radius: 8px; font-size: 20px; font-weight: 900; white-space: nowrap;">Quebra: {quebra:.1f}%</div>
                                         </div>
                                         <div class="faltas-grid">
                                             <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
@@ -845,7 +821,6 @@ with CONTEUDO_TV.container():
             if col_tipo_os:
                 df_rota = df_rota[df_rota[col_tipo_os].notna()]
                 df_rota = df_rota[df_rota[col_tipo_os].astype(str).str.strip() != '']
-                df_rota = df_rota[~df_rota[col_tipo_os].astype(str).str.upper().str.contains('RETORNO CREDENCIADA', na=False)]
 
             col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
             if not col_status: col_status = col_status_ativ
@@ -868,9 +843,6 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_9, axis=1)
                 df_proj = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-
-                if col_tipo_os:
-                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
                 df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Cancelado'].copy()
@@ -905,30 +877,30 @@ with CONTEUDO_TV.container():
                 st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} O.S. | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
-                <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
-                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
+                <div class="box-base" style="padding: 5px 10px; margin-bottom: 15px; border-left: 10px solid #003366; background: #e3f2fd;">
+                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 5px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 5px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
-                            <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
+                            <div style="font-size: 32px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">PROJEÇÃO</div>
-                            <div style="font-size: 40px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">PROJEÇÃO</div>
+                            <div style="font-size: 32px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
-                            <div style="font-size: 40px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
+                            <div style="font-size: 32px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">QUEBRAS</div>
-                            <div style="font-size: 40px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">QUEBRAS</div>
+                            <div style="font-size: 32px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
-                            <div style="font-size: 40px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
+                            <div style="font-size: 32px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
                         </div>
                     </div>
-                    <div style="font-size: 22px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
+                    <div style="font-size: 18px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 30px; text-transform: uppercase;">
                         <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
                         <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
                         <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
@@ -943,7 +915,7 @@ with CONTEUDO_TV.container():
                         if i + j < len(SUPS_ABC):
                             sup = SUPS_ABC[i + j]
                             with cols_sup[j]:
-                                df_sup = df_proj[df_proj['SUPERVISOR_CLEAN'] == sup]
+                                df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
 
                                 total_tarefas = df_sup['VALOR_TAREFA'].sum()
                                 os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
@@ -967,10 +939,10 @@ with CONTEUDO_TV.container():
                                 <div class="sup-card">
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div style="display: flex; gap: 10px; align-items: center;">
-                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
-                                            <div style="background: #ffebee; color: {cor_q}; border: 2px solid {cor_q}; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
-                                            <div style="background: #e3f2fd; color: #006064; border: 2px solid #006064; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Técs: {total_tecnicos} | Média: {media_equipe:.2f}</div>
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 4px 8px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
+                                            <div style="background: #ffebee; color: {cor_q}; border: 2px solid {cor_q}; padding: 4px 8px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #e3f2fd; color: #006064; border: 2px solid #006064; padding: 4px 8px; border-radius: 8px; font-size: 16px; font-weight: bold;">Técs: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
                                     </div>
                                     <div class="faltas-grid">
@@ -1022,7 +994,6 @@ with CONTEUDO_TV.container():
             if col_tipo_os:
                 df_rota = df_rota[df_rota[col_tipo_os].notna()]
                 df_rota = df_rota[df_rota[col_tipo_os].astype(str).str.strip() != '']
-                df_rota = df_rota[~df_rota[col_tipo_os].astype(str).str.upper().str.contains('RETORNO CREDENCIADA', na=False)]
 
             col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
             if not col_status: col_status = col_status_ativ
@@ -1045,9 +1016,6 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_10, axis=1)
                 df_proj = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-
-                if col_tipo_os:
-                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
                 df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Cancelado'].copy()
@@ -1081,30 +1049,30 @@ with CONTEUDO_TV.container():
                 st.session_state.ticker_data[10] = f"🌍 MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}% | EFIC: {eficiencia_op:.1f}%"
 
                 st.markdown(f'''
-                <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
-                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
+                <div class="box-base" style="padding: 5px 10px; margin-bottom: 15px; border-left: 10px solid #003366; background: #e3f2fd;">
+                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 5px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 5px;">
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
-                            <div style="font-size: 40px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
+                            <div style="font-size: 32px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">PROJEÇÃO</div>
-                            <div style="font-size: 40px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">PROJEÇÃO</div>
+                            <div style="font-size: 32px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
-                            <div style="font-size: 40px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
+                            <div style="font-size: 32px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">QUEBRAS</div>
-                            <div style="font-size: 40px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">QUEBRAS</div>
+                            <div style="font-size: 32px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 18px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
-                            <div style="font-size: 40px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
+                            <div style="font-size: 15px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
+                            <div style="font-size: 32px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
                         </div>
                     </div>
-                    <div style="font-size: 22px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
+                    <div style="font-size: 18px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 30px; text-transform: uppercase;">
                         <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
                         <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
                         <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
@@ -1119,7 +1087,7 @@ with CONTEUDO_TV.container():
                         if i + j < len(SUPS_ABC):
                             sup = SUPS_ABC[i + j]
                             with cols_sup[j]:
-                                df_sup = df_proj[df_proj['SUPERVISOR_CLEAN'] == sup]
+                                df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
 
                                 total_tarefas = df_sup['VALOR_TAREFA'].sum()
                                 os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
@@ -1142,10 +1110,10 @@ with CONTEUDO_TV.container():
                                 <div class="sup-card">
                                     <div class="sup-header">
                                         <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div style="display: flex; gap: 10px; align-items: center;">
-                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
-                                            <div style="background: #ffebee; color: {cor_q}; border: 2px solid {cor_q}; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
-                                            <div style="background: #e3f2fd; color: #006064; border: 2px solid #006064; padding: 8px 12px; border-radius: 8px; font-size: 18px; font-weight: bold;">Técs: {total_tecnicos} | Média: {media_equipe:.2f}</div>
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <div style="background: #f8f9fa; color: #333; border: 2px solid #ccc; padding: 4px 8px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
+                                            <div style="background: #ffebee; color: {cor_q}; border: 2px solid {cor_q}; padding: 4px 8px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
+                                            <div style="background: #e3f2fd; color: #006064; border: 2px solid #006064; padding: 4px 8px; border-radius: 8px; font-size: 16px; font-weight: bold;">Técs: {total_tecnicos} | Média: {media_equipe:.2f}</div>
                                         </div>
                                     </div>
                                     <div class="faltas-grid">
@@ -1712,7 +1680,6 @@ elif st.session_state.idx == 7: espera = 60
 elif st.session_state.idx == 8: espera = 60 
 elif st.session_state.idx == 9: espera = 60 
 elif st.session_state.idx == 10: espera = 60 
-elif st.session_state.idx in [11, 12, 13, 14, 15, 16]: espera = 20 
 elif st.session_state.idx == 5: espera = 60 
 elif st.session_state.idx == 6: espera = 60 
 elif st.session_state.idx == 3: espera = 45 
@@ -1749,13 +1716,7 @@ else:
         elif st.session_state.idx == 7: prox_idx = 8
         elif st.session_state.idx == 8: prox_idx = 9
         elif st.session_state.idx == 9: prox_idx = 10
-        elif st.session_state.idx == 10: prox_idx = 11
-        elif st.session_state.idx == 11: prox_idx = 12
-        elif st.session_state.idx == 12: prox_idx = 13
-        elif st.session_state.idx == 13: prox_idx = 14
-        elif st.session_state.idx == 14: prox_idx = 15
-        elif st.session_state.idx == 15: prox_idx = 16
-        elif st.session_state.idx == 16: prox_idx = 5
+        elif st.session_state.idx == 10: prox_idx = 5
         elif st.session_state.idx == 5: prox_idx = 6 
         elif st.session_state.idx == 6: prox_idx = 3 
         elif st.session_state.idx == 3: prox_idx = 2
