@@ -264,8 +264,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            # LENDO O CSV DE FORMA BLINDADA CONTRA ERROS DO EXCEL
-            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
@@ -302,8 +301,6 @@ with CONTEUDO_TV.container():
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            else: st.error("Coluna Status não encontrada.")
-        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
     # TELA 1: TEC1
@@ -312,7 +309,7 @@ with CONTEUDO_TV.container():
         titulo_tec1 = f'TEC1 <span style="font-size: 32px; vertical-align: middle; background: #ff9800; color: #fff; padding: 6px 18px; border-radius: 30px; margin-left: 15px;">{( "ATÉ 12:00" if (datetime.utcnow() - timedelta(hours=3)).hour < 12 else ("ATÉ 15:00" if 12 <= (datetime.utcnow() - timedelta(hours=3)).hour < 15 else "ATÉ 18:00") )}</span>'
         st.markdown(render_topo(titulo_tec1) + html_audio_tec1, unsafe_allow_html=True)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
@@ -354,6 +351,7 @@ with CONTEUDO_TV.container():
 
                 st.markdown(f'''<div class="box-base" style="padding: 10px;"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
+                # --- RETORNO PARA DUAS COLUNAS GRANDES NO TEC1 ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
@@ -379,8 +377,6 @@ with CONTEUDO_TV.container():
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            else: st.error("Coluna Status não encontrada.")
-        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
     # TELA 7: MIGRAÇÃO GPON
@@ -388,7 +384,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 7:
         st.markdown(render_topo("MIGRAÇÃO GPON") + icone_mudo, unsafe_allow_html=True)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_gpon = next((c for c in df.columns if 'GPON' in c), None)
@@ -434,6 +430,7 @@ with CONTEUDO_TV.container():
                                 Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                             </div></div>''', unsafe_allow_html=True)
                         
+                        # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                         for i in range(0, len(SUPS_ABC), 2):
                             cols_sup = st.columns(2)
                             for j in range(2):
@@ -466,7 +463,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 8:
         st.markdown(render_topo("PME (TETO 20%)") + icone_mudo, unsafe_allow_html=True)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
@@ -514,6 +511,7 @@ with CONTEUDO_TV.container():
                             Total de O.S.: <span style="color:#003366">{total_geral_pme}</span> | Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div></div>''', unsafe_allow_html=True)
                     
+                    # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                     for i in range(0, len(SUPS_ABC), 2):
                         cols_sup = st.columns(2)
                         for j in range(2):
@@ -550,7 +548,7 @@ with CONTEUDO_TV.container():
         st.markdown(render_topo("VISÃO GERAL DA ROTA - TÉCNICOS ESCALADOS") + html_audio_ind, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
 
             col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
@@ -610,7 +608,7 @@ with CONTEUDO_TV.container():
                 st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} O.S. | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
 
                 st.markdown(f'''
-                <div class="box-base" style="padding: 10px; border-left: 15px solid #003366; background: #e3f2fd;">
+                <div class="box-base" style="padding: 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
                         <div style="text-align: center;">
                             <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
@@ -642,6 +640,7 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
 
+                # --- 2 COLUNAS LAYOUT PARA ROTA ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -712,7 +711,7 @@ with CONTEUDO_TV.container():
         st.markdown(render_topo("VISÃO GERAL DA ROTA - EQUIPE FIXA") + icone_mudo, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
 
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
@@ -770,7 +769,7 @@ with CONTEUDO_TV.container():
                 st.session_state.ticker_data[10] = f"🌍 MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
 
                 st.markdown(f'''
-                <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 10px solid #003366; background: #e3f2fd;">
+                <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 15px solid #003366; background: #e3f2fd;">
                     <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
                         <div style="text-align: center;">
                             <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
@@ -802,6 +801,7 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -871,7 +871,7 @@ with CONTEUDO_TV.container():
 
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
-                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
                 df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
 
                 col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
@@ -920,6 +920,7 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -974,7 +975,7 @@ with CONTEUDO_TV.container():
 
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
-                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
                 df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
 
                 col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
@@ -1037,6 +1038,7 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -1092,7 +1094,7 @@ with CONTEUDO_TV.container():
         st.markdown(render_topo("PRINT DOS INDICADORES") + html_audio_ind, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+            df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, sep=None, engine='python', dtype=str)
             df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
             col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
             col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
@@ -1129,8 +1131,10 @@ with CONTEUDO_TV.container():
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
                 st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
+                # CORREÇÃO DEFINITIVA DO TÍTULO DE ALERTA: Forçando inline CSS limpo e isolado
                 st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
+                # --- 2 COLUNAS LAYOUT PARA OS CARDS DO INDICADOR ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -1146,7 +1150,7 @@ with CONTEUDO_TV.container():
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_ind:
-                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0, '{AUDIO_ALERTA_B64}');</script>"
+                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
                     else: st.session_state.script_audio_atual = ""
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1169,7 +1173,7 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
         
         if st.session_state.novo_ciclo:
-            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0, '{AUDIO_ALERTA_B64}');</script>"
+            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
             st.session_state.novo_ciclo = False
         
         script_relogio_dinamico = """
