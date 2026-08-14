@@ -27,12 +27,11 @@ if not os.path.exists(ARQUIVO_LOGO):
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 21,
     "MAICON": 21,
-    "MARCOS ROBERTO": 15,
     "NELSON": 20
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
-SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO", "NELSON"]
+SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -177,7 +176,6 @@ st.markdown("""<style>
 
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
-    if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'MAICON' in n: return "MAICON"
     if 'NELSON' in n: return "NELSON"
     if 'EDSON' in n: return "EDSON MARCO"
@@ -453,7 +451,6 @@ with CONTEUDO_TV.container():
                     if sup == "MAICON": return [255, 20, 147] 
                     if sup == "NELSON": return [0, 128, 0]    
                     if sup == "EDSON MARCO": return [128, 0, 128] 
-                    if sup == "MARCOS ROBERTO": return [255, 140, 0]
                     return [0, 0, 0]
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
@@ -470,11 +467,10 @@ with CONTEUDO_TV.container():
                     
                     edson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>'
                     maicon_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>'
-                    marcos_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF8C00; border-radius: 50%; border: 1px solid #000;"></span> MARCOS ROBERTO</div>'
                     nelson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>'
 
                     if st.session_state.idx in [11, 12, 13]:
-                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + marcos_html + nelson_html + '</div>'
+                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + nelson_html + '</div>'
                     elif st.session_state.idx == 14:
                         legenda_html = '<div style="' + base_style + '">' + edson_html + '</div>'
                     elif st.session_state.idx == 15:
