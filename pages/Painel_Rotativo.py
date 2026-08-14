@@ -934,6 +934,7 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
