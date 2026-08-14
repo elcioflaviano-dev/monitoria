@@ -3,10 +3,8 @@ import pandas as pd
 import os
 import time
 
-# Configuração da página ampla
 st.set_page_config(layout="wide", page_title="INDICADORES", initial_sidebar_state="collapsed")
 
-# CSS PARA LIMPEZA DA INTERFACE E ESTILIZAÇÃO DOS BLOCOS
 st.markdown("""
     <style>
     [data-testid="stHeader"] { visibility: hidden !important; }
@@ -16,7 +14,6 @@ st.markdown("""
     .block-container { padding-top: 15px !important; }
     
     .title-abc-sp { font-size: 24px !important; font-weight: 900 !important; margin-bottom: 15px !important; text-align: center; color: #008080; }
-    .title-sp { color: #b30000 !important; }
     
     .falta-box { background-color: #ffebee; border: 1px solid #ffcdd2; border-radius: 6px; padding: 12px 5px; text-align: center; margin-bottom: 5px; }
     .falta-label { font-size: 12px; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 6px; }
@@ -44,7 +41,6 @@ if df_master is not None and not df_master.empty:
     df = df_master.copy()
     df.columns = [str(c).strip() for c in df.columns]
     
-    # 🔍 RADAR AUTOMÁTICO DE COLUNAS
     col_nr35 = next((c for c in reversed(df.columns) if 'NR35' in c.upper() or 'NR-35' in c.upper()), None)
     col_cert = next((c for c in reversed(df.columns) if 'CERTID' in c.upper() or 'ELEGIVEL' in c.upper() or 'ELEGÍVEL' in c.upper()), None)
     col_bst  = next((c for c in reversed(df.columns) if 'BST' in c.upper() or 'STEERING' in c.upper() or 'BAND' in c.upper()), None)
@@ -56,21 +52,13 @@ if df_master is not None and not df_master.empty:
     if 'Contrato' in df.columns:
         df['Contrato'] = df['Contrato'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
 
-    # =========================================================================
-    # 1. FILTRAR APENAS CONTRATOS PRODUTIVOS E ÚNICOS (CORREÇÃO DE DUPLICAÇÕES)
-    # =========================================================================
     df['Status_Atividade_Upper'] = df[col_status].fillna('').astype(str).str.upper().str.strip()
     df_produtivo = df[df['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
 
-    # 🔥 LIMPEZA: OBRIGA A CONTAR CADA CONTRATO APENAS 1 VEZ 🔥
     if 'Contrato' in df_produtivo.columns and not df_produtivo.empty:
         df_produtivo = df_produtivo[df_produtivo['Contrato'] != '']
         df_produtivo = df_produtivo.drop_duplicates(subset=['Contrato'])
 
-    # =========================================================================
-    # 2. MOTOR DE PENDÊNCIAS (LAYOUT TEC1 - BLOCOS TOTAIS)
-    # =========================================================================
-    # Criação de colunas numéricas (0 ou 1) para somar as faltas facilmente
     df_produtivo['FALTA_NR35'] = 0
     if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
     
@@ -80,16 +68,12 @@ if df_master is not None and not df_master.empty:
     df_produtivo['FALTA_BST'] = 0
     if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
 
-    # Soma total de faltas na linha para ver se o contrato tem pendência
     df_produtivo['TOTAL_FALTAS'] = df_produtivo['FALTA_NR35'] + df_produtivo['FALTA_CERT'] + df_produtivo['FALTA_BST']
-    
-    # Filtra APENAS quem tem falta
     df_pendentes = df_produtivo[df_produtivo['TOTAL_FALTAS'] > 0].copy()
 
     if df_pendentes.empty:
-        st.success("🎉 Excelente! Todos os contratos produtivos estão com os indicadores preenchidos e enviados.")
+        st.success("🎉 Excelente! Todos os contratos produtivos do ABC estão com os indicadores preenchidos e enviados.")
     else:
-        # Mapeamento Inteligente de Supervisores
         if col_supervisor in df_pendentes.columns:
             df_pendentes['SUPERVISOR_MOSTRAR'] = df_pendentes[col_supervisor].fillna('').astype(str).str.upper().str.strip()
         else:
@@ -99,40 +83,30 @@ if df_master is not None and not df_master.empty:
             nome_u = str(row.get(col_tecnico, '')).upper().strip()
             sup_orig = str(row.get('SUPERVISOR_MOSTRAR', '')).upper().strip()
             
-            # Normaliza o nome vindo do Excel
             if sup_orig not in ['NÃO IDENTIFICADO', 'NAN', 'N/A', '', 'NULL', '#N/A', '0', '0.0']:
-                if "ALAN" in sup_orig: return "ALAN"
-                if "FRANCISCO" in sup_orig: return "FRANCISCO"
                 if "MARCOS" in sup_orig: return "MARCOS ROBERTO"
                 if "MARCO" in sup_orig: return "MAICON"
                 if "NELSON" in sup_orig: return "NELSON"
-                if "JOAO" in sup_orig or "MIRON" in sup_orig: return "JOAO CARLOS MIRON"
                 return sup_orig
 
-            # Regra de emergência caso a célula do Excel venha vazia
-            if "ADRIEL" in nome_u or "AMANDA" in nome_u or "DEBORA" in nome_u or "ELIAS" in nome_u or "AIRON" in nome_u: return "ALAN"
-            if "ALINE" in nome_u or "ALEX" in nome_u or "EDER" in nome_u or "ENOQUE" in nome_u: return "FRANCISCO"
             if "MARCOS" in nome_u: return "MARCOS ROBERTO"
             if "NELSON" in nome_u: return "NELSON"
-            if "JOAO" in nome_u or "MIRON" in nome_u: return "JOAO CARLOS MIRON"
                 
             return "EDSON MARCO"
 
         df_pendentes['SUPERVISOR_MOSTRAR'] = df_pendentes.apply(vincular_supervisor_tecnico, axis=1)
 
-        # Divisão Regional
+        # Filtra os dados de São Paulo
         cond_sp = df_pendentes['SUPERVISOR_MOSTRAR'].str.contains('FRANCISCO|ALAN|JOAO|MIRON', na=False)
-        df_sp = df_pendentes[cond_sp].copy()
         df_abc = df_pendentes[~cond_sp].copy()
 
-        col_coluna_abc, col_coluna_sp = st.columns(2)
-        
-        # --- RENDERIZAÇÃO LADO ABC ---
-        with col_coluna_abc:
-            st.markdown('<div class="title-abc-sp">ABC</div>', unsafe_allow_html=True)
-            if not df_abc.empty:
-                matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['FALTA_NR35', 'FALTA_CERT', 'FALTA_BST']].sum().reset_index()
-                for supervisor in sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique()):
+        st.markdown('<div class="title-abc-sp">REGIONAL ABC</div>', unsafe_allow_html=True)
+        if not df_abc.empty:
+            matriz_abc = df_abc.groupby('SUPERVISOR_MOSTRAR')[['FALTA_NR35', 'FALTA_CERT', 'FALTA_BST']].sum().reset_index()
+            cols = st.columns(len(matriz_abc) if len(matriz_abc) > 0 else 1)
+            
+            for i, supervisor in enumerate(sorted(matriz_abc['SUPERVISOR_MOSTRAR'].unique())):
+                with cols[i]:
                     dados_super = matriz_abc[matriz_abc['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
                     f_nr35 = int(dados_super['FALTA_NR35'])
                     f_cert = int(dados_super['FALTA_CERT'])
@@ -143,31 +117,10 @@ if df_master is not None and not df_master.empty:
                         st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px; color:#333;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#ffcdd2; padding:2px 8px; border-radius:4px; color:#b30000;">Total Faltas: {total_falhas}</span></div>', unsafe_allow_html=True)
                         m1, m2, m3 = st.columns(3)
                         with m1: st.markdown(f'<div class="falta-box"><div class="falta-label">🪜 Faltam NR35</div><div class="falta-value">{f_nr35}</div></div>', unsafe_allow_html=True)
-                        with m2: st.markdown(f'<div class="falta-box"><div class="falta-label">📜 Falta Certidão</div><div class="falta-value">{f_cert}</div></div>', unsafe_allow_html=True)
+                        with m2: st.markdown(f'<div class="falta-box"><div class="falta-label">📜 Falta Cert.</div><div class="falta-value">{f_cert}</div></div>', unsafe_allow_html=True)
                         with m3: st.markdown(f'<div class="falta-box"><div class="falta-label">📶 Falta BST</div><div class="falta-value">{f_bst}</div></div>', unsafe_allow_html=True)
-            else: 
-                st.info("Nenhuma pendência de indicador no ABC.")
-
-        # --- RENDERIZAÇÃO LADO SÃO PAULO ---
-        with col_coluna_sp:
-            st.markdown('<div class="title-abc-sp title-sp">SÃO PAULO</div>', unsafe_allow_html=True)
-            if not df_sp.empty:
-                matriz_sp = df_sp.groupby('SUPERVISOR_MOSTRAR')[['FALTA_NR35', 'FALTA_CERT', 'FALTA_BST']].sum().reset_index()
-                for supervisor in sorted(matriz_sp['SUPERVISOR_MOSTRAR'].unique()):
-                    dados_super = matriz_sp[matriz_sp['SUPERVISOR_MOSTRAR'] == supervisor].iloc[0]
-                    f_nr35 = int(dados_super['FALTA_NR35'])
-                    f_cert = int(dados_super['FALTA_CERT'])
-                    f_bst = int(dados_super['FALTA_BST'])
-                    total_falhas = f_nr35 + f_cert + f_bst
-                    
-                    with st.container(border=True):
-                        st.markdown(f'<div style="font-size:20px; font-weight:bold; margin-bottom:10px; color:#333;">📋 {supervisor} <span style="float:right; font-size:14px; background-color:#ffcdd2; padding:2px 8px; border-radius:4px; color:#b30000;">Total Faltas: {total_falhas}</span></div>', unsafe_allow_html=True)
-                        m1, m2, m3 = st.columns(3)
-                        with m1: st.markdown(f'<div class="falta-box"><div class="falta-label">🪜 Faltam NR35</div><div class="falta-value">{f_nr35}</div></div>', unsafe_allow_html=True)
-                        with m2: st.markdown(f'<div class="falta-box"><div class="falta-label">📜 Falta Certidão</div><div class="falta-value">{f_cert}</div></div>', unsafe_allow_html=True)
-                        with m3: st.markdown(f'<div class="falta-box"><div class="falta-label">📶 Falta BST</div><div class="falta-value">{f_bst}</div></div>', unsafe_allow_html=True)
-            else: 
-                st.info("Nenhuma pendência de indicador em SP.")
+        else: 
+            st.info("Nenhuma pendência de indicador no ABC.")
 
 else:
     st.warning("⏳ Aguardando dados da página inicial para processar os indicadores...")
