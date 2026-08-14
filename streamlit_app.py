@@ -7,7 +7,6 @@ import io
 
 st.set_page_config(page_title="Painel de Produtividade", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS PARA LIMPEZA DA INTERFACE
 st.markdown("""
     <style>
     .stDeployButton { display: none !important; }
@@ -38,24 +37,16 @@ def carregar_dados_nuvem():
 
         ficheiro_excel = io.BytesIO(resposta.content)
         
-        # =====================================================================
-        # 📊 PARTE A: PROCESSA E SINCRONIZA A ABA DO CONSULTIVO (NOVO!)
-        # =====================================================================
         try:
             df_cons_bruto = pd.read_excel(ficheiro_excel, sheet_name='CONSULTIVO', engine='openpyxl')
             if not df_cons_bruto.empty:
                 df_cons_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_cons_bruto.columns]
-                # Salva o CSV do consultivo na nuvem
                 df_cons_bruto.to_csv("consultivo_sincronizado.csv", index=False)
         except Exception as e_cons:
             st.sidebar.warning(f"Aba CONSULTIVO não processada: {e_cons}")
 
-        # Retorna o ponteiro do arquivo para o início para ler a Rota
         ficheiro_excel.seek(0)
 
-        # =====================================================================
-        # 🗺️ PARTE B: PROCESSA E SINCRONIZA A ABA DA ROTA (SEU CÓDIGO ORIGINAL)
-        # =====================================================================
         df_bruto = pd.read_excel(ficheiro_excel, sheet_name='ROTA', engine='openpyxl')
         
         if df_bruto.empty:
@@ -129,7 +120,7 @@ if time.time() - st.session_state["last_refresh_main"] > 60:
     st.rerun()
 
 st.markdown('<h1 style="font-size: 34px; font-weight: 900; color: #005088; text-align: center; margin-top: 20px; margin-bottom: 5px;">📊 PAINEL DE PRODUTIVIDADE OPERACIONAL</h1>', unsafe_allow_html=True)
-st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado por blocos regionais</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align: center; color: #666; font-size: 14px; margin-bottom: 25px;">Controle integrado regional ABC</div>', unsafe_allow_html=True)
 
 df_master = carregar_dados_nuvem()
 
