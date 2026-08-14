@@ -305,13 +305,12 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 (COM NOVO DESIGN DE ALINHAMENTO DO TOPO) 🚀
+    # TELA 1: TEC1
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         label_janela = "ATÉ 12:00" if hora_atual < 12 else ("ATÉ 15:00" if 12 <= hora_atual < 15 else "ATÉ 18:00")
         
-        # ALINHAMENTO E NOVO DESIGN DO CABEÇALHO (FLEXBOX)
         titulo_tec1 = f'''
         <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
             <span>TEC1</span>
@@ -872,8 +871,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
+                    st.session_state.script_audio_atual = ""
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
@@ -1162,7 +1160,7 @@ with CONTEUDO_TV.container():
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_ind:
-                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0, '{AUDIO_ALERTA_B64}');</script>"
+                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
                     else: st.session_state.script_audio_atual = ""
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1185,7 +1183,7 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
         
         if st.session_state.novo_ciclo:
-            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0, '{AUDIO_ALERTA_B64}');</script>"
+            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
             st.session_state.novo_ciclo = False
         
         script_relogio_dinamico = """
