@@ -7,15 +7,12 @@ import calendar
 import unicodedata
 from datetime import datetime, timedelta
 
-# =========================================================================
-# CONFIGURAÇÕES DA PÁGINA 🚀
-# =========================================================================
 st.set_page_config(page_title="Consultivo", layout="wide")
 
 ROOT_DIR = os.getcwd()
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
-
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
+
 if not os.path.exists(ARQUIVO_LOGO):
     ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
@@ -30,9 +27,6 @@ def carregar_logo_html(caminho_imagem):
 
 logo_html = carregar_logo_html(ARQUIVO_LOGO)
 
-# =========================================================================
-# ESTILOS VISUAIS (CSS) - MANTENDO O MESMO LAYOUT DA TV
-# =========================================================================
 st.markdown("""<style>
     [data-testid="stHeader"] { visibility: hidden !important; }
     .stDeployButton { display: none !important; }
@@ -47,7 +41,6 @@ st.markdown("""<style>
     .botao-home { color: #fff; font-size: 18px; font-weight: bold; border: 2px solid #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; }
     
     .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
-    .box-base-sp { background: #e0f2f1; border-left: 10px solid #00897b; padding: 15px 10px; text-align: center; border-radius: 8px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 25px; }
     .nome-base { font-size: 22px; font-weight: 900; color: #333; text-transform: uppercase;}
     .num-base { font-size: 85px; font-weight: 900; color: #111; line-height: 1.1; }
     
@@ -62,40 +55,27 @@ st.markdown("""<style>
     .falta-value { font-size: 32px; font-weight: 900; line-height: 1; }
 </style>""", unsafe_allow_html=True)
 
-# =========================================================================
-# VARIÁVEIS E FUNÇÕES GERAIS
-# =========================================================================
 SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO", "NELSON"]
-SUPS_SP = ["ALAN", "FRANCISCO", "JOAO CARLOS MIRON"]
-SUPERVISORES_ORDENADOS = SUPS_ABC + SUPS_SP
+SUPERVISORES_ORDENADOS = SUPS_ABC
 
 def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
-    if 'FRANCISCO' in n: return "FRANCISCO"
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'EDSON' in n: return "EDSON MARCO"
-    if 'MAICON' in n or 'MIRON' in n: return "MAICON"
-    if 'JOAO' in n or 'MIRON' in n: return "JOÃO CARLOS"
+    if 'MAICON' in n: return "MAICON"
     if 'NELSON' in n: return "NELSON"
-    if 'ALAN' in n: return "ALAN"
     return n.split()[0]
 
 def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
-# =========================================================================
-# CABEÇALHO
-# =========================================================================
 st.markdown(f'''<div class="topo-container">
     <div class="topo-esquerda">{logo_html}</div>
     <div class="topo-centro">CONSULTIVO</div>
     <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
 </div>''', unsafe_allow_html=True)
 
-# =========================================================================
-# MOTOR DO CONSULTIVO E RENDERIZAÇÃO
-# =========================================================================
 if os.path.exists(ARQUIVO_CONSULTIVO):
     try:
         df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, sep=None, engine='python', dtype=str)
@@ -112,7 +92,6 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         else:
             df_cons['QTD_PRODUTOS_CALC'] = 0
 
-        # --- APLICAÇÃO DO FILTRO ANTES DOS CÁLCULOS ---
         df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
 
         def classificar_supervisor_limpo(row):
@@ -126,11 +105,8 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(classificar_supervisor_limpo, axis=1)
         df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
-        # 🔥 1. SOMA TOTAL DA BASE (APENAS FILTRADOS) 🔥
-        total_realizado_abc = df_cards[df_cards['BASE'] == 'ABC']['QTD_PRODUTOS_CALC'].sum()
-        total_realizado_sp  = df_cards[df_cards['BASE'] == 'SP']['QTD_PRODUTOS_CALC'].sum()
+        total_realizado_abc = df_cards['QTD_PRODUTOS_CALC'].sum()
 
-        # Cálculos de Calendário para as Metas
         hoje = datetime.utcnow() - timedelta(hours=3)
         ano, mes = hoje.year, hoje.month
         
@@ -140,23 +116,16 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
         if dias_restantes == 0: dias_restantes = 1
 
         meta_mensal_abc = len(SUPS_ABC) * 350
-        meta_mensal_sp = len(SUPS_SP) * 350
-
         ritmo_diario_base_abc = int(meta_mensal_abc / dias_uteis_totais) if dias_uteis_totais > 0 else 0
-        ritmo_diario_base_sp = int(meta_mensal_sp / dias_uteis_totais) if dias_uteis_totais > 0 else 0
 
-        # =========================================================================
-        # RENDERIZAÇÃO DAS COLUNAS (ABC e SP)
-        # =========================================================================
-        col_abc, col_sp = st.columns(2)
+        st.markdown(f'''<div class="box-base">
+            <div class="nome-base" style="color: #2e7d32;">🏢 ABC TOTAL (Meta: {meta_mensal_abc} | Ritmo: {ritmo_diario_base_abc}/dia)</div>
+            <div class="num-base">{total_realizado_abc}</div>
+        </div>''', unsafe_allow_html=True)
         
-        with col_abc:
-            st.markdown(f'''<div class="box-base">
-                <div class="nome-base" style="color: #2e7d32;">🏢 ABC TOTAL (Meta: {meta_mensal_abc} | Ritmo: {ritmo_diario_base_abc}/dia)</div>
-                <div class="num-base">{total_realizado_abc}</div>
-            </div>''', unsafe_allow_html=True)
-            
-            for sup in SUPS_ABC:
+        cols_abc = st.columns(4)
+        for i, sup in enumerate(SUPS_ABC):
+            with cols_abc[i % 4]:
                 qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
                 
                 meta_individual = 350
@@ -174,42 +143,6 @@ if os.path.exists(ARQUIVO_CONSULTIVO):
                         <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
                             <div class="falta-label" style="color: #2e7d32;">📦 TOTAL PRODUTOS</div>
                             <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
-                        </div>
-                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                            <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
-                            <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
-                        </div>
-                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                            <div class="falta-label" style="color: #b78103;">🎯 META DIÁRIA</div>
-                            <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
-                        </div>
-                    </div>
-                </div>''', unsafe_allow_html=True)
-
-        with col_sp:
-            st.markdown(f'''<div class="box-base-sp">
-                <div class="nome-base" style="color: #00695c;">🏙️ SÃO PAULO TOTAL (Meta: {meta_mensal_sp} | Ritmo: {ritmo_diario_base_sp}/dia)</div>
-                <div class="num-base">{total_realizado_sp}</div>
-            </div>''', unsafe_allow_html=True)
-            
-            for sup in SUPS_SP:
-                qtd_sup = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                
-                meta_individual = 350
-                falta_individual = meta_individual - qtd_sup
-                if falta_individual < 0: falta_individual = 0
-                ritmo_diario_individual = round(falta_individual / dias_restantes, 1)
-
-                st.markdown(f'''
-                <div class="sup-card">
-                    <div class="sup-header">
-                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                        <div class="badge-faltas" style="background: #e0f2f1; color: #00695c; border-color: #b2dfdb;">Alvo: 350</div>
-                    </div>
-                    <div class="faltas-grid">
-                        <div class="falta-box" style="background-color: #e0f2f1; border-color: #b2dfdb;">
-                            <div class="falta-label" style="color: #00695c;">📦 TOTAL PRODUTOS</div>
-                            <div class="falta-value" style="color: #004d40;">{qtd_sup}</div>
                         </div>
                         <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
                             <div class="falta-label" style="color: #c62828;">📉 FALTA PARA META</div>
