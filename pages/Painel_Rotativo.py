@@ -6,6 +6,8 @@ import time
 import base64
 import calendar
 import unicodedata
+import requests
+import io
 import pydeck as pdk
 from datetime import datetime, timedelta
 
@@ -32,6 +34,36 @@ QTD_TECNICOS_MONTADOS = {
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
 SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
+
+# --- LISTA FIXA EXCLUSIVA DO ABC PARA FILTRO DE BASE ---
+LISTA_ABC_FIXA = [
+    "ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA", 
+    "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS", 
+    "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "AUGUSTO ERNANDES DA SILVA", 
+    "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS", "DANIEL SOUZA OLIVEIRA", 
+    "DANILO FERREIRA LIMA", "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", 
+    "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES", 
+    "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES", 
+    "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA", 
+    "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA", 
+    "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRADAO BASTOS", 
+    "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME", 
+    "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS", 
+    "LUCAS SILVA DE LIMA", "LUIS HENRIQUE GOMES DA SILVA", "MARCOS VINICIUS OLIVEIRA GOVEIA", 
+    "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA", "OSCLEY FRANCA DE SOUSA", 
+    "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO", "RENATO FUTRO ROSSI", 
+    "PAULO CESAR BATISTA DE SOUSA", "RAFAEL DOS ANJOS BATISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", 
+    "RICARDO SANTOS", "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", 
+    "SILAS DA SILVA NASCIMENTO", "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", 
+    "DANIEL AUGUSTO PEREIRA", "JULIO CESAR SILVA DOS SANTOS", "EDER SALES MONTEIRO", 
+    "ANTONIO WESLEY HOLANDA DA SILVA", "MAICON JORDAN PEDRO SANTOS GARCEZ", 
+    "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "ALEX DE JESUS FREIRE", 
+    "ANTHONY HULLY PEREIRA DIAS", "ANTONIO CHARLES MARINHO", "ARLAN DUARTE NASCIMENTO", 
+    "EVERTON ALVES", "IGOR DAVID DE MARCHI", "JAZIEL DOS SANTOS SILVA", "KAUAN PASCHOAL", 
+    "LUCAS SILVA SOBRINHO", "NICOLAS CALEGARI STARCHARVSKI", "RENATO ESPERANÇA", 
+    "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", 
+    "VITOR MATOS DE ALMEIDA"
+]
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
@@ -259,7 +291,7 @@ with CONTEUDO_TV.container():
             st.session_state.ultima_sincronizacao = time.time()
 
     # -------------------------------------------------------------------------
-    # TELA 0: BASE
+    # TELA 0: BASE (AGORA UTILIZANDO A LISTA FIXA DO ABC)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
@@ -267,34 +299,35 @@ with CONTEUDO_TV.container():
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
-            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_status = next((c for c in df.columns if 'STATUS' in c), None)
             col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
 
             if col_status:
-                mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend')
-                if col_tipo_exata: mask_base = df[col_tipo_exata].fillna('').astype(str).str.strip().str.lower() == 'na base'
+                mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend|aberto')
+                
+                if col_tipo_exata: 
+                    mask_base = df[col_tipo_exata].fillna('').astype(str).str.lower().str.contains('base')
                 else:
                     cols_tipo = [c for c in df.columns if 'TIPO' in c]
-                    mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.strip().str.lower() == 'na base').any(axis=1)
-
-                def resolver_supervisor(row):
-                    tec = str(row.get(col_recurso, '')).upper().strip()
-                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                    for oficial in SUPERVISORES_ORDENADOS:
-                        if oficial in sup: return oficial
-                    return "DESCARTADO"
+                    mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.lower().str.contains('base')).any(axis=1)
 
                 df_tela = df[mask_base & mask_status].copy()
-                df_tela['SUPERVISOR_CLEAN'] = df_tela.apply(resolver_supervisor, axis=1)
-                df_tela = df_tela[df_tela['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
-                nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
+                # Identifica todo mundo que está na base
+                nomes_na_base = [str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()]
+                
+                # Cruza com a lista fixa da regional ABC
+                lista_abc = [n.upper() for n in LISTA_ABC_FIXA]
+                nomes_abc = sorted([n for n in nomes_na_base if n in lista_abc])
+                
                 st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
 
-                cols_tec = st.columns(4)
-                for i, n in enumerate(nomes_abc):
-                    with cols_tec[i % 4]: st.markdown(f'<div class="tec-base-nome">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
+                if len(nomes_abc) > 0:
+                    cols_tec = st.columns(4)
+                    for i, n in enumerate(nomes_abc):
+                        with cols_tec[i % 4]: st.markdown(f'<div class="tec-base-nome">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
+                else:
+                    st.success("✅ Excelente! Nenhum técnico pendente na base neste momento.")
 
                 if st.session_state.novo_ciclo:
                     script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>" if permitir_audio_base else ""
@@ -582,7 +615,7 @@ with CONTEUDO_TV.container():
                         total_prod_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
                         
                         soma_valida_mig = total_ne_mig + total_prod_mig
-                        quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_mig > 0 else 0
+                        quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_pme > 0 else 0
                         teto_ne_global = int(np.floor(total_geral_mig * 0.25))
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
