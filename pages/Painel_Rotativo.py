@@ -6,6 +6,8 @@ import time
 import base64
 import calendar
 import unicodedata
+import requests
+import io
 import pydeck as pdk
 from datetime import datetime, timedelta
 
@@ -22,15 +24,17 @@ if not os.path.exists(ARQUIVO_LOGO):
     ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
 # 📌 ALTERE AQUI A QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
+# (Marcos Roberto comentado por motivo de Férias)
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 21,
     "MAICON": 21,
-    "MARCOS ROBERTO": 15,
+    # "MARCOS ROBERTO": 15,
     "NELSON": 20
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
-SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO", "NELSON"]
+# (Marcos Roberto removido temporariamente da lista ativa)
+SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
 # --- LISTA FIXA EXCLUSIVA DO ABC PARA FILTRO DE BASE ---
@@ -289,7 +293,7 @@ with CONTEUDO_TV.container():
             st.session_state.ultima_sincronizacao = time.time()
 
     # -------------------------------------------------------------------------
-    # TELA 0: BASE (AGORA UTILIZANDO A LISTA FIXA DO ABC)
+    # TELA 0: BASE
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
@@ -311,10 +315,8 @@ with CONTEUDO_TV.container():
 
                 df_tela = df[mask_base & mask_status].copy()
                 
-                # Identifica todo mundo que está na base
                 nomes_na_base = [str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()]
                 
-                # Cruza com a lista fixa da regional ABC
                 lista_abc = [n.upper() for n in LISTA_ABC_FIXA]
                 nomes_abc = sorted([n for n in nomes_na_base if n in lista_abc])
                 
@@ -482,7 +484,7 @@ with CONTEUDO_TV.container():
                     if sup == "MAICON": return [255, 20, 147] 
                     if sup == "NELSON": return [0, 128, 0]    
                     if sup == "EDSON MARCO": return [128, 0, 128] 
-                    if sup == "MARCOS ROBERTO": return [255, 140, 0]
+                    # if sup == "MARCOS ROBERTO": return [255, 140, 0]
                     return [0, 0, 0]
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
@@ -499,11 +501,11 @@ with CONTEUDO_TV.container():
                     
                     edson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>'
                     maicon_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>'
-                    marcos_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF8C00; border-radius: 50%; border: 1px solid #000;"></span> MARCOS ROBERTO</div>'
+                    # marcos_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF8C00; border-radius: 50%; border: 1px solid #000;"></span> MARCOS ROBERTO</div>'
                     nelson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>'
 
                     if st.session_state.idx in [11, 12, 13]:
-                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + marcos_html + nelson_html + '</div>'
+                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + nelson_html + '</div>'
                     elif st.session_state.idx == 14:
                         legenda_html = '<div style="' + base_style + '">' + edson_html + '</div>'
                     elif st.session_state.idx == 15:
@@ -949,7 +951,9 @@ with CONTEUDO_TV.container():
                 produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
                 em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
-                total_tecnicos_op = sum(QTD_TECNICOS_MONTADOS.values())
+                # (Aqui ajustamos para somar só a equipe atual de SUPS_ABC do dicionário, assim quando Marcos for comentado, ele some daqui também)
+                total_tecnicos_op = sum(QTD_TECNICOS_MONTADOS.get(sup, 0) for sup in SUPS_ABC)
+                if total_tecnicos_op == 0: total_tecnicos_op = 1
 
                 denom_quebra_op = os_ne_op + produtivo_op
                 quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
@@ -1052,8 +1056,7 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
+                    st.session_state.script_audio_atual = ""
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
