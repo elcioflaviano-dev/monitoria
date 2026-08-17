@@ -620,7 +620,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base">
                             <div style="font-size: 30px; font-weight: bold; color: #111;">
@@ -658,7 +658,7 @@ with CONTEUDO_TV.container():
     # TELA 8: PME 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 8:
-        st.markdown(render_topo("PME (TETO 20%)") + icone_mudo, unsafe_allow_html=True)
+        st.markdown(render_topo("P M E") + icone_mudo, unsafe_allow_html=True)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
             df.columns = [str(c).strip().upper() for c in df.columns]
