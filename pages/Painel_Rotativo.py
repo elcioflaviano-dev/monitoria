@@ -1317,7 +1317,7 @@ with CONTEUDO_TV.container():
                     df_produtivo['FALTA_NR35'] = 0
                     if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
                     df_produtivo['FALTA_CERT'] = 0
-                    if col_cert: df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+                    if col_cert: df_produtivo['FALTA_CERTIDÃO'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
                     df_produtivo['FALTA_BST'] = 0
                     if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
 
