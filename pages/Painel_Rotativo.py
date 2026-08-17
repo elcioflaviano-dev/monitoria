@@ -6,8 +6,6 @@ import time
 import base64
 import calendar
 import unicodedata
-import requests
-import io
 import pydeck as pdk
 from datetime import datetime, timedelta
 
