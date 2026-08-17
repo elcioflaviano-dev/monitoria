@@ -613,7 +613,7 @@ with CONTEUDO_TV.container():
                         total_prod_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
                         
                         soma_valida_mig = total_ne_mig + total_prod_mig
-                        quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_pme > 0 else 0
+                        quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_mig > 0 else 0
                         teto_ne_global = int(np.floor(total_geral_mig * 0.25))
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
