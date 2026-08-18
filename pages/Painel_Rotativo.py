@@ -6,6 +6,8 @@ import time
 import base64
 import calendar
 import unicodedata
+import requests
+import io
 import pydeck as pdk
 from datetime import datetime, timedelta
 
@@ -217,11 +219,30 @@ def limpar_texto(txt):
     if pd.isna(txt): return ''
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
+# =========================================================================
+# LÓGICA DE STATUS BLINDADA (DESCARTA VAZIOS, CANCELADOS, ETC)
+# =========================================================================
 def padronizar_status(val):
+    if pd.isna(val): return 'Descartar'
     val_clean = limpar_texto(str(val))
-    if 'CANCEL' in val_clean or 'SUSP' in val_clean: return 'Cancelado'
-    if 'NE' in val_clean or 'NAO CONCLUIDO' in val_clean or 'QUEBRA' in val_clean or 'O.S NE' in val_clean: return 'O.S NE'
-    if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: return 'Produtivo'
+    
+    # 1. Ignora Vazios e Nulos
+    if val_clean in ['', 'NAN', 'NULL', 'NONE', 'VAZIO']: 
+        return 'Descartar'
+    
+    # 2. Ignora Suspensos, Cancelados e Não Concluídos
+    if 'CANCEL' in val_clean or 'SUSP' in val_clean or 'NAO CONCLUIDO' in val_clean: 
+        return 'Descartar'
+        
+    # 3. Mapeia Produtivos
+    if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
+        return 'Produtivo'
+        
+    # 4. Mapeia Quebras (O.S NE)
+    if 'QUEBRA' in val_clean or 'O.S NE' in val_clean or val_clean == 'NE': 
+        return 'O.S NE'
+        
+    # 5. O restante (Pendente, Despachado, Em Aberto, etc)
     return 'Em aberto'
 
 # =========================================================================
@@ -605,7 +626,7 @@ with CONTEUDO_TV.container():
                     
                     if not df_mig.empty:
                         df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
-                        df_mig = df_mig[df_mig['STATUS_PADRAO'] != 'Cancelado'].copy()
+                        df_mig = df_mig[df_mig['STATUS_PADRAO'] != 'Descartar'].copy()
 
                         df_mig['QTD_TAREFAS_NUM'] = df_mig['QTD_MIGRACAO_CALC']
                         total_geral_mig = int(df_mig['QTD_TAREFAS_NUM'].sum())
@@ -618,7 +639,7 @@ with CONTEUDO_TV.container():
                         cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
                         cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
 
-                        st.session_state.ticker_data[7] = f"📊 MIGRAÇÃO: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
 
                         st.markdown(f'''<div class="box-base">
                             <div style="font-size: 30px; font-weight: bold; color: #111;">
@@ -684,7 +705,7 @@ with CONTEUDO_TV.container():
                 
                 if not df_pme.empty:
                     df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
-                    df_pme = df_pme[df_pme['STATUS_PADRAO'] != 'Cancelado'].copy()
+                    df_pme = df_pme[df_pme['STATUS_PADRAO'] != 'Descartar'].copy()
                     if col_tarefas:
                         df_pme['QTD_TAREFAS_NUM'] = pd.to_numeric(df_pme[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
                         if df_pme['QTD_TAREFAS_NUM'].sum() == 0 and len(df_pme) > 0: df_pme['QTD_TAREFAS_NUM'] = 1
@@ -773,7 +794,7 @@ with CONTEUDO_TV.container():
                     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
-                df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Cancelado']
+                df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
 
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
@@ -935,7 +956,7 @@ with CONTEUDO_TV.container():
                     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
-                df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Cancelado'].copy()
+                df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
 
                 if col_tarefas:
                     df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
@@ -1315,7 +1336,7 @@ with CONTEUDO_TV.container():
                     df_produtivo['FALTA_NR35'] = 0
                     if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
                     df_produtivo['FALTA_CERT'] = 0
-                    if col_cert: df_produtivo['FALTA_CERTIDÃO'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+                    if col_cert: df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
                     df_produtivo['FALTA_BST'] = 0
                     if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
 
@@ -1329,7 +1350,7 @@ with CONTEUDO_TV.container():
                     df_produtivo = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
 
                     total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                    st.session_state.ticker_data[3] = f"📋 PRINTS INDICADORES: {int(total_faltas_ind)} FALTAM PRINTS"
+                    st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
                     st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
                     
