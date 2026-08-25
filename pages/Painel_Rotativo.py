@@ -380,7 +380,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 (COM EM ROTA E INICIADOS - LAYOUT DIVIDIDO)
+    # TELA 1: TEC1 (VISÃO DIVIDIDA PENDENTES / EM ROTA / INICIADOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
@@ -424,10 +424,12 @@ with CONTEUDO_TV.container():
                 df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
                 df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
                 
-                # --- CORREÇÃO TEC1: MÁSCARAS DIVIDIDAS ---
-                df_limpo['IS_ABERTO'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False)
-                df_limpo['IS_ROTA'] = df_limpo['Status_Atividade_Upper'].str.contains('EM ROTA|INICIADO', na=False)
-                df_limpo['P_COUNT'] = (df_limpo['IS_ABERTO'] | df_limpo['IS_ROTA']).astype(int)
+                # --- NOVO: MÁSCARAS TRIPLAS ---
+                df_limpo['IS_PENDENTE'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False)
+                df_limpo['IS_EM_ROTA']  = df_limpo['Status_Atividade_Upper'].str.contains('EM ROTA', na=False)
+                df_limpo['IS_INICIADO'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO', na=False)
+                
+                df_limpo['P_COUNT'] = (df_limpo['IS_PENDENTE'] | df_limpo['IS_EM_ROTA'] | df_limpo['IS_INICIADO']).astype(int)
                 
                 df_validos = df_limpo.copy()
 
@@ -456,25 +458,30 @@ with CONTEUDO_TV.container():
                 df_pendentes_geral = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
                 # Totais Globais
-                total_abertos = int(df_pendentes_geral['IS_ABERTO'].sum())
-                total_rota = int(df_pendentes_geral['IS_ROTA'].sum())
+                total_pendentes = int(df_pendentes_geral['IS_PENDENTE'].sum())
+                total_em_rota   = int(df_pendentes_geral['IS_EM_ROTA'].sum())
+                total_iniciados = int(df_pendentes_geral['IS_INICIADO'].sum())
                 
-                st.session_state.ticker_data[1] = f"⏰ TEC1: {total_abertos} PENDENTES | {total_rota} EM ROTA"
+                st.session_state.ticker_data[1] = f"⏰ TEC1: {total_pendentes} PENDENTES | {total_em_rota} EM ROTA | {total_iniciados} INICIADOS"
 
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px; display: flex; justify-content: space-around; align-items: center;">
                     <div>
-                        <div class="nome-base" style="font-size: 14px !important; color: #cc6600;">ABERTOS / PENDENTES</div>
-                        <div class="num-base" style="color: #cc6600;">{total_abertos}</div>
+                        <div class="nome-base" style="font-size: 14px !important; color: #cc6600;">PENDENTES</div>
+                        <div class="num-base" style="color: #cc6600;">{total_pendentes}</div>
                     </div>
                     <div>
-                        <div class="nome-base" style="font-size: 14px !important; color: #2e7d32;">EM ROTA / INICIADOS</div>
-                        <div class="num-base" style="color: #2e7d32;">{total_rota}</div>
+                        <div class="nome-base" style="font-size: 14px !important; color: #0277bd;">EM ROTA</div>
+                        <div class="num-base" style="color: #0277bd;">{total_em_rota}</div>
+                    </div>
+                    <div>
+                        <div class="nome-base" style="font-size: 14px !important; color: #2e7d32;">INICIADOS</div>
+                        <div class="num-base" style="color: #2e7d32;">{total_iniciados}</div>
                     </div>
                 </div>
                 ''', unsafe_allow_html=True)
                 
-                # --- VISÃO DOS SUPERVISORES DIVIDIDA ---
+                # --- VISÃO DOS SUPERVISORES DIVIDIDA EM 3 ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
@@ -483,8 +490,9 @@ with CONTEUDO_TV.container():
                             sup = SUPS_ABC[idx_global]
                             
                             df_sup = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup]
-                            qtd_aberto = int(df_sup['IS_ABERTO'].sum())
-                            qtd_rota = int(df_sup['IS_ROTA'].sum())
+                            qtd_pend = int(df_sup['IS_PENDENTE'].sum())
+                            qtd_rota = int(df_sup['IS_EM_ROTA'].sum())
+                            qtd_inic = int(df_sup['IS_INICIADO'].sum())
                             
                             with cols_sub_abc[j]:
                                 st.markdown(f'''
@@ -492,12 +500,16 @@ with CONTEUDO_TV.container():
                                     <div class="box-nome" style="border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 12px;">{obter_nome_visual(sup)}</div>
                                     <div style="display:flex; justify-content:space-around; align-items: center;">
                                         <div style="text-align: center;">
-                                            <div style="font-size:14px; font-weight:bold; color:#cc6600;">ABERTOS / PEND.</div>
-                                            <div style="font-size: 55px; font-weight: 900; color: #cc6600; line-height: 1;">{qtd_aberto}</div>
+                                            <div style="font-size:14px; font-weight:bold; color:#cc6600;">PENDENTES</div>
+                                            <div style="font-size: 45px; font-weight: 900; color: #cc6600; line-height: 1;">{qtd_pend}</div>
                                         </div>
                                         <div style="text-align: center;">
-                                            <div style="font-size:14px; font-weight:bold; color:#2e7d32;">EM ROTA / INIC.</div>
-                                            <div style="font-size: 55px; font-weight: 900; color: #1b5e20; line-height: 1;">{qtd_rota}</div>
+                                            <div style="font-size:14px; font-weight:bold; color:#0277bd;">EM ROTA</div>
+                                            <div style="font-size: 45px; font-weight: 900; color: #0277bd; line-height: 1;">{qtd_rota}</div>
+                                        </div>
+                                        <div style="text-align: center;">
+                                            <div style="font-size:14px; font-weight:bold; color:#2e7d32;">INICIADOS</div>
+                                            <div style="font-size: 45px; font-weight: 900; color: #1b5e20; line-height: 1;">{qtd_inic}</div>
                                         </div>
                                     </div>
                                 </div>''', unsafe_allow_html=True)
@@ -506,14 +518,15 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_abertos} abertos e {total_rota} em rota ou iniciados.', {delay_atual});\n"
-                        delay_atual += 18000  # Aumentado para 18s de respiro para a frase principal
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                        delay_atual += 22000  # Aumentado para 22s de respiro para a frase principal ficar limpa
                         for i, sup_full in enumerate(SUPS_ABC):
                             df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
-                            q_ab = int(df_s['IS_ABERTO'].sum())
-                            q_ro = int(df_s['IS_ROTA'].sum())
-                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_ab} pendentes e {q_ro} em rota ou iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                            delay_atual += 12000  # Aumentado para 12s de respiro para a frase de cada supervisor
+                            q_pe = int(df_s['IS_PENDENTE'].sum())
+                            q_ro = int(df_s['IS_EM_ROTA'].sum())
+                            q_in = int(df_s['IS_INICIADO'].sum())
+                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
+                            delay_atual += 14000  # Aumentado para 14s de respiro para a frase de cada supervisor
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
                     else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
