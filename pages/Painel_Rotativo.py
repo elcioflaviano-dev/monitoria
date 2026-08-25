@@ -26,10 +26,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 # 📌 ALTERE AQUI A QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 # (Marcos Roberto comentado por motivo de Férias)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 21,
-    "MAICON": 21,
+    "EDSON MARCO": 20,
+    "MAICON": 19,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 20
+    "NELSON": 19
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
