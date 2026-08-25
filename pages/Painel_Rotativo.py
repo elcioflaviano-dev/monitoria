@@ -278,9 +278,9 @@ for janela in [12, 15, 18]:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
         if minutos_restantes == 1:
-            frase_incisiva_tec1 = f"Atenção. Falta 1 minuto para o término da janela das {janela} horas. Verifiquem os contratos."
+            frase_incisiva_tec1 = f"Atenção. Falta um minuto para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         else:
-            frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas."
+            frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
         
     # 2. Avisos de janela estourada (ex: 12:00 às 12:59)
@@ -519,14 +519,14 @@ with CONTEUDO_TV.container():
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
                         script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
-                        delay_atual += 22000  # Aumentado para 22s de respiro para a frase principal ficar limpa
+                        delay_atual += 24000  # Aumentado para 24s de respiro para a frase principal
                         for i, sup_full in enumerate(SUPS_ABC):
                             df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
                             q_pe = int(df_s['IS_PENDENTE'].sum())
                             q_ro = int(df_s['IS_EM_ROTA'].sum())
                             q_in = int(df_s['IS_INICIADO'].sum())
                             script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                            delay_atual += 14000  # Aumentado para 14s de respiro para a frase de cada supervisor
+                            delay_atual += 18000  # Aumentado para 18s de respiro para a frase de cada supervisor
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
                     else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
@@ -1526,7 +1526,7 @@ with CONTEUDO_TV.container():
             ''', unsafe_allow_html=True)
 
 # =========================================================================
-# CONTROLES DE NAVEGAÇÃO 🕹️
+# CONTROLES DE NAVEGAÇÃO E TRANSIÇÃO 🔄
 # =========================================================================
 col_voltar, col_vazio, col_pular = st.columns([1, 8, 1])
 with col_voltar:
@@ -1534,9 +1534,6 @@ with col_voltar:
 with col_pular:
     pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
 
-# =========================================================================
-# MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
-# =========================================================================
 agora_loop = datetime.utcnow() - timedelta(hours=3)
 alerta_fim_janela_loop = False
 if agora_loop.hour in [11, 14, 17] and agora_loop.minute >= 0: alerta_fim_janela_loop = True
@@ -1558,7 +1555,12 @@ tempos_espera = {
     2: 30 if alerta_fim_janela_loop else 60,
     4: 2
 }
+
 espera = tempos_espera.get(st.session_state.idx, 60)
+
+# Aumenta drásticamente o tempo da tela do TEC1 se ela estiver discursando, para o áudio não cortar!
+if st.session_state.idx == 1 and permitir_audio_tec1:
+    espera = 95 
 
 if st.session_state.idx == 4:
     st.session_state.idx = st.session_state.prox_idx
@@ -1587,9 +1589,9 @@ else:
         js_timer = f"""
         <script>
         setTimeout(function() {{
-            var buttons = window.parent.document.querySelectorAll('button[kind="secondary"]');
+            var buttons = window.parent.document.querySelectorAll('button');
             for (var i=0; i<buttons.length; i++) {{
-                if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
+                if (buttons[i].innerText.includes('PRÓXIMA')) {{
                     buttons[i].click();
                     break;
                 }}
