@@ -26,10 +26,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 # 📌 ALTERE AQUI A QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 # (Marcos Roberto comentado por motivo de Férias)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 21,
-    "MAICON": 21,
+    "EDSON MARCO": 20,
+    "MAICON": 19,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 20
+    "NELSON": 19
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -170,9 +170,16 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 16px; font-weight: bold; border: 2px solid #fff; padding: 6px 12px; border-radius: 5px; text-decoration: none; }
     
-    div[data-testid="stButton"] { position: fixed !important; bottom: 65px !important; right: 20px !important; z-index: 999999 !important; display: flex !important; justify-content: flex-end !important; width: auto !important; }
-    div[data-testid="stButton"] > button { background-color: #003366 !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 30px !important; padding: 6px 15px !important; font-size: 15px !important; font-weight: bold !important; opacity: 0.03 !important; transition: all 0.4s ease-in-out !important; }
-    div[data-testid="stButton"] > button:hover { opacity: 1.0 !important; background-color: #ff9800 !important; border-color: #ffffff !important; transform: scale(1.05) !important; }
+    /* CONTROLES DE NAVEGAÇÃO - BOTÕES FIXOS ESQUERDA E DIREITA */
+    .st-key-btn_anterior { position: fixed !important; bottom: 65px !important; left: 20px !important; z-index: 999999 !important; width: auto !important; }
+    .st-key-btn_proxima { position: fixed !important; bottom: 65px !important; right: 20px !important; z-index: 999999 !important; width: auto !important; }
+    
+    .st-key-btn_anterior button, .st-key-btn_proxima button { 
+        background-color: #003366 !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 30px !important; padding: 6px 15px !important; font-size: 15px !important; font-weight: bold !important; opacity: 0.03 !important; transition: all 0.4s ease-in-out !important; 
+    }
+    .st-key-btn_anterior button:hover, .st-key-btn_proxima button:hover { 
+        opacity: 1.0 !important; background-color: #ff9800 !important; border-color: #ffffff !important; transform: scale(1.05) !important; 
+    }
 
     [data-testid="stDeckGlJsonChart"] { height: 72vh !important; min-height: 550px !important; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); }
 
@@ -180,7 +187,7 @@ st.markdown("""<style>
     .nome-base { font-size: 28px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 2px; }
     .num-base { font-size: 80px !important; font-weight: 900; color: #111; line-height: 1; }
     
-    /* CARDS DOS SUPERVISORES - 2 COLUNAS - GRANDES E BONITOS */
+    /* CARDS DOS SUPERVISORES - GRANDES E BONITOS */
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
     .sup-name { font-size: 30px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
@@ -191,9 +198,8 @@ st.markdown("""<style>
     .falta-value { font-size: 55px !important; font-weight: 900; color: #b30000; line-height: 1; }
     
     /* ESTILOS DE PAINEL PARA O TEC1 PENDENTES */
-    .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; text-align: center; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
-    .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .box-num { font-size: 80px !important; font-weight: 900; color: #cc6600; line-height: 1; margin-top: 5px; }
+    .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
+    .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
     .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.4) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
     
     .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
@@ -253,45 +259,37 @@ minutos_agora = agora_br.hour * 60 + agora_br.minute
 
 permitir_audio_base = False
 frase_incisiva_base = ""
-for regra in [{"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."}, {"inicio": 8*60, "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."}, {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}]:
+for regra in [{"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."}, {"inicio": 8*60, "fim": 8*60 + 15, "frase": "Atenção. Iniciar róta."}, {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}]:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_base = True
         frase_incisiva_base = regra["frase"]
         break
 
-# --- CORREÇÃO TEC1: ÁUDIO PERSISTENTE E AVISO 1 HORA ANTES ---
+# --- CORREÇÃO TEC1: ÁUDIO PERSISTENTE E AVISO DE 1 HORA ANTES ---
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
-for regra in [
-    # Avisos de 1 hora antes (ex: 11:00 às 11:15)
-    {"inicio": 11*60, "fim": 11*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 12 horas. Verifiquem os contratos pendentes."}, 
-    {"inicio": 11*60, "fim": 11*60 + 35, "frase": "Atenção. Falta uma hora para o término da janela das 12 horas. Verifiquem os contratos pendentes."},
-    {"inicio": 14*60, "fim": 14*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 15 horas. Verifiquem os contratos pendentes."}, 
-    {"inicio": 14*60, "fim": 14*60 + 35, "frase": "Atenção. Falta uma hora para o término da janela das 15 horas. Verifiquem os contratos pendentes."},
-    {"inicio": 17*60, "fim": 17*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 18 horas. Verifiquem os contratos pendentes."},
-    {"inicio": 17*60, "fim": 17*60 + 35, "frase": "Atenção. Falta uma hora para o término da janela das 18 horas. Verifiquem os contratos pendentes."},
-    
-    # Avisos de Término de Janela (Persistentes até 1h depois)
-    {"inicio": 11*60 + 50, "fim": 13*60, "frase": "Atenção. Término de janela das 12 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
-    {"inicio": 11*60 + 45, "fim": 13*60, "frase": "Atenção. Término de janela das 12 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
-    {"inicio": 14*60 + 50, "fim": 16*60, "frase": "Atenção. Término de janela das 15 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
-    {"inicio": 14*60 + 45, "fim": 16*60, "frase": "Atenção. Término de janela das 15 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
-    {"inicio": 17*60 + 50, "fim": 19*60, "frase": "Atenção. Término de janela das 18 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
-    {"inicio": 17*60 + 45, "fim": 19*60, "frase": "Atenção. Término de janela das 18 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}
-]:
-    if regra["inicio"] <= minutos_agora <= regra["fim"]:
+for janela in [12, 15, 18]:
+    hora_antes = janela - 1
+    # 1. Avisos 1 hora antes do término (ex: 11:00 às 11:59)
+    if hora_antes * 60 <= minutos_agora <= hora_antes * 60 + 59:
         permitir_audio_tec1 = True
-        frase_incisiva_tec1 = regra["frase"]
+        frase_incisiva_tec1 = f"Atenção. Falta menos de uma hora para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
+        break
+    # 2. Avisos de término persistentes na hora (ex: 12:00 às 12:59)
+    elif janela * 60 <= minutos_agora <= janela * 60 + 59:
+        permitir_audio_tec1 = True
+        frase_incisiva_tec1 = f"Atenção. Término de janela das {janela} horas. Ainda temos contratos pendentes, em róta ou iniciados que precisam de baixa."
         break
 
 permitir_audio_ind = False
-for inicio, f in [(13*60, 13*60 + 15), (13*60, 13*60 + 35), (16*60, 16*60 + 15), (16*60, 16*60 + 35)]:
+for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
     if inicio <= minutos_agora <= f:
         permitir_audio_ind = True
         break
 
-icone_mudo = '''<div style="position: fixed; bottom: 65px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
-icone_ativo = '''<div style="position: fixed; bottom: 65px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
+# O ícone de áudio foi movido para "bottom: 120px" para não cobrir o botão "Anterior"
+icone_mudo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
+icone_ativo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
 html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
 html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
 html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
@@ -374,7 +372,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1 (COM EM ROTA E INICIADOS)
+    # TELA 1: TEC1 (COM EM ROTA E INICIADOS - LAYOUT DIVIDIDO)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
@@ -418,8 +416,11 @@ with CONTEUDO_TV.container():
                 df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
                 df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
                 
-                # --- CORREÇÃO TEC1: INCLUI EM ROTA E INICIADO NO CÁLCULO ---
-                df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND|EM ROTA|INICIADO', na=False).astype(int)
+                # --- CORREÇÃO TEC1: MÁSCARAS DIVIDIDAS ---
+                df_limpo['IS_ABERTO'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False)
+                df_limpo['IS_ROTA'] = df_limpo['Status_Atividade_Upper'].str.contains('EM ROTA|INICIADO', na=False)
+                df_limpo['P_COUNT'] = (df_limpo['IS_ABERTO'] | df_limpo['IS_ROTA']).astype(int)
+                
                 df_validos = df_limpo.copy()
 
                 col_janela = next((c for c in df_validos.columns if 'JANELA' in str(c) or 'INTERVALO' in str(c)), None)
@@ -445,30 +446,65 @@ with CONTEUDO_TV.container():
                     df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
 
                 df_pendentes_geral = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
-                qtd_abc = len(df_pendentes_geral)
-                st.session_state.ticker_data[1] = f"⏰ TEC1: {qtd_abc} PENDENTES"
-
-                st.markdown(f'''<div class="box-base" style="padding: 10px;"><div class="nome-base">PENDENTES / EM ROTA</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
+                # Totais Globais
+                total_abertos = int(df_pendentes_geral['IS_ABERTO'].sum())
+                total_rota = int(df_pendentes_geral['IS_ROTA'].sum())
+                
+                st.session_state.ticker_data[1] = f"⏰ TEC1: {total_abertos} PENDENTES | {total_rota} EM ROTA"
+
+                st.markdown(f'''
+                <div class="box-base" style="padding: 10px; display: flex; justify-content: space-around; align-items: center;">
+                    <div>
+                        <div class="nome-base" style="color: #cc6600;">ABERTOS / PENDENTES</div>
+                        <div class="num-base" style="color: #cc6600;">{total_abertos}</div>
+                    </div>
+                    <div>
+                        <div class="nome-base" style="color: #2e7d32;">EM ROTA / INICIADOS</div>
+                        <div class="num-base" style="color: #2e7d32;">{total_rota}</div>
+                    </div>
+                </div>
+                ''', unsafe_allow_html=True)
+                
+                # --- VISÃO DOS SUPERVISORES DIVIDIDA ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
                         if i + j < len(SUPS_ABC):
                             idx_global = i + j
                             sup = SUPS_ABC[idx_global]
-                            qtd = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup])
+                            
+                            df_sup = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup]
+                            qtd_aberto = int(df_sup['IS_ABERTO'].sum())
+                            qtd_rota = int(df_sup['IS_ROTA'].sum())
+                            
                             with cols_sub_abc[j]:
-                                st.markdown(f'''<div id="sup-box-{idx_global}" class="box-contagem"><div class="box-nome">{obter_nome_visual(sup)}</div><div class="box-num">{qtd}</div></div>''', unsafe_allow_html=True)
+                                st.markdown(f'''
+                                <div id="sup-box-{idx_global}" class="box-contagem" style="padding: 15px;">
+                                    <div class="box-nome" style="border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 12px;">{obter_nome_visual(sup)}</div>
+                                    <div style="display:flex; justify-content:space-around; align-items: center;">
+                                        <div style="text-align: center;">
+                                            <div style="font-size:18px; font-weight:bold; color:#cc6600;">ABERTOS</div>
+                                            <div style="font-size: 55px; font-weight: 900; color: #cc6600; line-height: 1;">{qtd_aberto}</div>
+                                        </div>
+                                        <div style="text-align: center;">
+                                            <div style="font-size:18px; font-weight:bold; color:#2e7d32;">EM ROTA</div>
+                                            <div style="font-size: 55px; font-weight: 900; color: #1b5e20; line-height: 1;">{qtd_rota}</div>
+                                        </div>
+                                    </div>
+                                </div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_tec1:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {qtd_abc}.', {delay_atual});\n"
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_abertos} abertos e {total_rota} em rota.', {delay_atual});\n"
                         delay_atual += 8500 
                         for i, sup_full in enumerate(SUPS_ABC):
-                            qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
-                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes ou iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
+                            df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
+                            q_ab = int(df_s['IS_ABERTO'].sum())
+                            q_ro = int(df_s['IS_ROTA'].sum())
+                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_ab} pendentes e {q_ro} em rota.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
                             delay_atual += 8500 
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
                     else: script_cenario = ""
@@ -1471,75 +1507,74 @@ with CONTEUDO_TV.container():
 # =========================================================================
 # CONTROLES DE NAVEGAÇÃO 🕹️
 # =========================================================================
-pular = st.button("PRÓXIMA ➡️", type="secondary")
+col_voltar, col_vazio, col_pular = st.columns([1, 8, 1])
+with col_voltar:
+    voltar = st.button("⬅️ ANTERIOR", key="btn_anterior")
+with col_pular:
+    pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
 
 # =========================================================================
 # MOTOR DE TRANSIÇÃO E LOOP INFINITO 🔄
 # =========================================================================
 agora_loop = datetime.utcnow() - timedelta(hours=3)
 alerta_fim_janela_loop = False
-if agora_loop.hour in [11, 14, 17] and agora_loop.minute >= 40: alerta_fim_janela_loop = True
+if agora_loop.hour in [11, 14, 17] and agora_loop.minute >= 0: alerta_fim_janela_loop = True
+if agora_loop.hour in [12, 15, 18]: alerta_fim_janela_loop = True
+
 antes_0830_loop = (agora_loop.hour < 8) or (agora_loop.hour == 8 and agora_loop.minute < 30)
 
-if st.session_state.idx == 0: espera = 60 
-elif st.session_state.idx == 1: espera = 30 if alerta_fim_janela_loop else 60 
-elif st.session_state.idx == 7: espera = 60 
-elif st.session_state.idx == 8: espera = 60 
-elif st.session_state.idx == 9: espera = 60 
-elif st.session_state.idx == 10: espera = 60 
-elif st.session_state.idx in [11, 12, 13, 14, 15, 16]: espera = 20
-elif st.session_state.idx == 5: espera = 60 
-elif st.session_state.idx == 6: espera = 60 
-elif st.session_state.idx == 3: espera = 45 
-elif st.session_state.idx == 2: espera = 30 if alerta_fim_janela_loop else 60 
-elif st.session_state.idx == 4: espera = 2 
-else: espera = 60
-
-if not pular:
-    js_timer = f"""
-    <script>
-    setTimeout(function() {{
-        var buttons = window.parent.document.querySelectorAll('button[kind="secondary"]');
-        for (var i=0; i<buttons.length; i++) {{
-            if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
-                buttons[i].click();
-                break;
-            }}
-        }}
-    }}, {espera * 1000});
-    </script>
-    """
-    st.components.v1.html(js_timer, height=0)
-    st.stop()
+tempos_espera = {
+    0: 60,
+    1: 30 if alerta_fim_janela_loop else 60,
+    7: 60,
+    8: 60,
+    9: 60,
+    10: 60,
+    11: 20, 12: 20, 13: 20, 14: 20, 15: 20, 16: 20,
+    5: 60,
+    6: 60,
+    3: 45,
+    2: 30 if alerta_fim_janela_loop else 60,
+    4: 2
+}
+espera = tempos_espera.get(st.session_state.idx, 60)
 
 if st.session_state.idx == 4:
     st.session_state.idx = st.session_state.prox_idx
     st.session_state.novo_ciclo = True
+    st.rerun()
 else:
     if antes_0830_loop:
-        if st.session_state.idx == 0: prox_idx = 2
-        elif st.session_state.idx == 2: prox_idx = 0
-        else: prox_idx = 0
+        telas_fluxo = [0, 2]
     else:
-        if st.session_state.idx == 1: prox_idx = 7
-        elif st.session_state.idx == 7: prox_idx = 8
-        elif st.session_state.idx == 8: prox_idx = 9
-        elif st.session_state.idx == 9: prox_idx = 10
-        elif st.session_state.idx == 10: prox_idx = 11
-        elif st.session_state.idx == 11: prox_idx = 12
-        elif st.session_state.idx == 12: prox_idx = 13
-        elif st.session_state.idx == 13: prox_idx = 14
-        elif st.session_state.idx == 14: prox_idx = 15
-        elif st.session_state.idx == 15: prox_idx = 16
-        elif st.session_state.idx == 16: prox_idx = 5
-        elif st.session_state.idx == 5: prox_idx = 6 
-        elif st.session_state.idx == 6: prox_idx = 3 
-        elif st.session_state.idx == 3: prox_idx = 2
-        elif st.session_state.idx == 2: prox_idx = 1
-        else: prox_idx = 1
+        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 5, 6, 3, 2]
         
-    st.session_state.prox_idx = prox_idx
-    st.session_state.idx = 4 
-
-CONTEUDO_TV.empty()
-st.rerun()
+    try:
+        pos = telas_fluxo.index(st.session_state.idx)
+    except ValueError:
+        pos = 0
+        
+    if pular:
+        st.session_state.prox_idx = telas_fluxo[(pos + 1) % len(telas_fluxo)]
+        st.session_state.idx = 4
+        st.rerun()
+    elif voltar:
+        st.session_state.prox_idx = telas_fluxo[(pos - 1) % len(telas_fluxo)]
+        st.session_state.idx = 4
+        st.rerun()
+    else:
+        js_timer = f"""
+        <script>
+        setTimeout(function() {{
+            var buttons = window.parent.document.querySelectorAll('button[kind="secondary"]');
+            for (var i=0; i<buttons.length; i++) {{
+                if (buttons[i].innerText.includes('PRÓXIMA ➡️')) {{
+                    buttons[i].click();
+                    break;
+                }}
+            }}
+        }}, {espera * 1000});
+        </script>
+        """
+        st.components.v1.html(js_timer, height=0)
+        st.stop()
