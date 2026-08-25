@@ -278,7 +278,7 @@ for janela in [12, 15, 18]:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
         if minutos_restantes == 1:
-            frase_incisiva_tec1 = f"Atenção. Falta um minuto para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
+            frase_incisiva_tec1 = f"Atenção. Falta 1 minuto para o término da janela das {janela} horas. Verifiquem os contratos."
         else:
             frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
@@ -518,15 +518,15 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
-                        delay_atual += 24000  # Aumentado para 24s de respiro para a frase principal
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                        delay_atual += 24000  # Respiro da locução principal
                         for i, sup_full in enumerate(SUPS_ABC):
                             df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
                             q_pe = int(df_s['IS_PENDENTE'].sum())
                             q_ro = int(df_s['IS_EM_ROTA'].sum())
                             q_in = int(df_s['IS_INICIADO'].sum())
                             script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                            delay_atual += 18000  # Aumentado para 18s de respiro para a frase de cada supervisor
+                            delay_atual += 14000  # Respiro da locução de cada monitor
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
                     else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
@@ -881,8 +881,8 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
                 
-                # if col_tipo_os:
-                #     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+                if col_tipo_os:
+                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
                 df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
@@ -1043,8 +1043,8 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
 
-                # if col_tipo_os:
-                #     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+                if col_tipo_os:
+                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
                 df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
