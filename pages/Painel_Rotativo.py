@@ -259,9 +259,14 @@ for regra in [{"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horá
         frase_incisiva_base = regra["frase"]
         break
 
+# --- CORREÇÃO TEC1: ÁUDIO PERSISTENTE ATÉ 1 HORA APÓS A JANELA ---
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
-for regra in [{"inicio": 11*60 + 50, "fim": 11*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."}, {"inicio": 14*60 + 50, "fim": 14*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."}, {"inicio": 17*60 + 50, "fim": 17*60 + 59, "frase": "Atenção. Término de janela. É necessário baixar os contratos."}]:
+for regra in [
+    {"inicio": 11*60 + 50, "fim": 13*60, "frase": "Atenção. Término de janela das 12 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}, 
+    {"inicio": 14*60 + 50, "fim": 16*60, "frase": "Atenção. Término de janela das 15 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}, 
+    {"inicio": 17*60 + 50, "fim": 19*60, "frase": "Atenção. Término de janela das 18 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}
+]:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = regra["frase"]
@@ -312,7 +317,7 @@ with CONTEUDO_TV.container():
             st.session_state.ultima_sincronizacao = time.time()
 
     # -------------------------------------------------------------------------
-    # TELA 0: BASE
+    # TELA 0: BASE 
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
@@ -357,11 +362,19 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 1: TEC1
+    # TELA 1: TEC1 (COM EM ROTA E INICIADOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
-        label_janela = "ATÉ 12:00" if hora_atual < 12 else ("ATÉ 15:00" if 12 <= hora_atual < 15 else "ATÉ 18:00")
+        
+        # --- CORREÇÃO TEC1: LABEL E CONDIÇÃO PERSISTENTE ---
+        # Se for até as 12h59, continua mostrando a janela das 12:00
+        if hora_atual < 13:
+            label_janela = "ATÉ 12:00"
+        elif 13 <= hora_atual < 16:
+            label_janela = "ATÉ 15:00"
+        else:
+            label_janela = "ATÉ 18:00"
         
         titulo_tec1 = f'''
         <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
@@ -392,14 +405,24 @@ with CONTEUDO_TV.container():
             if col_status_real:
                 df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
                 df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
-                df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False).astype(int)
+                
+                # --- CORREÇÃO TEC1: INCLUI EM ROTA E INICIADO NO CÁLCULO ---
+                df_limpo['P_COUNT'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND|EM ROTA|INICIADO', na=False).astype(int)
                 df_validos = df_limpo.copy()
 
                 col_janela = next((c for c in df_validos.columns if 'JANELA' in str(c) or 'INTERVALO' in str(c)), None)
                 if col_janela is not None and not df_validos.empty:
                     df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
                     df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(lambda x: int(str(x).replace(':', '').split('-')[1].strip()[:2]) if '-' in str(x) else 24)
-                    condicao_horario = (df_validos['Hora_Limite_Janela'] <= 12) if hora_atual < 12 else ((df_validos['Hora_Limite_Janela'] <= 15) if 12 <= hora_atual < 15 else (df_validos['Hora_Limite_Janela'] <= 24))
+                    
+                    # Filtro de persistência por hora real
+                    if hora_atual < 13:
+                        condicao_horario = df_validos['Hora_Limite_Janela'] <= 12
+                    elif 13 <= hora_atual < 16:
+                        condicao_horario = df_validos['Hora_Limite_Janela'] <= 15
+                    else:
+                        condicao_horario = df_validos['Hora_Limite_Janela'] <= 24
+                        
                     df_pendentes_geral = df_validos[condicao_horario & (df_validos['P_COUNT'] > 0)].copy()
                 else:
                     df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
@@ -413,9 +436,8 @@ with CONTEUDO_TV.container():
                 qtd_abc = len(df_pendentes_geral)
                 st.session_state.ticker_data[1] = f"⏰ TEC1: {qtd_abc} PENDENTES"
 
-                st.markdown(f'''<div class="box-base" style="padding: 10px;"><div class="nome-base">PENDENTES</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
+                st.markdown(f'''<div class="box-base" style="padding: 10px;"><div class="nome-base">PENDENTES / EM ROTA</div><div class="num-base">{qtd_abc}</div></div>''', unsafe_allow_html=True)
                 
-                # --- RETORNO PARA DUAS COLUNAS GRANDES NO TEC1 ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
@@ -430,11 +452,11 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Base: {qtd_abc} pendentes.', {delay_atual});\n"
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {qtd_abc}.', {delay_atual});\n"
                         delay_atual += 8500 
                         for i, sup_full in enumerate(SUPS_ABC):
                             qtd_p = len(df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full])
-                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
+                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {qtd_p} pendentes ou iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
                             delay_atual += 8500 
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
                     else: script_cenario = ""
@@ -790,8 +812,8 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
                 
-                if col_tipo_os:
-                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+                # if col_tipo_os:
+                #     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
                 df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
@@ -952,8 +974,8 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
 
-                if col_tipo_os:
-                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+                # if col_tipo_os:
+                #     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
                 df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
                 df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
@@ -1075,7 +1097,8 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
+                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
@@ -1160,7 +1183,7 @@ with CONTEUDO_TV.container():
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #e3f2fd; border-color: #81d4fa;">
                                             <div class="falta-label" style="color: #0277bd;">CONTRATOS</div>
-                                            <div class="falta-value" style="color: #01579b;">{qtd_contratos_sup}</div>
+                                            <div class="falta-value" style="color: #01579b;">{qtd_contratos_hoje_sup}</div>
                                         </div>
                                         <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
                                             <div class="falta-label" style="color: #2e7d32;">PRODUTOS</div>
