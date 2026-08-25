@@ -464,11 +464,11 @@ with CONTEUDO_TV.container():
                 st.markdown(f'''
                 <div class="box-base" style="padding: 10px; display: flex; justify-content: space-around; align-items: center;">
                     <div>
-                        <div class="nome-base" style="color: #cc6600;">ABERTOS / PENDENTES</div>
+                        <div class="nome-base" style="font-size: 14px !important; color: #cc6600;">ABERTOS / PENDENTES</div>
                         <div class="num-base" style="color: #cc6600;">{total_abertos}</div>
                     </div>
                     <div>
-                        <div class="nome-base" style="color: #2e7d32;">EM ROTA / INICIADOS</div>
+                        <div class="nome-base" style="font-size: 14px !important; color: #2e7d32;">EM ROTA / INICIADOS</div>
                         <div class="num-base" style="color: #2e7d32;">{total_rota}</div>
                     </div>
                 </div>
@@ -492,11 +492,11 @@ with CONTEUDO_TV.container():
                                     <div class="box-nome" style="border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 12px;">{obter_nome_visual(sup)}</div>
                                     <div style="display:flex; justify-content:space-around; align-items: center;">
                                         <div style="text-align: center;">
-                                            <div style="font-size:18px; font-weight:bold; color:#cc6600;">ABERTOS</div>
+                                            <div style="font-size:14px; font-weight:bold; color:#cc6600;">ABERTOS / PEND.</div>
                                             <div style="font-size: 55px; font-weight: 900; color: #cc6600; line-height: 1;">{qtd_aberto}</div>
                                         </div>
                                         <div style="text-align: center;">
-                                            <div style="font-size:18px; font-weight:bold; color:#2e7d32;">EM ROTA</div>
+                                            <div style="font-size:14px; font-weight:bold; color:#2e7d32;">EM ROTA / INIC.</div>
                                             <div style="font-size: 55px; font-weight: 900; color: #1b5e20; line-height: 1;">{qtd_rota}</div>
                                         </div>
                                     </div>
@@ -506,13 +506,13 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_abertos} abertos e {total_rota} em rota.', {delay_atual});\n"
-                        delay_atual += 18000  # Aumentado para 18s de respiro para a frase principal ficar limpa
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_abertos} abertos e {total_rota} em rota ou iniciados.', {delay_atual});\n"
+                        delay_atual += 18000  # Aumentado para 18s de respiro para a frase principal
                         for i, sup_full in enumerate(SUPS_ABC):
                             df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
                             q_ab = int(df_s['IS_ABERTO'].sum())
                             q_ro = int(df_s['IS_ROTA'].sum())
-                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_ab} pendentes e {q_ro} em rota.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
+                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_ab} pendentes e {q_ro} em rota ou iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
                             delay_atual += 12000  # Aumentado para 12s de respiro para a frase de cada supervisor
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
                     else: script_cenario = ""
