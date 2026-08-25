@@ -26,10 +26,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 # 📌 ALTERE AQUI A QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 # (Marcos Roberto comentado por motivo de Férias)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 20,
-    "MAICON": 19,
+    "EDSON MARCO": 21,
+    "MAICON": 21,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 19
+    "NELSON": 20
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -259,26 +259,34 @@ minutos_agora = agora_br.hour * 60 + agora_br.minute
 
 permitir_audio_base = False
 frase_incisiva_base = ""
-for regra in [{"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."}, {"inicio": 8*60, "fim": 8*60 + 15, "frase": "Atenção. Iniciar róta."}, {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}]:
+for regra in [{"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."}, {"inicio": 8*60, "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."}, {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}]:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_base = True
         frase_incisiva_base = regra["frase"]
         break
 
-# --- CORREÇÃO TEC1: ÁUDIO PERSISTENTE E AVISO DE 1 HORA ANTES ---
+# --- CORREÇÃO TEC1: ÁUDIO PERSISTENTE E AVISO DINÂMICO ---
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for janela in [12, 15, 18]:
-    hora_antes = janela - 1
-    # 1. Avisos 1 hora antes do término (ex: 11:00 às 11:59)
-    if hora_antes * 60 <= minutos_agora <= hora_antes * 60 + 59:
+    inicio_aviso = (janela - 1) * 60
+    fim_janela = janela * 60
+    fim_aviso_pos = janela * 60 + 59
+    
+    # 1. Avisos dinâmicos de minutos restantes (ex: 11:00 às 11:59)
+    if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
-        frase_incisiva_tec1 = f"Atenção. Falta menos de uma hora para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
+        minutos_restantes = fim_janela - minutos_agora
+        if minutos_restantes == 1:
+            frase_incisiva_tec1 = f"Atenção. Falta 1 minuto para o término da janela das {janela} horas. Verifiquem os contratos."
+        else:
+            frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas."
         break
-    # 2. Avisos de término persistentes na hora (ex: 12:00 às 12:59)
-    elif janela * 60 <= minutos_agora <= janela * 60 + 59:
+        
+    # 2. Avisos de janela estourada (ex: 12:00 às 12:59)
+    elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
-        frase_incisiva_tec1 = f"Atenção. Término de janela das {janela} horas. Ainda temos contratos pendentes, em róta ou iniciados que precisam de baixa."
+        frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou. Atenção para não perder o TEC 1."
         break
 
 permitir_audio_ind = False
@@ -499,13 +507,13 @@ with CONTEUDO_TV.container():
                         script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
                         script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_abertos} abertos e {total_rota} em rota.', {delay_atual});\n"
-                        delay_atual += 8500 
+                        delay_atual += 18000  # Aumentado para 18s de respiro para a frase principal ficar limpa
                         for i, sup_full in enumerate(SUPS_ABC):
                             df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
                             q_ab = int(df_s['IS_ABERTO'].sum())
                             q_ro = int(df_s['IS_ROTA'].sum())
                             script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_ab} pendentes e {q_ro} em rota.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                            delay_atual += 8500 
+                            delay_atual += 12000  # Aumentado para 12s de respiro para a frase de cada supervisor
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
                     else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
