@@ -372,7 +372,7 @@ with CONTEUDO_TV.container():
                     st.success("✅ Excelente! Nenhum técnico pendente na base neste momento.")
 
                 if st.session_state.novo_ciclo:
-                    script_cenario = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>" if permitir_audio_base else ""
+                    script_cenario = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>" if permitir_audio_base else ""
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -386,7 +386,6 @@ with CONTEUDO_TV.container():
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         
         # --- CORREÇÃO TEC1: LABEL E CONDIÇÃO PERSISTENTE ---
-        # Se for até as 12h59, continua mostrando a janela das 12:00
         if hora_atual < 13:
             label_janela = "ATÉ 12:00"
         elif 13 <= hora_atual < 16:
@@ -438,7 +437,6 @@ with CONTEUDO_TV.container():
                     df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
                     df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(lambda x: int(str(x).replace(':', '').split('-')[1].strip()[:2]) if '-' in str(x) else 24)
                     
-                    # Filtro de persistência por hora real
                     if hora_atual < 13:
                         condicao_horario = df_validos['Hora_Limite_Janela'] <= 12
                     elif 13 <= hora_atual < 16:
@@ -457,7 +455,6 @@ with CONTEUDO_TV.container():
 
                 df_pendentes_geral = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
                 
-                # Totais Globais
                 total_pendentes = int(df_pendentes_geral['IS_PENDENTE'].sum())
                 total_em_rota   = int(df_pendentes_geral['IS_EM_ROTA'].sum())
                 total_iniciados = int(df_pendentes_geral['IS_INICIADO'].sum())
@@ -481,7 +478,6 @@ with CONTEUDO_TV.container():
                 </div>
                 ''', unsafe_allow_html=True)
                 
-                # --- VISÃO DOS SUPERVISORES DIVIDIDA EM 3 ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sub_abc = st.columns(2)
                     for j in range(2):
@@ -516,7 +512,7 @@ with CONTEUDO_TV.container():
 
                 if st.session_state.novo_ciclo:
                     if permitir_audio_tec1:
-                        script_cenario = f"<script>{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
+                        script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
                         script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                         delay_atual += 24000  # Respiro da locução principal
@@ -594,7 +590,6 @@ with CONTEUDO_TV.container():
                     if sup == "MAICON": return [255, 20, 147] 
                     if sup == "NELSON": return [0, 128, 0]    
                     if sup == "EDSON MARCO": return [128, 0, 128] 
-                    # if sup == "MARCOS ROBERTO": return [255, 140, 0]
                     return [0, 0, 0]
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
@@ -611,7 +606,6 @@ with CONTEUDO_TV.container():
                     
                     edson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>'
                     maicon_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>'
-                    # marcos_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF8C00; border-radius: 50%; border: 1px solid #000;"></span> MARCOS ROBERTO</div>'
                     nelson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>'
 
                     if st.session_state.idx in [11, 12, 13]:
@@ -760,7 +754,7 @@ with CONTEUDO_TV.container():
                                         
                         if st.session_state.novo_ciclo:
                             texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
-                            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
+                            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
         if st.session_state.novo_ciclo: st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
@@ -841,7 +835,7 @@ with CONTEUDO_TV.container():
                                     
                     if st.session_state.novo_ciclo:
                         texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
-                        st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
+                        st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
             else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
                 
@@ -881,6 +875,7 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
                 
+                # --- CORREÇÃO DA MATEMÁTICA: RETORNOS DESCARTADOS DA SOMA DE PRODUTIVIDADE ---
                 if col_tipo_os:
                     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
@@ -1005,7 +1000,7 @@ with CONTEUDO_TV.container():
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
                     texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
+                    st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
@@ -1043,6 +1038,7 @@ with CONTEUDO_TV.container():
             if col_status:
                 df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
 
+                # --- CORREÇÃO DA MATEMÁTICA: RETORNOS DESCARTADOS DA SOMA DE PRODUTIVIDADE ---
                 if col_tipo_os:
                     df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
@@ -1166,8 +1162,8 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
                 if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                    st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
+                    texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                    st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>"
                     st.session_state.novo_ciclo = False
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada na base de dados da rota.")
@@ -1588,10 +1584,11 @@ else:
     else:
         js_timer = f"""
         <script>
+        /* TIMESTAMP: {time.time()} */
         setTimeout(function() {{
             var buttons = window.parent.document.querySelectorAll('button');
             for (var i=0; i<buttons.length; i++) {{
-                if (buttons[i].innerText.includes('PRÓXIMA')) {{
+                if (buttons[i].innerText && buttons[i].innerText.indexOf('PRÓXIMA') !== -1) {{
                     buttons[i].click();
                     break;
                 }}
