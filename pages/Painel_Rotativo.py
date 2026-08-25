@@ -26,10 +26,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 # 📌 ALTERE AQUI A QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 # (Marcos Roberto comentado por motivo de Férias)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 20,
-    "MAICON": 19,
+    "EDSON MARCO": 21,
+    "MAICON": 21,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 19
+    "NELSON": 20
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -259,10 +259,16 @@ for regra in [{"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horá
         frase_incisiva_base = regra["frase"]
         break
 
-# --- CORREÇÃO TEC1: ÁUDIO PERSISTENTE ATÉ 1 HORA APÓS A JANELA ---
+# --- CORREÇÃO TEC1: ÁUDIO PERSISTENTE E AVISO 1 HORA ANTES ---
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for regra in [
+    # Avisos de 1 hora antes (ex: 11:00 às 11:15)
+    {"inicio": 11*60, "fim": 11*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 12 horas. Verifiquem os contratos pendentes."}, 
+    {"inicio": 14*60, "fim": 14*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 15 horas. Verifiquem os contratos pendentes."}, 
+    {"inicio": 17*60, "fim": 17*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 18 horas. Verifiquem os contratos pendentes."},
+    
+    # Avisos de Término de Janela (Persistentes até 1h depois)
     {"inicio": 11*60 + 50, "fim": 13*60, "frase": "Atenção. Término de janela das 12 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}, 
     {"inicio": 14*60 + 50, "fim": 16*60, "frase": "Atenção. Término de janela das 15 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}, 
     {"inicio": 17*60 + 50, "fim": 19*60, "frase": "Atenção. Término de janela das 18 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}
@@ -1183,7 +1189,7 @@ with CONTEUDO_TV.container():
                                     <div class="faltas-grid">
                                         <div class="falta-box" style="background-color: #e3f2fd; border-color: #81d4fa;">
                                             <div class="falta-label" style="color: #0277bd;">CONTRATOS</div>
-                                            <div class="falta-value" style="color: #01579b;">{qtd_contratos_hoje_sup}</div>
+                                            <div class="falta-value" style="color: #01579b;">{qtd_contratos_sup}</div>
                                         </div>
                                         <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
                                             <div class="falta-label" style="color: #2e7d32;">PRODUTOS</div>
