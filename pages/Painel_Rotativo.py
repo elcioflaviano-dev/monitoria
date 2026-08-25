@@ -265,13 +265,19 @@ frase_incisiva_tec1 = ""
 for regra in [
     # Avisos de 1 hora antes (ex: 11:00 às 11:15)
     {"inicio": 11*60, "fim": 11*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 12 horas. Verifiquem os contratos pendentes."}, 
+    {"inicio": 11*60, "fim": 11*60 + 35, "frase": "Atenção. Falta uma hora para o término da janela das 12 horas. Verifiquem os contratos pendentes."},
     {"inicio": 14*60, "fim": 14*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 15 horas. Verifiquem os contratos pendentes."}, 
+    {"inicio": 14*60, "fim": 14*60 + 35, "frase": "Atenção. Falta uma hora para o término da janela das 15 horas. Verifiquem os contratos pendentes."},
     {"inicio": 17*60, "fim": 17*60 + 15, "frase": "Atenção. Falta uma hora para o término da janela das 18 horas. Verifiquem os contratos pendentes."},
+    {"inicio": 17*60, "fim": 17*60 + 35, "frase": "Atenção. Falta uma hora para o término da janela das 18 horas. Verifiquem os contratos pendentes."},
     
     # Avisos de Término de Janela (Persistentes até 1h depois)
-    {"inicio": 11*60 + 50, "fim": 13*60, "frase": "Atenção. Término de janela das 12 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}, 
-    {"inicio": 14*60 + 50, "fim": 16*60, "frase": "Atenção. Término de janela das 15 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}, 
-    {"inicio": 17*60 + 50, "fim": 19*60, "frase": "Atenção. Término de janela das 18 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}
+    {"inicio": 11*60 + 50, "fim": 13*60, "frase": "Atenção. Término de janela das 12 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
+    {"inicio": 11*60 + 45, "fim": 13*60, "frase": "Atenção. Término de janela das 12 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
+    {"inicio": 14*60 + 50, "fim": 16*60, "frase": "Atenção. Término de janela das 15 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
+    {"inicio": 14*60 + 45, "fim": 16*60, "frase": "Atenção. Término de janela das 15 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
+    {"inicio": 17*60 + 50, "fim": 19*60, "frase": "Atenção. Término de janela das 18 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."},
+    {"inicio": 17*60 + 45, "fim": 19*60, "frase": "Atenção. Término de janela das 18 horas. Ainda temos contratos pendentes, em rota ou iniciados que precisam de baixa."}
 ]:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_tec1 = True
@@ -279,7 +285,7 @@ for regra in [
         break
 
 permitir_audio_ind = False
-for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
+for inicio, f in [(13*60, 13*60 + 15), (13*60, 13*60 + 35), (16*60, 16*60 + 15), (16*60, 16*60 + 35)]:
     if inicio <= minutos_agora <= f:
         permitir_audio_ind = True
         break
