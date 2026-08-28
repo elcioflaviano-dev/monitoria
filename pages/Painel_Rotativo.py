@@ -27,18 +27,19 @@ if not os.path.exists(ARQUIVO_LOGO):
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 21,
     "MAICON": 21,
+    # "MARCOS ROBERTO": 15,
     "NELSON": 20
 }
 
+# --- REGRAS GLOBAIS DE SUPERVISORES ---
 SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
+# Inicialização segura dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
-    st.session_state.novo_ciclo = True
-    st.session_state.script_audio_atual = ""
     st.session_state.prox_idx = 0
 
 if "ticker_data" not in st.session_state:
@@ -99,6 +100,7 @@ def baixar_dados_nuvem_background():
                     df_final.to_csv(ARQUIVO_ROTA_DISCO, index=False)
             except: pass
     except: pass
+
 
 def carregar_logo_html(caminho_imagem):
     if os.path.exists(caminho_imagem):
@@ -207,7 +209,6 @@ def padronizar_status(row):
     col_sistema = next((c for c in row.index if 'NETSMS' in c or 'SISTEMA' in c), None)
     val_sistema = limpar_texto(row[col_sistema]) if col_sistema and pd.notna(row[col_sistema]) else ""
 
-    # SE(E(O2<>""; OU(G2="Liberado no Sistema NETSMS"; G2="Cancelado no Sistema NETSMS")); "O.S NE"...)
     eh_cancelado_liberado_sistema = ('LIBERADO' in val_sistema or 'CANCELADO' in val_sistema or 'CANCEL' in val_status or 'LIBERADO' in val_status)
     if eh_cancelado_liberado_sistema:
         if tem_inicio:
@@ -215,44 +216,47 @@ def padronizar_status(row):
         else:
             return 'Descartar'
             
-    # SE(D2="NÃO CONCLUÍDO"; "O.S NE"...)
     if 'NAO CONCLUIDO' in val_status or 'QUEBRA' in val_status or 'O.S NE' in val_status or val_status == 'NE':
         return 'O.S NE'
         
-    # SE(D2="CANCELADO" ou "SUSPENSO"...)
     if 'CANCEL' in val_status or 'SUSP' in val_status:
         return 'Descartar'
         
     if val_status in ['', 'NAN', 'NULL', 'NONE', 'VAZIO']:
         return 'Descartar'
         
-    # Produtivos
     if 'PRODUTIVO' in val_status or 'CONCL' in val_status or 'EXEC' in val_status:
         return 'Produtivo'
         
     return 'Em aberto'
 
 # =========================================================================
-# LÓGICA DE ÁUDIOS E REGRAS DE HORÁRIO (NATIVO NAVEGADOR)
+# LÓGICA DE ÁUDIOS E REGRAS DE HORÁRIO (TEMPO REAL CORRIGIDO)
 # =========================================================================
-agora_br = datetime.utcnow() - timedelta(hours=3)
-minutos_agora = agora_br.hour * 60 + agora_br.minute
+agora_local = datetime.now()
+minutos_agora = agora_local.hour * 60 + agora_local.minute
 
 permitir_audio_base = False
 frase_incisiva_base = ""
-for regra in [{"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."}, {"inicio": 8*60, "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."}, {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}]:
+for regra in [
+    {"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."},
+    {"inicio": 8*60, "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."},
+    {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
+]:
     if regra["inicio"] <= minutos_agora <= regra["fim"]:
         permitir_audio_base = True
         frase_incisiva_base = regra["frase"]
         break
 
+# --- CORREÇÃO TEC1: ÁUDIO DINÂMICO E PERSISTENTE NAS 3 JANELAS ---
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for janela in [12, 15, 18]:
-    inicio_aviso = (janela - 1) * 60
-    fim_janela = janela * 60
-    fim_aviso_pos = janela * 60 + 59
+    inicio_aviso = (janela - 1) * 60      # 1h antes (ex: 11:00, 14:00, 17:00)
+    fim_janela = janela * 60             # Término (ex: 12:00, 15:00, 18:00)
+    fim_aviso_pos = janela * 60 + 59     # 1h depois (ex: 12:59, 15:59, 18:59)
     
+    # 1. Avisos dinâmicos de minutos restantes (1h antes até o fechamento da janela)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -262,6 +266,7 @@ for janela in [12, 15, 18]:
             frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
         
+    # 2. Avisos de janela estourada (1h após o término)
     elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou. Atenção para não perder o TEC 1."
@@ -312,7 +317,7 @@ with CONTEUDO_TV.container():
             st.session_state.ultima_sincronizacao = time.time()
 
     # -------------------------------------------------------------------------
-    # TELA 0: BASE (SEM NECESSIDADE DA LISTA ESTÁTICA)
+    # TELA 0: BASE
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
@@ -332,7 +337,6 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df['SUPERVISOR_CLEAN'] = df.apply(resolver_sup_base, axis=1)
-                
                 mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend|aberto')
                 
                 if col_tipo_exata: 
@@ -353,11 +357,8 @@ with CONTEUDO_TV.container():
                 else:
                     st.success("✅ Excelente! Nenhum técnico pendente na base neste momento.")
 
-                if st.session_state.novo_ciclo:
-                    script_cenario = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>" if permitir_audio_base else ""
-                    st.session_state.script_audio_atual = script_cenario
-                    st.session_state.novo_ciclo = False 
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+                script_cenario = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>" if permitir_audio_base else ""
+                st.components.v1.html(script_cenario, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -365,7 +366,7 @@ with CONTEUDO_TV.container():
     # TELA 1: TEC1 (VISÃO DIVIDIDA PENDENTES / EM ROTA / INICIADOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
-        hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+        hora_atual = datetime.now().hour
         
         if hora_atual < 13:
             label_janela = "ATÉ 12:00"
@@ -407,7 +408,6 @@ with CONTEUDO_TV.container():
                 df_limpo['IS_PENDENTE'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False)
                 df_limpo['IS_EM_ROTA']  = df_limpo['Status_Atividade_Upper'].str.contains('EM ROTA', na=False)
                 df_limpo['IS_INICIADO'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO', na=False)
-                
                 df_limpo['P_COUNT'] = (df_limpo['IS_PENDENTE'] | df_limpo['IS_EM_ROTA'] | df_limpo['IS_INICIADO']).astype(int)
                 
                 df_validos = df_limpo.copy()
@@ -490,24 +490,22 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
 
-                if st.session_state.novo_ciclo:
-                    if permitir_audio_tec1:
-                        script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
-                        delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
-                        delay_atual += 24000 
-                        for i, sup_full in enumerate(SUPS_ABC):
-                            df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
-                            q_pe = int(df_s['IS_PENDENTE'].sum())
-                            q_ro = int(df_s['IS_EM_ROTA'].sum())
-                            q_in = int(df_s['IS_INICIADO'].sum())
-                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                            delay_atual += 18000 
-                        script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
-                    else: script_cenario = ""
-                    st.session_state.script_audio_atual = script_cenario
-                    st.session_state.novo_ciclo = False 
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+                if permitir_audio_tec1:
+                    script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
+                    delay_atual = 0
+                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                    delay_atual += 24000
+                    for i, sup_full in enumerate(SUPS_ABC):
+                        df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
+                        q_pe = int(df_s['IS_PENDENTE'].sum())
+                        q_ro = int(df_s['IS_EM_ROTA'].sum())
+                        q_in = int(df_s['IS_INICIADO'].sum())
+                        script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
+                        delay_atual += 18000
+                    script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
+                else:
+                    script_cenario = ""
+                st.components.v1.html(script_cenario, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -557,7 +555,6 @@ with CONTEUDO_TV.container():
                 df_mapa['LAT'] = pd.to_numeric(df_mapa[col_y].astype(str).str.replace(',', '.'), errors='coerce')
                 df_mapa['LON'] = pd.to_numeric(df_mapa[col_x].astype(str).str.replace(',', '.'), errors='coerce')
                 df_mapa = df_mapa.dropna(subset=['LAT', 'LON'])
-                
                 df_mapa['NOME_TECNICO'] = df_mapa[col_tec].fillna('Desconhecido').astype(str).apply(lambda x: x.split()[0].upper())
                 
                 def cor_sup_rgb(sup):
@@ -577,7 +574,6 @@ with CONTEUDO_TV.container():
                     
                 if not df_mapa.empty:
                     base_style = "display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 24px; font-weight: 900; color: #000000 !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);"
-                    
                     edson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>'
                     maicon_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>'
                     nelson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>'
@@ -604,7 +600,6 @@ with CONTEUDO_TV.container():
                         pickable=True,
                         opacity=0.8
                     )
-                    
                     text_layer = pdk.Layer(
                         "TextLayer",
                         data=df_mapa,
@@ -618,7 +613,6 @@ with CONTEUDO_TV.container():
                     
                     lat_min, lat_max = df_mapa['LAT'].min(), df_mapa['LAT'].max()
                     lon_min, lon_max = df_mapa['LON'].min(), df_mapa['LON'].max()
-                    
                     max_diff = max(lat_max - lat_min, lon_max - lon_min)
                     
                     if max_diff <= 0.05: zoom_dinamico = 13.5
@@ -640,17 +634,12 @@ with CONTEUDO_TV.container():
                         map_style='light',
                         tooltip={"text": "{NOME_TECNICO}\\nSupervisor: {SUPERVISOR_CLEAN}"}
                     )
-                    
                     st.pydeck_chart(r, use_container_width=True)
                 else:
                     st.warning("Nenhum contrato pendente com coordenada válida encontrada para este filtro.")
             else:
                 st.error("Colunas de Coordenada X, Coordenada Y ou Supervisor não encontradas.")
-                
-            if st.session_state.novo_ciclo:
-                st.session_state.script_audio_atual = ""
-                st.session_state.novo_ciclo = False
-            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            st.components.v1.html("", height=0)
 
     # -------------------------------------------------------------------------
     # TELA 7: MIGRAÇÃO GPON
@@ -722,11 +711,9 @@ with CONTEUDO_TV.container():
                                         <div class="falta-box" style="border-color: #a5d6a7;"><div class="falta-label" style="color: #2e7d32;">✅ PROD.</div><div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div></div>
                                         <div class="falta-box"><div class="falta-label">❌ QUEBRA</div><div class="falta-value">{qtd_ne}</div></div></div></div>''', unsafe_allow_html=True)
                                         
-                        if st.session_state.novo_ciclo:
-                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
-                            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
-        if st.session_state.novo_ciclo: st.session_state.novo_ciclo = False
-        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
+                        st.components.v1.html(f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>", height=0)
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
     # TELA 8: PME 
@@ -800,17 +787,13 @@ with CONTEUDO_TV.container():
                                     <div class="falta-box" style="border-color: #a5d6a7;"><div class="falta-label" style="color: #2e7d32;">✅ PROD.</div><div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div></div>
                                     <div class="falta-box"><div class="falta-label">❌ QUEBRA</div><div class="falta-value">{qtd_ne}</div></div></div></div>''', unsafe_allow_html=True)
                                     
-                    if st.session_state.novo_ciclo:
-                        texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
-                        st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
-
+                    texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
+                    st.components.v1.html(f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>", height=0)
             else: st.error("Colunas necessárias (Categorias, Tipo OS) não encontradas no arquivo.")
-                
-        if st.session_state.novo_ciclo: st.session_state.novo_ciclo = False
-        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 9: VISÃO GERAL DA ROTA E PROJEÇÃO
+    # TELA 9: VISÃO GERAL DA ROTA E PROJEÇÃO (SEM RETORNOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 9:
         st.markdown(render_topo("VISÃO GERAL DA ROTA - TÉCNICOS ESCALADOS") + html_audio_ind, unsafe_allow_html=True)
@@ -835,7 +818,7 @@ with CONTEUDO_TV.container():
 
             df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
             
-            # --- TRAVA DOS RETORNOS ATIVADA ---
+            # --- RETORNO EXCLUÍDO DA SOMA ---
             if col_tipo_os:
                 df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
@@ -957,15 +940,12 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>
                             </div>''', unsafe_allow_html=True)
-            if st.session_state.novo_ciclo:
-                texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
-                st.session_state.novo_ciclo = False
-            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+            st.components.v1.html(f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>", height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 10: VISÃO DA ROTA DOS MONTADOS (EQUIPE FIXA)
+    # TELA 10: VISÃO DA ROTA DOS MONTADOS (EQUIPE FIXA - SEM RETORNOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 10:
         st.markdown(render_topo("VISÃO GERAL DA ROTA - EQUIPE FIXA") + icone_mudo, unsafe_allow_html=True)
@@ -989,7 +969,7 @@ with CONTEUDO_TV.container():
 
             df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
 
-            # --- TRAVA DOS RETORNOS ATIVADA ---
+            # --- RETORNO EXCLUÍDO DA SOMA ---
             if col_tipo_os:
                 df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
@@ -1110,11 +1090,8 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>
                             </div>''', unsafe_allow_html=True)
-            if st.session_state.novo_ciclo:
-                texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>"
-                st.session_state.novo_ciclo = False
-            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+            st.components.v1.html(f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>", height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -1146,7 +1123,7 @@ with CONTEUDO_TV.container():
                 total_realizado_abc = int(df_cards['QTD_PRODUTOS_CALC'].sum())
                 total_contratos_abc = count_contracts(df_cards)
 
-                hoje = datetime.utcnow() - timedelta(hours=3)
+                hoje = datetime.now()
                 ano, mes = hoje.year, hoje.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
@@ -1211,11 +1188,7 @@ with CONTEUDO_TV.container():
                                         </div>
                                     </div>
                                 </div>''', unsafe_allow_html=True)
-
-                if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+                st.components.v1.html("", height=0)
 
             except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
         else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
@@ -1246,7 +1219,7 @@ with CONTEUDO_TV.container():
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
 
-                hoje_br = datetime.utcnow() - timedelta(hours=3)
+                hoje_br = datetime.now()
                 hoje_str_br = hoje_br.strftime('%d/%m/%Y')
                 hoje_str_us = hoje_br.strftime('%Y-%m-%d')
 
@@ -1330,11 +1303,7 @@ with CONTEUDO_TV.container():
                                         </div>
                                     </div>
                                 </div>''', unsafe_allow_html=True)
-
-                if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+                st.components.v1.html("", height=0)
 
             except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
         else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
@@ -1399,12 +1368,11 @@ with CONTEUDO_TV.container():
                                         <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
                                         <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
-                    if st.session_state.novo_ciclo:
-                        if permitir_audio_ind:
-                            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
-                        else: st.session_state.script_audio_atual = ""
-                        st.session_state.novo_ciclo = False
-                    st.components.v1.html(st.session_state.script_audio_atual, height=0)
+                    if permitir_audio_ind:
+                        script_ind = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
+                    else: 
+                        script_ind = ""
+                    st.components.v1.html(script_ind, height=0)
                 else: st.error("Coluna Status não encontrada na base da rota.")
             except Exception as e:
                 st.error("Nenhum contrato ativo válido para Indicadores nesta leitura.")
@@ -1416,7 +1384,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 2:
         st.markdown(render_topo("HORÁRIO") + icone_ativo, unsafe_allow_html=True)
 
-        tempo_real = datetime.utcnow() - timedelta(hours=3)
+        tempo_real = datetime.now()
         
         st.markdown(f'''
         <div class="relogio-container">
@@ -1425,9 +1393,7 @@ with CONTEUDO_TV.container():
         </div>
         ''', unsafe_allow_html=True)
         
-        if st.session_state.novo_ciclo:
-            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
-            st.session_state.novo_ciclo = False
+        script_audio_hora = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
         
         script_relogio_dinamico = """
         <script>
@@ -1443,7 +1409,7 @@ with CONTEUDO_TV.container():
             }, 1000);
         </script>
         """
-        st.components.v1.html(st.session_state.script_audio_atual + script_relogio_dinamico, height=0)
+        st.components.v1.html(script_audio_hora + script_relogio_dinamico, height=0)
 
     # ---> RENDERIZADOR DO TICKER FINANCEIRO <---
     if st.session_state.idx != 4:  
@@ -1474,7 +1440,7 @@ with col_voltar:
 with col_pular:
     pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
 
-agora_loop = datetime.utcnow() - timedelta(hours=3)
+agora_loop = datetime.now()
 alerta_fim_janela_loop = False
 if agora_loop.hour in [11, 14, 17] and agora_loop.minute >= 0: alerta_fim_janela_loop = True
 if agora_loop.hour in [12, 15, 18]: alerta_fim_janela_loop = True
@@ -1498,12 +1464,12 @@ tempos_espera = {
 
 espera = tempos_espera.get(st.session_state.idx, 60)
 
+# Tempo estendido para o TEC1 discursar com tranquilidade
 if st.session_state.idx == 1 and permitir_audio_tec1:
     espera = 95 
 
 if st.session_state.idx == 4:
     st.session_state.idx = st.session_state.prox_idx
-    st.session_state.novo_ciclo = True
     st.rerun()
 else:
     if antes_0830_loop:
@@ -1527,10 +1493,11 @@ else:
     else:
         js_timer = f"""
         <script>
+        /* TIMESTAMP: {time.time()} */
         setTimeout(function() {{
             var buttons = window.parent.document.querySelectorAll('button');
             for (var i=0; i<buttons.length; i++) {{
-                if (buttons[i].innerText.includes('PRÓXIMA')) {{
+                if (buttons[i].innerText && buttons[i].innerText.indexOf('PRÓXIMA') !== -1) {{
                     buttons[i].click();
                     break;
                 }}
