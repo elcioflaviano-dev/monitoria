@@ -23,53 +23,18 @@ ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
     ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
 
-# 📌 ALTERE AQUI A QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
-# (Marcos Roberto comentado por motivo de Férias)
+# 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 21,
     "MAICON": 21,
-    # "MARCOS ROBERTO": 15,
     "NELSON": 20
 }
 
-# --- REGRAS GLOBAIS DE SUPERVISORES ---
-# (Marcos Roberto removido temporariamente da lista ativa)
 SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
-# --- LISTA FIXA EXCLUSIVA DO ABC PARA FILTRO DE BASE ---
-LISTA_ABC_FIXA = [
-    "ADRIEL ALEXANDER DE LIMA", "AIRON HENRIQUE FERREIRA MINA", "ALAN RODRIGUES COSTA", 
-    "ALEX BERNARDES DA SILVA", "ALINE CAMARGO PIRES", "AMANDA CAROLINE DOS SANTOS", 
-    "ANA LUISA CULAU SILVA", "ANDERSON MARCELO LOPES DOS SANTOS", "AUGUSTO ERNANDES DA SILVA", 
-    "BRUNO MARTINS AVELINO", "CARLOS ALBERTO LIMA REBOUÇAS", "DANIEL SOUZA OLIVEIRA", 
-    "DANILO FERREIRA LIMA", "DEBORA BENEVENUTO PEREIRA", "DOMINGOS PEREIRA DA SILVA", 
-    "EDSON JAIRO DE ALMEIDA SOUSA", "EDUARDO FERNANDES BERNARDO DE MELO", "ELIAS AGUIAR LOPES", 
-    "ENOQUE FERREIRA SANTOS FILHO", "ERICK PAULO FERREIRA DA SILVA", "ERIK CASSIMIRO DA SILVA GOMES", 
-    "ESTEVAM MATEUS GONCALVES", "FABIO OLIVEIRA MOURA", "FELIPI ANTONIO DA SILVA", 
-    "FRANCISCO IGOR SOARES DA SILVA", "HELTON LIMA DE QUEIROZ", "IGOR DA SILVA VAYDA", 
-    "JAKSON DE JESUS E SILVA", "JEANDERSON SOUZA BERTO DA SILVA", "JEFFERSON BRADAO BASTOS", 
-    "JEFFERSON FRANCISCO DA SILVA", "JOANDERSON LOPES DA CONCEIÇÃO", "JOAO BATISTA DE LIMA TOME", 
-    "JUSCIELIO LIRA DE OLIVEIRA", "LEANDRO SOARES DA SILVA", "LEONARDO BESERRA DOS SANTOS", 
-    "LUCAS SILVA DE LIMA", "LUIS HENRIQUE GOMES DA SILVA", "MARCOS VINICIUS OLIVEIRA GOVEIA", 
-    "NATALIA SANT ANA VELASCO", "MATHEUS BOAVENTURA DA SILVA", "OSCLEY FRANCA DE SOUSA", 
-    "ODIRLEI APARECIDO PIERETI", "PATRICIA DE ARAUJO RAMALHO", "RENATO FUTRO ROSSI", 
-    "PAULO CESAR BATISTA DE SOUSA", "RAFAEL DOS ANJOS BATISTA ONOFRE", "SIDNEY ROSENDO DA SILVA", 
-    "RICARDO SANTOS", "RODRIGO FEITOZA DA SILVA", "VICTOR MENDES DOS SANTOS", 
-    "SILAS DA SILVA NASCIMENTO", "YURI URCESINO COSTA", "WESLAYNE CELINA FERREIRA SILVA", 
-    "DANIEL AUGUSTO PEREIRA", "JULIO CESAR SILVA DOS SANTOS", "EDER SALES MONTEIRO", 
-    "ANTONIO WESLEY HOLANDA DA SILVA", "MAICON JORDAN PEDRO SANTOS GARCEZ", 
-    "LUIS GUSTAVO CECCONELLO", "CLEBER FERREIRA SANTOS", "ALEX DE JESUS FREIRE", 
-    "ANTHONY HULLY PEREIRA DIAS", "ANTONIO CHARLES MARINHO", "ARLAN DUARTE NASCIMENTO", 
-    "EVERTON ALVES", "IGOR DAVID DE MARCHI", "JAZIEL DOS SANTOS SILVA", "KAUAN PASCHOAL", 
-    "LUCAS SILVA SOBRINHO", "NICOLAS CALEGARI STARCHARVSKI", "RENATO ESPERANÇA", 
-    "ROBERVAL LEAO DE ALBUQUERQUE", "RYAN PIMENTEL BARROS", "SAMUEL AUGUSTO DE OLIVEIRA", 
-    "VITOR MATOS DE ALMEIDA"
-]
-
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Inicialização dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
     st.session_state.novo_ciclo = True
@@ -135,7 +100,6 @@ def baixar_dados_nuvem_background():
             except: pass
     except: pass
 
-
 def carregar_logo_html(caminho_imagem):
     if os.path.exists(caminho_imagem):
         try:
@@ -155,7 +119,6 @@ def render_topo(titulo):
     </div>'''
 
 st.markdown("""<style>
-    /* COMPRESSÃO GERAL PARA CABER NA TELA SEM CORTAR */
     .block-container { padding-top: 0.5rem !important; padding-bottom: 50px !important; max-width: 98% !important; }
     ::-webkit-scrollbar { display: none !important; }
     html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow: hidden !important; }
@@ -170,7 +133,6 @@ st.markdown("""<style>
     .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
     .botao-home { color: #fff; font-size: 16px; font-weight: bold; border: 2px solid #fff; padding: 6px 12px; border-radius: 5px; text-decoration: none; }
     
-    /* CONTROLES DE NAVEGAÇÃO - BOTÕES FIXOS ESQUERDA E DIREITA */
     .st-key-btn_anterior { position: fixed !important; bottom: 65px !important; left: 20px !important; z-index: 999999 !important; width: auto !important; }
     .st-key-btn_proxima { position: fixed !important; bottom: 65px !important; right: 20px !important; z-index: 999999 !important; width: auto !important; }
     
@@ -187,7 +149,6 @@ st.markdown("""<style>
     .nome-base { font-size: 28px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 2px; }
     .num-base { font-size: 80px !important; font-weight: 900; color: #111; line-height: 1; }
     
-    /* CARDS DOS SUPERVISORES - GRANDES E BONITOS */
     .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
     .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
     .sup-name { font-size: 30px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
@@ -197,7 +158,6 @@ st.markdown("""<style>
     .falta-label { font-size: 15px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
     .falta-value { font-size: 55px !important; font-weight: 900; color: #b30000; line-height: 1; }
     
-    /* ESTILOS DE PAINEL PARA O TEC1 PENDENTES */
     .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
     .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
     .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.4) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
@@ -226,29 +186,50 @@ def limpar_texto(txt):
     return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
 
 # =========================================================================
-# LÓGICA DE STATUS BLINDADA (DESCARTA VAZIOS, CANCELADOS, ETC)
+# ⚙️ LÓGICA DE STATUS BLINDADA COM A FÓRMULA DO SEU EXCEL
 # =========================================================================
-def padronizar_status(val):
-    if pd.isna(val): return 'Descartar'
-    val_clean = limpar_texto(str(val))
+def padronizar_status(row):
+    status_raw = ""
+    for col in ['STATUS CONTRATO', 'STATUS_TV', 'STATUS DA ATIVIDADE', 'STATUS']:
+        if col in row and pd.notna(row[col]):
+            status_raw = row[col]
+            break
+            
+    val_status = limpar_texto(status_raw)
     
-    # 1. Ignora Vazios e Nulos
-    if val_clean in ['', 'NAN', 'NULL', 'NONE', 'VAZIO']: 
-        return 'Descartar'
-    
-    # 2. Ignora Suspensos, Cancelados e Não Concluídos
-    if 'CANCEL' in val_clean or 'SUSP' in val_clean or 'NAO CONCLUIDO' in val_clean: 
-        return 'Descartar'
-        
-    # 3. Mapeia Produtivos
-    if 'PRODUTIVO' in val_clean or 'CONCL' in val_clean or 'EXEC' in val_clean: 
-        return 'Produtivo'
-        
-    # 4. Mapeia Quebras (O.S NE)
-    if 'QUEBRA' in val_clean or 'O.S NE' in val_clean or val_clean == 'NE': 
+    col_inicio = next((c for c in row.index if c in ['INICIO', 'INÍCIO', 'HORA INICIO', 'HORA INÍCIO', 'INICIO DO DESLOCAMENTO']), None)
+    tem_inicio = False
+    if col_inicio and pd.notna(row[col_inicio]):
+        txt_inicio = str(row[col_inicio]).strip()
+        if txt_inicio not in ['', 'NAN', 'NULL', 'NONE', '-', '0', '00:00', '00:00:00']:
+            tem_inicio = True
+            
+    col_sistema = next((c for c in row.index if 'NETSMS' in c or 'SISTEMA' in c), None)
+    val_sistema = limpar_texto(row[col_sistema]) if col_sistema and pd.notna(row[col_sistema]) else ""
+
+    # SE(E(O2<>""; OU(G2="Liberado no Sistema NETSMS"; G2="Cancelado no Sistema NETSMS")); "O.S NE"...)
+    eh_cancelado_liberado_sistema = ('LIBERADO' in val_sistema or 'CANCELADO' in val_sistema or 'CANCEL' in val_status or 'LIBERADO' in val_status)
+    if eh_cancelado_liberado_sistema:
+        if tem_inicio:
+            return 'O.S NE'
+        else:
+            return 'Descartar'
+            
+    # SE(D2="NÃO CONCLUÍDO"; "O.S NE"...)
+    if 'NAO CONCLUIDO' in val_status or 'QUEBRA' in val_status or 'O.S NE' in val_status or val_status == 'NE':
         return 'O.S NE'
         
-    # 5. O restante (Pendente, Despachado, Em Aberto, etc)
+    # SE(D2="CANCELADO" ou "SUSPENSO"...)
+    if 'CANCEL' in val_status or 'SUSP' in val_status:
+        return 'Descartar'
+        
+    if val_status in ['', 'NAN', 'NULL', 'NONE', 'VAZIO']:
+        return 'Descartar'
+        
+    # Produtivos
+    if 'PRODUTIVO' in val_status or 'CONCL' in val_status or 'EXEC' in val_status:
+        return 'Produtivo'
+        
     return 'Em aberto'
 
 # =========================================================================
@@ -265,7 +246,6 @@ for regra in [{"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horá
         frase_incisiva_base = regra["frase"]
         break
 
-# --- CORREÇÃO TEC1: ÁUDIO PERSISTENTE E AVISO DINÂMICO ---
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for janela in [12, 15, 18]:
@@ -273,7 +253,6 @@ for janela in [12, 15, 18]:
     fim_janela = janela * 60
     fim_aviso_pos = janela * 60 + 59
     
-    # 1. Avisos dinâmicos de minutos restantes (ex: 11:00 às 11:59)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -283,7 +262,6 @@ for janela in [12, 15, 18]:
             frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
         
-    # 2. Avisos de janela estourada (ex: 12:00 às 12:59)
     elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou. Atenção para não perder o TEC 1."
@@ -295,7 +273,6 @@ for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
         permitir_audio_ind = True
         break
 
-# O ícone de áudio foi movido para "bottom: 120px" para não cobrir o botão "Anterior"
 icone_mudo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
 icone_ativo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
 html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
@@ -335,7 +312,7 @@ with CONTEUDO_TV.container():
             st.session_state.ultima_sincronizacao = time.time()
 
     # -------------------------------------------------------------------------
-    # TELA 0: BASE 
+    # TELA 0: BASE (SEM NECESSIDADE DA LISTA ESTÁTICA)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
@@ -344,9 +321,18 @@ with CONTEUDO_TV.container():
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
             col_status = next((c for c in df.columns if 'STATUS' in c), None)
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
 
             if col_status:
+                def resolver_sup_base(row):
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup: return oficial
+                    return "DESCARTADO"
+
+                df['SUPERVISOR_CLEAN'] = df.apply(resolver_sup_base, axis=1)
+                
                 mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend|aberto')
                 
                 if col_tipo_exata: 
@@ -355,12 +341,8 @@ with CONTEUDO_TV.container():
                     cols_tipo = [c for c in df.columns if 'TIPO' in c]
                     mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.lower().str.contains('base')).any(axis=1)
 
-                df_tela = df[mask_base & mask_status].copy()
-                
-                nomes_na_base = [str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()]
-                
-                lista_abc = [n.upper() for n in LISTA_ABC_FIXA]
-                nomes_abc = sorted([n for n in nomes_na_base if n in lista_abc])
+                df_tela = df[mask_base & mask_status & (df['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].copy()
+                nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
                 
                 st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
 
@@ -385,7 +367,6 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 1: 
         hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         
-        # --- CORREÇÃO TEC1: LABEL E CONDIÇÃO PERSISTENTE ---
         if hora_atual < 13:
             label_janela = "ATÉ 12:00"
         elif 13 <= hora_atual < 16:
@@ -423,7 +404,6 @@ with CONTEUDO_TV.container():
                 df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
                 df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
                 
-                # --- NOVO: MÁSCARAS TRIPLAS ---
                 df_limpo['IS_PENDENTE'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False)
                 df_limpo['IS_EM_ROTA']  = df_limpo['Status_Atividade_Upper'].str.contains('EM ROTA', na=False)
                 df_limpo['IS_INICIADO'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO', na=False)
@@ -514,15 +494,15 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
-                        delay_atual += 24000  # Respiro da locução principal
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                        delay_atual += 24000 
                         for i, sup_full in enumerate(SUPS_ABC):
                             df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
                             q_pe = int(df_s['IS_PENDENTE'].sum())
                             q_ro = int(df_s['IS_EM_ROTA'].sum())
                             q_in = int(df_s['IS_INICIADO'].sum())
                             script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                            delay_atual += 14000  # Respiro da locução de cada monitor
+                            delay_atual += 18000 
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
                     else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
@@ -562,14 +542,8 @@ with CONTEUDO_TV.container():
                     cond_cidade_base = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
                     df_rota = df_rota[cond_cidade_base]
 
-                col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
-                col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
-                if not col_status: col_status = col_status_ativ
-                if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
-                
-                if col_status:
-                    df_rota['STATUS_PADRAO'] = df_rota[col_status].apply(padronizar_status)
-                    df_rota = df_rota[df_rota['STATUS_PADRAO'] == 'Em aberto']
+                df_rota['STATUS_PADRAO'] = df_rota.apply(padronizar_status, axis=1)
+                df_rota = df_rota[df_rota['STATUS_PADRAO'] == 'Em aberto']
 
                 def class_sup_mapa(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -668,7 +642,6 @@ with CONTEUDO_TV.container():
                     )
                     
                     st.pydeck_chart(r, use_container_width=True)
-                    
                 else:
                     st.warning("Nenhum contrato pendente com coordenada válida encontrada para este filtro.")
             else:
@@ -690,8 +663,6 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
             col_gpon = next((c for c in df.columns if 'GPON' in c), None)
             cols_os = [c for c in df.columns if 'TIPO O.S' in c or 'TIPO OS' in c or 'ATIVIDADE' in c]
-            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -702,7 +673,7 @@ with CONTEUDO_TV.container():
             df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
             df_abc = df[df['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
             
-            if col_gpon and len(cols_os) > 0 and col_status:
+            if col_gpon and len(cols_os) > 0:
                 df_gpon = df_abc[df_abc[col_gpon].astype(str).str.strip().str.upper() == 'SIM'].copy()
                 if not df_gpon.empty:
                     df_gpon['TODAS_OS_JUNTAS'] = df_gpon[cols_os].fillna('').astype(str).agg('  '.join, axis=1).str.upper()
@@ -710,7 +681,7 @@ with CONTEUDO_TV.container():
                     df_mig = df_gpon[df_gpon['QTD_MIGRACAO_CALC'] > 0].copy()
                     
                     if not df_mig.empty:
-                        df_mig['STATUS_PADRAO'] = df_mig[col_status].apply(padronizar_status)
+                        df_mig['STATUS_PADRAO'] = df_mig.apply(padronizar_status, axis=1)
                         df_mig = df_mig[df_mig['STATUS_PADRAO'] != 'Descartar'].copy()
 
                         df_mig['QTD_TAREFAS_NUM'] = df_mig['QTD_MIGRACAO_CALC']
@@ -731,7 +702,6 @@ with CONTEUDO_TV.container():
                                 Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
                             </div></div>''', unsafe_allow_html=True)
                         
-                        # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                         for i in range(0, len(SUPS_ABC), 2):
                             cols_sup = st.columns(2)
                             for j in range(2):
@@ -770,8 +740,6 @@ with CONTEUDO_TV.container():
             col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
             col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
             col_tarefas = next((c for c in df.columns if 'TAREFA' in c.upper() or 'QTD' in c.upper()), None)
-            col_status = next((c for c in df.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
-            if not col_status: col_status = next((c for c in df.columns if 'STATUS' in c), None)
             
             def class_sup(row):
                 sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -782,14 +750,14 @@ with CONTEUDO_TV.container():
             df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
             df_abc = df[df['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
             
-            if col_cat and col_os and col_status:
+            if col_cat and col_os:
                 cond_cat = df_abc[col_cat].astype(str).str.upper().str.contains('PME', na=False)
                 str_os = df_abc[col_os].astype(str).str.upper()
                 cond_os = str_os.str.contains('1 - ADES', na=False) | str_os.str.contains('51 - ADES', na=False) | str_os.str.contains('516 - ADES', na=False)
                 df_pme = df_abc[cond_cat & cond_os].copy()
                 
                 if not df_pme.empty:
-                    df_pme['STATUS_PADRAO'] = df_pme[col_status].apply(padronizar_status)
+                    df_pme['STATUS_PADRAO'] = df_pme.apply(padronizar_status, axis=1)
                     df_pme = df_pme[df_pme['STATUS_PADRAO'] != 'Descartar'].copy()
                     if col_tarefas:
                         df_pme['QTD_TAREFAS_NUM'] = pd.to_numeric(df_pme[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
@@ -812,7 +780,6 @@ with CONTEUDO_TV.container():
                             Total de O.S.: <span style="color:#003366">{total_geral_pme}</span> | Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
                         </div></div>''', unsafe_allow_html=True)
                     
-                    # --- RETORNO PARA DUAS COLUNAS GRANDES ---
                     for i in range(0, len(SUPS_ABC), 2):
                         cols_sup = st.columns(2)
                         for j in range(2):
@@ -837,7 +804,7 @@ with CONTEUDO_TV.container():
                         texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
                         st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
 
-            else: st.error("Colunas necessárias (Categorias, Tipo OS, Status) não encontradas no arquivo.")
+            else: st.error("Colunas necessárias (Categorias, Tipo OS) não encontradas no arquivo.")
                 
         if st.session_state.novo_ciclo: st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -856,12 +823,6 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
-            
-            col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
-            col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
-            if not col_status: col_status = col_status_ativ
-            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
-
             col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c or 'QTD' in c), None)
 
             df_proj = df_rota.copy()
@@ -872,138 +833,135 @@ with CONTEUDO_TV.container():
                     if oficial in sup: return oficial
                 return "DESCARTADO"
 
-            if col_status:
-                df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
-                
-                # --- CORREÇÃO DA MATEMÁTICA: RETORNOS DESCARTADOS DA SOMA DE PRODUTIVIDADE ---
-                if col_tipo_os:
-                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+            df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
+            
+            # --- TRAVA DOS RETORNOS ATIVADA ---
+            if col_tipo_os:
+                df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
-                df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
-                df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
+            df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
+            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
 
-                if col_tarefas:
-                    df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
-                else: df_proj['VALOR_TAREFA'] = 1
+            if col_tarefas:
+                df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
+            else: df_proj['VALOR_TAREFA'] = 1
 
-                df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
-                
-                total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
-                os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
-                produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+            df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
+            
+            total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
+            os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+            produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+            em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
-                total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
-                if total_tecnicos_op == 0: total_tecnicos_op = 1
+            total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
+            if total_tecnicos_op == 0: total_tecnicos_op = 1
 
-                denom_quebra_op = os_ne_op + produtivo_op
-                quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
-                eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
-                projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
-                
-                os_reais_op = produtivo_op + em_aberto_op
-                media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
+            denom_quebra_op = os_ne_op + produtivo_op
+            quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
+            eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
+            projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
+            
+            os_reais_op = produtivo_op + em_aberto_op
+            media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
-                cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
+            cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
-                st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} O.S. | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
+            st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} O.S. | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
 
-                st.markdown(f'''
-                <div class="box-base" style="padding: 10px; border-left: 15px solid #003366; background: #e3f2fd;">
-                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">PROJEÇÃO</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">QUEBRAS</div>
-                            <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
-                        </div>
+            st.markdown(f'''
+            <div class="box-base" style="padding: 10px; border-left: 15px solid #003366; background: #e3f2fd;">
+                <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
+                        <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                     </div>
-                    <div style="font-size: 20px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
-                        <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
-                        <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
-                        <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
-                        <span>👷 TÉCNICOS: <span style="color:#003366;">{total_tecnicos_op}</span></span>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">PROJEÇÃO</div>
+                        <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
+                        <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">QUEBRAS</div>
+                        <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
+                        <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
                     </div>
                 </div>
-                ''', unsafe_allow_html=True)
+                <div style="font-size: 20px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
+                    <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
+                    <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
+                    <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
+                    <span>👷 TÉCNICOS: <span style="color:#003366;">{total_tecnicos_op}</span></span>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
 
-                # --- 2 COLUNAS LAYOUT ---
-                for i in range(0, len(SUPS_ABC), 2):
-                    cols_sup = st.columns(2)
-                    for j in range(2):
-                        if i + j < len(SUPS_ABC):
-                            sup = SUPS_ABC[i + j]
-                            with cols_sup[j]:
-                                df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
+            for i in range(0, len(SUPS_ABC), 2):
+                cols_sup = st.columns(2)
+                for j in range(2):
+                    if i + j < len(SUPS_ABC):
+                        sup = SUPS_ABC[i + j]
+                        with cols_sup[j]:
+                            df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
 
-                                total_tarefas = df_sup['VALOR_TAREFA'].sum()
-                                os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
-                                produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                                em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+                            total_tarefas = df_sup['VALOR_TAREFA'].sum()
+                            os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+                            produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+                            em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
-                                total_tecnicos = df_sup[col_tecnico].nunique() if col_tecnico in df_sup.columns else 1
-                                if total_tecnicos == 0: total_tecnicos = 1
+                            total_tecnicos = df_sup[col_tecnico].nunique() if col_tecnico in df_sup.columns else 1
+                            if total_tecnicos == 0: total_tecnicos = 1
 
-                                os_reais = produtivo + em_aberto
-                                media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
+                            os_reais = produtivo + em_aberto
+                            media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
 
-                                denom_quebra = os_ne + produtivo
-                                quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
-                                eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
-                                projecao = produtivo + (em_aberto * (eficiencia / 100))
+                            denom_quebra = os_ne + produtivo
+                            quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
+                            eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
+                            projecao = produtivo + (em_aberto * (eficiencia / 100))
 
-                                cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
+                            cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
 
-                                st.markdown(f'''
-                                <div class="sup-card">
-                                    <div class="sup-header">
-                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div style="display: flex; gap: 8px; align-items: center;">
-                                            <div style="background: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
-                                            <div style="background: #ffebee; color: {cor_q}; border: 1px solid {cor_q}; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
-                                            <div style="background: #e3f2fd; color: #006064; border: 1px solid #006064; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Média: {media_equipe:.2f}</div>
-                                        </div>
+                            st.markdown(f'''
+                            <div class="sup-card">
+                                <div class="sup-header">
+                                    <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <div style="background: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
+                                        <div style="background: #ffebee; color: {cor_q}; border: 1px solid {cor_q}; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
+                                        <div style="background: #e3f2fd; color: #006064; border: 1px solid #006064; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Média: {media_equipe:.2f}</div>
                                     </div>
-                                    <div class="faltas-grid">
-                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                            <div class="falta-label" style="color: #b78103;">ABERTO</div>
-                                            <div class="falta-value" style="color: #b78103;">{int(em_aberto)}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                            <div class="falta-label" style="color: #2e7d32;">PROD.</div>
-                                            <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                            <div class="falta-label" style="color: #c62828;">QUEBRAS</div>
-                                            <div class="falta-value" style="color: #b30000;">{int(os_ne)}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
-                                            <div class="falta-label" style="color: #00838f;">PROJ.</div>
-                                            <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
-                                        </div>
+                                </div>
+                                <div class="faltas-grid">
+                                    <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                        <div class="falta-label" style="color: #b78103;">ABERTO</div>
+                                        <div class="falta-value" style="color: #b78103;">{int(em_aberto)}</div>
                                     </div>
-                                </div>''', unsafe_allow_html=True)
-                if st.session_state.novo_ciclo:
-                    texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                    st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            else: st.error("Coluna Status não encontrada na base de dados da rota.")
+                                    <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                        <div class="falta-label" style="color: #2e7d32;">PROD.</div>
+                                        <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
+                                    </div>
+                                    <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                        <div class="falta-label" style="color: #c62828;">QUEBRAS</div>
+                                        <div class="falta-value" style="color: #b30000;">{int(os_ne)}</div>
+                                    </div>
+                                    <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
+                                        <div class="falta-label" style="color: #00838f;">PROJ.</div>
+                                        <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
+                                    </div>
+                                </div>
+                            </div>''', unsafe_allow_html=True)
+            if st.session_state.novo_ciclo:
+                texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
+                st.session_state.novo_ciclo = False
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -1019,12 +977,6 @@ with CONTEUDO_TV.container():
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
             col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
             if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
-            
-            col_status_ativ = next((c for c in df_rota.columns if 'STATUS DA ATIVIDADE' in c), None)
-            col_status = next((c for c in df_rota.columns if 'STATUS CONTRATO' in c or 'STATUS_TV' in c), None)
-            if not col_status: col_status = col_status_ativ
-            if not col_status: col_status = next((c for c in df_rota.columns if 'STATUS' in c), None)
-
             col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c or 'QTD' in c), None)
 
             df_proj = df_rota.copy()
@@ -1035,138 +987,134 @@ with CONTEUDO_TV.container():
                     if oficial in sup: return oficial
                 return "DESCARTADO"
 
-            if col_status:
-                df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
+            df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
 
-                # --- CORREÇÃO DA MATEMÁTICA: RETORNOS DESCARTADOS DA SOMA DE PRODUTIVIDADE ---
-                if col_tipo_os:
-                    df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+            # --- TRAVA DOS RETORNOS ATIVADA ---
+            if col_tipo_os:
+                df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
-                df_proj['STATUS_PADRAO'] = df_proj[col_status].apply(padronizar_status)
-                df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
+            df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
+            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
 
-                if col_tarefas:
-                    df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
-                else: df_proj['VALOR_TAREFA'] = 1
+            if col_tarefas:
+                df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
+            else: df_proj['VALOR_TAREFA'] = 1
 
-                df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
-                
-                total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
-                os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
-                produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+            df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
+            
+            total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
+            os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+            produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+            em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
-                # (Aqui ajustamos para somar só a equipe atual de SUPS_ABC do dicionário, assim quando Marcos for comentado, ele some daqui também)
-                total_tecnicos_op = sum(QTD_TECNICOS_MONTADOS.get(sup, 0) for sup in SUPS_ABC)
-                if total_tecnicos_op == 0: total_tecnicos_op = 1
+            total_tecnicos_op = sum(QTD_TECNICOS_MONTADOS.get(sup, 0) for sup in SUPS_ABC)
+            if total_tecnicos_op == 0: total_tecnicos_op = 1
 
-                denom_quebra_op = os_ne_op + produtivo_op
-                quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
-                eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
-                projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
-                
-                os_reais_op = produtivo_op + em_aberto_op
-                media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
+            denom_quebra_op = os_ne_op + produtivo_op
+            quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
+            eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
+            projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
+            
+            os_reais_op = produtivo_op + em_aberto_op
+            media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
 
-                cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
+            cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
 
-                st.session_state.ticker_data[10] = f"🌍 MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
+            st.session_state.ticker_data[10] = f"🌍 MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
 
-                st.markdown(f'''
-                <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 10px solid #003366; background: #e3f2fd;">
-                    <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">PROJEÇÃO</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">QUEBRAS</div>
-                            <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 16px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
-                            <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
-                        </div>
+            st.markdown(f'''
+            <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 10px solid #003366; background: #e3f2fd;">
+                <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
+                        <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
                     </div>
-                    <div style="font-size: 20px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
-                        <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
-                        <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
-                        <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
-                        <span>👷 TÉCNICOS: <span style="color:#003366;">{total_tecnicos_op}</span></span>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">PROJEÇÃO</div>
+                        <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
+                        <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">QUEBRAS</div>
+                        <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
+                        <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
                     </div>
                 </div>
-                ''', unsafe_allow_html=True)
+                <div style="font-size: 20px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
+                    <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
+                    <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
+                    <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
+                    <span>👷 TÉCNICOS: <span style="color:#003366;">{total_tecnicos_op}</span></span>
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
 
-                # --- 2 COLUNAS LAYOUT ---
-                for i in range(0, len(SUPS_ABC), 2):
-                    cols_sup = st.columns(2)
-                    for j in range(2):
-                        if i + j < len(SUPS_ABC):
-                            sup = SUPS_ABC[i + j]
-                            with cols_sup[j]:
-                                df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
+            for i in range(0, len(SUPS_ABC), 2):
+                cols_sup = st.columns(2)
+                for j in range(2):
+                    if i + j < len(SUPS_ABC):
+                        sup = SUPS_ABC[i + j]
+                        with cols_sup[j]:
+                            df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
 
-                                total_tarefas = df_sup['VALOR_TAREFA'].sum()
-                                os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
-                                produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                                em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+                            total_tarefas = df_sup['VALOR_TAREFA'].sum()
+                            os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+                            produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+                            em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
 
-                                total_tecnicos = QTD_TECNICOS_MONTADOS.get(sup, 1)
+                            total_tecnicos = QTD_TECNICOS_MONTADOS.get(sup, 1)
 
-                                os_reais = produtivo + em_aberto
-                                media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
+                            os_reais = produtivo + em_aberto
+                            media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
 
-                                denom_quebra = os_ne + produtivo
-                                quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
-                                eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
-                                projecao = produtivo + (em_aberto * (eficiencia / 100))
+                            denom_quebra = os_ne + produtivo
+                            quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
+                            eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
+                            projecao = produtivo + (em_aberto * (eficiencia / 100))
 
-                                cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
+                            cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
 
-                                st.markdown(f'''
-                                <div class="sup-card">
-                                    <div class="sup-header">
-                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div style="display: flex; gap: 8px; align-items: center;">
-                                            <div style="background: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
-                                            <div style="background: #ffebee; color: {cor_q}; border: 1px solid {cor_q}; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
-                                            <div style="background: #e3f2fd; color: #006064; border: 1px solid #006064; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Média: {media_equipe:.2f}</div>
-                                        </div>
+                            st.markdown(f'''
+                            <div class="sup-card">
+                                <div class="sup-header">
+                                    <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <div style="background: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
+                                        <div style="background: #ffebee; color: {cor_q}; border: 1px solid {cor_q}; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
+                                        <div style="background: #e3f2fd; color: #006064; border: 1px solid #006064; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Média: {media_equipe:.2f}</div>
                                     </div>
-                                    <div class="faltas-grid">
-                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                            <div class="falta-label" style="color: #b78103;">ABERTO</div>
-                                            <div class="falta-value" style="color: #b78103;">{int(em_aberto)}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                            <div class="falta-label" style="color: #2e7d32;">PROD.</div>
-                                            <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                            <div class="falta-label" style="color: #c62828;">QUEBRAS</div>
-                                            <div class="falta-value" style="color: #b30000;">{int(os_ne)}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
-                                            <div class="falta-label" style="color: #00838f;">PROJ.</div>
-                                            <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
-                                        </div>
+                                </div>
+                                <div class="faltas-grid">
+                                    <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+                                        <div class="falta-label" style="color: #b78103;">ABERTO</div>
+                                        <div class="falta-value" style="color: #b78103;">{int(em_aberto)}</div>
                                     </div>
-                                </div>''', unsafe_allow_html=True)
-                if st.session_state.novo_ciclo:
-                    texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                    st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>"
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            else: st.error("Coluna Status não encontrada na base de dados da rota.")
+                                    <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+                                        <div class="falta-label" style="color: #2e7d32;">PROD.</div>
+                                        <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
+                                    </div>
+                                    <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+                                        <div class="falta-label" style="color: #c62828;">QUEBRAS</div>
+                                        <div class="falta-value" style="color: #b30000;">{int(os_ne)}</div>
+                                    </div>
+                                    <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
+                                        <div class="falta-label" style="color: #00838f;">PROJ.</div>
+                                        <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
+                                    </div>
+                                </div>
+                            </div>''', unsafe_allow_html=True)
+            if st.session_state.novo_ciclo:
+                texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>"
+                st.session_state.novo_ciclo = False
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -1226,7 +1174,6 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
-                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -1303,9 +1250,6 @@ with CONTEUDO_TV.container():
                 hoje_str_br = hoje_br.strftime('%d/%m/%Y')
                 hoje_str_us = hoje_br.strftime('%Y-%m-%d')
 
-                # ========================================================
-                # 🛡️ BLINDAGEM DA VARIÁVEL df_hoje PARA O EXCEL SEM DATAS
-                # ========================================================
                 df_hoje = pd.DataFrame()
                 col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
                 if col_data:
@@ -1554,7 +1498,6 @@ tempos_espera = {
 
 espera = tempos_espera.get(st.session_state.idx, 60)
 
-# Aumenta drásticamente o tempo da tela do TEC1 se ela estiver discursando, para o áudio não cortar!
 if st.session_state.idx == 1 and permitir_audio_tec1:
     espera = 95 
 
@@ -1584,11 +1527,10 @@ else:
     else:
         js_timer = f"""
         <script>
-        /* TIMESTAMP: {time.time()} */
         setTimeout(function() {{
             var buttons = window.parent.document.querySelectorAll('button');
             for (var i=0; i<buttons.length; i++) {{
-                if (buttons[i].innerText && buttons[i].innerText.indexOf('PRÓXIMA') !== -1) {{
+                if (buttons[i].innerText.includes('PRÓXIMA')) {{
                     buttons[i].click();
                     break;
                 }}
