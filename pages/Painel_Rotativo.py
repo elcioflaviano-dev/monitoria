@@ -40,9 +40,29 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 # Inicialização segura dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
-    st.session_state.novo_ciclo = True
-    st.session_state.script_audio_atual = ""
     st.session_state.prox_idx = 0
+
+# =========================================================================
+# 🧭 SISTEMA DE ROTEAMENTO POR URL (LINKS ESPECÍFICOS)
+# =========================================================================
+modo_estatico = False
+try:
+    params = st.query_params
+    tela_url = params.get("tela", None)
+except AttributeError:
+    params = st.experimental_get_query_params()
+    tela_url = params.get("tela", [None])[0]
+
+if tela_url:
+    tela_url = str(tela_url).lower()
+    if tela_url == "geral": st.session_state.idx = 9
+    elif tela_url == "fixa": st.session_state.idx = 10
+    elif tela_url == "pme": st.session_state.idx = 8
+    elif tela_url == "gpon": st.session_state.idx = 7
+    elif tela_url == "tec1": st.session_state.idx = 1
+    elif tela_url == "consultivo": st.session_state.idx = 5
+    elif tela_url == "diario": st.session_state.idx = 6
+    modo_estatico = True
 
 if "ticker_data" not in st.session_state:
     st.session_state.ticker_data = {}
@@ -138,12 +158,12 @@ st.markdown("""<style>
     .botao-home { color: #fff; font-size: 16px; font-weight: bold; border: 2px solid #fff; padding: 6px 12px; border-radius: 5px; text-decoration: none; }
     
     .st-key-btn_anterior { position: fixed !important; bottom: 65px !important; left: 20px !important; z-index: 999999 !important; width: auto !important; }
-    .st-key-btn_proxima { position: fixed !important; bottom: 65px !important; right: 20px !important; z-index: 999999 !important; width: auto !important; }
+    .st-key-btn_proxima, .st-key-btn_atualizar_estatico { position: fixed !important; bottom: 65px !important; right: 20px !important; z-index: 999999 !important; width: auto !important; }
     
-    .st-key-btn_anterior button, .st-key-btn_proxima button { 
+    .st-key-btn_anterior button, .st-key-btn_proxima button, .st-key-btn_atualizar_estatico button { 
         background-color: #003366 !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 30px !important; padding: 6px 15px !important; font-size: 15px !important; font-weight: bold !important; opacity: 0.03 !important; transition: all 0.4s ease-in-out !important; 
     }
-    .st-key-btn_anterior button:hover, .st-key-btn_proxima button:hover { 
+    .st-key-btn_anterior button:hover, .st-key-btn_proxima button:hover, .st-key-btn_atualizar_estatico button:hover { 
         opacity: 1.0 !important; background-color: #ff9800 !important; border-color: #ffffff !important; transform: scale(1.05) !important; 
     }
 
@@ -361,8 +381,9 @@ with CONTEUDO_TV.container():
                 else:
                     st.success("✅ Excelente! Nenhum técnico pendente na base neste momento.")
 
-                script_cenario = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>" if permitir_audio_base else ""
-                st.components.v1.html(script_cenario, height=0)
+                if permitir_audio_base:
+                    script_cenario = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>"
+                    st.components.v1.html(script_cenario, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -370,7 +391,7 @@ with CONTEUDO_TV.container():
     # TELA 1: TEC1 (VISÃO DIVIDIDA PENDENTES / EM ROTA / INICIADOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
-        hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+        hora_atual = agora_br.hour
         
         if hora_atual < 13:
             label_janela = "ATÉ 12:00"
@@ -497,19 +518,17 @@ with CONTEUDO_TV.container():
                 if permitir_audio_tec1:
                     script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                     delay_atual = 0
-                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de Ó s: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
-                    delay_atual += 24000
+                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                    delay_atual += 24000 
                     for i, sup_full in enumerate(SUPS_ABC):
                         df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
                         q_pe = int(df_s['IS_PENDENTE'].sum())
                         q_ro = int(df_s['IS_EM_ROTA'].sum())
                         q_in = int(df_s['IS_INICIADO'].sum())
                         script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                        delay_atual += 18000
+                        delay_atual += 18000 
                     script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
-                else:
-                    script_cenario = ""
-                st.components.v1.html(script_cenario, height=0)
+                    st.components.v1.html(script_cenario, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -1127,7 +1146,7 @@ with CONTEUDO_TV.container():
                 total_realizado_abc = int(df_cards['QTD_PRODUTOS_CALC'].sum())
                 total_contratos_abc = count_contracts(df_cards)
 
-                hoje = datetime.utcnow() - timedelta(hours=3)
+                hoje = datetime.now()
                 ano, mes = hoje.year, hoje.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
@@ -1155,7 +1174,6 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
-                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -1224,7 +1242,7 @@ with CONTEUDO_TV.container():
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
 
-                hoje_br = datetime.utcnow() - timedelta(hours=3)
+                hoje_br = datetime.now()
                 hoje_str_br = hoje_br.strftime('%d/%m/%Y')
                 hoje_str_us = hoje_br.strftime('%Y-%m-%d')
 
@@ -1324,7 +1342,7 @@ with CONTEUDO_TV.container():
                 df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
                 df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
                 col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
-                col_recurso = 'RECURSO' if 'RECURSO' in df_ind.columns else df_ind.columns[0]
+                col_recurso = 'RECURSO' if 'RECURSO' in df.columns else df_ind.columns[0]
                 col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
                 
                 col_nr35 = next((c for c in reversed(df_ind.columns) if 'NR35' in c or 'NR-35' in c), None)
@@ -1389,7 +1407,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 2:
         st.markdown(render_topo("HORÁRIO") + icone_ativo, unsafe_allow_html=True)
 
-        tempo_real = datetime.utcnow() - timedelta(hours=3)
+        tempo_real = datetime.now()
         
         st.markdown(f'''
         <div class="relogio-container">
@@ -1417,7 +1435,7 @@ with CONTEUDO_TV.container():
         st.components.v1.html(script_audio_hora + script_relogio_dinamico, height=0)
 
     # ---> RENDERIZADOR DO TICKER FINANCEIRO <---
-    if st.session_state.idx != 4:  
+    if st.session_state.idx != 4 and not modo_estatico:  
         ticker_items = []
         for k, v in st.session_state.ticker_data.items():
             if k != st.session_state.idx:
@@ -1439,16 +1457,36 @@ with CONTEUDO_TV.container():
 # =========================================================================
 # CONTROLES DE NAVEGAÇÃO E TRANSIÇÃO 🔄
 # =========================================================================
+if modo_estatico:
+    btn_atualizar = st.button("🔄 ATUALIZAR", key="btn_atualizar_estatico")
+    if btn_atualizar:
+        st.rerun()
+
+    js_timer_estatico = f"""
+    <script>
+    setTimeout(function() {{
+        var buttons = window.parent.document.querySelectorAll('button');
+        for (var i=0; i<buttons.length; i++) {{
+            if (buttons[i].innerText && buttons[i].innerText.indexOf('ATUALIZAR') !== -1) {{
+                buttons[i].click();
+                break;
+            }}
+        }}
+    }}, 60000);
+    </script>
+    """
+    st.components.v1.html(js_timer_estatico, height=0)
+    st.stop()
+
 col_voltar, col_vazio, col_pular = st.columns([1, 8, 1])
 with col_voltar:
     voltar = st.button("⬅️ ANTERIOR", key="btn_anterior")
 with col_pular:
     pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
 
-agora_loop = datetime.utcnow() - timedelta(hours=3)
+agora_loop = datetime.now()
 minutos_loop = agora_loop.hour * 60 + agora_loop.minute
 
-# Trava estrita para o horário matinal: entre 07:00 e 08:30
 periodo_matinal_base = (7*60 <= minutos_loop < 8*60 + 30)
 
 alerta_fim_janela_loop = False
@@ -1472,7 +1510,6 @@ tempos_espera = {
 
 espera = tempos_espera.get(st.session_state.idx, 60)
 
-# Tempo estendido para o TEC1 discursar com tranquilidade
 if st.session_state.idx == 1 and permitir_audio_tec1:
     espera = 95 
 
