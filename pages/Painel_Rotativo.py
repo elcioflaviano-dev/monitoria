@@ -40,6 +40,8 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 # Inicialização segura dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
+    st.session_state.novo_ciclo = True
+    st.session_state.script_audio_atual = ""
     st.session_state.prox_idx = 0
 
 if "ticker_data" not in st.session_state:
@@ -231,10 +233,10 @@ def padronizar_status(row):
     return 'Em aberto'
 
 # =========================================================================
-# LÓGICA DE ÁUDIOS E REGRAS DE HORÁRIO (TEMPO REAL CORRIGIDO)
+# LÓGICA DE ÁUDIOS E REGRAS DE HORÁRIO (FUSO BLINDADO UTC-3)
 # =========================================================================
-agora_local = datetime.now()
-minutos_agora = agora_local.hour * 60 + agora_local.minute
+agora_br = datetime.utcnow() - timedelta(hours=3)
+minutos_agora = agora_br.hour * 60 + agora_br.minute
 
 # --- REGRAS DO HORÁRIO DA BASE (07:00 ÀS 08:30) ---
 permitir_audio_base = False
@@ -271,7 +273,7 @@ for janela in [12, 15, 18]:
     # 2. Avisos de janela estourada (1h após o término)
     elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
-        frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou. Atenção para não perder o TEC 1."
+        frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou, e ainda temos contratos sem conclusão. Atenção para não perder o TEC 1."
         break
 
 permitir_audio_ind = False
@@ -368,7 +370,7 @@ with CONTEUDO_TV.container():
     # TELA 1: TEC1 (VISÃO DIVIDIDA PENDENTES / EM ROTA / INICIADOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 1: 
-        hora_atual = datetime.now().hour
+        hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
         
         if hora_atual < 13:
             label_janela = "ATÉ 12:00"
@@ -495,7 +497,7 @@ with CONTEUDO_TV.container():
                 if permitir_audio_tec1:
                     script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                     delay_atual = 0
-                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de O Ss: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                     delay_atual += 24000
                     for i, sup_full in enumerate(SUPS_ABC):
                         df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
@@ -1125,7 +1127,7 @@ with CONTEUDO_TV.container():
                 total_realizado_abc = int(df_cards['QTD_PRODUTOS_CALC'].sum())
                 total_contratos_abc = count_contracts(df_cards)
 
-                hoje = datetime.now()
+                hoje = datetime.utcnow() - timedelta(hours=3)
                 ano, mes = hoje.year, hoje.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
@@ -1153,6 +1155,7 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -1221,7 +1224,7 @@ with CONTEUDO_TV.container():
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
 
-                hoje_br = datetime.now()
+                hoje_br = datetime.utcnow() - timedelta(hours=3)
                 hoje_str_br = hoje_br.strftime('%d/%m/%Y')
                 hoje_str_us = hoje_br.strftime('%Y-%m-%d')
 
@@ -1386,7 +1389,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 2:
         st.markdown(render_topo("HORÁRIO") + icone_ativo, unsafe_allow_html=True)
 
-        tempo_real = datetime.now()
+        tempo_real = datetime.utcnow() - timedelta(hours=3)
         
         st.markdown(f'''
         <div class="relogio-container">
@@ -1442,7 +1445,7 @@ with col_voltar:
 with col_pular:
     pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
 
-agora_loop = datetime.now()
+agora_loop = datetime.utcnow() - timedelta(hours=3)
 minutos_loop = agora_loop.hour * 60 + agora_loop.minute
 
 # Trava estrita para o horário matinal: entre 07:00 e 08:30
