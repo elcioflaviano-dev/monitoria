@@ -236,27 +236,29 @@ def padronizar_status(row):
 agora_local = datetime.now()
 minutos_agora = agora_local.hour * 60 + agora_local.minute
 
+# --- REGRAS DO HORÁRIO DA BASE (07:00 ÀS 08:30) ---
 permitir_audio_base = False
 frase_incisiva_base = ""
-for regra in [
-    {"inicio": 7*60 + 50, "fim": 7*60 + 59, "frase": "Atenção. Horário para concluir base."},
-    {"inicio": 8*60, "fim": 8*60 + 15, "frase": "Atenção. Iniciar rota."},
-    {"inicio": 8*60 + 20, "fim": 8*60 + 30, "frase": "Atenção. Fim do horário para concluir base."}
-]:
-    if regra["inicio"] <= minutos_agora <= regra["fim"]:
-        permitir_audio_base = True
-        frase_incisiva_base = regra["frase"]
-        break
+if 7*60 <= minutos_agora < 8*60 + 30:
+    permitir_audio_base = True
+    if minutos_agora < 7*60 + 50:
+        frase_incisiva_base = "Atenção. Técnicos no aguardo para conclusão de base."
+    elif 7*60 + 50 <= minutos_agora < 8*60:
+        frase_incisiva_base = "Atenção. Horário para concluir base."
+    elif 8*60 <= minutos_agora < 8*60 + 15:
+        frase_incisiva_base = "Atenção. Iniciar rota."
+    else:
+        frase_incisiva_base = "Atenção. Fim do horário para concluir base."
 
-# --- CORREÇÃO TEC1: ÁUDIO DINÂMICO E PERSISTENTE NAS 3 JANELAS ---
+# --- CORREÇÃO TEC1: ÁUDIO DINÂMICO E PERSISTENTE NAS 3 JANELAS (APÓS 08:30) ---
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for janela in [12, 15, 18]:
-    inicio_aviso = (janela - 1) * 60      # 1h antes (ex: 11:00, 14:00, 17:00)
-    fim_janela = janela * 60             # Término (ex: 12:00, 15:00, 18:00)
-    fim_aviso_pos = janela * 60 + 59     # 1h depois (ex: 12:59, 15:59, 18:59)
+    inicio_aviso = (janela - 1) * 60      # 1h antes (11:00, 14:00, 17:00)
+    fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
+    fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
     
-    # 1. Avisos dinâmicos de minutos restantes (1h antes até o fechamento da janela)
+    # 1. Avisos dinâmicos de minutos restantes (1h antes)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -1441,11 +1443,14 @@ with col_pular:
     pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
 
 agora_loop = datetime.now()
+minutos_loop = agora_loop.hour * 60 + agora_loop.minute
+
+# Trava estrita para o horário matinal: entre 07:00 e 08:30
+periodo_matinal_base = (7*60 <= minutos_loop < 8*60 + 30)
+
 alerta_fim_janela_loop = False
 if agora_loop.hour in [11, 14, 17] and agora_loop.minute >= 0: alerta_fim_janela_loop = True
 if agora_loop.hour in [12, 15, 18]: alerta_fim_janela_loop = True
-
-antes_0830_loop = (agora_loop.hour < 8) or (agora_loop.hour == 8 and agora_loop.minute < 30)
 
 tempos_espera = {
     0: 60,
@@ -1458,7 +1463,7 @@ tempos_espera = {
     5: 60,
     6: 60,
     3: 45,
-    2: 30 if alerta_fim_janela_loop else 60,
+    2: 30 if (alerta_fim_janela_loop or periodo_matinal_base) else 60,
     4: 2
 }
 
@@ -1472,7 +1477,7 @@ if st.session_state.idx == 4:
     st.session_state.idx = st.session_state.prox_idx
     st.rerun()
 else:
-    if antes_0830_loop:
+    if periodo_matinal_base:
         telas_fluxo = [0, 2]
     else:
         telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 5, 6, 3, 2]
