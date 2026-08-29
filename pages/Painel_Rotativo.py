@@ -25,10 +25,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 
 # 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 23,
-    "MAICON": 23,
+    "EDSON MARCO": 21,
+    "MAICON": 21,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 23
+    "NELSON": 20
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -280,7 +280,7 @@ for janela in [12, 15, 18]:
     fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
     fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
     
-    # 1. Avisos dinâmicos de minutos restantes (1h antes)
+    # 1. Avisos dinâmicos de minutos restantes (1h antes até o fechamento da janela)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -381,9 +381,11 @@ with CONTEUDO_TV.container():
                 else:
                     st.success("✅ Excelente! Nenhum técnico pendente na base neste momento.")
 
-                if permitir_audio_base:
-                    script_cenario = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>"
-                    st.components.v1.html(script_cenario, height=0)
+                if st.session_state.novo_ciclo:
+                    script_cenario = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{frase_incisiva_base} Existem {len(nomes_abc)} técnicos pendentes', 0);</script>" if permitir_audio_base else ""
+                    st.session_state.script_audio_atual = script_cenario
+                    st.session_state.novo_ciclo = False 
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -515,20 +517,24 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
 
-                if permitir_audio_tec1:
-                    script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
-                    delay_atual = 0
-                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de Ó s: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
-                    delay_atual += 24000 
-                    for i, sup_full in enumerate(SUPS_ABC):
-                        df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
-                        q_pe = int(df_s['IS_PENDENTE'].sum())
-                        q_ro = int(df_s['IS_EM_ROTA'].sum())
-                        q_in = int(df_s['IS_INICIADO'].sum())
-                        script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                        delay_atual += 18000 
-                    script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
-                    st.components.v1.html(script_cenario, height=0)
+                if st.session_state.novo_ciclo:
+                    if permitir_audio_tec1:
+                        script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
+                        delay_atual = 0
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                        delay_atual += 24000 
+                        for i, sup_full in enumerate(SUPS_ABC):
+                            df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
+                            q_pe = int(df_s['IS_PENDENTE'].sum())
+                            q_ro = int(df_s['IS_EM_ROTA'].sum())
+                            q_in = int(df_s['IS_INICIADO'].sum())
+                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
+                            delay_atual += 18000 
+                        script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
+                    else: script_cenario = ""
+                    st.session_state.script_audio_atual = script_cenario
+                    st.session_state.novo_ciclo = False 
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -734,8 +740,11 @@ with CONTEUDO_TV.container():
                                         <div class="falta-box" style="border-color: #a5d6a7;"><div class="falta-label" style="color: #2e7d32;">✅ PROD.</div><div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div></div>
                                         <div class="falta-box"><div class="falta-label">❌ QUEBRA</div><div class="falta-value">{qtd_ne}</div></div></div></div>''', unsafe_allow_html=True)
                                         
-                        texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
-                        st.components.v1.html(f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>", height=0)
+                        if st.session_state.novo_ciclo:
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
+                            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
+                            st.session_state.novo_ciclo = False 
+                        st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -810,8 +819,11 @@ with CONTEUDO_TV.container():
                                     <div class="falta-box" style="border-color: #a5d6a7;"><div class="falta-label" style="color: #2e7d32;">✅ PROD.</div><div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div></div>
                                     <div class="falta-box"><div class="falta-label">❌ QUEBRA</div><div class="falta-value">{qtd_ne}</div></div></div></div>''', unsafe_allow_html=True)
                                     
-                    texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
-                    st.components.v1.html(f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>", height=0)
+                    if st.session_state.novo_ciclo:
+                        texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
+                        st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
+                        st.session_state.novo_ciclo = False 
+                    st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Colunas necessárias (Categorias, Tipo OS) não encontradas no arquivo.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
@@ -841,12 +853,11 @@ with CONTEUDO_TV.container():
 
             df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
             
-            # --- RETORNO EXCLUÍDO DA SOMA ---
             if col_tipo_os:
                 df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
             df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
-            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
+            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
 
             if col_tarefas:
                 df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
@@ -963,8 +974,11 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>
                             </div>''', unsafe_allow_html=True)
-            texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-            st.components.v1.html(f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>", height=0)
+            if st.session_state.novo_ciclo:
+                texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
+                st.session_state.novo_ciclo = False
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -992,7 +1006,6 @@ with CONTEUDO_TV.container():
 
             df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
 
-            # --- RETORNO EXCLUÍDO DA SOMA ---
             if col_tipo_os:
                 df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
@@ -1113,8 +1126,11 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>
                             </div>''', unsafe_allow_html=True)
-            texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-            st.components.v1.html(f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>", height=0)
+            if st.session_state.novo_ciclo:
+                texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>"
+                st.session_state.novo_ciclo = False
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -1146,7 +1162,7 @@ with CONTEUDO_TV.container():
                 total_realizado_abc = int(df_cards['QTD_PRODUTOS_CALC'].sum())
                 total_contratos_abc = count_contracts(df_cards)
 
-                hoje = datetime.now()
+                hoje = datetime.utcnow() - timedelta(hours=3)
                 ano, mes = hoje.year, hoje.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
@@ -1174,6 +1190,7 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
+                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
@@ -1211,7 +1228,11 @@ with CONTEUDO_TV.container():
                                         </div>
                                     </div>
                                 </div>''', unsafe_allow_html=True)
-                st.components.v1.html("", height=0)
+
+                if st.session_state.novo_ciclo:
+                    st.session_state.script_audio_atual = ""
+                    st.session_state.novo_ciclo = False
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
             except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
         else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
@@ -1242,7 +1263,7 @@ with CONTEUDO_TV.container():
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
 
-                hoje_br = datetime.now()
+                hoje_br = datetime.utcnow() - timedelta(hours=3)
                 hoje_str_br = hoje_br.strftime('%d/%m/%Y')
                 hoje_str_us = hoje_br.strftime('%Y-%m-%d')
 
@@ -1326,7 +1347,11 @@ with CONTEUDO_TV.container():
                                         </div>
                                     </div>
                                 </div>''', unsafe_allow_html=True)
-                st.components.v1.html("", height=0)
+
+                if st.session_state.novo_ciclo:
+                    st.session_state.script_audio_atual = ""
+                    st.session_state.novo_ciclo = False
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
             except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
         else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
@@ -1341,64 +1366,69 @@ with CONTEUDO_TV.container():
             try:
                 df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
                 df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
-                col_status = next((c for c in df_ind.columns if 'STATUS' in c), None)
-                col_recurso = 'RECURSO' if 'RECURSO' in df.columns else df_ind.columns[0]
-                col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
                 
-                col_nr35 = next((c for c in reversed(df_ind.columns) if 'NR35' in c or 'NR-35' in c), None)
-                col_cert = next((c for c in reversed(df_ind.columns) if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
-                col_bst  = next((c for c in reversed(df_ind.columns) if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
+                col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
+                col_nr35 = next((c for c in df_ind.columns[::-1] if 'NR35' in c or 'NR-35' in c), None)
+                col_cert = next((c for c in df_ind.columns[::-1] if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
+                col_bst  = next((c for c in df_ind.columns[::-1] if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
 
-                if col_status:
-                    df_ind['Status_Atividade_Upper'] = df_ind[col_status].fillna('').astype(str).str.upper().str.strip()
-                    df_produtivo = df_ind[df_ind['Status_Atividade_Upper'].str.contains('CONCL|PRODUTIVO|INIC|EXEC', na=False)].copy()
-                    
-                    if 'CONTRATO' in df_produtivo.columns and not df_produtivo.empty:
-                        df_produtivo['CONTRATO'] = df_produtivo['CONTRATO'].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
-                        df_produtivo = df_produtivo[df_produtivo['CONTRATO'] != ''].drop_duplicates(subset=['CONTRATO'])
+                def class_sup_3(row):
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup: return oficial
+                    return "DESCARTADO"
 
+                if not df_ind.empty:
+                    df_ind['SUPERVISOR_CLEAN'] = df_ind.apply(class_sup_3, axis=1)
+                    df_ind['STATUS_PADRAO'] = df_ind.apply(padronizar_status, axis=1)
+                else:
+                    df_ind['SUPERVISOR_CLEAN'] = "DESCARTADO"
+                    df_ind['STATUS_PADRAO'] = "Descartar"
+
+                df_produtivo = df_ind[(df_ind['STATUS_PADRAO'] == 'Produtivo') & (df_ind['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].copy()
+
+                if not df_produtivo.empty:
+                    col_contrato = next((c for c in df_produtivo.columns if 'CONTRATO' in c), None)
+                    if col_contrato:
+                        df_produtivo[col_contrato] = df_produtivo[col_contrato].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+                        df_produtivo = df_produtivo[df_produtivo[col_contrato] != ''].drop_duplicates(subset=[col_contrato])
+
+                    df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_nr35 else 0
+                    df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_cert else 0
+                    df_produtivo['FALTA_BST']  = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_bst else 0
+                else:
                     df_produtivo['FALTA_NR35'] = 0
-                    if col_nr35: df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
                     df_produtivo['FALTA_CERT'] = 0
-                    if col_cert: df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
-                    df_produtivo['FALTA_BST'] = 0
-                    if col_bst: df_produtivo['FALTA_BST'] = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int)
+                    df_produtivo['FALTA_BST']  = 0
 
-                    def resolver_supervisor(row):
-                        sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                        for oficial in SUPERVISORES_ORDENADOS:
-                            if oficial in sup: return oficial
-                        return "DESCARTADO"
+                total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
-                    df_produtivo['SUPERVISOR_CLEAN'] = df_produtivo.apply(resolver_supervisor, axis=1)
-                    df_produtivo = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
+                st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
+                
+                for i in range(0, len(SUPS_ABC), 2):
+                    cols_sup = st.columns(2)
+                    for j in range(2):
+                        if i + j < len(SUPS_ABC):
+                            sup = SUPS_ABC[i + j]
+                            with cols_sup[j]:
+                                df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
+                                f_35 = int(df_sup['FALTA_NR35'].sum()) if not df_sup.empty else 0
+                                f_ce = int(df_sup['FALTA_CERT'].sum()) if not df_sup.empty else 0
+                                f_bs = int(df_sup['FALTA_BST'].sum())  if not df_sup.empty else 0
+                                
+                                st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
+                                    <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
+                                    <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
+                                    <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
-                    total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                    st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
-
-                    st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
-                    
-                    for i in range(0, len(SUPS_ABC), 2):
-                        cols_sup = st.columns(2)
-                        for j in range(2):
-                            if i + j < len(SUPS_ABC):
-                                sup = SUPS_ABC[i + j]
-                                with cols_sup[j]:
-                                    df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
-                                    f_35, f_ce, f_bs = int(df_sup['FALTA_NR35'].sum()), int(df_sup['FALTA_CERT'].sum()), int(df_sup['FALTA_BST'].sum())
-                                    st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
-                                        <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
-                                        <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
-                                        <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
-
-                    if permitir_audio_ind:
-                        script_ind = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
-                    else: 
-                        script_ind = ""
-                    st.components.v1.html(script_ind, height=0)
-                else: st.error("Coluna Status não encontrada na base da rota.")
+                if permitir_audio_ind:
+                    script_ind = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
+                else: 
+                    script_ind = ""
+                st.components.v1.html(script_ind, height=0)
             except Exception as e:
-                st.error("Nenhum contrato ativo válido para Indicadores nesta leitura.")
+                st.error(f"Erro na validação de Indicadores: {e}")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -1407,7 +1437,7 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 2:
         st.markdown(render_topo("HORÁRIO") + icone_ativo, unsafe_allow_html=True)
 
-        tempo_real = datetime.now()
+        tempo_real = datetime.utcnow() - timedelta(hours=3)
         
         st.markdown(f'''
         <div class="relogio-container">
@@ -1416,7 +1446,9 @@ with CONTEUDO_TV.container():
         </div>
         ''', unsafe_allow_html=True)
         
-        script_audio_hora = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
+        if st.session_state.novo_ciclo:
+            st.session_state.script_audio_atual = f"<script>{JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
+            st.session_state.novo_ciclo = False
         
         script_relogio_dinamico = """
         <script>
@@ -1432,7 +1464,7 @@ with CONTEUDO_TV.container():
             }, 1000);
         </script>
         """
-        st.components.v1.html(script_audio_hora + script_relogio_dinamico, height=0)
+        st.components.v1.html(st.session_state.script_audio_atual + script_relogio_dinamico, height=0)
 
     # ---> RENDERIZADOR DO TICKER FINANCEIRO <---
     if st.session_state.idx != 4 and not modo_estatico:  
@@ -1484,7 +1516,7 @@ with col_voltar:
 with col_pular:
     pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
 
-agora_loop = datetime.now()
+agora_loop = datetime.utcnow() - timedelta(hours=3)
 minutos_loop = agora_loop.hour * 60 + agora_loop.minute
 
 periodo_matinal_base = (7*60 <= minutos_loop < 8*60 + 30)
