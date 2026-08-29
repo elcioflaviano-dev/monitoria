@@ -40,6 +40,8 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 # Inicialização segura dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
+    st.session_state.novo_ciclo = True
+    st.session_state.script_audio_atual = ""
     st.session_state.prox_idx = 0
 
 # =========================================================================
@@ -853,11 +855,12 @@ with CONTEUDO_TV.container():
 
             df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
             
+            # --- RETORNO EXCLUÍDO DA SOMA ---
             if col_tipo_os:
                 df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
             df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
-            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
+            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
 
             if col_tarefas:
                 df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
@@ -1006,6 +1009,7 @@ with CONTEUDO_TV.container():
 
             df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
 
+            # --- RETORNO EXCLUÍDO DA SOMA ---
             if col_tipo_os:
                 df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
 
@@ -1190,7 +1194,6 @@ with CONTEUDO_TV.container():
                     </div>
                 </div>''', unsafe_allow_html=True)
                 
-                # --- 2 COLUNAS LAYOUT ---
                 for i in range(0, len(SUPS_ABC), 2):
                     cols_sup = st.columns(2)
                     for j in range(2):
