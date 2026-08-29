@@ -493,7 +493,7 @@ with CONTEUDO_TV.container():
                 if permitir_audio_tec1:
                     script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                     delay_atual = 0
-                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de O Ss: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                     delay_atual += 24000
                     for i, sup_full in enumerate(SUPS_ABC):
                         df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
