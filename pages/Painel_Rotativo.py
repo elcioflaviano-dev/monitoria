@@ -25,10 +25,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 
 # 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 21,
-    "MAICON": 21,
+    "EDSON MARCO": 24,
+    "MAICON": 23,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 20
+    "NELSON": 24
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -534,7 +534,7 @@ with CONTEUDO_TV.container():
                 if permitir_audio_tec1:
                     script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                     delay_atual = 0
-                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                    script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de Ó S: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                     delay_atual += 24000
                     for i, sup_full in enumerate(SUPS_ABC):
                         df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
