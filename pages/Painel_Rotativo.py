@@ -40,12 +40,18 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 # Inicialização segura dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
-    st.session_state.prox_idx = 0
     st.session_state.novo_ciclo = True
     st.session_state.script_audio_atual = ""
+    st.session_state.prox_idx = 0
 
 if "ultimo_audio_base" not in st.session_state:
     st.session_state.ultimo_audio_base = 0
+
+if "ticker_data" not in st.session_state:
+    st.session_state.ticker_data = {}
+
+if "ultima_sincronizacao" not in st.session_state:
+    st.session_state.ultima_sincronizacao = time.time()
 
 # =========================================================================
 # 🧭 SISTEMA DE ROTEAMENTO POR URL (LINKS ESPECÍFICOS)
@@ -68,12 +74,6 @@ if tela_url:
     elif tela_url == "consultivo": st.session_state.idx = 5
     elif tela_url == "diario": st.session_state.idx = 6
     modo_estatico = True
-
-if "ticker_data" not in st.session_state:
-    st.session_state.ticker_data = {}
-
-if "ultima_sincronizacao" not in st.session_state:
-    st.session_state.ultima_sincronizacao = time.time()
 
 # =========================================================================
 # MOTOR DE SINCRONIZAÇÃO AUTÔNOMA DA TV (5 EM 5 MINUTOS) ☁️
@@ -268,14 +268,10 @@ permitir_audio_base = False
 frase_incisiva_base = ""
 if 7*60 <= minutos_agora < 8*60 + 30:
     permitir_audio_base = True
-    if minutos_agora < 7*60 + 50:
-        frase_incisiva_base = "Técnicos no aguardo para conclusão de base."
-    elif 7*60 + 50 <= minutos_agora < 8*60:
-        frase_incisiva_base = "Horário para concluir base."
-    elif 8*60 <= minutos_agora < 8*60 + 15:
-        frase_incisiva_base = "Atenção para iniciar a rota."
+    if minutos_agora < 8*60:
+        frase_incisiva_base = "Atenção para ativar a rota."
     else:
-        frase_incisiva_base = "Fim do horário para concluir base."
+        frase_incisiva_base = "Atenção. O horário limite para ativar a rota já passou."
 
 # --- CORREÇÃO TEC1: ÁUDIO DINÂMICO E PERSISTENTE NAS 3 JANELAS (APÓS 08:30) ---
 permitir_audio_tec1 = False
@@ -354,11 +350,9 @@ with CONTEUDO_TV.container():
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
-            col_status = next((c for c in df.columns if 'STATUS' in c), None)
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-            col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
 
-            if col_status:
+            if col_recurso:
                 def resolver_sup_base(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                     for oficial in SUPERVISORES_ORDENADOS:
@@ -366,13 +360,16 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df['SUPERVISOR_CLEAN'] = df.apply(resolver_sup_base, axis=1)
-                mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend|aberto')
                 
-                if col_tipo_exata: 
-                    mask_base = df[col_tipo_exata].fillna('').astype(str).str.lower().str.contains('base')
-                else:
-                    cols_tipo = [c for c in df.columns if 'TIPO' in c]
-                    mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.lower().str.contains('base')).any(axis=1)
+                # Busca super abrangente para STATUS (Pendente / Aberto)
+                cols_status = [c for c in df.columns if 'STATUS' in c]
+                if not cols_status: cols_status = df.columns
+                mask_status = df[cols_status].apply(lambda col: col.astype(str).str.upper().str.contains('PEND|ABERTO')).any(axis=1)
+                
+                # Busca super abrangente para a palavra BASE
+                cols_base = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
+                if not cols_base: cols_base = df.columns
+                mask_base = df[cols_base].apply(lambda col: col.astype(str).str.upper().str.contains('BASE')).any(axis=1)
 
                 df_tela = df[mask_base & mask_status & (df['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].copy()
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
@@ -400,7 +397,7 @@ with CONTEUDO_TV.container():
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            else: st.error("Coluna Status não encontrada.")
+            else: st.error("Coluna de Recurso não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -535,18 +532,17 @@ with CONTEUDO_TV.container():
                     if permitir_audio_tec1:
                         script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de O Ss: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
-                        delay_atual += 24000
+                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                        delay_atual += 24000 
                         for i, sup_full in enumerate(SUPS_ABC):
                             df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
                             q_pe = int(df_s['IS_PENDENTE'].sum())
                             q_ro = int(df_s['IS_EM_ROTA'].sum())
                             q_in = int(df_s['IS_INICIADO'].sum())
                             script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                            delay_atual += 18000
+                            delay_atual += 18000 
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
-                    else:
-                        script_cenario = ""
+                    else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
