@@ -25,10 +25,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 
 # 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 24,
-    "MAICON": 23,
+    "EDSON MARCO": 21,
+    "MAICON": 21,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 24
+    "NELSON": 20
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -73,6 +73,7 @@ if tela_url:
     elif tela_url == "tec1": st.session_state.idx = 1
     elif tela_url == "consultivo": st.session_state.idx = 5
     elif tela_url == "diario": st.session_state.idx = 6
+    elif tela_url == "caetano": st.session_state.idx = 17
     modo_estatico = True
 
 # =========================================================================
@@ -281,6 +282,7 @@ for janela in [12, 15, 18]:
     fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
     fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
     
+    # 1. Avisos dinâmicos de minutos restantes (1h antes até o fechamento da janela)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -290,6 +292,7 @@ for janela in [12, 15, 18]:
             frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
         
+    # 2. Avisos de janela estourada (1h após o término)
     elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou, e ainda temos contratos sem conclusão. Atenção para não perder o TEC 1."
@@ -360,10 +363,12 @@ with CONTEUDO_TV.container():
 
                 df['SUPERVISOR_CLEAN'] = df.apply(resolver_sup_base, axis=1)
                 
+                # Busca super abrangente para STATUS (Pendente / Aberto)
                 cols_status = [c for c in df.columns if 'STATUS' in c]
                 if not cols_status: cols_status = df.columns
                 mask_status = df[cols_status].apply(lambda col: col.astype(str).str.upper().str.contains('PEND|ABERTO')).any(axis=1)
                 
+                # Busca super abrangente para a palavra BASE
                 cols_base = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
                 if not cols_base: cols_base = df.columns
                 mask_base = df[cols_base].apply(lambda col: col.astype(str).str.upper().str.contains('BASE')).any(axis=1)
@@ -384,7 +389,7 @@ with CONTEUDO_TV.container():
                     script_cenario = ""
                     tempo_atual = time.time()
                     if permitir_audio_base and len(nomes_abc) > 0:
-                        intervalo_minimo = 180 # 3 MINUTOS CRAVADOS DE SILÊNCIO ENTRE OS AVISOS
+                        intervalo_minimo = 180 # 3 MINUTOS DE SILÊNCIO ENTRE OS AVISOS
                         if (tempo_atual - st.session_state.ultimo_audio_base) >= intervalo_minimo:
                             hora_texto = agora_br.strftime('%H e %M')
                             texto_final = f"Atenção. São {hora_texto}. {frase_incisiva_base} Temos {len(nomes_abc)} técnicos pendentes."
@@ -533,7 +538,6 @@ with CONTEUDO_TV.container():
                                 </div>''', unsafe_allow_html=True)
 
                 if st.session_state.novo_ciclo:
-                    script_cenario = ""
                     if permitir_audio_tec1:
                         script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                         delay_atual = 0
@@ -547,7 +551,7 @@ with CONTEUDO_TV.container():
                             script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
                             delay_atual += 18000 
                         script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
-                    
+                    else: script_cenario = ""
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -555,13 +559,14 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELAS 11, 12, 13, 14, 15, 16: MAPAS DA OPERAÇÃO 🗺️
+    # TELAS 11, 12, 13, 17, 14, 15, 16: MAPAS DA OPERAÇÃO 🗺️
     # -------------------------------------------------------------------------
-    elif st.session_state.idx in [11, 12, 13, 14, 15, 16]:
+    elif st.session_state.idx in [11, 12, 13, 14, 15, 16, 17]:
         titulos_mapa = {
             11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
             12: "MAPA DA ROTA - SANTO ANDRÉ",
             13: "MAPA DA ROTA - DIADEMA",
+            17: "MAPA DA ROTA - SÃO CAETANO DO SUL",
             14: "MAPA DA ROTA - EDSON MARCO",
             15: "MAPA DA ROTA - MAICON",
             16: "MAPA DA ROTA - NELSON"
@@ -582,7 +587,7 @@ with CONTEUDO_TV.container():
             if col_sup and col_x and col_y:
                 if col_cidade:
                     df_rota = df_rota[df_rota[col_cidade].notna()]
-                    cond_cidade_base = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC', regex=True)
+                    cond_cidade_base = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC|CAETANO', regex=True)
                     df_rota = df_rota[cond_cidade_base]
 
                 df_rota['STATUS_PADRAO'] = df_rota.apply(padronizar_status, axis=1)
@@ -613,6 +618,7 @@ with CONTEUDO_TV.container():
                 if st.session_state.idx == 11: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
                 elif st.session_state.idx == 12: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('SANTO ANDRE', regex=True)]
                 elif st.session_state.idx == 13: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('DIADEMA', regex=True)]
+                elif st.session_state.idx == 17: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('CAETANO', regex=True)]
                 elif st.session_state.idx == 14: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
                 elif st.session_state.idx == 15: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MAICON"]
                 elif st.session_state.idx == 16: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
@@ -623,7 +629,7 @@ with CONTEUDO_TV.container():
                     maicon_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>'
                     nelson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>'
 
-                    if st.session_state.idx in [11, 12, 13]:
+                    if st.session_state.idx in [11, 12, 13, 17]:
                         legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + nelson_html + '</div>'
                     elif st.session_state.idx == 14:
                         legenda_html = '<div style="' + base_style + '">' + edson_html + '</div>'
@@ -1443,14 +1449,11 @@ with CONTEUDO_TV.container():
                                     <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
                                     <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
 
-                if st.session_state.novo_ciclo:
-                    if permitir_audio_ind:
-                        script_ind = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
-                    else: 
-                        script_ind = ""
-                    st.session_state.script_audio_atual = script_ind
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+                if permitir_audio_ind:
+                    script_ind = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
+                else: 
+                    script_ind = ""
+                st.components.v1.html(script_ind, height=0)
             except Exception as e:
                 st.error(f"Erro na validação de Indicadores: {e}")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
@@ -1557,6 +1560,7 @@ tempos_espera = {
     9: 60,
     10: 60,
     11: 20, 12: 20, 13: 20, 14: 20, 15: 20, 16: 20,
+    17: 20,
     5: 60,
     6: 60,
     3: 45,
@@ -1576,7 +1580,7 @@ else:
     if periodo_matinal_base:
         telas_fluxo = [0, 2]
     else:
-        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 5, 6, 3, 2]
+        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 5, 6, 3, 2]
         
     try:
         pos = telas_fluxo.index(st.session_state.idx)
