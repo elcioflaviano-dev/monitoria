@@ -73,7 +73,6 @@ if tela_url:
     elif tela_url == "tec1": st.session_state.idx = 1
     elif tela_url == "consultivo": st.session_state.idx = 5
     elif tela_url == "diario": st.session_state.idx = 6
-    elif tela_url == "caetano": st.session_state.idx = 17
     modo_estatico = True
 
 # =========================================================================
