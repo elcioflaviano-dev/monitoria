@@ -25,10 +25,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 
 # 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 23,
-    "MAICON": 23,
+    "EDSON MARCO": 21,
+    "MAICON": 21,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 23
+    "NELSON": 20
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -40,12 +40,15 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 # Inicialização segura dos estados da sessão
 if "idx" not in st.session_state: 
     st.session_state.idx = 0          
-    st.session_state.novo_ciclo = True  # A variável que faltava para destravar a voz!
+    st.session_state.novo_ciclo = True
     st.session_state.script_audio_atual = ""
     st.session_state.prox_idx = 0
 
 if "ultimo_audio_base" not in st.session_state:
     st.session_state.ultimo_audio_base = 0
+
+if "ultimo_audio_tec1" not in st.session_state:
+    st.session_state.ultimo_audio_tec1 = 0
 
 if "ticker_data" not in st.session_state:
     st.session_state.ticker_data = {}
@@ -73,6 +76,7 @@ if tela_url:
     elif tela_url == "tec1": st.session_state.idx = 1
     elif tela_url == "consultivo": st.session_state.idx = 5
     elif tela_url == "diario": st.session_state.idx = 6
+    elif tela_url == "caetano": st.session_state.idx = 17
     modo_estatico = True
 
 # =========================================================================
@@ -353,6 +357,7 @@ with CONTEUDO_TV.container():
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
             col_status = next((c for c in df.columns if 'STATUS' in c), None)
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+            col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
 
             if col_status:
                 def resolver_sup_base(row):
@@ -362,14 +367,13 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df['SUPERVISOR_CLEAN'] = df.apply(resolver_sup_base, axis=1)
+                mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend|aberto')
                 
-                cols_status = [c for c in df.columns if 'STATUS' in c]
-                if not cols_status: cols_status = df.columns
-                mask_status = df[cols_status].apply(lambda col: col.astype(str).str.upper().str.contains('PEND|ABERTO')).any(axis=1)
-                
-                cols_base = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
-                if not cols_base: cols_base = df.columns
-                mask_base = df[cols_base].apply(lambda col: col.astype(str).str.upper().str.contains('BASE')).any(axis=1)
+                if col_tipo_exata: 
+                    mask_base = df[col_tipo_exata].fillna('').astype(str).str.lower().str.contains('base')
+                else:
+                    cols_tipo = [c for c in df.columns if 'TIPO' in c]
+                    mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.lower().str.contains('base')).any(axis=1)
 
                 df_tela = df[mask_base & mask_status & (df['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].copy()
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
@@ -387,7 +391,7 @@ with CONTEUDO_TV.container():
                     script_cenario = ""
                     tempo_atual = time.time()
                     if permitir_audio_base and len(nomes_abc) > 0:
-                        intervalo_minimo = 180 # 3 MINUTOS DE SILÊNCIO ENTRE OS AVISOS
+                        intervalo_minimo = 180 
                         if (tempo_atual - st.session_state.ultimo_audio_base) >= intervalo_minimo:
                             hora_texto = agora_br.strftime('%H e %M')
                             texto_final = f"Atenção. São {hora_texto}. {frase_incisiva_base} Temos {len(nomes_abc)} técnicos pendentes."
@@ -397,14 +401,13 @@ with CONTEUDO_TV.container():
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 
-                # Aviso visual do sistema anti-repetição
                 if permitir_audio_base and len(nomes_abc) > 0:
                     falta_segundos = 180 - int(time.time() - st.session_state.ultimo_audio_base)
                     if falta_segundos > 0:
                         st.markdown(f"<div style='text-align:center; color:#888; font-weight:bold; margin-top: -10px; margin-bottom: 10px;'>🔇 Sistema anti-repetição de voz ativo. Próximo aviso sonoro em {falta_segundos} segundos.</div>", unsafe_allow_html=True)
 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            else: st.error("Coluna de Recurso não encontrada.")
+            else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -535,23 +538,37 @@ with CONTEUDO_TV.container():
                                     </div>
                                 </div>''', unsafe_allow_html=True)
 
+                tem_pendencias_tec1 = (total_pendentes > 0 or total_em_rota > 0 or total_iniciados > 0)
+
                 if st.session_state.novo_ciclo:
-                    if permitir_audio_tec1:
-                        script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
-                        delay_atual = 0
-                        script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de Ó S: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
-                        delay_atual += 24000 
-                        for i, sup_full in enumerate(SUPS_ABC):
-                            df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
-                            q_pe = int(df_s['IS_PENDENTE'].sum())
-                            q_ro = int(df_s['IS_EM_ROTA'].sum())
-                            q_in = int(df_s['IS_INICIADO'].sum())
-                            script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
-                            delay_atual += 18000 
-                        script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
-                    else: script_cenario = ""
+                    script_cenario = ""
+                    tempo_atual = time.time()
+                    
+                    if permitir_audio_tec1 and tem_pendencias_tec1:
+                        intervalo_minimo = 180 
+                        if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
+                            script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
+                            delay_atual = 0
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                            delay_atual += 24000 
+                            for i, sup_full in enumerate(SUPS_ABC):
+                                df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
+                                q_pe = int(df_s['IS_PENDENTE'].sum())
+                                q_ro = int(df_s['IS_EM_ROTA'].sum())
+                                q_in = int(df_s['IS_INICIADO'].sum())
+                                script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
+                                delay_atual += 18000 
+                            script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
+                            st.session_state.ultimo_audio_tec1 = tempo_atual
+
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
+                
+                if permitir_audio_tec1 and tem_pendencias_tec1:
+                    falta_segundos = 180 - int(time.time() - st.session_state.ultimo_audio_tec1)
+                    if falta_segundos > 0:
+                        st.markdown(f"<div style='text-align:center; color:#888; font-weight:bold; margin-top: -10px; margin-bottom: 10px;'>🔇 Sistema anti-repetição de voz ativo. Próximo aviso sonoro em {falta_segundos} segundos.</div>", unsafe_allow_html=True)
+
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Coluna Status não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
@@ -765,11 +782,8 @@ with CONTEUDO_TV.container():
                                         <div class="falta-box"><div class="falta-label">❌ QUEBRA</div><div class="falta-value">{qtd_ne}</div></div></div></div>''', unsafe_allow_html=True)
                                         
                         if st.session_state.novo_ciclo:
-                            if permitir_audio_ind:
-                                texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
-                                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
-                            else:
-                                st.session_state.script_audio_atual = ""
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
+                            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
                             st.session_state.novo_ciclo = False 
                         st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
@@ -847,11 +861,8 @@ with CONTEUDO_TV.container():
                                     <div class="falta-box"><div class="falta-label">❌ QUEBRA</div><div class="falta-value">{qtd_ne}</div></div></div></div>''', unsafe_allow_html=True)
                                     
                     if st.session_state.novo_ciclo:
-                        if permitir_audio_ind:
-                            texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
-                            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
-                        else:
-                            st.session_state.script_audio_atual = ""
+                        texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
+                        st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
                         st.session_state.novo_ciclo = False 
                     st.components.v1.html(st.session_state.script_audio_atual, height=0)
             else: st.error("Colunas necessárias (Categorias, Tipo OS) não encontradas no arquivo.")
@@ -861,7 +872,7 @@ with CONTEUDO_TV.container():
     # TELA 9: VISÃO GERAL DA ROTA E PROJEÇÃO (SEM RETORNOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 9:
-        st.markdown(render_topo("VISÃO GERAL DA ROTA - TÉCNICOS ESCALADOS") + icone_mudo, unsafe_allow_html=True)
+        st.markdown(render_topo("VISÃO GERAL DA ROTA - TÉCNICOS ESCALADOS") + html_audio_ind, unsafe_allow_html=True)
 
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
@@ -1006,7 +1017,8 @@ with CONTEUDO_TV.container():
                                 </div>
                             </div>''', unsafe_allow_html=True)
             if st.session_state.novo_ciclo:
-                st.session_state.script_audio_atual = ""
+                texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
                 st.session_state.novo_ciclo = False
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
@@ -1158,7 +1170,8 @@ with CONTEUDO_TV.container():
                                 </div>
                             </div>''', unsafe_allow_html=True)
             if st.session_state.novo_ciclo:
-                st.session_state.script_audio_atual = ""
+                texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>"
                 st.session_state.novo_ciclo = False
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
