@@ -358,28 +358,21 @@ with CONTEUDO_TV.container():
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
 
             if col_recurso:
-                # Localiza a palavra BASE nas colunas de Tipo
                 cols_base = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
                 if not cols_base: cols_base = df.columns
                 mask_base = df[cols_base].apply(lambda col: col.astype(str).str.upper().str.contains('BASE')).any(axis=1)
 
                 df_base = df[mask_base].copy()
 
-                # Localiza todas as colunas de STATUS disponíveis
                 cols_status = [c for c in df_base.columns if 'STATUS' in c]
                 if not cols_status: cols_status = [df_base.columns[0]]
                 
-                # Junta todos os status em uma string única para cada linha
                 df_base['STATUS_FULL'] = df_base[cols_status].fillna('').astype(str).agg(' '.join, axis=1).str.upper()
 
-                # REGRA DE BLOQUEIO (HARD BLOCK): Acha quem já iniciou ou concluiu a base
                 tecnicos_iniciados = df_base[df_base['STATUS_FULL'].str.contains('INIC|EXEC|CONCL|PRODUTIVO')][col_recurso].unique()
-                
-                # Acha quem está pendente
                 df_pendentes = df_base[df_base['STATUS_FULL'].str.contains('PEND|ABERTO')]
                 nomes_brutos = df_pendentes[col_recurso].dropna().unique()
                 
-                # Lista Final: Técnicos pendentes que NÃO estão na lista dos iniciados
                 nomes_abc = sorted([str(n).strip().upper() for n in nomes_brutos if n not in tecnicos_iniciados])
                 
                 st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
@@ -553,7 +546,7 @@ with CONTEUDO_TV.container():
                         if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
                             script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                             delay_atual = 0
-                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total nde contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                             delay_atual += 24000 
                             for i, sup_full in enumerate(SUPS_ABC):
                                 df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
@@ -1186,13 +1179,19 @@ with CONTEUDO_TV.container():
     elif st.session_state.idx == 18:
         st.markdown(render_topo("METAS, PROJEÇÃO E CONSULTIVO DIÁRIO") + icone_mudo, unsafe_allow_html=True)
 
-        # 1. Carrega OS Produtivas Atuais do Painel de Rota
         os_produtivas_hoje = 0
+        projecao_op = 0
+        
+        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             try:
                 df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
                 df_r.columns = [str(c).strip().upper() for c in df_r.columns]
+                
                 col_sup = next((c for c in df_r.columns if 'SUPERVISOR' in c), None)
+                col_tipo_os = next((c for c in df_r.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
+                if not col_tipo_os: col_tipo_os = next((c for c in df_r.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
+                col_tarefas = next((c for c in df_r.columns if 'TAREFA' in c or 'QTD' in c), None)
                 
                 def sup_metas(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
@@ -1201,10 +1200,30 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_r['SUPERVISOR_CLEAN'] = df_r.apply(sup_metas, axis=1)
-                df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
                 
-                # Conta tudo que é produtivo na regional ABC
-                os_produtivas_hoje = int(df_r[(df_r['STATUS_PADRAO'] == 'Produtivo') & (df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].shape[0])
+                if col_tipo_os:
+                    df_r = df_r[~df_r[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+
+                df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
+                df_r = df_r[df_r['STATUS_PADRAO'] != 'Descartar']
+                
+                df_abc = df_r[df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
+                
+                if col_tarefas:
+                    df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                    df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+                else: 
+                    df_abc['VALOR_TAREFA'] = 1
+                    
+                os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+                produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+                em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+                
+                os_produtivas_hoje = int(produtivo_op)
+                
+                denom_quebra_op = os_ne_op + produtivo_op
+                eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
+                projecao_op = int(round(produtivo_op + (em_aberto_op * (eficiencia_op / 100))))
             except: pass
 
         # 2. Carrega Produtos do Consultivo de Hoje
@@ -1229,11 +1248,9 @@ with CONTEUDO_TV.container():
             except: pass
 
         # 3. Tratamento de Metas e Histórico de Setembro
-        meta_mensal = 11000
         meta_diaria = 440
         
         # Gestão de Histórico (Excel/CSV local)
-        # Cria o arquivo de histórico se não existir
         if not os.path.exists(ARQUIVO_HISTORICO_METAS):
             df_init = pd.DataFrame(columns=["DATA", "OS_PRODUTIVAS", "PRODUTOS_CONSULTIVO"])
             df_init.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
@@ -1256,43 +1273,47 @@ with CONTEUDO_TV.container():
         deficit_acumulado = 0
         if not df_passado.empty:
             df_passado['TOTAL_DIA'] = pd.to_numeric(df_passado['OS_PRODUTIVAS'], errors='coerce').fillna(0) + pd.to_numeric(df_passado['PRODUTOS_CONSULTIVO'], errors='coerce').fillna(0)
-            # Para cada dia passado, calcula quanto faltou para 440 (se fez menos, gera déficit positivo)
             df_passado['FALTA_DIA'] = meta_diaria - df_passado['TOTAL_DIA']
-            deficit_acumulado = int(df_passado['FALTA_DIA'].sum()) # Se for positivo, é déficit. Se negativo, é sobra.
+            deficit_acumulado = int(df_passado['FALTA_DIA'].sum())
 
         # Metricas de Hoje
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
-        meta_ajustada_hoje = meta_diaria + max(0, deficit_acumulado) # Soma o déficit anterior se houver
+        meta_ajustada_hoje = meta_diaria + max(0, deficit_acumulado) 
         falta_para_meta_hoje = max(0, meta_ajustada_hoje - total_realizado_hoje)
         
-        # Exibição Visual Estilizada em Cards
+        # Exibição Visual Estilizada em 4 Cards Gigantes
         cor_status_dia = "#2e7d32" if total_realizado_hoje >= meta_ajustada_hoje else "#c62828"
 
         st.markdown(f'''
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
             <div class="sup-card" style="text-align: center; background: #e3f2fd; border-color: #90caf9;">
-                <div style="font-size: 18px; font-weight: bold; color: #0277bd;">PROJEÇÃO DIÁRIA</div>
-                <div style="font-size: 65px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria}</div>
-                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de OS</div>
+                <div style="font-size: 20px; font-weight: bold; color: #0277bd;">META DIÁRIA BASE</div>
+                <div style="font-size: 80px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria}</div>
             </div>
             <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
-                <div style="font-size: 18px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
-                <div style="font-size: 65px; font-weight: 900; color: {'#c62828' if deficit_acumulado > 0 else '#2e7d32'}; line-height: 1;">{deficit_acumulado}</div>
-                <div style="font-size: 14px; color: #555; margin-top: 5px;">Saldo pendente de dias anteriores</div>
+                <div style="font-size: 20px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
+                <div style="font-size: 80px; font-weight: 900; color: {'#c62828' if deficit_acumulado > 0 else '#2e7d32'}; line-height: 1;">{deficit_acumulado}</div>
             </div>
-            <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #a5d6a7;">
-                <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">ATUAL REALIZADO (HOJE)</div>
-                <div style="font-size: 65px; font-weight: 900; color: #1b5e20; line-height: 1;">{total_realizado_hoje}</div>
-                <div style="font-size: 14px; color: #555; margin-top: 5px;">{os_produtivas_hoje} OS Painel + {produtos_consultivo_hoje} Consultivo</div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div class="sup-card" style="text-align: center; background: #f3e5f5; border-color: #ce93d8;">
+                <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">PROJEÇÃO DE O.S. (HOJE)</div>
+                <div style="font-size: 80px; font-weight: 900; color: #4a148c; line-height: 1;">{projecao_op}</div>
+                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa do Painel Rotativo</div>
+            </div>
+            <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #81c784; box-shadow: 0px 8px 20px rgba(0,0,0,0.15); transform: scale(1.02);">
+                <div style="font-size: 22px; font-weight: bold; color: #1b5e20;">ATUAL REALIZADO (HOJE)</div>
+                <div style="font-size: 90px; font-weight: 900; color: #111; line-height: 1;">{total_realizado_hoje}</div>
+                <div style="font-size: 18px; font-weight: bold; color: #555; margin-top: 5px;">{os_produtivas_hoje} O.S. Painel + {produtos_consultivo_hoje} Consultivo</div>
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
-        # Bloco de Diagnóstico e Instrução Clara para a Operação
         st.markdown(f'''
         <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if total_realizado_hoje >= meta_ajustada_hoje else '#ffebee'};">
             <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
-                {'🎯 META DIÁRIA ATINGIDA!' if total_realizado_hoje >= meta_ajustada_hoje else f'⚠️ FALTA {falta_para_meta_hoje} OS PARA BATER A META DO DIA'}
+                {'🎯 META DIÁRIA ATINGIDA!' if total_realizado_hoje >= meta_ajustada_hoje else f'⚠️ FALTA {falta_para_meta_hoje} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
                 Para alcançar o objetivo diário ajustado (incluindo o déficit acumulado), precisamos compensar os números atuais utilizando exclusivamente os <b>produtos do consultivo</b>.
@@ -1301,8 +1322,8 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_meta = f"Atenção para o painel de metas de setembro. Meta diária de 440. Realizado hoje: {total_realizado_hoje} produtos. Falta o montante de {falta_para_meta_hoje} produtos do consultivo para fechar o dia."
-            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_meta}', 0);</script>"
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de Ó S de hoje é de {projecao_op}. Para alcançar a meta diária, precisamos de {falta_para_meta_hoje} consultivos."
+            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
@@ -1430,7 +1451,7 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                df_cards = df_cons[df_cards['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
