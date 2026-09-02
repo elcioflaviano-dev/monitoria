@@ -26,10 +26,10 @@ if not os.path.exists(ARQUIVO_LOGO):
 
 # 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 24,
-    "MAICON": 23,
+    "EDSON MARCO": 21,
+    "MAICON": 21,
     # "MARCOS ROBERTO": 15,
-    "NELSON": 24
+    "NELSON": 20
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -287,7 +287,6 @@ for janela in [12, 15, 18]:
     fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
     fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
     
-    # 1. Avisos dinâmicos de minutos restantes (1h antes até o fechamento da janela)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -297,7 +296,6 @@ for janela in [12, 15, 18]:
             frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
         
-    # 2. Avisos de janela estourada (1h após o término)
     elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou, e ainda temos contratos sem conclusão. Atenção para não perder o TÉC 1."
@@ -546,7 +544,7 @@ with CONTEUDO_TV.container():
                         if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
                             script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                             delay_atual = 0
-                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total nde contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                             delay_atual += 24000 
                             for i, sup_full in enumerate(SUPS_ABC):
                                 df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
@@ -1177,7 +1175,7 @@ with CONTEUDO_TV.container():
     # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 18:
-        st.markdown(render_topo("METAS, PROJEÇÃO E CONSULTIVO DIÁRIO") + icone_mudo, unsafe_allow_html=True)
+        st.markdown(render_topo("METAS, PROJEÇÃO E CONSULTIVO DIÁRIO") + icone_ativo, unsafe_allow_html=True)
 
         os_produtivas_hoje = 0
         projecao_op = 0
@@ -1230,21 +1228,31 @@ with CONTEUDO_TV.container():
         produtos_consultivo_hoje = 0
         if os.path.exists(ARQUIVO_CONSULTIVO):
             try:
-                df_c = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
-                df_c.columns = [str(c).strip().upper().replace(' ', '_') for c in df_c.columns]
-                col_qtd = next((c for c in df_c.columns if 'QTD' in c and 'PRODUTO' in c), None)
-                col_data = next((c for c in df_c.columns if 'DATA' in c), None)
-                
-                if col_qtd:
-                    df_c['QTD_PROD'] = pd.to_numeric(df_c[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-                    if col_data:
-                        hoje_br = (datetime.utcnow() - timedelta(hours=3)).strftime('%d/%m/%Y')
-                        hoje_us = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
-                        df_c['DT'] = df_c[col_data].astype(str).str.strip().str[:10]
-                        df_c_hoje = df_c[(df_c['DT'] == hoje_br) | (df_c['DT'] == hoje_us)]
-                        produtos_consultivo_hoje = int(df_c_hoje['QTD_PROD'].sum())
-                    else:
-                        produtos_consultivo_hoje = int(df_c['QTD_PROD'].sum())
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
+                df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
+
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
+
+                def class_sup_cons(row):
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
+                    return "DESCARTADO"
+
+                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup_cons, axis=1)
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
+
+                hoje_br_dt = datetime.utcnow() - timedelta(hours=3)
+                hoje_str_br = hoje_br_dt.strftime('%d/%m/%Y')
+                hoje_str_us = hoje_br_dt.strftime('%Y-%m-%d')
+
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+                if col_data:
+                    df_cards['DATA_TXT'] = df_cards[col_data].astype(str).str.strip().str[:10]
+                    mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
+                    df_hoje = df_cards[mask_hoje].copy()
+                    produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
             except: pass
 
         # 3. Tratamento de Metas e Histórico de Setembro
@@ -1451,7 +1459,7 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cards['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
