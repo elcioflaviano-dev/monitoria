@@ -309,7 +309,6 @@ for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
 
 icone_mudo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
 icone_ativo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
-
 html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
 html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
 html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
@@ -347,7 +346,7 @@ with CONTEUDO_TV.container():
             st.session_state.ultima_sincronizacao = time.time()
 
     # -------------------------------------------------------------------------
-    # TELA 0: BASE
+    # TELA 0: BASE (COM HARD BLOCK PARA QUEM JÁ INICIOU A ATIVIDADE BASE)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
@@ -355,20 +354,41 @@ with CONTEUDO_TV.container():
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
 
             if col_recurso:
-                # Busca abrangente de status (apenas pendentes) e tipo base
-                cols_status = [c for c in df.columns if 'STATUS' in c]
-                if not cols_status: cols_status = df.columns
-                mask_status = df[cols_status].apply(lambda col: col.astype(str).str.upper().str.contains('PEND|ABERTO')).any(axis=1)
+                def resolver_sup_base(row):
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup: return oficial
+                    return "DESCARTADO"
+
+                df['SUPERVISOR_CLEAN'] = df.apply(resolver_sup_base, axis=1)
                 
+                # Procura a palavra BASE nas colunas de Tipo de Tarefa
                 cols_base = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
                 if not cols_base: cols_base = df.columns
                 mask_base = df[cols_base].apply(lambda col: col.astype(str).str.upper().str.contains('BASE')).any(axis=1)
 
-                # COMPLETAMENTE DESVINCULADO DE SUPERVISORES!
-                df_tela = df[mask_base & mask_status].copy()
-                nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
+                # Filtra apenas a regional e o que for tarefa base
+                df_base = df[mask_base & (df['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].copy()
+                
+                # Varre todas as colunas de STATUS para garantir precisão
+                cols_status = [c for c in df_base.columns if 'STATUS' in c]
+                if not cols_status: cols_status = [df_base.columns[0]]
+                
+                # Junta os status todos numa linha de texto só para checar as palavras-chave
+                df_base['STATUS_FULL'] = df_base[cols_status].fillna('').astype(str).agg(' '.join, axis=1).str.upper()
+
+                # REGRA DE BLOQUEIO (HARD BLOCK): Se tiver INICIADO, CONCLUÍDO, EXEC ou PRODUTIVO em algum status da Base -> EXCLUI DA LISTA
+                tecnicos_iniciados = df_base[df_base['STATUS_FULL'].str.contains('INIC|EXEC|CONCL|PRODUTIVO')][col_recurso].unique()
+                
+                # Dentre os que sobraram, localiza quem tem PENDENTE ou ABERTO
+                df_pendentes = df_base[df_base['STATUS_FULL'].str.contains('PEND|ABERTO')]
+                nomes_brutos = df_pendentes[col_recurso].dropna().unique()
+                
+                # Lista Final: Estritamente pendentes que não estão nos iniciados
+                nomes_abc = sorted([str(n).strip().upper() for n in nomes_brutos if n not in tecnicos_iniciados])
                 
                 st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
 
@@ -1008,623 +1028,26 @@ with CONTEUDO_TV.container():
                                         <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
                                     </div>
                                 </div>
-                            </div>''', unsafe_allow_html=True)
-            if st.session_state.novo_ciclo:
-                texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
-                st.session_state.novo_ciclo = False
-            st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+Para exibir apenas os nomes com status pendente e ocultar os que já foram iniciados, aplique a regra de filtragem de acordo com a ferramenta que você está estruturando sua base:
 
-    # -------------------------------------------------------------------------
-    # TELA 10: VISÃO DA ROTA DOS MONTADOS (EQUIPE FIXA - SEM RETORNOS)
-    # -------------------------------------------------------------------------
-    elif st.session_state.idx == 10:
-        st.markdown(render_topo("VISÃO GERAL DA ROTA - EQUIPE FIXA") + icone_mudo, unsafe_allow_html=True)
+**No Excel (Usando a Função FILTRO)**
+Se você está gerando essa lista em uma nova aba ou tabela a partir da sua extração, use a fórmula `=FILTRO`:
 
-        if os.path.exists(ARQUIVO_ROTA_DISCO):
-            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
-            df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
+*   **Para mostrar apenas "Pendente":**
+    `=FILTRO(A2:D1000; B2:B1000="Pendente"; "Nenhum pendente na base")`
+*   **Para mostrar tudo, exceto "Iniciado" (caso existam outros status):**
+    `=FILTRO(A2:D1000; B2:B1000<>"Iniciado"; "Base limpa")`
 
-            col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
-            col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
-            if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
-            col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c or 'QTD' in c), None)
+*(Ajuste o intervalo `A2:D1000` para a sua tabela real e a coluna `B` para a coluna onde fica o status da OS/serviço).*
 
-            df_proj = df_rota.copy()
+**No Power BI (Visual ou DAX)**
+Se você está montando a visualização no painel:
 
-            def class_sup_10(row):
-                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                for oficial in SUPERVISORES_ORDENADOS:
-                    if oficial in sup: return oficial
-                return "DESCARTADO"
+*   **Painel de Filtros (Mais rápido):** Arraste a coluna de Status da sua base para a área de **Filtros neste visual**. Desmarque a opção "Iniciado" e deixe marcada apenas a opção "Pendente".
+*   **Tabela DAX (Para criar uma tabela separada só com pendentes):**
+    `BasePendentes = FILTER('NomeDaSuaTabela', 'NomeDaSuaTabela'[Status] = "Pendente")`
+*   **Medida DAX (Para exibir o volume/quantidade de pendentes no dashboard):**
+    `Total Pendentes = CALCULATE(COUNTROWS('NomeDaSuaTabela'), 'NomeDaSuaTabela'[Status] = "Pendente")`
 
-            df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
-
-            # --- RETORNO EXCLUÍDO DA SOMA ---
-            if col_tipo_os:
-                df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
-
-            df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
-            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
-
-            if col_tarefas:
-                df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
-            else: df_proj['VALOR_TAREFA'] = 1
-
-            df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
-            
-            total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
-            os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
-            produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-            em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
-
-            total_tecnicos_op = sum(QTD_TECNICOS_MONTADOS.get(sup, 0) for sup in SUPS_ABC)
-            if total_tecnicos_op == 0: total_tecnicos_op = 1
-
-            denom_quebra_op = os_ne_op + produtivo_op
-            quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
-            eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
-            projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
-            
-            os_reais_op = produtivo_op + em_aberto_op
-            media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
-
-            cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
-
-            st.session_state.ticker_data[10] = f"🌍 MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
-
-            st.markdown(f'''
-            <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 10px solid #003366; background: #e3f2fd;">
-                <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
-                        <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 16px; font-weight: bold; color: #666;">PROJEÇÃO</div>
-                        <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 16px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
-                        <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 16px; font-weight: bold; color: #666;">QUEBRAS</div>
-                        <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 16px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
-                        <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
-                    </div>
-                </div>
-                <div style="font-size: 20px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
-                    <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
-                    <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
-                    <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
-                    <span>👷 TÉCNICOS: <span style="color:#003366;">{total_tecnicos_op}</span></span>
-                </div>
-            </div>
-            ''', unsafe_allow_html=True)
-
-            for i in range(0, len(SUPS_ABC), 2):
-                cols_sup = st.columns(2)
-                for j in range(2):
-                    if i + j < len(SUPS_ABC):
-                        sup = SUPS_ABC[i + j]
-                        with cols_sup[j]:
-                            df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
-
-                            total_tarefas = df_sup['VALOR_TAREFA'].sum()
-                            os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
-                            produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
-                            em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
-
-                            total_tecnicos = QTD_TECNICOS_MONTADOS.get(sup, 1)
-
-                            os_reais = produtivo + em_aberto
-                            media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
-
-                            denom_quebra = os_ne + produtivo
-                            quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
-                            eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
-                            projecao = produtivo + (em_aberto * (eficiencia / 100))
-
-                            cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
-
-                            st.markdown(f'''
-                            <div class="sup-card">
-                                <div class="sup-header">
-                                    <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <div style="background: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
-                                        <div style="background: #ffebee; color: {cor_q}; border: 1px solid {cor_q}; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
-                                        <div style="background: #e3f2fd; color: #006064; border: 1px solid #006064; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Média: {media_equipe:.2f}</div>
-                                    </div>
-                                </div>
-                                <div class="faltas-grid">
-                                    <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                        <div class="falta-label" style="color: #b78103;">ABERTO</div>
-                                        <div class="falta-value" style="color: #b78103;">{int(em_aberto)}</div>
-                                    </div>
-                                    <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                        <div class="falta-label" style="color: #2e7d32;">PROD.</div>
-                                        <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
-                                    </div>
-                                    <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                        <div class="falta-label" style="color: #c62828;">QUEBRAS</div>
-                                        <div class="falta-value" style="color: #b30000;">{int(os_ne)}</div>
-                                    </div>
-                                    <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
-                                        <div class="falta-label" style="color: #00838f;">PROJ.</div>
-                                        <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
-                                    </div>
-                                </div>
-                            </div>''', unsafe_allow_html=True)
-            if st.session_state.novo_ciclo:
-                texto_audio_10 = f"Atenção para a Visão Geral da Rota da Equipe Fixa. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
-                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_10}', 0);</script>"
-                st.session_state.novo_ciclo = False
-            st.components.v1.html(st.session_state.script_audio_atual, height=0)
-        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-
-    # -------------------------------------------------------------------------
-    # TELA 5: CONSULTIVO GERAL
-    # -------------------------------------------------------------------------
-    elif st.session_state.idx == 5:
-        st.markdown(render_topo("CONSULTIVO GERAL") + icone_mudo, unsafe_allow_html=True)
-
-        if os.path.exists(ARQUIVO_CONSULTIVO):
-            try:
-                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
-                df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
-
-                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
-                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
-                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
-
-                def class_sup(row):
-                    for oficial in SUPERVISORES_ORDENADOS:
-                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
-                    return "DESCARTADO"
-
-                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-
-                col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
-                def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
-
-                total_realizado_abc = int(df_cards['QTD_PRODUTOS_CALC'].sum())
-                total_contratos_abc = count_contracts(df_cards)
-
-                hoje = datetime.utcnow() - timedelta(hours=3)
-                ano, mes = hoje.year, hoje.month
-                _, num_dias = calendar.monthrange(ano, mes)
-                dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
-                if dias_restantes == 0: dias_restantes = 1
-
-                meta_mensal_abc = len(SUPS_ABC) * 350
-                st.session_state.ticker_data[5] = f"📈 CONSULTIVO MÊS: {total_realizado_abc} PRODUTOS (META: {meta_mensal_abc})"
-
-                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 10px;">
-                    <span style="font-size: 20px; font-weight: bold; color: #555;">Dias úteis restantes: </span>
-                    <span style="font-size: 28px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
-                </div>''', unsafe_allow_html=True)
-
-                st.markdown(f'''<div class="box-base" style="padding: 10px;">
-                    <div class="nome-base" style="margin-bottom: 5px;">🏢 ACUMULADO DO MÊS (Meta: {meta_mensal_abc})</div>
-                    <div style="display: flex; justify-content: space-around; align-items: center;">
-                        <div>
-                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Contratos</div>
-                            <div style="font-size: 70px; font-weight: 900; color: #0277bd; line-height: 1;">{total_contratos_abc}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Produtos</div>
-                            <div style="font-size: 70px; font-weight: 900; color: #111; line-height: 1;">{total_realizado_abc}</div>
-                        </div>
-                    </div>
-                </div>''', unsafe_allow_html=True)
-                
-                for i in range(0, len(SUPS_ABC), 2):
-                    cols_sup = st.columns(2)
-                    for j in range(2):
-                        if i + j < len(SUPS_ABC):
-                            sup = SUPS_ABC[i + j]
-                            with cols_sup[j]:
-                                df_sup_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]
-                                qtd_sup = int(df_sup_mes['QTD_PRODUTOS_CALC'].sum())
-                                qtd_contratos_sup = count_contracts(df_sup_mes)
-                                falta_individual = max(0, 350 - qtd_sup)
-                                ritmo_diario_individual = int(round(falta_individual / dias_restantes))
-
-                                st.markdown(f'''
-                                <div class="sup-card">
-                                    <div class="sup-header">
-                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo: 350</div>
-                                    </div>
-                                    <div class="faltas-grid">
-                                        <div class="falta-box" style="background-color: #e3f2fd; border-color: #81d4fa;">
-                                            <div class="falta-label" style="color: #0277bd;">CONTRATOS</div>
-                                            <div class="falta-value" style="color: #01579b;">{qtd_contratos_sup}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                            <div class="falta-label" style="color: #2e7d32;">PRODUTOS</div>
-                                            <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                            <div class="falta-label" style="color: #c62828;">FALTAM</div>
-                                            <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                            <div class="falta-label" style="color: #b78103;">DIÁRIA</div>
-                                            <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
-                                        </div>
-                                    </div>
-                                </div>''', unsafe_allow_html=True)
-
-                if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
-
-            except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
-        else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
-
-    # -------------------------------------------------------------------------
-    # TELA 6: CONSULTIVO DIÁRIO 
-    # -------------------------------------------------------------------------
-    elif st.session_state.idx == 6:
-        st.markdown(render_topo("CONSULTIVO DIÁRIO") + icone_mudo, unsafe_allow_html=True)
-
-        if os.path.exists(ARQUIVO_CONSULTIVO):
-            try:
-                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
-                df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
-
-                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
-                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
-                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
-
-                def class_sup(row):
-                    for oficial in SUPERVISORES_ORDENADOS:
-                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
-                    return "DESCARTADO"
-
-                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
-
-                col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
-                def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
-
-                hoje_br = datetime.utcnow() - timedelta(hours=3)
-                hoje_str_br = hoje_br.strftime('%d/%m/%Y')
-                hoje_str_us = hoje_br.strftime('%Y-%m-%d')
-
-                df_hoje = pd.DataFrame()
-                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
-                if col_data:
-                    df_cards['DATA_TXT'] = df_cards[col_data].astype(str).str.strip().str[:10]
-                    mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
-                    df_hoje = df_cards[mask_hoje].copy()
-                
-                ano, mes = hoje_br.year, hoje_br.month
-                _, num_dias = calendar.monthrange(ano, mes)
-                dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
-                if dias_restantes <= 0: dias_restantes = 1
-
-                total_hoje_abc = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
-                total_contratos_hoje_abc = count_contracts(df_hoje) if not df_hoje.empty else 0
-
-                meta_dia_base_abc = 0
-                for sup in SUPS_ABC:
-                    qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                    meta_dia_base_abc += int(round(max(0, 350 - qtd_m) / dias_restantes))
-
-                st.session_state.ticker_data[6] = f"📉 CONSULTIVO HOJE: {total_hoje_abc} PRODUTOS (META: {meta_dia_base_abc})"
-
-                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 10px;">
-                    <span style="font-size: 20px; font-weight: bold; color: #555;">Resultados de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
-                    <span style="font-size: 28px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
-                </div>''', unsafe_allow_html=True)
-
-                st.markdown(f'''<div class="box-base" style="padding: 10px;">
-                    <div class="nome-base" style="margin-bottom: 5px;">🏢 HOJE (Meta Diária: {meta_dia_base_abc})</div>
-                    <div style="display: flex; justify-content: space-around; align-items: center;">
-                        <div>
-                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Contratos Hoje</div>
-                            <div style="font-size: 70px; font-weight: 900; color: #0277bd; line-height: 1;">{total_contratos_hoje_abc}</div>
-                        </div>
-                        <div>
-                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Produtos Hoje</div>
-                            <div style="font-size: 70px; font-weight: 900; color: #111; line-height: 1;">{total_hoje_abc}</div>
-                        </div>
-                    </div>
-                </div>''', unsafe_allow_html=True)
-                
-                for i in range(0, len(SUPS_ABC), 2):
-                    cols_sup = st.columns(2)
-                    for j in range(2):
-                        if i + j < len(SUPS_ABC):
-                            sup = SUPS_ABC[i + j]
-                            with cols_sup[j]:
-                                qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
-                                df_sup_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup] if not df_hoje.empty else pd.DataFrame()
-                                qtd_hoje = int(df_sup_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_sup_hoje.empty else 0
-                                qtd_contratos_hoje_sup = count_contracts(df_sup_hoje) if not df_sup_hoje.empty else 0
-                                
-                                meta_dia = int(round(max(0, 350 - qtd_mes) / dias_restantes))
-                                falta_hoje = int(round(max(0, meta_dia - qtd_hoje)))
-
-                                st.markdown(f'''
-                                <div class="sup-card">
-                                    <div class="sup-header">
-                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
-                                        <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Acumulado: {int(qtd_mes)}</div>
-                                    </div>
-                                    <div class="faltas-grid">
-                                        <div class="falta-box" style="background-color: #e3f2fd; border-color: #81d4fa;">
-                                            <div class="falta-label" style="color: #0277bd;">CONTRATOS</div>
-                                            <div class="falta-value" style="color: #01579b;">{qtd_contratos_hoje_sup}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
-                                            <div class="falta-label" style="color: #2e7d32;">PRODUTOS</div>
-                                            <div class="falta-value" style="color: #1b5e20;">{qtd_hoje}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
-                                            <div class="falta-label" style="color: #c62828;">FALTAM</div>
-                                            <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
-                                        </div>
-                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
-                                            <div class="falta-label" style="color: #b78103;">DIÁRIA</div>
-                                            <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
-                                        </div>
-                                    </div>
-                                </div>''', unsafe_allow_html=True)
-
-                if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = ""
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
-
-            except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
-        else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
-
-    # -------------------------------------------------------------------------
-    # TELA 3: PRINT DOS INDICADORES
-    # -------------------------------------------------------------------------
-    elif st.session_state.idx == 3:
-        st.markdown(render_topo("PRINT DOS INDICADORES") + html_audio_ind, unsafe_allow_html=True)
-
-        if os.path.exists(ARQUIVO_ROTA_DISCO):
-            try:
-                df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
-                df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
-                
-                col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
-                col_nr35 = next((c for c in df_ind.columns[::-1] if 'NR35' in c or 'NR-35' in c), None)
-                col_cert = next((c for c in df_ind.columns[::-1] if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
-                col_bst  = next((c for c in df_ind.columns[::-1] if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
-
-                def class_sup_3(row):
-                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
-                    for oficial in SUPERVISORES_ORDENADOS:
-                        if oficial in sup: return oficial
-                    return "DESCARTADO"
-
-                if not df_ind.empty:
-                    df_ind['SUPERVISOR_CLEAN'] = df_ind.apply(class_sup_3, axis=1)
-                    df_ind['STATUS_PADRAO'] = df_ind.apply(padronizar_status, axis=1)
-                else:
-                    df_ind['SUPERVISOR_CLEAN'] = "DESCARTADO"
-                    df_ind['STATUS_PADRAO'] = "Descartar"
-
-                df_produtivo = df_ind[(df_ind['STATUS_PADRAO'] == 'Produtivo') & (df_ind['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].copy()
-
-                if not df_produtivo.empty:
-                    col_contrato = next((c for c in df_produtivo.columns if 'CONTRATO' in c), None)
-                    if col_contrato:
-                        df_produtivo[col_contrato] = df_produtivo[col_contrato].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
-                        df_produtivo = df_produtivo[df_produtivo[col_contrato] != ''].drop_duplicates(subset=[col_contrato])
-
-                    df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_nr35 else 0
-                    df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_cert else 0
-                    df_produtivo['FALTA_BST']  = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_bst else 0
-                else:
-                    df_produtivo['FALTA_NR35'] = 0
-                    df_produtivo['FALTA_CERT'] = 0
-                    df_produtivo['FALTA_BST']  = 0
-
-                total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
-
-                st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
-                
-                for i in range(0, len(SUPS_ABC), 2):
-                    cols_sup = st.columns(2)
-                    for j in range(2):
-                        if i + j < len(SUPS_ABC):
-                            sup = SUPS_ABC[i + j]
-                            with cols_sup[j]:
-                                df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
-                                f_35 = int(df_sup['FALTA_NR35'].sum()) if not df_sup.empty else 0
-                                f_ce = int(df_sup['FALTA_CERT'].sum()) if not df_sup.empty else 0
-                                f_bs = int(df_sup['FALTA_BST'].sum())  if not df_sup.empty else 0
-                                
-                                st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
-                                    <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
-                                    <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
-                                    <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
-
-                if permitir_audio_ind:
-                    script_ind = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
-                else: 
-                    script_ind = ""
-                
-                if st.session_state.novo_ciclo:
-                    st.session_state.script_audio_atual = script_ind
-                    st.session_state.novo_ciclo = False
-                st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            except Exception as e:
-                st.error(f"Erro na validação de Indicadores: {e}")
-        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
-
-    # -------------------------------------------------------------------------
-    # TELA 2: HORÁRIO
-    # -------------------------------------------------------------------------
-    elif st.session_state.idx == 2:
-        st.markdown(render_topo("HORÁRIO") + icone_ativo, unsafe_allow_html=True)
-
-        tempo_real = datetime.utcnow() - timedelta(hours=3)
-        
-        st.markdown(f'''
-        <div class="relogio-container">
-            <div id="relogio-dinamico" class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div>
-            <div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div>
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        if st.session_state.novo_ciclo:
-            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
-            st.session_state.novo_ciclo = False
-        
-        script_relogio_dinamico = """
-        <script>
-            setInterval(function() {
-                var el = window.parent.document.getElementById('relogio-dinamico');
-                if (el) {
-                    var data = new Date();
-                    var h = String(data.getHours()).padStart(2, '0');
-                    var m = String(data.getMinutes()).padStart(2, '0');
-                    var s = String(data.getSeconds()).padStart(2, '0');
-                    el.innerText = h + ":" + m + ":" + s;
-                }
-            }, 1000);
-        </script>
-        """
-        st.components.v1.html(st.session_state.script_audio_atual + script_relogio_dinamico, height=0)
-
-    # ---> RENDERIZADOR DO TICKER FINANCEIRO <---
-    if st.session_state.idx != 4 and not modo_estatico:  
-        ticker_items = []
-        for k, v in st.session_state.ticker_data.items():
-            if k != st.session_state.idx:
-                ticker_items.append(f'<span class="ticker__item">{v}</span>')
-        
-        if ticker_items:
-            separator = '<span style="color:#ff9800; font-weight:bold; font-size:24px;">&nbsp;&nbsp;•&nbsp;&nbsp;</span>'
-            joined_items = separator.join(ticker_items)
-            ticker_content = f"{joined_items}{separator}{joined_items}{separator}{joined_items}"
-            
-            st.markdown(f'''
-            <div class="ticker-wrap">
-                <div class="ticker">
-                    {ticker_content}
-                </div>
-            </div>
-            ''', unsafe_allow_html=True)
-
-# =========================================================================
-# CONTROLES DE NAVEGAÇÃO E TRANSIÇÃO 🔄
-# =========================================================================
-if modo_estatico:
-    btn_atualizar = st.button("🔄 ATUALIZAR", key="btn_atualizar_estatico")
-    if btn_atualizar:
-        st.session_state.novo_ciclo = True
-        st.rerun()
-
-    js_timer_estatico = f"""
-    <script>
-    setTimeout(function() {{
-        var buttons = window.parent.document.querySelectorAll('button');
-        for (var i=0; i<buttons.length; i++) {{
-            if (buttons[i].innerText && buttons[i].innerText.indexOf('ATUALIZAR') !== -1) {{
-                buttons[i].click();
-                break;
-            }}
-        }}
-    }}, 60000);
-    </script>
-    """
-    st.components.v1.html(js_timer_estatico, height=0)
-    st.stop()
-
-col_voltar, col_vazio, col_pular = st.columns([1, 8, 1])
-with col_voltar:
-    voltar = st.button("⬅️ ANTERIOR", key="btn_anterior")
-with col_pular:
-    pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
-
-agora_loop = datetime.utcnow() - timedelta(hours=3)
-minutos_loop = agora_loop.hour * 60 + agora_loop.minute
-
-periodo_matinal_base = (7*60 <= minutos_loop < 8*60 + 30)
-
-alerta_fim_janela_loop = False
-if agora_loop.hour in [11, 14, 17] and agora_loop.minute >= 0: alerta_fim_janela_loop = True
-if agora_loop.hour in [12, 15, 18]: alerta_fim_janela_loop = True
-
-tempos_espera = {
-    0: 60,
-    1: 30 if alerta_fim_janela_loop else 60,
-    7: 60,
-    8: 60,
-    9: 60,
-    10: 60,
-    11: 20, 12: 20, 13: 20, 14: 20, 15: 20, 16: 20,
-    17: 20,
-    5: 60,
-    6: 60,
-    3: 45,
-    2: 30 if (alerta_fim_janela_loop or periodo_matinal_base) else 60,
-    4: 2
-}
-
-espera = tempos_espera.get(st.session_state.idx, 60)
-
-if st.session_state.idx == 1 and permitir_audio_tec1:
-    espera = 95 
-
-if st.session_state.idx == 4:
-    st.session_state.idx = st.session_state.prox_idx
-    st.session_state.novo_ciclo = True
-    st.rerun()
-else:
-    if periodo_matinal_base:
-        telas_fluxo = [0, 2]
-    else:
-        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 5, 6, 3, 2]
-        
-    try:
-        pos = telas_fluxo.index(st.session_state.idx)
-    except ValueError:
-        pos = 0
-        
-    if pular:
-        st.session_state.prox_idx = telas_fluxo[(pos + 1) % len(telas_fluxo)]
-        st.session_state.idx = 4
-        st.session_state.novo_ciclo = True
-        st.rerun()
-    elif voltar:
-        st.session_state.prox_idx = telas_fluxo[(pos - 1) % len(telas_fluxo)]
-        st.session_state.idx = 4
-        st.session_state.novo_ciclo = True
-        st.rerun()
-    else:
-        js_timer = f"""
-        <script>
-        /* TIMESTAMP: {time.time()} */
-        setTimeout(function() {{
-            var buttons = window.parent.document.querySelectorAll('button');
-            for (var i=0; i<buttons.length; i++) {{
-                if (buttons[i].innerText && buttons[i].innerText.indexOf('PRÓXIMA') !== -1) {{
-                    buttons[i].click();
-                    break;
-                }}
-            }}
-        }}, {espera * 1000});
-        </script>
-        """
-        st.components.v1.html(js_timer, height=0)
-        st.stop()
+**No Power Query (Excel ou Power BI)**
+Se quiser que o dado de "Iniciado" nem chegue ao painel final para não pesar a base, vá em **Transformar Dados**, clique na seta do cabeçalho da coluna de Status, desmarque a caixa "Iniciado" (ou deixe apenas "Pendente" marcado) e clique em **Fechar e Aplicar**.
