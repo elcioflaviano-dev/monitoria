@@ -285,7 +285,6 @@ for janela in [12, 15, 18]:
     fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
     fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
     
-    # 1. Avisos dinâmicos de minutos restantes (1h antes até o fechamento da janela)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -295,7 +294,6 @@ for janela in [12, 15, 18]:
             frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
         
-    # 2. Avisos de janela estourada (1h após o término)
     elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou, e ainda temos contratos sem conclusão. Atenção para não perder o TEC 1."
@@ -309,7 +307,6 @@ for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
 
 icone_mudo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
 icone_ativo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
-
 html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
 html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
 html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
@@ -347,7 +344,7 @@ with CONTEUDO_TV.container():
             st.session_state.ultima_sincronizacao = time.time()
 
     # -------------------------------------------------------------------------
-    # TELA 0: BASE
+    # TELA 0: BASE (HARD BLOCK CONTRA INICIADOS/CONCLUÍDOS)
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 0:
         st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
@@ -357,18 +354,29 @@ with CONTEUDO_TV.container():
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
 
             if col_recurso:
-                # Busca abrangente de status (apenas pendentes) e tipo base
-                cols_status = [c for c in df.columns if 'STATUS' in c]
-                if not cols_status: cols_status = df.columns
-                mask_status = df[cols_status].apply(lambda col: col.astype(str).str.upper().str.contains('PEND|ABERTO')).any(axis=1)
-                
+                # Localiza a palavra BASE nas colunas de Tipo
                 cols_base = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
                 if not cols_base: cols_base = df.columns
                 mask_base = df[cols_base].apply(lambda col: col.astype(str).str.upper().str.contains('BASE')).any(axis=1)
 
-                # COMPLETAMENTE DESVINCULADO DE SUPERVISORES!
-                df_tela = df[mask_base & mask_status].copy()
-                nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
+                df_base = df[mask_base].copy()
+
+                # Localiza todas as colunas de STATUS disponíveis
+                cols_status = [c for c in df_base.columns if 'STATUS' in c]
+                if not cols_status: cols_status = [df_base.columns[0]]
+                
+                # Junta todos os status em uma string única para cada linha
+                df_base['STATUS_FULL'] = df_base[cols_status].fillna('').astype(str).agg(' '.join, axis=1).str.upper()
+
+                # REGRA DE BLOQUEIO (HARD BLOCK): Acha quem já iniciou ou concluiu a base
+                tecnicos_iniciados = df_base[df_base['STATUS_FULL'].str.contains('INIC|EXEC|CONCL|PRODUTIVO')][col_recurso].unique()
+                
+                # Acha quem está pendente
+                df_pendentes = df_base[df_base['STATUS_FULL'].str.contains('PEND|ABERTO')]
+                nomes_brutos = df_pendentes[col_recurso].dropna().unique()
+                
+                # Lista Final: Técnicos pendentes que NÃO estão na lista dos iniciados
+                nomes_abc = sorted([str(n).strip().upper() for n in nomes_brutos if n not in tecnicos_iniciados])
                 
                 st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
 
@@ -393,7 +401,6 @@ with CONTEUDO_TV.container():
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 
-                # Aviso visual do sistema anti-repetição
                 if permitir_audio_base and len(nomes_abc) > 0:
                     falta_segundos = 180 - int(time.time() - st.session_state.ultimo_audio_base)
                     if falta_segundos > 0:
@@ -588,7 +595,7 @@ with CONTEUDO_TV.container():
             
             col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
             col_x = next((c for c in df_rota.columns if 'COORDENADA X' in c or 'LONG' in c), None)
-            col_y = next((c for c in df_rota.columns if 'COORDENADA Y' in c or 'LATI' in c), None)
+            col_y = next((c for c in df.columns if 'COORDENADA Y' in c or 'LATI' in c), None)
             col_tec = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
             col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
             
@@ -1293,7 +1300,7 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                df_cards = df_cons[df_cards['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
