@@ -1175,7 +1175,7 @@ with CONTEUDO_TV.container():
     # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 18:
-        st.markdown(render_topo("METAS, PROJEÇÃO E CONSULTIVO DIÁRIO") + icone_ativo, unsafe_allow_html=True)
+        st.markdown(render_topo("METAS DO MÊS") + icone_ativo, unsafe_allow_html=True)
 
         os_produtivas_hoje = 0
         projecao_op = 0
@@ -1323,7 +1323,7 @@ with CONTEUDO_TV.container():
         st.markdown(f'''
         <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if projecao_op >= meta_ajustada_hoje else '#ffebee'};">
             <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
-                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
+                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
                 Para alcançar o objetivo diário ajustado (incluindo o déficit acumulado), precisamos compensar os números atuais utilizando exclusivamente os <b>produtos do consultivo</b>.
