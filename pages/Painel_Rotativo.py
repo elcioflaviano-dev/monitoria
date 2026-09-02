@@ -1310,7 +1310,7 @@ with CONTEUDO_TV.container():
             <div class="sup-card" style="text-align: center; background: #f3e5f5; border-color: #ce93d8;">
                 <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">PROJEÇÃO DE O.S. (HOJE)</div>
                 <div style="font-size: 80px; font-weight: 900; color: #4a148c; line-height: 1;">{projecao_op}</div>
-                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa do Painel Rotativo</div>
+                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa de hoje</div>
             </div>
             <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #81c784; box-shadow: 0px 8px 20px rgba(0,0,0,0.15); transform: scale(1.02);">
                 <div style="font-size: 22px; font-weight: bold; color: #1b5e20;">ATUAL REALIZADO (HOJE)</div>
