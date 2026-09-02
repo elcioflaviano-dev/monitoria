@@ -1326,7 +1326,7 @@ with CONTEUDO_TV.container():
                 {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                Para alcançar o objetivo diário ajustado (incluindo o déficit acumulado), precisamos compensar os números atuais utilizando exclusivamente os <b>produtos do consultivo</b>.
+                <b>Para alcançar a META diária (incluindo o déficit acumulado), precisamos realizar CONSULTIVOS</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
