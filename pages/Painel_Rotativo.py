@@ -1302,7 +1302,7 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cards['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
