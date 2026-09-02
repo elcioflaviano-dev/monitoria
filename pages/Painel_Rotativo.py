@@ -285,7 +285,6 @@ for janela in [12, 15, 18]:
     fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
     fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
     
-    # 1. Avisos dinâmicos de minutos restantes (1h antes até o fechamento da janela)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -295,10 +294,9 @@ for janela in [12, 15, 18]:
             frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
         
-    # 2. Avisos de janela estourada (1h após o término)
     elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
-        frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou, e ainda temos contratos sem conclusão. Atenção para não perder o TÉC 1."
+        frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou, e ainda temos contratos sem conclusão. Atenção para não perder o TEC 1."
         break
 
 permitir_audio_ind = False
@@ -309,7 +307,6 @@ for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
 
 icone_mudo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
 icone_ativo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
-
 html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
 html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
 html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
@@ -355,11 +352,9 @@ with CONTEUDO_TV.container():
             df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
             df.columns = [str(c).strip().upper() for c in df.columns]
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
-            col_status = next((c for c in df.columns if 'STATUS' in c), None)
             col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
-            col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
 
-            if col_status:
+            if col_recurso:
                 def resolver_sup_base(row):
                     sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
                     for oficial in SUPERVISORES_ORDENADOS:
@@ -367,13 +362,19 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df['SUPERVISOR_CLEAN'] = df.apply(resolver_sup_base, axis=1)
-                mask_status = df[col_status].fillna('').astype(str).str.lower().str.contains('pend|aberto')
+                df['STATUS_PADRAO'] = df.apply(padronizar_status, axis=1)
                 
+                # Filtra apenas os contratos que o padronizador validou como "Em aberto"
+                mask_status = df['STATUS_PADRAO'] == 'Em aberto'
+                
+                # Busca exata ou super abrangente para a palavra BASE
+                col_tipo_exata = next((c for c in df.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c), None)
                 if col_tipo_exata: 
-                    mask_base = df[col_tipo_exata].fillna('').astype(str).str.lower().str.contains('base')
+                    mask_base = df[col_tipo_exata].fillna('').astype(str).str.upper().str.contains('BASE')
                 else:
-                    cols_tipo = [c for c in df.columns if 'TIPO' in c]
-                    mask_base = df[cols_tipo].apply(lambda col: col.astype(str).str.lower().str.contains('base')).any(axis=1)
+                    cols_tipo = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
+                    if not cols_tipo: cols_tipo = df.columns
+                    mask_base = df[cols_tipo].apply(lambda col: col.fillna('').astype(str).str.upper().str.contains('BASE')).any(axis=1)
 
                 df_tela = df[mask_base & mask_status & (df['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].copy()
                 nomes_abc = sorted([str(n).strip().upper() for n in df_tela[col_recurso].dropna().unique()])
@@ -401,13 +402,14 @@ with CONTEUDO_TV.container():
                     st.session_state.script_audio_atual = script_cenario
                     st.session_state.novo_ciclo = False 
                 
+                # Aviso visual do sistema anti-repetição
                 if permitir_audio_base and len(nomes_abc) > 0:
                     falta_segundos = 180 - int(time.time() - st.session_state.ultimo_audio_base)
                     if falta_segundos > 0:
                         st.markdown(f"<div style='text-align:center; color:#888; font-weight:bold; margin-top: -10px; margin-bottom: 10px;'>🔇 Sistema anti-repetição de voz ativo. Próximo aviso sonoro em {falta_segundos} segundos.</div>", unsafe_allow_html=True)
 
                 st.components.v1.html(st.session_state.script_audio_atual, height=0)
-            else: st.error("Coluna Status não encontrada.")
+            else: st.error("Coluna de Recurso não encontrada.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -549,7 +551,7 @@ with CONTEUDO_TV.container():
                         if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
                             script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                             delay_atual = 0
-                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de Ó S: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                             delay_atual += 24000 
                             for i, sup_full in enumerate(SUPS_ABC):
                                 df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
@@ -1300,7 +1302,7 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                df_cards = df_cons[df_cards['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
