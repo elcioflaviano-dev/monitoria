@@ -1175,7 +1175,7 @@ with CONTEUDO_TV.container():
     # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 18:
-        st.markdown(render_topo("METAS DO MÊS") + icone_ativo, unsafe_allow_html=True)
+        st.markdown(render_topo("METAS, PROJEÇÃO E CONSULTIVO DIÁRIO") + icone_ativo, unsafe_allow_html=True)
 
         os_produtivas_hoje = 0
         projecao_op = 0
@@ -1323,10 +1323,10 @@ with CONTEUDO_TV.container():
         st.markdown(f'''
         <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if projecao_op >= meta_ajustada_hoje else '#ffebee'};">
             <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
-                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
+                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                <b>Para alcançar a META diária (incluindo o déficit acumulado), precisamos realizar CONSULTIVOS</b>.
+                Para alcançar o objetivo diário ajustado (incluindo o déficit acumulado), precisamos compensar os números atuais utilizando exclusivamente os <b>produtos do consultivo</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
@@ -1461,7 +1461,7 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cards['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
@@ -1477,7 +1477,7 @@ with CONTEUDO_TV.container():
                     mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
                     df_hoje = df_cards[mask_hoje].copy()
                 
-                ano, mes = hoje_br.year, phr = hoje_br.month
+                ano, mes = hoje_br.year, hoje_br.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes <= 0: dias_restantes = 1
