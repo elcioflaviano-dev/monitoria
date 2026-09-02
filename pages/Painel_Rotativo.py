@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
+ARQUIVO_HISTORICO_METAS = os.path.join(ROOT_DIR, "historico_metas_setembro.csv")
 URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
 
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
@@ -27,7 +28,6 @@ if not os.path.exists(ARQUIVO_LOGO):
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 21,
     "MAICON": 21,
-    # "MARCOS ROBERTO": 15,
     "NELSON": 20
 }
 
@@ -77,6 +77,7 @@ if tela_url:
     elif tela_url == "consultivo": st.session_state.idx = 5
     elif tela_url == "diario": st.session_state.idx = 6
     elif tela_url == "caetano": st.session_state.idx = 17
+    elif tela_url == "metas": st.session_state.idx = 18
     modo_estatico = True
 
 # =========================================================================
@@ -267,7 +268,6 @@ def padronizar_status(row):
 agora_br = datetime.utcnow() - timedelta(hours=3)
 minutos_agora = agora_br.hour * 60 + agora_br.minute
 
-# --- REGRAS DO HORÁRIO DA BASE (07:00 ÀS 08:30) ---
 permitir_audio_base = False
 frase_incisiva_base = ""
 if 7*60 <= minutos_agora < 8*60 + 30:
@@ -277,15 +277,13 @@ if 7*60 <= minutos_agora < 8*60 + 30:
     else:                          
         frase_incisiva_base = "Atenção. O horário limite para ativar a rota já passou."
 
-# --- CORREÇÃO TEC1: ÁUDIO DINÂMICO E PERSISTENTE NAS 3 JANELAS (APÓS 08:30) ---
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for janela in [12, 15, 18]:
-    inicio_aviso = (janela - 1) * 60      # 1h antes (11:00, 14:00, 17:00)
-    fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
-    fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
+    inicio_aviso = (janela - 1) * 60      
+    fim_janela = janela * 60             
+    fim_aviso_pos = janela * 60 + 59     
     
-    # 1. Avisos dinâmicos de minutos restantes (1h antes até o fechamento da janela)
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
         minutos_restantes = fim_janela - minutos_agora
@@ -295,7 +293,6 @@ for janela in [12, 15, 18]:
             frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
         break
         
-    # 2. Avisos de janela estourada (1h após o término)
     elif fim_janela <= minutos_agora <= fim_aviso_pos:
         permitir_audio_tec1 = True
         frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou, e ainda temos contratos sem conclusão. Atenção para não perder o TÉC 1."
@@ -356,28 +353,21 @@ with CONTEUDO_TV.container():
             col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
 
             if col_recurso:
-                # Localiza a palavra BASE nas colunas de Tipo
                 cols_base = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
                 if not cols_base: cols_base = df.columns
                 mask_base = df[cols_base].apply(lambda col: col.astype(str).str.upper().str.contains('BASE')).any(axis=1)
 
                 df_base = df[mask_base].copy()
 
-                # Localiza todas as colunas de STATUS disponíveis
                 cols_status = [c for c in df_base.columns if 'STATUS' in c]
                 if not cols_status: cols_status = [df_base.columns[0]]
                 
-                # Junta todos os status em uma string única para cada linha
                 df_base['STATUS_FULL'] = df_base[cols_status].fillna('').astype(str).agg(' '.join, axis=1).str.upper()
 
-                # REGRA DE BLOQUEIO (HARD BLOCK): Acha quem já iniciou ou concluiu a base
                 tecnicos_iniciados = df_base[df_base['STATUS_FULL'].str.contains('INIC|EXEC|CONCL|PRODUTIVO')][col_recurso].unique()
-                
-                # Acha quem está pendente
                 df_pendentes = df_base[df_base['STATUS_FULL'].str.contains('PEND|ABERTO')]
                 nomes_brutos = df_pendentes[col_recurso].dropna().unique()
                 
-                # Lista Final: Técnicos pendentes que NÃO estão na lista dos iniciados
                 nomes_abc = sorted([str(n).strip().upper() for n in nomes_brutos if n not in tecnicos_iniciados])
                 
                 st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
@@ -551,7 +541,7 @@ with CONTEUDO_TV.container():
                         if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
                             script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                             delay_atual = 0
-                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de Ó S: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                             delay_atual += 24000 
                             for i, sup_full in enumerate(SUPS_ABC):
                                 df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
@@ -1446,7 +1436,7 @@ with CONTEUDO_TV.container():
                     df_produtivo['FALTA_BST']  = 0
 
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM PRINTS"
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
                 st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
@@ -1478,6 +1468,132 @@ with CONTEUDO_TV.container():
             except Exception as e:
                 st.error(f"Erro na validação de Indicadores: {e}")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+    # -------------------------------------------------------------------------
+    # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
+    # -------------------------------------------------------------------------
+    elif st.session_state.idx == 18:
+        st.markdown(render_topo("METAS, PROJEÇÃO E CONSULTIVO DIÁRIO") + icone_mudo, unsafe_allow_html=True)
+
+        # 1. Carrega OS Produtivas Atuais do Painel de Rota
+        os_produtivas_hoje = 0
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            try:
+                df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+                df_r.columns = [str(c).strip().upper() for c in df_r.columns]
+                col_sup = next((c for c in df_r.columns if 'SUPERVISOR' in c), None)
+                
+                def sup_metas(row):
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup: return oficial
+                    return "DESCARTADO"
+
+                df_r['SUPERVISOR_CLEAN'] = df_r.apply(sup_metas, axis=1)
+                df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
+                
+                # Conta tudo que é produtivo na regional ABC
+                os_produtivas_hoje = int(df_r[(df_r['STATUS_PADRAO'] == 'Produtivo') & (df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].shape[0])
+            except: pass
+
+        # 2. Carrega Produtos do Consultivo de Hoje
+        produtos_consultivo_hoje = 0
+        if os.path.exists(ARQUIVO_CONSULTIVO):
+            try:
+                df_c = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
+                df_c.columns = [str(c).strip().upper().replace(' ', '_') for c in df_c.columns]
+                col_qtd = next((c for c in df_c.columns if 'QTD' in c and 'PRODUTO' in c), None)
+                col_data = next((c for c in df_c.columns if 'DATA' in c), None)
+                
+                if col_qtd:
+                    df_c['QTD_PROD'] = pd.to_numeric(df_c[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    if col_data:
+                        hoje_br = (datetime.utcnow() - timedelta(hours=3)).strftime('%d/%m/%Y')
+                        hoje_us = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
+                        df_c['DT'] = df_c[col_data].astype(str).str.strip().str[:10]
+                        df_c_hoje = df_c[(df_c['DT'] == hoje_br) | (df_c['DT'] == hoje_us)]
+                        produtos_consultivo_hoje = int(df_c_hoje['QTD_PROD'].sum())
+                    else:
+                        produtos_consultivo_hoje = int(df_c['QTD_PROD'].sum())
+            except: pass
+
+        # 3. Tratamento de Metas e Histórico de Setembro
+        meta_mensal = 11000
+        meta_diaria = 440
+        
+        # Gestão de Histórico (Excel/CSV local)
+        # Cria o arquivo de histórico se não existir
+        if not os.path.exists(ARQUIVO_HISTORICO_METAS):
+            df_init = pd.DataFrame(columns=["DATA", "OS_PRODUTIVAS", "PRODUTOS_CONSULTIVO"])
+            df_init.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
+
+        df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, dtype=str)
+        hoje_str = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
+
+        # Atualiza ou insere o dia de hoje no histórico automático
+        if not df_hist.empty and hoje_str in df_hist['DATA'].values:
+            df_hist.loc[df_hist['DATA'] == hoje_str, 'OS_PRODUTIVAS'] = str(os_produtivas_hoje)
+            df_hist.loc[df_hist['DATA'] == hoje_str, 'PRODUTOS_CONSULTIVO'] = str(produtos_consultivo_hoje)
+        else:
+            nova_linha = pd.DataFrame([{"DATA": hoje_str, "OS_PRODUTIVAS": str(os_produtivas_hoje), "PRODUTOS_CONSULTIVO": str(produtos_consultivo_hoje)}])
+            df_hist = pd.concat([df_hist, nova_linha], ignore_index=True)
+        
+        df_hist.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
+
+        # Cálculo do Déficit dos dias anteriores de Setembro (excluindo o dia de hoje)
+        df_passado = df_hist[df_hist['DATA'] != hoje_str].copy()
+        deficit_acumulado = 0
+        if not df_passado.empty:
+            df_passado['TOTAL_DIA'] = pd.to_numeric(df_passado['OS_PRODUTIVAS'], errors='coerce').fillna(0) + pd.to_numeric(df_passado['PRODUTOS_CONSULTIVO'], errors='coerce').fillna(0)
+            # Para cada dia passado, calcula quanto faltou para 440 (se fez menos, gera déficit positivo)
+            df_passado['FALTA_DIA'] = meta_diaria - df_passado['TOTAL_DIA']
+            deficit_acumulado = int(df_passado['FALTA_DIA'].sum()) # Se for positivo, é déficit. Se negativo, é sobra.
+
+        # Metricas de Hoje
+        total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
+        meta_ajustada_hoje = meta_diaria + max(0, deficit_acumulado) # Soma o déficit anterior se houver
+        falta_para_meta_hoje = max(0, meta_ajustada_hoje - total_realizado_hoje)
+        
+        # Exibição Visual Estilizada em Cards
+        cor_status_dia = "#2e7d32" if total_realizado_hoje >= meta_ajustada_hoje else "#c62828"
+
+        st.markdown(f'''
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px;">
+            <div class="sup-card" style="text-align: center; background: #e3f2fd; border-color: #90caf9;">
+                <div style="font-size: 18px; font-weight: bold; color: #0277bd;">PROJEÇÃO DIÁRIA</div>
+                <div style="font-size: 65px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria}</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de OS</div>
+            </div>
+            <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
+                <div style="font-size: 18px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
+                <div style="font-size: 65px; font-weight: 900; color: {'#c62828' if deficit_acumulado > 0 else '#2e7d32'}; line-height: 1;">{deficit_acumulado}</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Saldo pendente de dias anteriores</div>
+            </div>
+            <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #a5d6a7;">
+                <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">ATUAL REALIZADO (HOJE)</div>
+                <div style="font-size: 65px; font-weight: 900; color: #1b5e20; line-height: 1;">{total_realizado_hoje}</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">{os_produtivas_hoje} OS Painel + {produtos_consultivo_hoje} Consultivo</div>
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+        # Bloco de Diagnóstico e Instrução Clara para a Operação
+        st.markdown(f'''
+        <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if total_realizado_hoje >= meta_ajustada_hoje else '#ffebee'};">
+            <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
+                {'🎯 META DIÁRIA ATINGIDA!' if total_realizado_hoje >= meta_ajustada_hoje else f'⚠️ FALTA {falta_para_meta_hoje} OS PARA BATER A META DO DIA'}
+            </div>
+            <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
+                Para alcançar o objetivo diário ajustado (incluindo o déficit acumulado), precisamos compensar os números atuais utilizando exclusivamente os <b>produtos do consultivo</b>.
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+        if st.session_state.novo_ciclo:
+            texto_meta = f"Atenção para o painel de metas de setembro. Meta diária de 440. Realizado hoje: {total_realizado_hoje} produtos. Falta o montante de {falta_para_meta_hoje} produtos do consultivo para fechar o dia."
+            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
+            st.session_state.novo_ciclo = False
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
     # TELA 2: HORÁRIO
@@ -1583,6 +1699,7 @@ tempos_espera = {
     10: 60,
     11: 20, 12: 20, 13: 20, 14: 20, 15: 20, 16: 20,
     17: 20,
+    18: 60,
     5: 60,
     6: 60,
     3: 45,
@@ -1603,7 +1720,8 @@ else:
     if periodo_matinal_base:
         telas_fluxo = [0, 2]
     else:
-        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 5, 6, 3, 2]
+        # Fluxo completo incluindo a nova Tela 18 de Metas
+        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
         
     try:
         pos = telas_fluxo.index(st.session_state.idx)
