@@ -1287,10 +1287,12 @@ with CONTEUDO_TV.container():
         # Metricas de Hoje
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
         meta_ajustada_hoje = meta_diaria + max(0, deficit_acumulado) 
-        falta_para_meta_hoje = max(0, meta_ajustada_hoje - total_realizado_hoje)
+        
+        # CÁLCULO BASEADO NA PROJEÇÃO (Para o Áudio e Texto da Tela)
+        falta_pela_projecao = max(0, meta_ajustada_hoje - projecao_op)
         
         # Exibição Visual Estilizada em 4 Cards Gigantes
-        cor_status_dia = "#2e7d32" if total_realizado_hoje >= meta_ajustada_hoje else "#c62828"
+        cor_status_dia = "#2e7d32" if projecao_op >= meta_ajustada_hoje else "#c62828"
 
         st.markdown(f'''
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
@@ -1319,9 +1321,9 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
 
         st.markdown(f'''
-        <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if total_realizado_hoje >= meta_ajustada_hoje else '#ffebee'};">
+        <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if projecao_op >= meta_ajustada_hoje else '#ffebee'};">
             <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
-                {'🎯 META DIÁRIA ATINGIDA!' if total_realizado_hoje >= meta_ajustada_hoje else f'⚠️ FALTA {falta_para_meta_hoje} O.S. PARA BATER A META DO DIA'}
+                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
                 Para alcançar o objetivo diário ajustado (incluindo o déficit acumulado), precisamos compensar os números atuais utilizando exclusivamente os <b>produtos do consultivo</b>.
@@ -1330,7 +1332,7 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_audio_metas = f"Atenção para o painel de metas. A projeção de Ó S de hoje é de {projecao_op}. Para alcançar a meta diária, precisamos de {falta_para_meta_hoje} consultivos."
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção da operação hoje é de {projecao_op} O.S. Para alcançar a meta, precisamos de {falta_pela_projecao} produtos do consultivo."
             st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1459,7 +1461,7 @@ with CONTEUDO_TV.container():
                     return "DESCARTADO"
 
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
-                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+                df_cards = df_cons[df_cards['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
 
                 col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
                 def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
@@ -1475,7 +1477,7 @@ with CONTEUDO_TV.container():
                     mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
                     df_hoje = df_cards[mask_hoje].copy()
                 
-                ano, mes = hoje_br.year, hoje_br.month
+                ano, mes = hoje_br.year, phr = hoje_br.month
                 _, num_dias = calendar.monthrange(ano, mes)
                 dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes <= 0: dias_restantes = 1
