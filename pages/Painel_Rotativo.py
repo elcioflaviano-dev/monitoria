@@ -309,6 +309,7 @@ for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
 
 icone_mudo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
 icone_ativo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
+
 html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
 html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
 html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
@@ -544,7 +545,7 @@ with CONTEUDO_TV.container():
                         if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
                             script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                             delay_atual = 0
-                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                             delay_atual += 24000 
                             for i, sup_full in enumerate(SUPS_ABC):
                                 df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
@@ -1175,12 +1176,12 @@ with CONTEUDO_TV.container():
     # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 18:
-        st.markdown(render_topo("META DO MÊS") + icone_ativo, unsafe_allow_html=True)
+        st.markdown(render_topo("METAS DO MÊS") + icone_ativo, unsafe_allow_html=True)
 
         os_produtivas_hoje = 0
         projecao_op = 0
         
-        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota
+        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota (Idêntico à Visão Geral)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             try:
                 df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
@@ -1205,14 +1206,14 @@ with CONTEUDO_TV.container():
                 df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
                 df_r = df_r[df_r['STATUS_PADRAO'] != 'Descartar']
                 
+                if col_tarefas:
+                    df_r['VALOR_TAREFA'] = pd.to_numeric(df_r[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                    if df_r['VALOR_TAREFA'].sum() == 0 and len(df_r) > 0: df_r['VALOR_TAREFA'] = 1
+                else: 
+                    df_r['VALOR_TAREFA'] = 1
+
                 df_abc = df_r[df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
                 
-                if col_tarefas:
-                    df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
-                else: 
-                    df_abc['VALOR_TAREFA'] = 1
-                    
                 os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
                 em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
@@ -1299,10 +1300,12 @@ with CONTEUDO_TV.container():
             <div class="sup-card" style="text-align: center; background: #e3f2fd; border-color: #90caf9;">
                 <div style="font-size: 20px; font-weight: bold; color: #0277bd;">META DIÁRIA BASE</div>
                 <div style="font-size: 80px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria}</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de O.S.</div>
             </div>
             <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
                 <div style="font-size: 20px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
                 <div style="font-size: 80px; font-weight: 900; color: {'#c62828' if deficit_acumulado > 0 else '#2e7d32'}; line-height: 1;">{deficit_acumulado}</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Saldo pendente de dias anteriores</div>
             </div>
         </div>
         
@@ -1323,10 +1326,10 @@ with CONTEUDO_TV.container():
         st.markdown(f'''
         <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if projecao_op >= meta_ajustada_hoje else '#ffebee'};">
             <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
-                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
+                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                <b>Para alcançar a meta de hoje (incluindo o déficit acumulado), precisamos realizar CONSULTIVOS</b>.
+                Para alcançar o objetivo diário ajustado (incluindo o déficit acumulado), precisamos compensar os números atuais utilizando exclusivamente os <b>produtos do consultivo</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
@@ -1605,7 +1608,7 @@ with CONTEUDO_TV.container():
                     df_produtivo['FALTA_BST']  = 0
 
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM PRINTS"
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
                 st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
