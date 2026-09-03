@@ -1351,13 +1351,13 @@ with CONTEUDO_TV.container():
                 {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                Para alcançar a meta de hoje (incluindo o déficit acumulado), precisamos realizar mais <b>{falta_pela_projecao} produtos do consultivo</b>.
+                <b>Para alcançar a meta de hoje (incluindo o déficit acumulado), precisamos realizar CONSULTIVOS</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta, precisamos de {falta_pela_projecao} produtos do consultivo."
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta, precisamos de {falta_pela_projecao} produtos do consultivo ou de encaixes."
             st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
