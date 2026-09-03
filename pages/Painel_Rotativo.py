@@ -1348,7 +1348,7 @@ with CONTEUDO_TV.container():
         st.markdown(f'''
         <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if projecao_op >= meta_ajustada_hoje else '#ffebee'};">
             <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
-                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
+                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO MÊS'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
                 <b>Para alcançar a meta de hoje (incluindo o déficit acumulado), precisamos realizar CONSULTIVOS</b>.
