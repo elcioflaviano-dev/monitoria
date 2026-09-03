@@ -8,6 +8,7 @@ import calendar
 import unicodedata
 import requests
 import io
+import re
 import pydeck as pdk
 from datetime import datetime, timedelta
 
@@ -102,12 +103,11 @@ def baixar_dados_nuvem_background():
 
             ficheiro_excel.seek(0)
             
-            # --- BAIXA HISTORICO DE METAS (NOVO) ---
+            # --- BAIXA HISTORICO DE METAS (NOVO LEITOR INTELIGENTE) ---
             try:
-                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', engine='openpyxl')
+                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', header=None, engine='openpyxl')
                 if not df_hist_bruto.empty:
-                    df_hist_bruto.columns = [str(c).strip().upper().replace('\xa0', ' ') for c in df_hist_bruto.columns]
-                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
+                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False, header=False)
             except: pass
 
             ficheiro_excel.seek(0)
@@ -296,9 +296,9 @@ if 7*60 <= minutos_agora < 8*60 + 30:
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for janela in [12, 15, 18]:
-    inicio_aviso = (janela - 1) * 60      # 1h antes (11:00, 14:00, 17:00)
-    fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
-    fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
+    inicio_aviso = (janela - 1) * 60      
+    fim_janela = janela * 60             
+    fim_aviso_pos = janela * 60 + 59     
     
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
@@ -909,10 +909,12 @@ with CONTEUDO_TV.container():
             df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
             df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
 
+            # Padroniza como a Tela de Metas para evitar discrepâncias (se 0 -> 1)
             if col_tarefas:
                 df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
-            else: df_proj['VALOR_TAREFA'] = 1
+                df_proj.loc[df_proj['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+            else: 
+                df_proj['VALOR_TAREFA'] = 1
 
             df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
             
@@ -1193,7 +1195,7 @@ with CONTEUDO_TV.container():
         os_produtivas_hoje = 0
         projecao_op = 0
         
-        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota (Idêntico à Visão Geral)
+        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota (Cálculo Idêntico ao da Tela 9)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             try:
                 df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
@@ -1222,7 +1224,7 @@ with CONTEUDO_TV.container():
                 
                 if col_tarefas:
                     df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    if df_abc['VALOR_TAREFA'].sum() == 0 and len(df_abc) > 0: df_abc['VALOR_TAREFA'] = 1
+                    df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
                 else: 
                     df_abc['VALOR_TAREFA'] = 1
                     
@@ -1271,31 +1273,39 @@ with CONTEUDO_TV.container():
         # 3. Tratamento de Metas e Histórico de Setembro
         meta_diaria = 440
         
-        # Gestão de Histórico (Excel/CSV local)
+        # Gestão de Histórico (Excel/CSV local com Leitor Inteligente via REGEX)
         if not os.path.exists(ARQUIVO_HISTORICO_METAS):
             df_init = pd.DataFrame(columns=["DATA", "OS_PRODUTIVAS", "PRODUTOS_CONSULTIVO"])
             df_init.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
 
-        df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, dtype=str)
         hoje_str = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
-
-        # Atualiza ou insere o dia de hoje no histórico automático
-        if not df_hist.empty and hoje_str in df_hist['DATA'].values:
-            df_hist.loc[df_hist['DATA'] == hoje_str, 'OS_PRODUTIVAS'] = str(os_produtivas_hoje)
-            df_hist.loc[df_hist['DATA'] == hoje_str, 'PRODUTOS_CONSULTIVO'] = str(produtos_consultivo_hoje)
-        else:
-            nova_linha = pd.DataFrame([{"DATA": hoje_str, "OS_PRODUTIVAS": str(os_produtivas_hoje), "PRODUTOS_CONSULTIVO": str(produtos_consultivo_hoje)}])
-            df_hist = pd.concat([df_hist, nova_linha], ignore_index=True)
-        
-        df_hist.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
-
-        # Cálculo do Déficit dos dias anteriores de Setembro (excluindo o dia de hoje)
-        df_passado = df_hist[df_hist['DATA'] != hoje_str].copy()
         deficit_acumulado = 0
-        if not df_passado.empty:
-            df_passado['TOTAL_DIA'] = pd.to_numeric(df_passado['OS_PRODUTIVAS'], errors='coerce').fillna(0) + pd.to_numeric(df_passado['PRODUTOS_CONSULTIVO'], errors='coerce').fillna(0)
-            df_passado['FALTA_DIA'] = meta_diaria - df_passado['TOTAL_DIA']
-            deficit_acumulado = int(df_passado['FALTA_DIA'].sum())
+        
+        if os.path.exists(ARQUIVO_HISTORICO_METAS):
+            try:
+                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str)
+                df_hist['FULL_ROW'] = df_hist.fillna('').astype(str).agg(' '.join, axis=1)
+                df_hist['DATE_STR'] = df_hist['FULL_ROW'].str.extract(r'(\d{2}/\d{2}/\d{4})')[0]
+                
+                def extract_val(text, dstr):
+                    if pd.isna(dstr): return np.nan
+                    t = text.replace(dstr, '')
+                    nums = re.findall(r'\b\d+\b', t)
+                    if nums: return int(nums[-1])
+                    return np.nan
+                    
+                df_hist['VALOR'] = df_hist.apply(lambda x: extract_val(x['FULL_ROW'], x['DATE_STR']), axis=1)
+                df_hist = df_hist.dropna(subset=['DATE_STR', 'VALOR'])
+                
+                df_hist['DATE_OBJ'] = pd.to_datetime(df_hist['DATE_STR'], format='%d/%m/%Y', errors='coerce')
+                hoje_data_apenas = (datetime.utcnow() - timedelta(hours=3)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & (df_hist['DATE_OBJ'] < hoje_data_apenas)].copy()
+                
+                if not df_passado.empty:
+                    df_passado['FALTA_DIA'] = meta_diaria - df_passado['VALOR']
+                    deficit_acumulado = int(df_passado['FALTA_DIA'].sum())
+            except: pass
 
         # Metricas de Hoje
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
@@ -1341,13 +1351,13 @@ with CONTEUDO_TV.container():
                 {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                <b>Para alcançar a meta de hoje (incluindo o déficit acumulado), precisamos realizar CONSULTIVOS</b>.
+                Para alcançar a meta de hoje (incluindo o déficit acumulado), precisamos realizar mais <b>{falta_pela_projecao} produtos do consultivo</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_audio_metas = f"Atenção para o painel de metas. A projeção da operação hoje é de {projecao_op} O.S. Para alcançar a meta, precisamos de {falta_pela_projecao} produtos do consultivo."
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta, precisamos de {falta_pela_projecao} produtos do consultivo."
             st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
