@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
-ARQUIVO_HISTORICO_METAS = os.path.join(ROOT_DIR, "historico_metas_setembro.csv")
+ARQUIVO_HISTORICO_METAS = os.path.join(ROOT_DIR, "historico_metas_nuvem.csv")
 URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
 
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
@@ -28,7 +28,6 @@ if not os.path.exists(ARQUIVO_LOGO):
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 21,
     "MAICON": 21,
-    # "MARCOS ROBERTO": 15,
     "NELSON": 20
 }
 
@@ -92,6 +91,8 @@ def baixar_dados_nuvem_background():
         
         if resposta.status_code == 200:
             ficheiro_excel = io.BytesIO(resposta.content)
+            
+            # --- BAIXA CONSULTIVO ---
             try:
                 df_cons_bruto = pd.read_excel(ficheiro_excel, sheet_name='CONSULTIVO', engine='openpyxl')
                 if not df_cons_bruto.empty:
@@ -100,6 +101,18 @@ def baixar_dados_nuvem_background():
             except: pass
 
             ficheiro_excel.seek(0)
+            
+            # --- BAIXA HISTORICO DE METAS (NOVO) ---
+            try:
+                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', engine='openpyxl')
+                if not df_hist_bruto.empty:
+                    df_hist_bruto.columns = [str(c).strip().upper().replace('\xa0', ' ') for c in df_hist_bruto.columns]
+                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
+            except: pass
+
+            ficheiro_excel.seek(0)
+            
+            # --- BAIXA ROTA ---
             try:
                 df_bruto = pd.read_excel(ficheiro_excel, sheet_name='ROTA', engine='openpyxl')
                 if not df_bruto.empty:
@@ -309,7 +322,6 @@ for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
 
 icone_mudo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
 icone_ativo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
-
 html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
 html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
 html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
@@ -1206,14 +1218,14 @@ with CONTEUDO_TV.container():
                 df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
                 df_r = df_r[df_r['STATUS_PADRAO'] != 'Descartar']
                 
-                if col_tarefas:
-                    df_r['VALOR_TAREFA'] = pd.to_numeric(df_r[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    if df_r['VALOR_TAREFA'].sum() == 0 and len(df_r) > 0: df_r['VALOR_TAREFA'] = 1
-                else: 
-                    df_r['VALOR_TAREFA'] = 1
-
                 df_abc = df_r[df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
                 
+                if col_tarefas:
+                    df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                    if df_abc['VALOR_TAREFA'].sum() == 0 and len(df_abc) > 0: df_abc['VALOR_TAREFA'] = 1
+                else: 
+                    df_abc['VALOR_TAREFA'] = 1
+                    
                 os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
                 em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
@@ -1313,7 +1325,7 @@ with CONTEUDO_TV.container():
             <div class="sup-card" style="text-align: center; background: #f3e5f5; border-color: #ce93d8;">
                 <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">PROJEÇÃO DE O.S. (HOJE)</div>
                 <div style="font-size: 80px; font-weight: 900; color: #4a148c; line-height: 1;">{projecao_op}</div>
-                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa de hoje</div>
+                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa do Painel Rotativo</div>
             </div>
             <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #81c784; box-shadow: 0px 8px 20px rgba(0,0,0,0.15); transform: scale(1.02);">
                 <div style="font-size: 22px; font-weight: bold; color: #1b5e20;">ATUAL REALIZADO (HOJE)</div>
@@ -1326,7 +1338,7 @@ with CONTEUDO_TV.container():
         st.markdown(f'''
         <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if projecao_op >= meta_ajustada_hoje else '#ffebee'};">
             <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
-                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
+                {'🎯 PROJEÇÃO ATINGE A META DIÁRIA!' if projecao_op >= meta_ajustada_hoje else f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META DO DIA'}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
                 <b>Para alcançar a meta de hoje (incluindo o déficit acumulado), precisamos realizar CONSULTIVOS</b>.
