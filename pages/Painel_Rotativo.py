@@ -103,11 +103,12 @@ def baixar_dados_nuvem_background():
 
             ficheiro_excel.seek(0)
             
-            # --- BAIXA HISTORICO DE METAS (NOVO LEITOR INTELIGENTE) ---
+            # --- BAIXA HISTORICO DE METAS (LÊ A NOVA ABA DO SEU EXCEL COM CABEÇALHOS DATA / REALIZADO) ---
             try:
-                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', header=None, engine='openpyxl')
+                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', engine='openpyxl')
                 if not df_hist_bruto.empty:
-                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False, header=False)
+                    df_hist_bruto.columns = [str(c).strip().upper().replace('\xa0', ' ') for c in df_hist_bruto.columns]
+                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
             except: pass
 
             ficheiro_excel.seek(0)
@@ -296,9 +297,9 @@ if 7*60 <= minutos_agora < 8*60 + 30:
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for janela in [12, 15, 18]:
-    inicio_aviso = (janela - 1) * 60      
-    fim_janela = janela * 60             
-    fim_aviso_pos = janela * 60 + 59     
+    inicio_aviso = (janela - 1) * 60      # 1h antes (11:00, 14:00, 17:00)
+    fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
+    fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
     
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
@@ -909,10 +910,12 @@ with CONTEUDO_TV.container():
             df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
             df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
 
+            # Padroniza como a Tela de Metas para evitar discrepâncias
             if col_tarefas:
                 df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
                 df_proj.loc[df_proj['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
-            else: df_proj['VALOR_TAREFA'] = 1
+            else: 
+                df_proj['VALOR_TAREFA'] = 1
 
             df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
             
@@ -1192,7 +1195,7 @@ with CONTEUDO_TV.container():
         os_produtivas_hoje = 0
         projecao_op = 0
         
-        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota (Cálculo Idêntico ao da Tela 9)
+        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             try:
                 df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
@@ -1217,14 +1220,14 @@ with CONTEUDO_TV.container():
                 df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
                 df_r = df_r[df_r['STATUS_PADRAO'] != 'Descartar']
                 
+                if col_tarefas:
+                    df_r['VALOR_TAREFA'] = pd.to_numeric(df_r[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                    df_r.loc[df_r['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+                else: 
+                    df_r['VALOR_TAREFA'] = 1
+
                 df_abc = df_r[df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
                 
-                if col_tarefas:
-                    df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
-                else: 
-                    df_abc['VALOR_TAREFA'] = 1
-                    
                 os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
                 em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
@@ -1276,7 +1279,6 @@ with CONTEUDO_TV.container():
         meta_passada = 0
         deficit_acumulado = 0
         
-        # Gestão de Histórico (Excel/CSV local com Leitor Inteligente via REGEX)
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
             try:
                 df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str)
@@ -1293,7 +1295,6 @@ with CONTEUDO_TV.container():
                 df_hist['VALOR'] = df_hist.apply(lambda x: extract_val(x['FULL_ROW'], x['DATE_STR']), axis=1)
                 df_hist = df_hist.dropna(subset=['DATE_STR', 'VALOR'])
                 
-                # Exclui a data de hoje, pega todo o resto
                 df_passado = df_hist[df_hist['DATE_STR'] != hoje_br].copy()
                 
                 if not df_passado.empty:
@@ -1303,14 +1304,10 @@ with CONTEUDO_TV.container():
                     deficit_acumulado = meta_passada - realizado_passado
             except: pass
 
-        # Metricas de Hoje
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
         meta_ajustada_hoje = meta_diaria + deficit_acumulado 
-        
-        # CÁLCULO BASEADO NA PROJEÇÃO (Para o Áudio e Texto da Tela)
         falta_pela_projecao = meta_ajustada_hoje - projecao_op
         
-        # Exibição Visual Estilizada em 4 Cards Gigantes
         cor_status_dia = "#2e7d32" if projecao_op >= meta_ajustada_hoje else "#c62828"
 
         st.markdown(f'''
@@ -1323,7 +1320,7 @@ with CONTEUDO_TV.container():
             <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
                 <div style="font-size: 20px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
                 <div style="font-size: 80px; font-weight: 900; color: {'#c62828' if deficit_acumulado > 0 else '#2e7d32'}; line-height: 1;">{deficit_acumulado}</div>
-                <div style="font-size: 14px; color: #555; margin-top: 5px;">Ref. a {qtd_dias_passados} dias (Meta Acumulada: {meta_passada} | Realizado: {realizado_passado})</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Ref. a {qtd_dias_passados} dias passados (Meta Acumulada: {meta_passada} | Realizado: {realizado_passado})</div>
             </div>
         </div>
         
@@ -1331,7 +1328,7 @@ with CONTEUDO_TV.container():
             <div class="sup-card" style="text-align: center; background: #f3e5f5; border-color: #ce93d8;">
                 <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">PROJEÇÃO DE O.S. (HOJE)</div>
                 <div style="font-size: 80px; font-weight: 900; color: #4a148c; line-height: 1;">{projecao_op}</div>
-                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa do Painel Rotativo</div>
+                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa de hoje</div>
             </div>
             <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #81c784; box-shadow: 0px 8px 20px rgba(0,0,0,0.15); transform: scale(1.02);">
                 <div style="font-size: 22px; font-weight: bold; color: #1b5e20;">ATUAL REALIZADO (HOJE)</div>
@@ -1352,13 +1349,13 @@ with CONTEUDO_TV.container():
                 {texto_aviso_tela}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                <b>Para alcançar a meta diária precisamos compensar os números da projeção realizando mais {max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
+                <b>Para alcançar a meta diário precisamos compensar os números da projeção realizando mais {max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} produtos do consultivo e de encaixes."
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} produtos do consultivo e encaixes."
             st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1754,6 +1751,7 @@ agora_loop = datetime.utcnow() - timedelta(hours=3)
 minutos_loop = agora_loop.hour * 60 + agora_loop.minute
 
 periodo_matinal_base = (7*60 <= minutos_loop < 8*60 + 30)
+periodo_transicao_base = (8*60 + 30 <= minutos_loop < 9*60)
 
 alerta_fim_janela_loop = False
 if agora_loop.hour in [11, 14, 17] and agora_loop.minute >= 0: alerta_fim_janela_loop = True
@@ -1788,9 +1786,11 @@ if st.session_state.idx == 4:
 else:
     if periodo_matinal_base:
         telas_fluxo = [0, 2]
-    else:
-        # Fluxo completo incluindo a nova Tela 18 de Metas
+    elif periodo_transicao_base:
         telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
+    else:
+        # Pós 09:00 - Tira a tela 0
+        telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
         
     try:
         pos = telas_fluxo.index(st.session_state.idx)
