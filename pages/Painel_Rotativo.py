@@ -8,7 +8,6 @@ import calendar
 import unicodedata
 import requests
 import io
-import re
 import pydeck as pdk
 from datetime import datetime, timedelta
 
@@ -103,7 +102,7 @@ def baixar_dados_nuvem_background():
 
             ficheiro_excel.seek(0)
             
-            # --- BAIXA HISTORICO DE METAS (LÊ A NOVA ABA DO SEU EXCEL COM CABEÇALHOS DATA / REALIZADO) ---
+            # --- BAIXA HISTORICO DE METAS (LÊ NORMALMENTE AS COLUNAS DA ABA) ---
             try:
                 df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', engine='openpyxl')
                 if not df_hist_bruto.empty:
@@ -297,9 +296,9 @@ if 7*60 <= minutos_agora < 8*60 + 30:
 permitir_audio_tec1 = False
 frase_incisiva_tec1 = ""
 for janela in [12, 15, 18]:
-    inicio_aviso = (janela - 1) * 60      # 1h antes (11:00, 14:00, 17:00)
-    fim_janela = janela * 60             # Término (12:00, 15:00, 18:00)
-    fim_aviso_pos = janela * 60 + 59     # 1h depois (12:59, 15:59, 18:59)
+    inicio_aviso = (janela - 1) * 60      
+    fim_janela = janela * 60             
+    fim_aviso_pos = janela * 60 + 59     
     
     if inicio_aviso <= minutos_agora < fim_janela:
         permitir_audio_tec1 = True
@@ -1195,7 +1194,7 @@ with CONTEUDO_TV.container():
         os_produtivas_hoje = 0
         projecao_op = 0
         
-        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota
+        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota (Cálculo Idêntico ao da Tela 9)
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             try:
                 df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
@@ -1220,14 +1219,14 @@ with CONTEUDO_TV.container():
                 df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
                 df_r = df_r[df_r['STATUS_PADRAO'] != 'Descartar']
                 
-                if col_tarefas:
-                    df_r['VALOR_TAREFA'] = pd.to_numeric(df_r[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    df_r.loc[df_r['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
-                else: 
-                    df_r['VALOR_TAREFA'] = 1
-
                 df_abc = df_r[df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
                 
+                if col_tarefas:
+                    df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                    df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+                else: 
+                    df_abc['VALOR_TAREFA'] = 1
+                    
                 os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
                 em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
@@ -1279,35 +1278,39 @@ with CONTEUDO_TV.container():
         meta_passada = 0
         deficit_acumulado = 0
         
+        # Gestão de Histórico 100% BLINDADA (Ignora formatação de data do excel, pega apenas onde houver números válidos na coluna "REALIZADO")
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
             try:
-                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str)
-                df_hist['FULL_ROW'] = df_hist.fillna('').astype(str).agg(' '.join, axis=1)
-                df_hist['DATE_STR'] = df_hist['FULL_ROW'].str.extract(r'(\d{2}/\d{2}/\d{4})')[0]
+                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, dtype=str)
+                df_hist.columns = [str(c).strip().upper() for c in df_hist.columns]
                 
-                def extract_val(text, dstr):
-                    if pd.isna(dstr): return np.nan
-                    t = text.replace(dstr, '')
-                    nums = re.findall(r'\b\d+\b', t)
-                    if nums: return int(nums[-1])
-                    return np.nan
+                col_realizado = next((c for c in df_hist.columns if 'REALIZADO' in c or 'VALOR' in c or 'OS' in c), None)
+                
+                if col_realizado:
+                    # Tira linhas vazias na coluna REALIZADO
+                    df_hist = df_hist[df_hist[col_realizado].astype(str).str.strip() != '']
+                    df_hist = df_hist.dropna(subset=[col_realizado])
                     
-                df_hist['VALOR'] = df_hist.apply(lambda x: extract_val(x['FULL_ROW'], x['DATE_STR']), axis=1)
-                df_hist = df_hist.dropna(subset=['DATE_STR', 'VALOR'])
-                
-                df_passado = df_hist[df_hist['DATE_STR'] != hoje_br].copy()
-                
-                if not df_passado.empty:
-                    qtd_dias_passados = len(df_passado)
-                    realizado_passado = int(df_passado['VALOR'].sum())
-                    meta_passada = qtd_dias_passados * meta_diaria
-                    deficit_acumulado = meta_passada - realizado_passado
+                    df_hist['VALOR_NUM'] = pd.to_numeric(df_hist[col_realizado].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    
+                    # Filtra os dias com valores > 0
+                    df_valid = df_hist[df_hist['VALOR_NUM'] > 0]
+                    
+                    if not df_valid.empty:
+                        qtd_dias_passados = len(df_valid)
+                        realizado_passado = int(df_valid['VALOR_NUM'].sum())
+                        meta_passada = qtd_dias_passados * meta_diaria
+                        deficit_acumulado = meta_passada - realizado_passado
             except: pass
 
+        # Metricas de Hoje
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
         meta_ajustada_hoje = meta_diaria + deficit_acumulado 
+        
+        # CÁLCULO BASEADO NA PROJEÇÃO (Para o Áudio e Texto da Tela)
         falta_pela_projecao = meta_ajustada_hoje - projecao_op
         
+        # Exibição Visual Estilizada em 4 Cards Gigantes
         cor_status_dia = "#2e7d32" if projecao_op >= meta_ajustada_hoje else "#c62828"
 
         st.markdown(f'''
@@ -1328,7 +1331,7 @@ with CONTEUDO_TV.container():
             <div class="sup-card" style="text-align: center; background: #f3e5f5; border-color: #ce93d8;">
                 <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">PROJEÇÃO DE O.S. (HOJE)</div>
                 <div style="font-size: 80px; font-weight: 900; color: #4a148c; line-height: 1;">{projecao_op}</div>
-                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa de hoje</div>
+                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa do Painel Rotativo</div>
             </div>
             <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #81c784; box-shadow: 0px 8px 20px rgba(0,0,0,0.15); transform: scale(1.02);">
                 <div style="font-size: 22px; font-weight: bold; color: #1b5e20;">ATUAL REALIZADO (HOJE)</div>
@@ -1628,7 +1631,7 @@ with CONTEUDO_TV.container():
                     df_produtivo['FALTA_BST']  = 0
 
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM PRINTS"
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM CONTRATOS"
 
                 st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
@@ -1789,7 +1792,6 @@ else:
     elif periodo_transicao_base:
         telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
     else:
-        # Pós 09:00 - Tira a tela 0
         telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
         
     try:
