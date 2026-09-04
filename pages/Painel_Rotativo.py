@@ -1342,7 +1342,7 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
 
         if falta_pela_projecao > 0:
-            texto_aviso_tela = f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META ACUMULADA'
+            texto_aviso_tela = f'⚠️ PELA PROJEÇÃO FALTAM {falta_pela_projecao} O.S. PARA BATER A META ACUMULADA'
         else:
             texto_aviso_tela = '🎯 PROJEÇÃO ATINGE A META ACUMULADA DO MÊS!'
 
@@ -1352,7 +1352,7 @@ with CONTEUDO_TV.container():
                 {texto_aviso_tela}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                Para alcançar a meta diária precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
+                <b>Para alcançar a meta diária precisamos compensar os números da projeção realizando mais {max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
