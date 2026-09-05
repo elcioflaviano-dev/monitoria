@@ -8,63 +8,94 @@
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            background-color: #f4f4f9;
-            padding: 20px;
+            background-color: #121212;
+            color: white;
+            padding: 10px;
+            margin: 0;
         }
         .container {
             max-width: 400px;
             margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+            padding: 15px;
         }
         input, button {
-            width: 90%;
+            width: 100%;
             padding: 12px;
             margin: 8px 0;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            font-size: 16px;
-        }
-        button {
-            background-color: #0056b3;
-            color: white;
+            border-radius: 8px;
             border: none;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input { background-color: #333; color: white; border: 1px solid #555; }
+        button {
+            background-color: #007bff;
+            color: white;
             font-weight: bold;
             cursor: pointer;
         }
-        button:hover { background-color: #004494; }
+        /* Container relativo para segurar o vídeo e o oval juntos */
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 350px;
+            margin: 15px auto;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            display: none; /* Escondido até ativar a câmera */
+        }
         video {
             width: 100%;
-            border-radius: 10px;
-            margin-top: 15px;
-            /* Inverte a imagem como um espelho para facilitar a pose */
-            transform: scaleX(-1); 
+            display: block;
+            transform: scaleX(-1); /* Espelho */
         }
-        .instrucao { font-size: 14px; color: #555; margin-bottom: 15px; }
+        /* O Guia Oval com fundo escurecido */
+        .oval-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 280px;
+            border: 4px dashed #ffeb3b; /* Amarelo de atenção */
+            border-radius: 50%;
+            /* O box-shadow escurece tudo fora do oval */
+            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65);
+            pointer-events: none;
+            z-index: 10;
+            transition: border-color 0.3s;
+        }
+        /* Classe ativada no momento do flash/captura */
+        .oval-guide.sucesso { border-color: #28a745; border-style: solid; }
+        
+        #controles { display: none; margin-top: 15px; }
+        .btn-frente { background-color: #28a745; }
+        .btn-perfil { background-color: #17a2b8; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Cadastro de Biometria</h2>
-        <p class="instrucao">Atenção: Procure um local bem iluminado. Preencha seus dados antes de iniciar.</p>
+        <h2>Biometria Facial</h2>
+        <p style="font-size: 14px; color: #aaa;">Preencha os dados e posicione o rosto no centro do oval.</p>
         
-        <!-- Priorizando as variáveis chave do seu painel de gestão -->
         <input type="text" id="login" placeholder="Login (Ex: 1234)">
-        <input type="text" id="nome" placeholder="Nome Completo (Ex: João Silva)">
+        <input type="text" id="nome" placeholder="Nome (Ex: Joao Silva)">
         
-        <button onclick="iniciarCamera()">1. Ativar Câmera</button>
+        <button id="btn-iniciar" onclick="iniciarCamera()">1. Ativar Câmera</button>
         
-        <!-- Onde o vídeo vai aparecer -->
-        <video id="video" autoplay playsinline></video>
+        <div class="video-wrapper" id="video-wrapper">
+            <video id="video" autoplay playsinline></video>
+            <div class="oval-guide" id="oval-guide"></div>
+        </div>
+        
         <canvas id="canvas" style="display:none;"></canvas>
 
-        <div id="controles" style="display:none; margin-top: 15px;">
-            <button onclick="capturar('Frente')" style="background-color: #28a745;">📸 Capturar Frente</button>
-            <button onclick="capturar('Direita')" style="background-color: #17a2b8;">📸 Capturar Perfil Direito</button>
-            <button onclick="capturar('Esquerda')" style="background-color: #17a2b8;">📸 Capturar Perfil Esquerdo</button>
+        <div id="controles">
+            <button class="btn-frente" onclick="capturaImediata('Frente')">📸 Capturar Frente</button>
+            <button class="btn-perfil" onclick="capturaComTimer('Dir')">⏱️ Capturar Perfil Direito</button>
+            <button class="btn-perfil" onclick="capturaComTimer('Esq')">⏱️ Capturar Perfil Esquerdo</button>
         </div>
     </div>
 
@@ -72,48 +103,97 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const controles = document.getElementById('controles');
+        const wrapper = document.getElementById('video-wrapper');
+        const btnIniciar = document.getElementById('btn-iniciar');
+        const oval = document.getElementById('oval-guide');
+        
+        // Inicializa o contexto de áudio
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Sintetizador para criar os bips sem precisar de arquivos MP3 externos
+        function tocarBip(frequencia, duracao, volume = 1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(frequencia, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracao);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duracao);
+        }
 
         async function iniciarCamera() {
             try {
-                // Força a câmera frontal e exige alta resolução para garantir a nitidez
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: "user",
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    }
+                    video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 } }
                 });
                 video.srcObject = stream;
+                wrapper.style.display = "block";
                 controles.style.display = "block";
+                btnIniciar.style.display = "none";
             } catch (erro) {
-                alert("Erro ao acessar a câmera. Verifique as permissões do navegador.");
+                alert("Erro ao acessar câmera. Libere a permissão no navegador.");
             }
         }
 
-        function capturar(angulo) {
+        function executarCaptura(angulo) {
             const login = document.getElementById('login').value.trim();
-            const nome = document.getElementById('nome').value.trim().replace(/ /g, '_'); // Troca espaços por underline
+            const nome = document.getElementById('nome').value.trim().replace(/ /g, '_');
 
             if (!login || !nome) {
-                alert("Por favor, preencha o Login e o Nome corretamente.");
+                alert("Preencha o Login e o Nome!");
                 return;
             }
 
-            // Define o tamanho da imagem idêntico à alta resolução da câmera
+            // Efeito visual de sucesso no oval
+            oval.classList.add('sucesso');
+            setTimeout(() => oval.classList.remove('sucesso'), 500);
+
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            
             const ctx = canvas.getContext('2d');
+            
+            // Corrige o espelhamento na hora de salvar a foto final
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // Transforma a imagem em arquivo JPEG com qualidade máxima (1.0)
             const qualidadeMaxima = canvas.toDataURL('image/jpeg', 1.0);
-            
-            // Força o download da imagem com o nome padronizado
             const link = document.createElement('a');
             link.href = qualidadeMaxima;
-            link.download = `${login}_${nome}_${angulo}.jpg`; 
+            link.download = `${login}_${nome}_${angulo}.jpg`;
             link.click();
+        }
+
+        function capturaImediata(angulo) {
+            tocarBip(800, 0.1); // Bip curto de confirmação
+            executarCaptura(angulo);
+        }
+
+        function capturaComTimer(angulo) {
+            let contagem = 3;
+            // Bip inicial longo avisando que começou
+            tocarBip(600, 0.2); 
+            
+            const intervalo = setInterval(() => {
+                contagem--;
+                if (contagem > 0) {
+                    // Bips curtos de contagem
+                    tocarBip(600, 0.1);
+                } else {
+                    clearInterval(intervalo);
+                    // Bip agudo e longo de captura
+                    tocarBip(1000, 0.4);
+                    executarCaptura(angulo);
+                }
+            }, 1000);
         }
     </script>
 </body>
