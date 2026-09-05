@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro Facial - Equipe</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            padding: 20px;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+        }
+        input, button {
+            width: 90%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        button {
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover { background-color: #004494; }
+        video {
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 15px;
+            /* Inverte a imagem como um espelho para facilitar a pose */
+            transform: scaleX(-1); 
+        }
+        .instrucao { font-size: 14px; color: #555; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Cadastro de Biometria</h2>
+        <p class="instrucao">Atenção: Procure um local bem iluminado. Preencha seus dados antes de iniciar.</p>
+        
+        <!-- Priorizando as variáveis chave do seu painel de gestão -->
+        <input type="text" id="login" placeholder="Login (Ex: 1234)">
+        <input type="text" id="nome" placeholder="Nome Completo (Ex: João Silva)">
+        
+        <button onclick="iniciarCamera()">1. Ativar Câmera</button>
+        
+        <!-- Onde o vídeo vai aparecer -->
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <div id="controles" style="display:none; margin-top: 15px;">
+            <button onclick="capturar('Frente')" style="background-color: #28a745;">📸 Capturar Frente</button>
+            <button onclick="capturar('Direita')" style="background-color: #17a2b8;">📸 Capturar Perfil Direito</button>
+            <button onclick="capturar('Esquerda')" style="background-color: #17a2b8;">📸 Capturar Perfil Esquerdo</button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const controles = document.getElementById('controles');
+
+        async function iniciarCamera() {
+            try {
+                // Força a câmera frontal e exige alta resolução para garantir a nitidez
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: "user",
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                video.srcObject = stream;
+                controles.style.display = "block";
+            } catch (erro) {
+                alert("Erro ao acessar a câmera. Verifique as permissões do navegador.");
+            }
+        }
+
+        function capturar(angulo) {
+            const login = document.getElementById('login').value.trim();
+            const nome = document.getElementById('nome').value.trim().replace(/ /g, '_'); // Troca espaços por underline
+
+            if (!login || !nome) {
+                alert("Por favor, preencha o Login e o Nome corretamente.");
+                return;
+            }
+
+            // Define o tamanho da imagem idêntico à alta resolução da câmera
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Transforma a imagem em arquivo JPEG com qualidade máxima (1.0)
+            const qualidadeMaxima = canvas.toDataURL('image/jpeg', 1.0);
+            
+            // Força o download da imagem com o nome padronizado
+            const link = document.createElement('a');
+            link.href = qualidadeMaxima;
+            link.download = `${login}_${nome}_${angulo}.jpg`; 
+            link.click();
+        }
+    </script>
+</body>
+</html>
