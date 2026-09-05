@@ -29,12 +29,22 @@
         }
         input { background-color: #333; color: white; border: 1px solid #555; }
         button {
-            background-color: #007bff;
             color: white;
             font-weight: bold;
             cursor: pointer;
+            transition: 0.3s;
         }
-        /* Container relativo para segurar o vídeo e o oval juntos */
+        button:disabled {
+            background-color: #444 !important;
+            color: #888;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        #btn-iniciar { background-color: #007bff; }
+        .btn-frente { background-color: #28a745; }
+        .btn-perfil { background-color: #17a2b8; }
+
         .video-wrapper {
             position: relative;
             width: 100%;
@@ -43,14 +53,14 @@
             border-radius: 12px;
             overflow: hidden;
             background: #000;
-            display: none; /* Escondido até ativar a câmera */
+            display: none;
         }
         video {
             width: 100%;
             display: block;
-            transform: scaleX(-1); /* Espelho */
+            transform: scaleX(-1);
         }
-        /* O Guia Oval com fundo escurecido */
+        
         .oval-guide {
             position: absolute;
             top: 50%;
@@ -58,27 +68,24 @@
             transform: translate(-50%, -50%);
             width: 200px;
             height: 280px;
-            border: 4px dashed #ffeb3b; /* Amarelo de atenção */
+            border: 4px dashed #ffeb3b;
             border-radius: 50%;
-            /* O box-shadow escurece tudo fora do oval */
             box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65);
             pointer-events: none;
             z-index: 10;
             transition: border-color 0.3s;
         }
-        /* Classe ativada no momento do flash/captura */
         .oval-guide.sucesso { border-color: #28a745; border-style: solid; }
         
         #controles { display: none; margin-top: 15px; }
-        .btn-frente { background-color: #28a745; }
-        .btn-perfil { background-color: #17a2b8; }
+        #mensagem-fim { display: none; margin-top: 15px; color: #28a745; font-size: 18px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h2>Biometria Facial</h2>
-        <p style="font-size: 14px; color: #aaa;">Preencha os dados e posicione o rosto no centro do oval.</p>
+        <p style="font-size: 14px; color: #aaa;">Preencha os dados e siga a sequência obrigatória de captura.</p>
         
         <input type="text" id="login" placeholder="Login (Ex: 1234)">
         <input type="text" id="nome" placeholder="Nome (Ex: Joao Silva)">
@@ -93,10 +100,13 @@
         <canvas id="canvas" style="display:none;"></canvas>
 
         <div id="controles">
-            <button class="btn-frente" onclick="capturaImediata('Frente')">📸 Capturar Frente</button>
-            <button class="btn-perfil" onclick="capturaComTimer('Dir')">⏱️ Capturar Perfil Direito</button>
-            <button class="btn-perfil" onclick="capturaComTimer('Esq')">⏱️ Capturar Perfil Esquerdo</button>
+            <!-- Apenas o primeiro botão começa liberado -->
+            <button id="btn-frente" class="btn-frente" onclick="capturaFrente()">📸 1. Capturar Frente</button>
+            <button id="btn-dir" class="btn-perfil" onclick="capturaTimer('Dir', 'btn-dir', 'btn-esq')" disabled>⏱️ 2. Perfil Direito</button>
+            <button id="btn-esq" class="btn-perfil" onclick="capturaTimer('Esq', 'btn-esq', null)" disabled>⏱️ 3. Perfil Esquerdo</button>
         </div>
+        
+        <div id="mensagem-fim">✅ Cadastro 100% Concluído!</div>
     </div>
 
     <script>
@@ -107,24 +117,18 @@
         const btnIniciar = document.getElementById('btn-iniciar');
         const oval = document.getElementById('oval-guide');
         
-        // Inicializa o contexto de áudio
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        // Sintetizador para criar os bips sem precisar de arquivos MP3 externos
         function tocarBip(frequencia, duracao, volume = 1) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-            
             oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(frequencia, audioCtx.currentTime);
-            
             gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracao);
-            
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-            
             oscillator.start();
             oscillator.stop(audioCtx.currentTime + duracao);
         }
@@ -143,16 +147,17 @@
             }
         }
 
-        function executarCaptura(angulo) {
+        function validarCampos() {
             const login = document.getElementById('login').value.trim();
-            const nome = document.getElementById('nome').value.trim().replace(/ /g, '_');
-
+            const nome = document.getElementById('nome').value.trim();
             if (!login || !nome) {
-                alert("Preencha o Login e o Nome!");
-                return;
+                alert("Por favor, preencha o Login e o Nome antes de capturar a foto.");
+                return false;
             }
+            return { login, nome: nome.replace(/ /g, '_') };
+        }
 
-            // Efeito visual de sucesso no oval
+        function executarCaptura(dados, angulo) {
             oval.classList.add('sucesso');
             setTimeout(() => oval.classList.remove('sucesso'), 500);
 
@@ -160,38 +165,60 @@
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             
-            // Corrige o espelhamento na hora de salvar a foto final
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            const qualidadeMaxima = canvas.toDataURL('image/jpeg', 1.0);
             const link = document.createElement('a');
-            link.href = qualidadeMaxima;
-            link.download = `${login}_${nome}_${angulo}.jpg`;
+            link.href = canvas.toDataURL('image/jpeg', 1.0);
+            link.download = `${dados.login}_${dados.nome}_${angulo}.jpg`;
             link.click();
         }
 
-        function capturaImediata(angulo) {
-            tocarBip(800, 0.1); // Bip curto de confirmação
-            executarCaptura(angulo);
+        function atualizarEsteira(botaoAtual, botaoProximo) {
+            const btnAtual = document.getElementById(botaoAtual);
+            btnAtual.disabled = true;
+            btnAtual.innerText = "✅ Concluído";
+
+            if (botaoProximo) {
+                document.getElementById(botaoProximo).disabled = false;
+            } else {
+                // Fim da esteira
+                document.getElementById('mensagem-fim').style.display = "block";
+                oval.style.borderColor = "#28a745"; // Trava o oval verde
+                oval.style.borderStyle = "solid";
+            }
         }
 
-        function capturaComTimer(angulo) {
+        function capturaFrente() {
+            const dados = validarCampos();
+            if (!dados) return;
+
+            tocarBip(800, 0.1);
+            executarCaptura(dados, 'Frente');
+            atualizarEsteira('btn-frente', 'btn-dir');
+        }
+
+        function capturaTimer(angulo, btnAtualId, btnProximoId) {
+            const dados = validarCampos();
+            if (!dados) return;
+
+            const btnAtual = document.getElementById(btnAtualId);
+            btnAtual.disabled = true; // Trava o botão para evitar clique duplo
+            btnAtual.innerText = "⏱️ Aguarde...";
+
             let contagem = 3;
-            // Bip inicial longo avisando que começou
             tocarBip(600, 0.2); 
             
             const intervalo = setInterval(() => {
                 contagem--;
                 if (contagem > 0) {
-                    // Bips curtos de contagem
                     tocarBip(600, 0.1);
                 } else {
                     clearInterval(intervalo);
-                    // Bip agudo e longo de captura
                     tocarBip(1000, 0.4);
-                    executarCaptura(angulo);
+                    executarCaptura(dados, angulo);
+                    atualizarEsteira(btnAtualId, btnProximoId);
                 }
             }, 1000);
         }
