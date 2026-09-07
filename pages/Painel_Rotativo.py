@@ -1361,7 +1361,7 @@ with CONTEUDO_TV.container():
                 {texto_aviso_tela}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                Para alcançar o objetivo diário ajustado, precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
+                <b>Para alcançar a meta diária ajustado, precisamos compensar os números da projeção realizando mais {max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
