@@ -8,6 +8,7 @@ import calendar
 import unicodedata
 import requests
 import io
+import re
 import pydeck as pdk
 from datetime import datetime, timedelta
 
@@ -1067,7 +1068,7 @@ with CONTEUDO_TV.container():
 
             if col_tarefas:
                 df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                df_proj.loc[df_proj['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+                if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
             else: df_proj['VALOR_TAREFA'] = 1
 
             df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
@@ -1257,9 +1258,9 @@ with CONTEUDO_TV.container():
                 df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup_cons, axis=1)
                 df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
 
-                hoje_br_dt = datetime.utcnow() - timedelta(hours=3)
-                hoje_str_br = hoje_br_dt.strftime('%d/%m/%Y')
-                hoje_str_us = hoje_br_dt.strftime('%Y-%m-%d')
+                hoje_dt = datetime.utcnow() - timedelta(hours=3)
+                hoje_str_br = hoje_dt.strftime('%d/%m/%Y')
+                hoje_str_us = hoje_dt.strftime('%Y-%m-%d')
 
                 col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
                 if col_data:
@@ -1270,55 +1271,64 @@ with CONTEUDO_TV.container():
             except: pass
 
         # 3. Tratamento de Metas e Histórico de Setembro
-        meta_diaria = 440
-        hoje_br = (datetime.utcnow() - timedelta(hours=3)).strftime('%d/%m/%Y')
+        meta_diaria_base = 440
+        hoje_dt = datetime.utcnow() - timedelta(hours=3)
+        hoje_br = hoje_dt.strftime('%d/%m/%Y')
+        
+        # Meta diária muda para 0 se for domingo
+        meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
         
         qtd_dias_passados = 0
         realizado_passado = 0
         meta_passada = 0
         deficit_acumulado = 0
         
-        # Gestão de Histórico 100% BLINDADA (Ignora formatação de data do excel, pega apenas onde houver números válidos na coluna "REALIZADO")
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
             try:
-                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, dtype=str)
-                df_hist.columns = [str(c).strip().upper() for c in df_hist.columns]
+                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str)
+                df_hist['FULL_ROW'] = df_hist.fillna('').astype(str).agg(' '.join, axis=1)
+                df_hist['DATE_STR'] = df_hist['FULL_ROW'].str.extract(r'(\d{2}/\d{2}/\d{4})')[0]
                 
-                col_realizado = next((c for c in df_hist.columns if 'REALIZADO' in c or 'VALOR' in c or 'OS' in c), None)
+                def extract_val(text, dstr):
+                    if pd.isna(dstr): return np.nan
+                    t = text.replace(dstr, '')
+                    nums = re.findall(r'\b\d+\b', t)
+                    if nums: return int(nums[-1])
+                    return np.nan
+                    
+                df_hist['VALOR'] = df_hist.apply(lambda x: extract_val(x['FULL_ROW'], x['DATE_STR']), axis=1)
+                df_hist = df_hist.dropna(subset=['DATE_STR', 'VALOR'])
                 
-                if col_realizado:
-                    # Tira linhas vazias na coluna REALIZADO
-                    df_hist = df_hist[df_hist[col_realizado].astype(str).str.strip() != '']
-                    df_hist = df_hist.dropna(subset=[col_realizado])
+                df_hist['DATE_OBJ'] = pd.to_datetime(df_hist['DATE_STR'], format='%d/%m/%Y', errors='coerce')
+                hoje_data_apenas = hoje_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & (df_hist['DATE_OBJ'] < hoje_data_apenas)].copy()
+                
+                if not df_passado.empty:
+                    qtd_dias_passados = len(df_passado)
+                    realizado_passado = int(df_passado['VALOR'].sum())
                     
-                    df_hist['VALOR_NUM'] = pd.to_numeric(df_hist[col_realizado].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    # Domingo não soma na meta passada
+                    df_passado['META_DIA_HIST'] = np.where(df_passado['DATE_OBJ'].dt.dayofweek == 6, 0, meta_diaria_base)
+                    meta_passada = int(df_passado['META_DIA_HIST'].sum())
                     
-                    # Filtra os dias com valores > 0
-                    df_valid = df_hist[df_hist['VALOR_NUM'] > 0]
-                    
-                    if not df_valid.empty:
-                        qtd_dias_passados = len(df_valid)
-                        realizado_passado = int(df_valid['VALOR_NUM'].sum())
-                        meta_passada = qtd_dias_passados * meta_diaria
-                        deficit_acumulado = meta_passada - realizado_passado
+                    df_passado['FALTA_DIA'] = df_passado['META_DIA_HIST'] - df_passado['VALOR']
+                    deficit_acumulado = int(df_passado['FALTA_DIA'].sum())
             except: pass
 
-        # Metricas de Hoje
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
-        meta_ajustada_hoje = meta_diaria + deficit_acumulado 
+        meta_ajustada_hoje = meta_diaria_hoje + deficit_acumulado 
         
-        # CÁLCULO BASEADO NA PROJEÇÃO (Para o Áudio e Texto da Tela)
         falta_pela_projecao = meta_ajustada_hoje - projecao_op
         
-        # Exibição Visual Estilizada em 4 Cards Gigantes
         cor_status_dia = "#2e7d32" if projecao_op >= meta_ajustada_hoje else "#c62828"
 
         st.markdown(f'''
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
             <div class="sup-card" style="text-align: center; background: #e3f2fd; border-color: #90caf9;">
                 <div style="font-size: 20px; font-weight: bold; color: #0277bd;">META DIÁRIA BASE</div>
-                <div style="font-size: 80px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria}</div>
-                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de O.S.</div>
+                <div style="font-size: 80px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria_hoje}</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de O.S. (Domingos = 0)</div>
             </div>
             <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
                 <div style="font-size: 20px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
@@ -1352,7 +1362,7 @@ with CONTEUDO_TV.container():
                 {texto_aviso_tela}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                <b>Para alcançar a meta diária precisamos compensar os números da projeção realizando mais {max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
+                Para alcançar a meta diária, precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
@@ -1631,7 +1641,7 @@ with CONTEUDO_TV.container():
                     df_produtivo['FALTA_BST']  = 0
 
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM CONTRATOS"
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM PRINTS"
 
                 st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
