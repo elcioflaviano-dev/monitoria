@@ -103,12 +103,15 @@ def baixar_dados_nuvem_background():
 
             ficheiro_excel.seek(0)
             
-            # --- BAIXA HISTORICO DE METAS (LÊ AS COLUNAS DA ABA) ---
+            # --- BAIXA HISTORICO DE METAS (LÊ COMO TEXTO CRU PARA BLINDAR DATAS DO EXCEL) ---
             try:
-                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', engine='openpyxl')
+                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', header=None, engine='openpyxl')
                 if not df_hist_bruto.empty:
-                    df_hist_bruto.columns = [str(c).strip().upper().replace('\xa0', ' ') for c in df_hist_bruto.columns]
-                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
+                    # Converte datas nativas do Excel para texto DD/MM/YYYY antes de salvar
+                    for col in df_hist_bruto.columns:
+                        if pd.api.types.is_datetime64_any_dtype(df_hist_bruto[col]):
+                            df_hist_bruto[col] = df_hist_bruto[col].dt.strftime('%d/%m/%Y')
+                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False, header=False)
             except: pass
 
             ficheiro_excel.seek(0)
@@ -558,7 +561,7 @@ with CONTEUDO_TV.container():
                         if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
                             script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                             delay_atual = 0
-                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                             delay_atual += 24000 
                             for i, sup_full in enumerate(SUPS_ABC):
                                 df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
@@ -1068,7 +1071,7 @@ with CONTEUDO_TV.container():
 
             if col_tarefas:
                 df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                df_proj.loc[df_proj['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+                if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
             else: df_proj['VALOR_TAREFA'] = 1
 
             df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
@@ -1294,28 +1297,40 @@ with CONTEUDO_TV.container():
 
         realizado_passado = 0
         
-        # Lê apenas a produção da aba (Soma o que tiver daquele mês)
+        # Lê apenas a produção da aba usando REGEX (Soma o que tiver daquele mês)
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
             try:
-                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, dtype=str)
-                df_hist.columns = [str(c).strip().upper() for c in df_hist.columns]
-                
-                col_data = next((c for c in df_hist.columns if 'DATA' in c), None)
-                col_realizado = next((c for c in df_hist.columns if 'REALIZADO' in c or 'VALOR' in c or 'OS' in c), None)
-                
-                if col_data and col_realizado:
-                    df_hist = df_hist.dropna(subset=[col_data, col_realizado])
-                    df_hist['VALOR_NUM'] = pd.to_numeric(df_hist[col_realizado].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-                    df_hist['DATE_OBJ'] = pd.to_datetime(df_hist[col_data], errors='coerce', dayfirst=True)
+                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str)
+                df_hist['FULL_ROW'] = df_hist.fillna('').astype(str).agg(' '.join, axis=1)
+
+                def extract_val(text):
+                    match = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})', text)
+                    if not match: return pd.NaT, 0
                     
-                    # Filtra apenas do dia 1 do mes atual até ontem
-                    df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & 
-                                         (df_hist['DATE_OBJ'] >= primeiro_dia_mes) & 
-                                         (df_hist['DATE_OBJ'] < hoje_meia_noite)].copy()
+                    d_str = match.group(1)
+                    if '-' in d_str:
+                        d_obj = pd.to_datetime(d_str, format='%Y-%m-%d', errors='coerce')
+                    else:
+                        d_obj = pd.to_datetime(d_str, format='%d/%m/%Y', errors='coerce')
+                        
+                    clean_text = text.replace(d_str, '')
+                    nums = re.findall(r'\b\d+\b', clean_text)
+                    val = int(nums[-1]) if nums else 0
                     
-                    if not df_passado.empty:
-                        df_passado = df_passado.sort_values('DATE_OBJ').drop_duplicates(subset=['DATE_OBJ'], keep='last')
-                        realizado_passado = int(df_passado['VALOR_NUM'].sum())
+                    return d_obj, val
+
+                res = df_hist['FULL_ROW'].apply(extract_val)
+                df_hist['DATE_OBJ'] = [x[0] for x in res]
+                df_hist['VALOR'] = [x[1] for x in res]
+                
+                # Filtra apenas do dia 1 do mes atual até ontem
+                df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & 
+                                     (df_hist['DATE_OBJ'] >= primeiro_dia_mes) & 
+                                     (df_hist['DATE_OBJ'] < hoje_meia_noite)].copy()
+                
+                if not df_passado.empty:
+                    df_passado = df_passado.sort_values('DATE_OBJ').drop_duplicates(subset=['DATE_OBJ'], keep='last')
+                    realizado_passado = int(df_passado['VALOR'].sum())
             except: pass
 
         deficit_acumulado = meta_passada - realizado_passado
@@ -1356,7 +1371,7 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
 
         if falta_pela_projecao > 0:
-            texto_aviso_tela = f'⚠️ PELA PROJEÇÃO FALTAM {falta_pela_projecao} O.S. PARA BATER A META ACUMULADA'
+            texto_aviso_tela = f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META ACUMULADA'
         else:
             texto_aviso_tela = '🎯 PROJEÇÃO ATINGE A META ACUMULADA DO MÊS!'
 
@@ -1366,13 +1381,13 @@ with CONTEUDO_TV.container():
                 {texto_aviso_tela}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                Para alcançar a meta diária precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
+                Para alcançar a meta diária, precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} produtos do consultivo e encaixes."
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} produtos do consultivo."
             st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1645,7 +1660,7 @@ with CONTEUDO_TV.container():
                     df_produtivo['FALTA_BST']  = 0
 
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM PRINTS"
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
 
                 st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
