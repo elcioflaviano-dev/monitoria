@@ -103,11 +103,12 @@ def baixar_dados_nuvem_background():
 
             ficheiro_excel.seek(0)
             
-            # --- BAIXA HISTORICO DE METAS (LÊ COMO TEXTO CRU PARA NÃO PERDER DATAS) ---
+            # --- BAIXA HISTORICO DE METAS (LÊ AS COLUNAS DA ABA) ---
             try:
-                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', header=None, engine='openpyxl')
+                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', engine='openpyxl')
                 if not df_hist_bruto.empty:
-                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False, header=False)
+                    df_hist_bruto.columns = [str(c).strip().upper().replace('\xa0', ' ') for c in df_hist_bruto.columns]
+                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False)
             except: pass
 
             ficheiro_excel.seek(0)
@@ -1219,14 +1220,14 @@ with CONTEUDO_TV.container():
                 df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
                 df_r = df_r[df_r['STATUS_PADRAO'] != 'Descartar']
                 
-                if col_tarefas:
-                    df_r['VALOR_TAREFA'] = pd.to_numeric(df_r[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
-                    df_r.loc[df_r['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
-                else: 
-                    df_r['VALOR_TAREFA'] = 1
-
                 df_abc = df_r[df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
                 
+                if col_tarefas:
+                    df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                    df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+                else: 
+                    df_abc['VALOR_TAREFA'] = 1
+                    
                 os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
                 em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
@@ -1269,20 +1270,31 @@ with CONTEUDO_TV.container():
                     produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
             except: pass
 
-        # 3. Tratamento de Metas e Histórico de Setembro
+        # 3. Tratamento de Metas Fixo por Calendário do Mês (Ignora Falhas no Excel)
         meta_diaria_base = 440
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
-        hoje_br = hoje_dt.strftime('%d/%m/%Y')
         
         # Meta diária muda para 0 se for domingo
         meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
         
-        qtd_dias_passados = 0
-        realizado_passado = 0
-        meta_passada = 0
-        deficit_acumulado = 0
+        primeiro_dia_mes = hoje_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        hoje_meia_noite = hoje_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Gestão de Histórico (Leitura blindada das colunas DATA e REALIZADO)
+        qtd_dias_passados_uteis = 0
+        meta_passada = 0
+        
+        # Conta a meta correta desde o dia 1 até ontem
+        if hoje_meia_noite > primeiro_dia_mes:
+            dias_no_mes = (hoje_meia_noite - primeiro_dia_mes).days
+            for d in range(dias_no_mes):
+                dia_atual = primeiro_dia_mes + timedelta(days=d)
+                if dia_atual.weekday() != 6:  # Se não for domingo
+                    meta_passada += meta_diaria_base
+                    qtd_dias_passados_uteis += 1
+
+        realizado_passado = 0
+        
+        # Lê apenas a produção da aba (Soma o que tiver daquele mês)
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
             try:
                 df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, dtype=str)
@@ -1292,28 +1304,21 @@ with CONTEUDO_TV.container():
                 col_realizado = next((c for c in df_hist.columns if 'REALIZADO' in c or 'VALOR' in c or 'OS' in c), None)
                 
                 if col_data and col_realizado:
-                    df_hist = df_hist[df_hist[col_realizado].astype(str).str.strip() != '']
-                    df_hist = df_hist.dropna(subset=[col_realizado])
-                    
+                    df_hist = df_hist.dropna(subset=[col_data, col_realizado])
                     df_hist['VALOR_NUM'] = pd.to_numeric(df_hist[col_realizado].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-                    df_valid = df_hist[df_hist['VALOR_NUM'] > 0].copy()
+                    df_hist['DATE_OBJ'] = pd.to_datetime(df_hist[col_data], errors='coerce', dayfirst=True)
                     
-                    if not df_valid.empty:
-                        df_valid['DATE_OBJ'] = pd.to_datetime(df_valid[col_data], errors='coerce', dayfirst=True)
-                        hoje_data_apenas = hoje_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-                        
-                        df_passado = df_valid[(df_valid['DATE_OBJ'].notna()) & (df_valid['DATE_OBJ'] < hoje_data_apenas)].copy()
-                        
-                        if not df_passado.empty:
-                            df_passado = df_passado.sort_values('DATE_OBJ').drop_duplicates(subset=['DATE_OBJ'], keep='last')
-                            qtd_dias_passados = len(df_passado)
-                            realizado_passado = int(df_passado['VALOR_NUM'].sum())
-                            
-                            df_passado['META_DIA_HIST'] = np.where(df_passado['DATE_OBJ'].dt.dayofweek == 6, 0, meta_diaria_base)
-                            meta_passada = int(df_passado['META_DIA_HIST'].sum())
-                            
-                            deficit_acumulado = meta_passada - realizado_passado
+                    # Filtra apenas do dia 1 do mes atual até ontem
+                    df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & 
+                                         (df_hist['DATE_OBJ'] >= primeiro_dia_mes) & 
+                                         (df_hist['DATE_OBJ'] < hoje_meia_noite)].copy()
+                    
+                    if not df_passado.empty:
+                        df_passado = df_passado.sort_values('DATE_OBJ').drop_duplicates(subset=['DATE_OBJ'], keep='last')
+                        realizado_passado = int(df_passado['VALOR_NUM'].sum())
             except: pass
+
+        deficit_acumulado = meta_passada - realizado_passado
 
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
         meta_ajustada_hoje = meta_diaria_hoje + deficit_acumulado 
@@ -1332,7 +1337,7 @@ with CONTEUDO_TV.container():
             <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
                 <div style="font-size: 20px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
                 <div style="font-size: 80px; font-weight: 900; color: {'#c62828' if deficit_acumulado > 0 else '#2e7d32'}; line-height: 1;">{deficit_acumulado}</div>
-                <div style="font-size: 14px; color: #555; margin-top: 5px;">Ref. a {qtd_dias_passados} dias passados (Meta Acumulada: {meta_passada} | Realizado: {realizado_passado})</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Ref. a {qtd_dias_passados_uteis} dias úteis passados (Meta: {meta_passada} | Realizado: {realizado_passado})</div>
             </div>
         </div>
         
@@ -1361,7 +1366,7 @@ with CONTEUDO_TV.container():
                 {texto_aviso_tela}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                <b>Para alcançar a meta diária ajustado, precisamos compensar os números da projeção realizando mais {max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
+                Para alcançar a meta diária precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} produtos do consultivo e encaixes</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
