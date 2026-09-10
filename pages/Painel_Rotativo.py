@@ -561,7 +561,7 @@ with CONTEUDO_TV.container():
                         if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
                             script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
                             delay_atual = 0
-                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total na regional: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
                             delay_atual += 24000 
                             for i, sup_full in enumerate(SUPS_ABC):
                                 df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
@@ -1387,7 +1387,7 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} produtos do consultivo."
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} produtos do consultivo e encaixes."
             st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
@@ -1660,7 +1660,7 @@ with CONTEUDO_TV.container():
                     df_produtivo['FALTA_BST']  = 0
 
                 total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
-                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAS"
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM PRINTS"
 
                 st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
                 
