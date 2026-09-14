@@ -5,7 +5,7 @@ import os
 import requests
 import io
 
-st.set_page_config(page_title="Painel de Produtividade", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Monitoria", page_icon="🎯", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
