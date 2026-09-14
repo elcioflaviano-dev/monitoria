@@ -27,16 +27,16 @@ if not os.path.exists(ARQUIVO_LOGO):
 
 # 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
-    "EDSON MARCO": 21,
-    "MAICON": 21,
-    "NELSON": 20
+    "EDSON MARCO": 23,
+    "MAICON": 23,
+    "NELSON": 23
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
 SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Monitoria", page_icon="🎯", layout="wide", initial_sidebar_state="collapsed")
 
 # Inicialização segura dos estados da sessão
 if "idx" not in st.session_state: 
