@@ -36,7 +36,7 @@ QTD_TECNICOS_MONTADOS = {
 SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
-st.set_page_config(page_title="Monitoria", page_icon="🎯", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Monitoria - TV", page_icon="🎯", layout="wide", initial_sidebar_state="collapsed")
 
 # Inicialização segura dos estados da sessão
 if "idx" not in st.session_state: 
