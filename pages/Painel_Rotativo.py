@@ -1381,13 +1381,13 @@ with CONTEUDO_TV.container():
                 {texto_aviso_tela}
             </div>
             <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
-                Para alcançar a meta diária, precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} ÓSs</b>.
+                Para alcançar a meta diária, precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} OSs</b>.
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} ÓS s."
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} OSs."
             st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
