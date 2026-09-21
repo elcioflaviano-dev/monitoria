@@ -1387,7 +1387,7 @@ with CONTEUDO_TV.container():
         ''', unsafe_allow_html=True)
 
         if st.session_state.novo_ciclo:
-            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} OESES."
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} OESESS."
             st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
             st.session_state.novo_ciclo = False
         st.components.v1.html(st.session_state.script_audio_atual, height=0)
