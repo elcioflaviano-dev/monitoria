@@ -29,7 +29,7 @@ if not os.path.exists(ARQUIVO_LOGO):
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 24,
     "MAICON": 24,
-    "NELSON": 24
+    "NELSON": 23
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
