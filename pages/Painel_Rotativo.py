@@ -78,7 +78,7 @@ if tela_url:
     elif tela_url == "consultivo": st.session_state.idx = 5
     elif tela_url == "diario": st.session_state.idx = 6
     elif tela_url == "caetano": st.session_state.idx = 17
-    elif tela_url == "metas": st.session_state.idx = 18
+    elif tela_url == "s": st.session_state.idx = 18
     modo_estatico = True
 
 # =========================================================================
@@ -103,7 +103,7 @@ def baixar_dados_nuvem_background():
 
             ficheiro_excel.seek(0)
             
-            # --- BAIXA HISTORICO DE METAS (LÊ COMO TEXTO CRU PARA BLINDAR DATAS DO EXCEL) ---
+            # --- BAIXA HISTORICO DE S (LÊ COMO TEXTO CRU PARA BLINDAR DATAS DO EXCEL) ---
             try:
                 df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', header=None, engine='openpyxl')
                 if not df_hist_bruto.empty:
@@ -1274,7 +1274,7 @@ with CONTEUDO_TV.container():
             except: pass
 
         # 3. Tratamento de Metas Fixo por Calendário do Mês (Ignora Falhas no Excel)
-        meta_diaria_base = 440
+        meta_diaria_base = 454
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
         
         # Meta diária muda para 0 se for domingo
