@@ -16,7 +16,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
+URL_PLANILHA_MASTER = ""https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQCrN8Zu0clfRLZ0xaFq8iPQAfvwiHaBfrbv_tyLk2_0vw4?e=SuwYHi&download=1""
 
 def carregar_dados_nuvem():
     st.sidebar.markdown("### 🔄 SINCRONIZAÇÃO AUTOMÁTICA")
