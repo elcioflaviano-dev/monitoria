@@ -1198,7 +1198,7 @@ with CONTEUDO_TV.container():
         os_produtivas_hoje = 0
         projecao_op = 0
         
-        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota (Cálculo Idêntico ao da Tela 9)
+        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota
         if os.path.exists(ARQUIVO_ROTA_DISCO):
             try:
                 df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
@@ -1230,7 +1230,7 @@ with CONTEUDO_TV.container():
                     df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
                 else: 
                     df_abc['VALOR_TAREFA'] = 1
-                    
+                
                 os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
                 produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
                 em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
@@ -1273,11 +1273,10 @@ with CONTEUDO_TV.container():
                     produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
             except: pass
 
-        # 3. Tratamento de Metas Fixo por Calendário do Mês (Ignora Falhas no Excel)
+        # 3. Tratamento de Metas e Histórico de O.S. (Aba HISTORICO_METAS)
         meta_diaria_base = 454
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
         
-        # Meta diária muda para 0 se for domingo
         meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
         
         primeiro_dia_mes = hoje_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -1286,18 +1285,16 @@ with CONTEUDO_TV.container():
         qtd_dias_passados_uteis = 0
         meta_passada = 0
         
-        # Conta a meta correta desde o dia 1 até ontem
         if hoje_meia_noite > primeiro_dia_mes:
             dias_no_mes = (hoje_meia_noite - primeiro_dia_mes).days
             for d in range(dias_no_mes):
                 dia_atual = primeiro_dia_mes + timedelta(days=d)
-                if dia_atual.weekday() != 6:  # Se não for domingo
+                if dia_atual.weekday() != 6:  # Exclui domingos
                     meta_passada += meta_diaria_base
                     qtd_dias_passados_uteis += 1
 
         realizado_passado = 0
         
-        # Lê apenas a produção da aba usando REGEX (Soma o que tiver daquele mês)
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
             try:
                 df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str)
@@ -1323,10 +1320,9 @@ with CONTEUDO_TV.container():
                 df_hist['DATE_OBJ'] = [x[0] for x in res]
                 df_hist['VALOR'] = [x[1] for x in res]
                 
-                # Filtra apenas do dia 1 do mes atual até ontem
                 df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & 
-                                     (df_hist['DATE_OBJ'] >= primeiro_dia_mes) & 
-                                     (df_hist['DATE_OBJ'] < hoje_meia_noite)].copy()
+                                   (df_hist['DATE_OBJ'] >= primeiro_dia_mes) & 
+                                   (df_hist['DATE_OBJ'] < hoje_meia_noite)].copy()
                 
                 if not df_passado.empty:
                     df_passado = df_passado.sort_values('DATE_OBJ').drop_duplicates(subset=['DATE_OBJ'], keep='last')
