@@ -1275,7 +1275,7 @@ with CONTEUDO_TV.container():
                     produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
             except: pass
 
-        # 3. Tratamento de Metas e Histórico de O.S.
+        # 3. Tratamento de Metas e Histórico de O.S. (Lê o CSV limpo Coluna A e B)
         meta_diaria_base = 454
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
         
@@ -1299,37 +1299,29 @@ with CONTEUDO_TV.container():
         
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
             try:
+                # Lê o CSV assumindo a Coluna 0 (Data) e Coluna 1 (Realizado)
                 df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str)
-                df_hist['FULL_ROW'] = df_hist.fillna('').astype(str).agg(' '.join, axis=1)
-
-                def extract_val(text):
-                    match = re.search(r'(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})', text)
-                    if not match: return pd.NaT, 0
+                if df_hist.shape[1] >= 2:
+                    df_hist.columns = ['DATA_STR', 'VALOR_STR'] + [f'col_{i}' for i in range(2, df_hist.shape[1])]
                     
-                    d_str = match.group(1)
-                    if '-' in d_str:
-                        d_obj = pd.to_datetime(d_str, format='%Y-%m-%d', errors='coerce')
-                    else:
-                        d_obj = pd.to_datetime(d_str, format='%d/%m/%Y', errors='coerce')
+                    # Converte datas (suporta DD/MM/AAAA ou AAAA-MM-DD)
+                    df_hist['DATE_OBJ'] = pd.to_datetime(df_hist['DATA_STR'], format='%d/%m/%Y', errors='coerce')
+                    mask_nat = df_hist['DATE_OBJ'].isna()
+                    if mask_nat.any():
+                        df_hist.loc[mask_nat, 'DATE_OBJ'] = pd.to_datetime(df_hist.loc[mask_nat, 'DATA_STR'], format='%Y-%m-%d', errors='coerce')
                         
-                    clean_text = text.replace(d_str, '')
-                    nums = re.findall(r'\b\d+\b', clean_text)
-                    val = int(nums[-1]) if nums else 0
+                    df_hist['VALOR'] = pd.to_numeric(df_hist['VALOR_STR'].str.replace(',', '.'), errors='coerce').fillna(0)
                     
-                    return d_obj, val
-
-                res = df_hist['FULL_ROW'].apply(extract_val)
-                df_hist['DATE_OBJ'] = [x[0] for x in res]
-                df_hist['VALOR'] = [x[1] for x in res]
-                
-                df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & 
-                                   (df_hist['DATE_OBJ'] >= primeiro_dia_mes) & 
-                                   (df_hist['DATE_OBJ'] < hoje_meia_noite)].copy()
-                
-                if not df_passado.empty:
-                    df_passado = df_passado.sort_values('DATE_OBJ').drop_duplicates(subset=['DATE_OBJ'], keep='last')
-                    realizado_passado = int(df_passado['VALOR'].sum())
+                    # Filtra apenas os dias passados dentro do mês atual
+                    df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & 
+                                       (df_hist['DATE_OBJ'] >= primeiro_dia_mes) & 
+                                       (df_hist['DATE_OBJ'] < hoje_meia_noite)].copy()
+                    
+                    if not df_passado.empty:
+                        realizado_passado = int(df_passado['VALOR'].sum())
             except: pass
+
+        deficit_acumulado = max(0, meta_passada - realizado_passado)
 
         # Fallback de segurança: se o histórico local não existir, assume o realizado como 0 sem travar
         deficit_acumulado = max(0, meta_passada - realizado_passado)
