@@ -1188,9 +1188,9 @@ with CONTEUDO_TV.container():
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
-    # =========================================================================
+    # -------------------------------------------------------------------------
     # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯 [REATIVADA E CORRIGIDA]
-    # =========================================================================
+    # -------------------------------------------------------------------------
     elif st.session_state.idx == 18:
         st.markdown(render_topo("METAS DO MÊS") + icone_ativo, unsafe_allow_html=True)
 
@@ -1278,38 +1278,33 @@ with CONTEUDO_TV.container():
         
         meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
         
-        primeiro_dia_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                hoje_meia_noite = hoje.replace(hour=0, minute=0, second=0, microsecond=0)
-
-                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
-                
-                for d in range(1, num_dias + 1):
-                    data_loop = datetime(ano, mes, d)
-                    if data_loop.weekday() != 6: 
-                        total_dias_uteis_mes += 1
-                        # Conta apenas os dias úteis estritamente anteriores a hoje
-                        if data_loop < hoje_meia_noite:
-                            dias_uteis_passados += 1
-
-                if col_data:
-                    df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%d/%m/%Y', errors='coerce')
-                    if df_cards['DATA_OBJ'].isna().all():
-                        df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%Y-%m-%d', errors='coerce')
-                    
-                    # Filtra apenas os dias anteriores a hoje para a média
-                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] < hoje_meia_noite)]
-                    realizado_passado = int(df_passado['QTD_PRODUTOS_CALC'].sum())
-                else:
-                    realizado_passado = total_realizado_abc
-
-                if dias_uteis_passados > 0:
-                    media_diaria = realizado_passado / dias_uteis_passados
-                    projecao_produtos = int(round(media_diaria * total_dias_uteis_mes))
-                else:
-                    projecao_produtos = total_realizado_abc
-
-                if projecao_produtos < total_realizado_abc:
-                    projecao_produtos = total_realizado_abc
+        primeiro_dia_mes = hoje_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        hoje_meia_noite = hoje_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        qtd_dias_passados_uteis = 0
+        meta_passada = 0
+        realizado_passado = 0
+        
+        if os.path.exists(ARQUIVO_HISTORICO_METAS):
+            try:
+                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str, on_bad_lines='skip')
+                if not df_hist.empty and df_hist.shape[1] >= 2:
+                    for _, row in df_hist.iterrows():
+                        txt_data = str(row[0]).strip().replace('"', '')
+                        txt_valor = str(row[1]).strip().replace('"', '').replace(',', '.')
+                        
+                        d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
+                        if pd.isna(d_obj):
+                            d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
+                        if pd.isna(d_obj):
+                            d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
+                            
+                        if pd.notna(d_obj) and primeiro_dia_mes <= d_obj < hoje_meia_noite:
+                            val_num = float(txt_valor) if txt_valor.replace('.', '', 1).isdigit() else 0
+                            realizado_passado += int(val_num)
+                            if d_obj.weekday() != 6:
+                                qtd_dias_passados_uteis += 1
+                                meta_passada += meta_diaria_base
             except Exception as e:
                 print(f"Erro ao ler histórico de metas: {e}")
 
@@ -1410,7 +1405,7 @@ with CONTEUDO_TV.container():
                 realizado_passado = 0
                 
                 primeiro_dia_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                fim_hoje = hoje.replace(hour=23, minute=59, second=59, microsecond=999999)
+                hoje_meia_noite = hoje.replace(hour=0, minute=0, second=0, microsecond=0)
 
                 col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
                 
@@ -1418,7 +1413,7 @@ with CONTEUDO_TV.container():
                     data_loop = datetime(ano, mes, d)
                     if data_loop.weekday() != 6: 
                         total_dias_uteis_mes += 1
-                        if data_loop <= hoje.replace(hour=0, minute=0, second=0, microsecond=0):
+                        if data_loop < hoje_meia_noite:
                             dias_uteis_passados += 1
 
                 if col_data:
@@ -1426,7 +1421,7 @@ with CONTEUDO_TV.container():
                     if df_cards['DATA_OBJ'].isna().all():
                         df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%Y-%m-%d', errors='coerce')
                     
-                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] <= fim_hoje)]
+                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] < hoje_meia_noite)]
                     realizado_passado = int(df_passado['QTD_PRODUTOS_CALC'].sum())
                 else:
                     realizado_passado = total_realizado_abc
