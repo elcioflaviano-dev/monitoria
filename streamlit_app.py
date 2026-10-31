@@ -16,7 +16,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 ARQUIVO_ROTA_DISCO = "rota_sincronizada.csv"
-URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQCrN8Zu0clfRLZ0xaFq8iPQAfvwiHaBfrbv_tyLk2_0vw4?e=SuwYHi&download=1"
+URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
 
 def carregar_dados_nuvem():
     st.sidebar.markdown("### 🔄 SINCRONIZAÇÃO AUTOMÁTICA")
@@ -29,10 +29,13 @@ def carregar_dados_nuvem():
         }
         
         sessao = requests.Session()
-        resposta = sessao.get(URL_PLANILHA_MASTER, headers=headers, allow_redirects=True, timeout=20)
+        resposta = sessao.get(URL_PLANILHA_MASTER, headers=headers, allow_redirects=True, timeout=15)
         
-        if resposta.status_code != 200:
-            st.sidebar.error(f"Erro HTTP: {resposta.status_code}")
+        # Valida se o status é 200 e se o binário começa com a assinatura válida de Excel/Zip ('PK')
+        if resposta.status_code != 200 or not resposta.content.startswith(b'PK'):
+            st.sidebar.warning("⚠️ Nuvem indisponível ou bloqueada pela rede. A usar base local.")
+            if os.path.exists(ARQUIVO_ROTA_DISCO):
+                return pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
             return None
 
         ficheiro_excel = io.BytesIO(resposta.content)
@@ -50,6 +53,8 @@ def carregar_dados_nuvem():
         df_bruto = pd.read_excel(ficheiro_excel, sheet_name='ROTA', engine='openpyxl')
         
         if df_bruto.empty:
+            if os.path.exists(ARQUIVO_ROTA_DISCO):
+                return pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str)
             return None
 
         df_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_bruto.columns]
