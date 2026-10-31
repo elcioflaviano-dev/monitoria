@@ -1483,7 +1483,7 @@ with CONTEUDO_TV.container():
                             <div style="font-size: 70px; font-weight: 900; color: #111; line-height: 1;">{total_realizado_abc}</div>
                         </div>
                         <div>
-                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Projeção Produtos</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Projeção Mês - Produtos</div>
                             <div style="font-size: 70px; font-weight: 900; color: #00838f; line-height: 1;">{projecao_produtos}</div>
                         </div>
                     </div>
