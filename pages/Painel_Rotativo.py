@@ -1191,7 +1191,7 @@ with CONTEUDO_TV.container():
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
- # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
     # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 18:
@@ -1275,7 +1275,7 @@ with CONTEUDO_TV.container():
                     produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
             except: pass
 
-        # 3. Tratamento de Metas e Histórico de O.S. (Lê o CSV limpo Coluna A e B)
+        # 3. Tratamento de Metas e Histórico de O.S. (Lê a Coluna 0 como Data e Coluna 1 como Realizado)
         meta_diaria_base = 454
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
         
@@ -1299,31 +1299,24 @@ with CONTEUDO_TV.container():
         
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
             try:
-                # Lê o CSV assumindo a Coluna 0 (Data) e Coluna 1 (Realizado)
-                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str)
-                if df_hist.shape[1] >= 2:
-                    df_hist.columns = ['DATA_STR', 'VALOR_STR'] + [f'col_{i}' for i in range(2, df_hist.shape[1])]
-                    
-                    # Converte datas (suporta DD/MM/AAAA ou AAAA-MM-DD)
-                    df_hist['DATE_OBJ'] = pd.to_datetime(df_hist['DATA_STR'], format='%d/%m/%Y', errors='coerce')
-                    mask_nat = df_hist['DATE_OBJ'].isna()
-                    if mask_nat.any():
-                        df_hist.loc[mask_nat, 'DATE_OBJ'] = pd.to_datetime(df_hist.loc[mask_nat, 'DATA_STR'], format='%Y-%m-%d', errors='coerce')
+                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str, on_bad_lines='skip')
+                if not df_hist.empty and df_hist.shape[1] >= 2:
+                    for _, row in df_hist.iterrows():
+                        txt_data = str(row[0]).strip()
+                        txt_valor = str(row[1]).strip().replace(',', '.')
                         
-                    df_hist['VALOR'] = pd.to_numeric(df_hist['VALOR_STR'].str.replace(',', '.'), errors='coerce').fillna(0)
-                    
-                    # Filtra apenas os dias passados dentro do mês atual
-                    df_passado = df_hist[(df_hist['DATE_OBJ'].notna()) & 
-                                       (df_hist['DATE_OBJ'] >= primeiro_dia_mes) & 
-                                       (df_hist['DATE_OBJ'] < hoje_meia_noite)].copy()
-                    
-                    if not df_passado.empty:
-                        realizado_passado = int(df_passado['VALOR'].sum())
-            except: pass
+                        # Converte a data (suporta DD/MM/AAAA ou AAAA-MM-DD)
+                        d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
+                        if pd.isna(d_obj):
+                            d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
+                            
+                        # Soma apenas se estiver dentro do mês atual e for anterior a hoje
+                        if pd.notna(d_obj) and primeiro_dia_mes <= d_obj < hoje_meia_noite:
+                            val_num = float(txt_valor) if txt_valor.replace('.', '', 1).isdigit() else 0
+                            realizado_passado += int(val_num)
+            except Exception as e:
+                print(f"Erro ao ler histórico de metas: {e}")
 
-        deficit_acumulado = max(0, meta_passada - realizado_passado)
-
-        # Fallback de segurança: se o histórico local não existir, assume o realizado como 0 sem travar
         deficit_acumulado = max(0, meta_passada - realizado_passado)
 
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
