@@ -30,8 +30,8 @@ if not os.path.exists(ARQUIVO_LOGO):
 # 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 24,
-    "MAICON": 25,
-    "NELSON": 25
+    "MAICON": 24,
+    "NELSON": 23
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
@@ -80,7 +80,7 @@ if tela_url:
     elif tela_url == "consultivo": st.session_state.idx = 5
     elif tela_url == "diario": st.session_state.idx = 6
     elif tela_url == "caetano": st.session_state.idx = 17
-    # Tela 18 comentada/desativada
+    elif tela_url == "s": st.session_state.idx = 18
     modo_estatico = True
 
 # =========================================================================
@@ -105,13 +105,13 @@ def baixar_dados_nuvem_background():
 
             ficheiro_excel.seek(0)
             
-            # --- BAIXA HISTORICO DE S (LÊ COMO TEXTO CRU PARA BLINDAR DATAS DO EXCEL) ---
+            # --- BAIXA HISTORICO DE METAS ---
             try:
                 df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', header=None, engine='openpyxl')
                 if not df_hist_bruto.empty:
                     for col in df_hist_bruto.columns:
                         if pd.api.types.is_datetime64_any_dtype(df_hist_bruto[col]):
-                            df_hist_bruto[col] = df_hist_bruto[col].dt.strftime('%d/%m/%Y')
+                            df_hist_bruto[col] = df_hist_bruto[col].dt.strftime('%m/%d/%Y')
                     df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False, header=False)
             except: pass
 
@@ -1189,10 +1189,190 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # =========================================================================
-    # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯 [DESATIVADA TEMPORARIAMENTE]
+    # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯 [REATIVADA E CORRIGIDA]
     # =========================================================================
-    # elif st.session_state.idx == 18:
-    #     pass
+    elif st.session_state.idx == 18:
+        st.markdown(render_topo("METAS DO MÊS") + icone_ativo, unsafe_allow_html=True)
+
+        os_produtivas_hoje = 0
+        projecao_op = 0
+        
+        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+            try:
+                df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+                df_r.columns = [str(c).strip().upper() for c in df_r.columns]
+                
+                col_sup = next((c for c in df_r.columns if 'SUPERVISOR' in c), None)
+                col_tipo_os = next((c for c in df_r.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
+                if not col_tipo_os: col_tipo_os = next((c for c in df_r.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
+                col_tarefas = next((c for c in df_r.columns if 'TAREFA' in c or 'QTD' in c), None)
+                
+                def sup_metas(row):
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if oficial in sup: return oficial
+                    return "DESCARTADO"
+
+                df_r['SUPERVISOR_CLEAN'] = df_r.apply(sup_metas, axis=1)
+                
+                if col_tipo_os:
+                    df_r = df_r[~df_r[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+
+                df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
+                df_r = df_r[df_r['STATUS_PADRAO'] != 'Descartar']
+                
+                df_abc = df_r[df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
+                
+                if col_tarefas:
+                    df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+                    df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+                else: 
+                    df_abc['VALOR_TAREFA'] = 1
+                
+                os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+                produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+                em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+                
+                os_produtivas_hoje = int(produtivo_op)
+                
+                denom_quebra_op = os_ne_op + produtivo_op
+                eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
+                projecao_op = int(round(produtivo_op + (em_aberto_op * (eficiencia_op / 100))))
+            except: pass
+
+        # 2. Carrega Produtos do Consultivo de Hoje
+        produtos_consultivo_hoje = 0
+        if os.path.exists(ARQUIVO_CONSULTIVO):
+            try:
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
+                df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
+
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
+
+                def class_sup_cons(row):
+                    for oficial in SUPERVISORES_ORDENADOS:
+                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
+                    return "DESCARTADO"
+
+                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup_cons, axis=1)
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
+
+                hoje_br_dt = datetime.utcnow() - timedelta(hours=3)
+                hoje_str_br = hoje_br_dt.strftime('%d/%m/%Y')
+                hoje_str_us = hoje_br_dt.strftime('%Y-%m-%d')
+
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+                if col_data:
+                    df_cards['DATA_TXT'] = df_cards[col_data].astype(str).str.strip().str[:10]
+                    mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
+                    df_hoje = df_cards[mask_hoje].copy()
+                    produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
+            except: pass
+
+        # 3. Tratamento de Metas e Histórico de O.S. (Compatível com formato M/D/YYYY e YYYY-MM-DD)
+        meta_diaria_base = 454
+        hoje_dt = datetime.utcnow() - timedelta(hours=3)
+        
+        meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
+        
+        primeiro_dia_mes = hoje_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        hoje_meia_noite = hoje_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        qtd_dias_passados_uteis = 0
+        meta_passada = 0
+        
+        if hoje_meia_noite > primeiro_dia_mes:
+            dias_no_mes = (hoje_meia_noite - primeiro_dia_mes).days
+            for d in range(dias_no_mes):
+                dia_atual = primeiro_dia_mes + timedelta(days=d)
+                if dia_atual.weekday() != 6:  # Exclui domingos
+                    meta_passada += meta_diaria_base
+                    qtd_dias_passados_uteis += 1
+
+        realizado_passado = 0
+        
+        if os.path.exists(ARQUIVO_HISTORICO_METAS):
+            try:
+                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str, on_bad_lines='skip')
+                if not df_hist.empty and df_hist.shape[1] >= 2:
+                    for _, row in df_hist.iterrows():
+                        txt_data = str(row[0]).strip().replace('"', '')
+                        txt_valor = str(row[1]).strip().replace('"', '').replace(',', '.')
+                        
+                        # Tenta formato M/D/YYYY (padrão GitHub) e D/M/YYYY ou YYYY-MM-DD
+                        d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
+                        if pd.isna(d_obj):
+                            d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
+                        if pd.isna(d_obj):
+                            d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
+                            
+                        if pd.notna(d_obj) and primeiro_dia_mes <= d_obj < hoje_meia_noite:
+                            val_num = float(txt_valor) if txt_valor.replace('.', '', 1).isdigit() else 0
+                            realizado_passado += int(val_num)
+            except Exception as e:
+                print(f"Erro ao ler histórico de metas: {e}")
+
+        deficit_acumulado = max(0, meta_passada - realizado_passado)
+
+        total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
+        meta_ajustada_hoje = meta_diaria_hoje + deficit_acumulado 
+        
+        falta_pela_projecao = meta_ajustada_hoje - projecao_op
+        
+        cor_status_dia = "#2e7d32" if projecao_op >= meta_ajustada_hoje else "#c62828"
+
+        st.markdown(f'''
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div class="sup-card" style="text-align: center; background: #e3f2fd; border-color: #90caf9;">
+                <div style="font-size: 20px; font-weight: bold; color: #0277bd;">META DIÁRIA BASE</div>
+                <div style="font-size: 80px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria_hoje}</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de O.S. (Domingos = 0)</div>
+            </div>
+            <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
+                <div style="font-size: 20px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
+                <div style="font-size: 80px; font-weight: 900; color: {'#c62828' if deficit_acumulado > 0 else '#2e7d32'}; line-height: 1;">{deficit_acumulado}</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Ref. a {qtd_dias_passados_uteis} dias úteis passados (Meta: {meta_passada} | Realizado: {realizado_passado})</div>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div class="sup-card" style="text-align: center; background: #f3e5f5; border-color: #ce93d8;">
+                <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">PROJEÇÃO DE O.S. (HOJE)</div>
+                <div style="font-size: 80px; font-weight: 900; color: #4a148c; line-height: 1;">{projecao_op}</div>
+                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa do Painel Rotativo</div>
+            </div>
+            <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #81c784; box-shadow: 0px 8px 20px rgba(0,0,0,0.15); transform: scale(1.02);">
+                <div style="font-size: 22px; font-weight: bold; color: #1b5e20;">ATUAL REALIZADO (HOJE)</div>
+                <div style="font-size: 90px; font-weight: 900; color: #111; line-height: 1;">{total_realizado_hoje}</div>
+                <div style="font-size: 18px; font-weight: bold; color: #555; margin-top: 5px;">{os_produtivas_hoje} O.S. Painel + {produtos_consultivo_hoje} Consultivo</div>
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+        if falta_pela_projecao > 0:
+            texto_aviso_tela = f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META ACUMULADA'
+        else:
+            texto_aviso_tela = '🎯 PROJEÇÃO ATINGE A META ACUMULADA DO MÊS!'
+
+        st.markdown(f'''
+        <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if projecao_op >= meta_ajustada_hoje else '#ffebee'};">
+            <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
+                {texto_aviso_tela}
+            </div>
+            <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
+                Para alcançar a meta diária, precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} OS</b>.
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+        if st.session_state.novo_ciclo:
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} O S."
+            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
+            st.session_state.novo_ciclo = False
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
 
     # -------------------------------------------------------------------------
     # TELA 5: CONSULTIVO GERAL
@@ -1232,7 +1412,7 @@ with CONTEUDO_TV.container():
                 realizado_passado = 0
                 
                 primeiro_dia_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                hoje_meia_noite = hoje.replace(hour=0, minute=0, second=0, microsecond=0)
+                fim_hoje = hoje.replace(hour=23, minute=59, second=59, microsecond=999999)
 
                 col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
                 
@@ -1240,7 +1420,7 @@ with CONTEUDO_TV.container():
                     data_loop = datetime(ano, mes, d)
                     if data_loop.weekday() != 6: 
                         total_dias_uteis_mes += 1
-                        if data_loop < hoje_meia_noite:
+                        if data_loop <= hoje.replace(hour=0, minute=0, second=0, microsecond=0):
                             dias_uteis_passados += 1
 
                 if col_data:
@@ -1248,7 +1428,7 @@ with CONTEUDO_TV.container():
                     if df_cards['DATA_OBJ'].isna().all():
                         df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%Y-%m-%d', errors='coerce')
                     
-                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] < hoje_meia_noite)]
+                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] <= fim_hoje)]
                     realizado_passado = int(df_passado['QTD_PRODUTOS_CALC'].sum())
                 else:
                     realizado_passado = total_realizado_abc
@@ -1257,6 +1437,9 @@ with CONTEUDO_TV.container():
                     media_diaria = realizado_passado / dias_uteis_passados
                     projecao_produtos = int(round(media_diaria * total_dias_uteis_mes))
                 else:
+                    projecao_produtos = total_realizado_abc
+
+                if projecao_produtos < total_realizado_abc:
                     projecao_produtos = total_realizado_abc
 
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
@@ -1655,13 +1838,12 @@ if st.session_state.idx == 4:
     st.session_state.novo_ciclo = True
     st.rerun()
 else:
-    # Tela 18 (metas) removida dos ciclos de exibição
     if periodo_matinal_base:
         telas_fluxo = [0, 2]
     elif periodo_transicao_base:
-        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 5, 6, 3, 2]
+        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
     else:
-        telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 5, 6, 3, 2]
+        telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
         
     try:
         pos = telas_fluxo.index(st.session_state.idx)
