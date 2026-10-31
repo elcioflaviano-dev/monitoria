@@ -1272,7 +1272,7 @@ with CONTEUDO_TV.container():
                     produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
             except: pass
 
-        # 3. Tratamento de Metas e Histórico de O.S. (Compatível com formato M/D/YYYY e YYYY-MM-DD)
+        # 3. Tratamento de Metas e Histórico de O.S. (Alinhado com o CSV e dias passados)
         meta_diaria_base = 454
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
         
@@ -1284,14 +1284,6 @@ with CONTEUDO_TV.container():
         qtd_dias_passados_uteis = 0
         meta_passada = 0
         
-        if hoje_meia_noite > primeiro_dia_mes:
-            dias_no_mes = (hoje_meia_noite - primeiro_dia_mes).days
-            for d in range(dias_no_mes):
-                dia_atual = primeiro_dia_mes + timedelta(days=d)
-                if dia_atual.weekday() != 6:  # Exclui domingos
-                    meta_passada += meta_diaria_base
-                    qtd_dias_passados_uteis += 1
-
         realizado_passado = 0
         
         if os.path.exists(ARQUIVO_HISTORICO_METAS):
@@ -1302,16 +1294,19 @@ with CONTEUDO_TV.container():
                         txt_data = str(row[0]).strip().replace('"', '')
                         txt_valor = str(row[1]).strip().replace('"', '').replace(',', '.')
                         
-                        # Tenta formato M/D/YYYY (padrão GitHub) e D/M/YYYY ou YYYY-MM-DD
                         d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
                         if pd.isna(d_obj):
                             d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
                         if pd.isna(d_obj):
                             d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
                             
+                        # Considera apenas dias anteriores a hoje (estritamente < hoje_meia_noite) dentro do mês
                         if pd.notna(d_obj) and primeiro_dia_mes <= d_obj < hoje_meia_noite:
                             val_num = float(txt_valor) if txt_valor.replace('.', '', 1).isdigit() else 0
                             realizado_passado += int(val_num)
+                            if d_obj.weekday() != 6:  # Conta como dia útil passado se não for domingo
+                                qtd_dias_passados_uteis += 1
+                                meta_passada += meta_diaria_base
             except Exception as e:
                 print(f"Erro ao ler histórico de metas: {e}")
 
