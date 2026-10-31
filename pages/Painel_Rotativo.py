@@ -1424,11 +1424,47 @@ with CONTEUDO_TV.container():
                 hoje = datetime.utcnow() - timedelta(hours=3)
                 ano, mes = hoje.year, hoje.month
                 _, num_dias = calendar.monthrange(ano, mes)
+                
+                # --- CÁLCULO DE DIAS ÚTEIS DO MÊS INTEIRO (Segunda a Sábado, sem Domingos) ---
+                total_dias_uteis_mes = 0
+                dias_uteis_passados = 0
+                realizado_passado = 0
+                
+                primeiro_dia_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                hoje_meia_noite = hoje.replace(hour=0, minute=0, second=0, microsecond=0)
+
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+                
+                for d in range(1, num_dias + 1):
+                    data_loop = datetime(ano, mes, d)
+                    if data_loop.weekday() != 6: # Se não for domingo
+                        total_dias_uteis_mes += 1
+                        if data_loop < hoje_meia_noite:
+                            dias_uteis_passados += 1
+
+                # Soma a produção realizada nos dias úteis passados (se houver coluna de data)
+                if col_data:
+                    df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%d/%m/%Y', errors='coerce')
+                    if df_cards['DATA_OBJ'].isna().all():
+                        df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%Y-%m-%d', errors='coerce')
+                    
+                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] < hoje_meia_noite)]
+                    realizado_passado = int(df_passado['QTD_PRODUTOS_CALC'].sum())
+                else:
+                    realizado_passado = total_realizado_abc
+
+                # Cálculo da Projeção de Produtos do Mês
+                if dias_uteis_passados > 0:
+                    media_diaria = realizado_passado / dias_uteis_passados
+                    projecao_produtos = int(round(media_diaria * total_dias_uteis_mes))
+                else:
+                    projecao_produtos = total_realizado_abc
+
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
                 if dias_restantes == 0: dias_restantes = 1
 
                 meta_mensal_abc = len(SUPS_ABC) * 350
-                st.session_state.ticker_data[5] = f"📈 CONSULTIVO MÊS: {total_realizado_abc} PRODUTOS (META: {meta_mensal_abc})"
+                st.session_state.ticker_data[5] = f"📈 CONSULTIVO MÊS: {total_realizado_abc} PRODUTOS (PROJ: {projecao_produtos} | META: {meta_mensal_abc})"
 
                 st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 10px;">
                     <span style="font-size: 20px; font-weight: bold; color: #555;">Dias úteis restantes: </span>
@@ -1445,6 +1481,10 @@ with CONTEUDO_TV.container():
                         <div>
                             <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Produtos</div>
                             <div style="font-size: 70px; font-weight: 900; color: #111; line-height: 1;">{total_realizado_abc}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Projeção Produtos</div>
+                            <div style="font-size: 70px; font-weight: 900; color: #00838f; line-height: 1;">{projecao_produtos}</div>
                         </div>
                     </div>
                 </div>''', unsafe_allow_html=True)
