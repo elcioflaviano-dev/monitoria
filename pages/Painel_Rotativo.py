@@ -1252,10 +1252,15 @@ with CONTEUDO_TV.container():
                 else:
                     realizado_passado = total_realizado_abc
 
+               # Cálculo robusto da Projeção de Produtos do Mês baseada na média diária real
                 if dias_uteis_passados > 0:
                     media_diaria = realizado_passado / dias_uteis_passados
                     projecao_produtos = int(round(media_diaria * total_dias_uteis_mes))
                 else:
+                    projecao_produtos = total_realizado_abc
+
+                # Segurança: Se a projeção ficar menor que o já realizado, assume o realizado
+                if projecao_produtos < total_realizado_abc:
                     projecao_produtos = total_realizado_abc
 
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
