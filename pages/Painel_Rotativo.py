@@ -1189,7 +1189,7 @@ with CONTEUDO_TV.container():
             st.components.v1.html(st.session_state.script_audio_atual, height=0)
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
-    # -------------------------------------------------------------------------
+ # -------------------------------------------------------------------------
     # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 18:
@@ -1273,7 +1273,7 @@ with CONTEUDO_TV.container():
                     produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
             except: pass
 
-        # 3. Tratamento de Metas e Histórico de O.S. (Aba HISTORICO_METAS)
+        # 3. Tratamento de Metas e Histórico de O.S.
         meta_diaria_base = 454
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
         
@@ -1329,7 +1329,8 @@ with CONTEUDO_TV.container():
                     realizado_passado = int(df_passado['VALOR'].sum())
             except: pass
 
-        deficit_acumulado = meta_passada - realizado_passado
+        # Fallback de segurança: se o histórico local não existir, assume o realizado como 0 sem travar
+        deficit_acumulado = max(0, meta_passada - realizado_passado)
 
         total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
         meta_ajustada_hoje = meta_diaria_hoje + deficit_acumulado 
