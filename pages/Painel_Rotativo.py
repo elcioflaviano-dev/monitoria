@@ -80,6 +80,7 @@ if tela_url:
     elif tela_url == "consultivo": st.session_state.idx = 5
     elif tela_url == "diario": st.session_state.idx = 6
     elif tela_url == "caetano": st.session_state.idx = 17
+    # Tela 18 comentada/desativada
     modo_estatico = True
 
 # =========================================================================
@@ -1231,7 +1232,7 @@ with CONTEUDO_TV.container():
                 realizado_passado = 0
                 
                 primeiro_dia_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                fim_hoje = hoje.replace(hour=23, minute=59, second=59, microsecond=999999)
+                hoje_meia_noite = hoje.replace(hour=0, minute=0, second=0, microsecond=0)
 
                 col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
                 
@@ -1239,7 +1240,7 @@ with CONTEUDO_TV.container():
                     data_loop = datetime(ano, mes, d)
                     if data_loop.weekday() != 6: 
                         total_dias_uteis_mes += 1
-                        if data_loop <= hoje.replace(hour=0, minute=0, second=0, microsecond=0):
+                        if data_loop < hoje_meia_noite:
                             dias_uteis_passados += 1
 
                 if col_data:
@@ -1247,20 +1248,15 @@ with CONTEUDO_TV.container():
                     if df_cards['DATA_OBJ'].isna().all():
                         df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%Y-%m-%d', errors='coerce')
                     
-                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] <= fim_hoje)]
+                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] < hoje_meia_noite)]
                     realizado_passado = int(df_passado['QTD_PRODUTOS_CALC'].sum())
                 else:
                     realizado_passado = total_realizado_abc
 
-               # Cálculo robusto da Projeção de Produtos do Mês baseada na média diária real
                 if dias_uteis_passados > 0:
                     media_diaria = realizado_passado / dias_uteis_passados
                     projecao_produtos = int(round(media_diaria * total_dias_uteis_mes))
                 else:
-                    projecao_produtos = total_realizado_abc
-
-                # Segurança: Se a projeção ficar menor que o já realizado, assume o realizado
-                if projecao_produtos < total_realizado_abc:
                     projecao_produtos = total_realizado_abc
 
                 dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
@@ -1659,6 +1655,7 @@ if st.session_state.idx == 4:
     st.session_state.novo_ciclo = True
     st.rerun()
 else:
+    # Tela 18 (metas) removida dos ciclos de exibição
     if periodo_matinal_base:
         telas_fluxo = [0, 2]
     elif periodo_transicao_base:
