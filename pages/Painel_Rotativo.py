@@ -19,7 +19,9 @@ ROOT_DIR = os.getcwd()
 ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
 ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
 ARQUIVO_HISTORICO_METAS = os.path.join(ROOT_DIR, "historico_metas_nuvem.csv")
-URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQBPzXoLVti8RJTgULiXf-nQAcrWXLiLMfks1IgJPO4nJeg?download=1"
+
+# URL atualizada e sincronizada com o novo link do SharePoint
+URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQCrN8Zu0clfRLZ0xaFq8iPQAQJeqcLtPLcV8aSymqPIS-g?e=SrxNPH&download=1"
 
 ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
 if not os.path.exists(ARQUIVO_LOGO):
