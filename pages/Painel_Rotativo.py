@@ -1189,7 +1189,7 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯 [REATIVADA E CORRIGIDA]
+    # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
     # -------------------------------------------------------------------------
     elif st.session_state.idx == 18:
         st.markdown(render_topo("METAS DO MÊS") + icone_ativo, unsafe_allow_html=True)
@@ -1239,7 +1239,8 @@ with CONTEUDO_TV.container():
                 denom_quebra_op = os_ne_op + produtivo_op
                 eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
                 projecao_op = int(round(produtivo_op + (em_aberto_op * (eficiencia_op / 100))))
-            except: pass
+            except Exception as e:
+                print(f"Erro ao carregar rota na tela 18: {e}")
 
         # 2. Carrega Produtos do Consultivo de Hoje
         produtos_consultivo_hoje = 0
@@ -1270,9 +1271,10 @@ with CONTEUDO_TV.container():
                     mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
                     df_hoje = df_cards[mask_hoje].copy()
                     produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
-            except: pass
+            except Exception as e:
+                print(f"Erro ao carregar consultivo na tela 18: {e}")
 
-        # 3. Tratamento de Metas e Histórico de O.S. (Corrigido e alinhado)
+        # 3. Tratamento de Metas e Histórico de O.S.
         meta_diaria_base = 454
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
         
@@ -1293,18 +1295,16 @@ with CONTEUDO_TV.container():
                         txt_data = str(row[0]).strip().replace('"', '')
                         txt_valor = str(row[1]).strip().replace('"', '').replace(',', '.')
                         
-                        # Suporta formato americano M/D/YYYY do GitHub, D/M/YYYY e YYYY-MM-DD
                         d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
                         if pd.isna(d_obj):
                             d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
                         if pd.isna(d_obj):
                             d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
                             
-                        # Soma os dias passados dentro do mês atual (estritamente anteriores a hoje)
                         if pd.notna(d_obj) and primeiro_dia_mes <= d_obj < hoje_meia_noite:
                             val_num = float(txt_valor) if txt_valor.replace('.', '', 1).isdigit() else 0
                             realizado_passado += int(val_num)
-                            if d_obj.weekday() != 6:  # Se não for domingo, conta como dia útil
+                            if d_obj.weekday() != 6:
                                 qtd_dias_passados_uteis += 1
                                 meta_passada += meta_diaria_base
             except Exception as e:
