@@ -1,2059 +1,3777 @@
-import io
-import re
-import unicodedata
-import calendar
-from datetime import datetime
-import pandas as pd
-import numpy as np
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 
-try:
-    import extract_msg
-    HAS_EXTRACT_MSG = True
-except ImportError:
-    HAS_EXTRACT_MSG = False
+import pandas as pd
 
-st.set_page_config(
-    page_title="Painel Executivo - Prévia Diária",
-    page_icon="📊",
-    layout="wide"
-)
+import numpy as np
 
-# --- URL DA PLANILHA DO GOOGLE SHEETS ---
-GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/1bF7cQaoEkj-UuKCGmJ4PThoy-CdSPlVg8i3XEB6cu58/edit?gid=0#gid=0"
+import os
 
-# --- REGRAS GLOBAIS DE SUPERVISORES POR BASE ---
-MAPA_SUPERVISORES_BASE = {
-    "NET-ABCDM": ["EDSON MARCO", "MAICON", "NELSON", "APOIO"],
-    "NET-Guarulhos": ["ADRIANO", "DANIELE", "FERNANDO", "PALOMA"],
-    "NET-LESTE": ["ALAN", "ELISANGELA", "FRANCISCO", "FRANCISO", "JOAO CARLOS", "MIRON"]
+import time
+
+import base64
+
+import calendar
+
+import unicodedata
+
+import requests
+
+import io
+
+import re
+
+import pydeck as pdk
+
+from datetime import datetime, timedelta
+
+
+
+# =========================================================================
+
+# CONFIGURAÇÕES E PARÂMETROS OPERACIONAIS 🚀
+
+# =========================================================================
+
+ROOT_DIR = os.getcwd()
+
+ARQUIVO_ROTA_DISCO = os.path.join(ROOT_DIR, "rota_sincronizada.csv")
+
+ARQUIVO_CONSULTIVO = os.path.join(ROOT_DIR, "consultivo_sincronizado.csv")
+
+ARQUIVO_HISTORICO_METAS = os.path.join(ROOT_DIR, "historico_metas_nuvem.csv")
+
+
+
+# URL atualizada e sincronizada com o novo link do SharePoint
+
+URL_PLANILHA_MASTER = "https://totaltecnologia-my.sharepoint.com/:x:/g/personal/elcio_nunes_totaltecnologia_onmicrosoft_com/IQCrN8Zu0clfRLZ0xaFq8iPQAQJeqcLtPLcV8aSymqPIS-g?e=SrxNPH&download=1"
+
+
+
+ARQUIVO_LOGO = os.path.join(ROOT_DIR, "logo.png")
+
+if not os.path.exists(ARQUIVO_LOGO):
+
+    ARQUIVO_LOGO = os.path.join(ROOT_DIR, "pages", "logo.png")
+
+
+
+# 📌 QUANTIDADE FIXA DE TÉCNICOS DA ROTA DOS MONTADOS (TELA 10)
+
+QTD_TECNICOS_MONTADOS = {
+
+    "EDSON MARCO": 24,
+
+    "MAICON": 24,
+
+    "NELSON": 23
+
 }
 
-# --- FUNÇÕES DE NAVEGAÇÃO ---
-def ir_para_passo_2():
-    st.session_state["pagina_atual"] = "2. Dados Operacionais por Base"
 
-def ir_para_passo_3():
-    st.session_state["pagina_atual"] = "3. Visualização da Prévia"
 
-# --- FUNÇÃO DE FORMATAÇÃO PADRÃO BRASILEIRO ---
-def fmt_br(val, decimais=0):
+# --- REGRAS GLOBAIS DE SUPERVISORES ---
+
+SUPS_ABC = ["EDSON MARCO", "MAICON", "NELSON"]
+
+SUPERVISORES_ORDENADOS = SUPS_ABC
+
+
+
+st.set_page_config(page_title="Monitoria - TV", page_icon="🎯", layout="wide", initial_sidebar_state="collapsed")
+
+
+
+# Inicialização segura dos estados da sessão
+
+if "idx" not in st.session_state: 
+
+    st.session_state.idx = 0        
+
+    st.session_state.novo_ciclo = True
+
+    st.session_state.script_audio_atual = ""
+
+    st.session_state.prox_idx = 0
+
+
+
+if "ultimo_audio_base" not in st.session_state:
+
+    st.session_state.ultimo_audio_base = 0
+
+
+
+if "ultimo_audio_tec1" not in st.session_state:
+
+    st.session_state.ultimo_audio_tec1 = 0
+
+
+
+if "ticker_data" not in st.session_state:
+
+    st.session_state.ticker_data = {}
+
+
+
+if "ultima_sincronizacao" not in st.session_state:
+
+    st.session_state.ultima_sincronizacao = time.time()
+
+
+
+# =========================================================================
+
+# 🧭 SISTEMA DE ROTEAMENTO POR URL (LINKS ESPECÍFICOS)
+
+# =========================================================================
+
+modo_estatico = False
+
+try:
+
+    params = st.query_params
+
+    tela_url = params.get("tela", None)
+
+except AttributeError:
+
+    params = st.experimental_get_query_params()
+
+    tela_url = params.get("tela", [None])[0]
+
+
+
+if tela_url:
+
+    tela_url = str(tela_url).lower()
+
+    if tela_url == "geral": st.session_state.idx = 9
+
+    elif tela_url == "fixa": st.session_state.idx = 10
+
+    elif tela_url == "pme": st.session_state.idx = 8
+
+    elif tela_url == "gpon": st.session_state.idx = 7
+
+    elif tela_url == "tec1": st.session_state.idx = 1
+
+    elif tela_url == "consultivo": st.session_state.idx = 5
+
+    elif tela_url == "diario": st.session_state.idx = 6
+
+    elif tela_url == "caetano": st.session_state.idx = 17
+
+    elif tela_url == "s": st.session_state.idx = 18
+
+    modo_estatico = True
+
+
+
+# =========================================================================
+
+# MOTOR DE SINCRONIZAÇÃO AUTÔNOMA DA TV (5 EM 5 MINUTOS) ☁️
+
+# =========================================================================
+
+def baixar_dados_nuvem_background():
+
     try:
-        if pd.isna(val):
-            val = 0.0
-        if decimais > 0:
-            s = f"{float(val):,.{decimais}f}"
-            s = s.replace(",", "X").replace(".", ",").replace("X", ".")
-            return s
-        else:
-            return f"{int(round(float(val), 0)):,}".replace(",", ".")
-    except Exception:
-        return str(val)
 
-# --- CSS DE ESTILIZAÇÃO PROFISSIONAL EXECUTIVA ---
-st.markdown("""
-<style>
-    .reportview-container .main .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-    }
-    .custom-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 11px;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .custom-table th {
-        border: 1px solid #7f8c8d;
-        padding: 5px 3px;
-        font-weight: 700;
-    }
-    .custom-table td {
-        border: 1px solid #bdc3c7;
-        padding: 4px 3px;
-    }
-    .th-data { background-color: #f2f4f4; color: #2c3e50; }
-    .th-qtd-os { background-color: #a9dfbf; color: #145a32; }
-    .th-consult { background-color: #d5dbdb; color: #212f3d; }
-    .th-prod { background-color: #a0824b; color: #ffffff; }
-    .th-quebra-claro { background-color: #f9e79f; color: #7d6608; }
-    .th-ganho { background-color: #a9dfbf; color: #145a32; }
-    .th-gpon { background-color: #f9e79f; color: #7d6608; }
-    .th-mig { background-color: #f5b7b1; color: #78281f; }
-    .th-retorno { background-color: #a9dfbf; color: #145a32; }
-    .th-pme { background-color: #aed6f1; color: #1b4f72; }
-    
-    .col-destaque-amarelo { background-color: #fcf3cf !important; font-weight: bold; color: #7d6608; }
-    .col-destaque-azul { background-color: #d4efdf !important; font-weight: bold; color: #145a32; }
-    
-    .tr-base { background-color: #eafaf1; font-weight: bold; color: #145a32; font-size: 13px; }
-    .tr-sup { background-color: #ffffff; color: #2c3e50; font-size: 11px; }
-    .tr-total { background-color: #d4efdf; font-weight: 900; color: #145a32; font-size: 13px; border-top: 2px solid #27ae60; }
-    .red-text { color: #c0392b; font-weight: bold; }
-</style>
-""", unsafe_allow_html=True)
+        headers = {'User-Agent': 'Mozilla/5.0', 'Accept': '*/*'}
 
-def normalizar_nome_base(val):
-    s = str(val).strip().upper()
-    if "ABC" in s:
-        return "NET-ABCDM"
-    elif "GUA" in s or "GRU" in s:
-        return "NET-Guarulhos"
-    elif "LES" in s:
-        return "NET-LESTE"
-    return s
+        sessao = requests.Session()
 
-def limpar_chave(val):
-    if pd.isna(val):
-        return ""
-    s = str(val).strip()
-    if s.endswith(".0"):
-        s = s[:-2]
-    return s
+        resposta = sessao.get(URL_PLANILHA_MASTER, headers=headers, allow_redirects=True, timeout=20)
 
-def remover_acentos(txt):
-    if not txt:
-        return ""
-    nfkd = unicodedata.normalize("NFKD", str(txt))
-    return "".join([c for c in nfkd if not unicodedata.combining(c)])
-
-def limpar_texto(val):
-    """Remove acentos, espaços duplos e padroniza para maiúsculas."""
-    if pd.isna(val):
-        return ""
-    s = remover_acentos(str(val).strip().upper())
-    return re.sub(r"\s+", " ", s)
-
-def padrao_quebra_categoria(val, tipo_servico_norm=""):
-    """Padroniza a categoria da coluna QUEBRAS (INSTALAÇÃO, SERVIÇOS ou RETORNO)."""
-    v = limpar_texto(val)
-    ts = limpar_texto(tipo_servico_norm)
-    
-    if "RET" in v or "RETORNO" in ts:
-        return "RETORNO"
-    if "INS" in v:
-        return "INSTALAÇÃO"
-    if "SERV" in v or "MUD" in v or "MANUT" in v or "REP" in v or "TROCA" in v:
-        return "SERVIÇOS"
         
-    if any(k in ts for k in ["ADESAO", "INSTALACAO", "PONTO ADICIONAL", "NOVO PONTO", "MIGRACAO", "VENDA"]):
-        return "INSTALAÇÃO"
-    if ts != "":
-        return "SERVIÇOS"
-    return ""
 
-def eh_retorno_credenciada(serie_ts):
-    s_norm = serie_ts.astype(str).apply(limpar_texto)
-    return s_norm.str.contains("RETORNO", na=False) & s_norm.str.contains("CREDENCIADA", na=False)
+        if resposta.status_code == 200:
 
-def obter_coluna_contrato(df):
-    if df is None or df.empty:
-        return None
-    return next((c for c in df.columns if "contrato" in c.lower()), None)
+            ficheiro_excel = io.BytesIO(resposta.content)
 
-def filtrar_por_contrato_unico(df):
-    """Garante contagem por Contrato (WO) único e não soma de O.S."""
-    if df is None or df.empty:
-        return pd.DataFrame()
-    col_c = obter_coluna_contrato(df)
-    if col_c and col_c in df.columns:
-        df_temp = df.copy()
-        df_temp["_chave_wo_"] = df_temp[col_c].apply(limpar_chave)
-        df_temp = df_temp[df_temp["_chave_wo_"] != ""]
-        return df_temp.drop_duplicates(subset=["_chave_wo_"], keep="first")
-    return df
+            
 
-# ==============================================================================
-# LÓGICA DO CONSULTIVO EXTRAÍDA DO CÓDIGO DA TV (TELAS 5, 6 E 18)
-# ==============================================================================
-def identificar_base_e_supervisor_consultivo(sup_str, base_col_str=""):
-    sup_clean = limpar_texto(sup_str)
-    for base_key, lista_sups in MAPA_SUPERVISORES_BASE.items():
-        for of_sup in lista_sups:
-            prim_nome = limpar_texto(of_sup.split()[0])
-            if prim_nome and prim_nome in sup_clean:
-                sup_canonico = "FRANCISCO" if prim_nome == "FRANCISO" else of_sup
-                return base_key, sup_canonico
-    if base_col_str:
-        b_norm = normalizar_nome_base(base_col_str)
-        if b_norm in MAPA_SUPERVISORES_BASE:
-            return b_norm, sup_clean if sup_clean else "GERAL"
-    return "DESCARTADO", "DESCARTADO"
+            # --- BAIXA CONSULTIVO ---
 
-def processar_planilha_consultivo(df_cons_raw, df_aniel, data_ref_str):
-    """
-    Replica exatamente a lógica do Consultivo das Telas 5, 6 e 18 da TV:
-    - Separa por Supervisor e Base
-    - Contabiliza Contratos (nunique) e Soma de Produtos/O.S. (QTD_PRODUTOS_CALC)
-    - Filtra Hoje (data_ref_str) vs. Passado (1º dia do mês até ontem)
-    - Calcula a Projeção Mensal (media_diaria_passada * total_dias_uteis_mes)
-    """
-    df_cons = df_cons_raw.copy()
-    # Caso o arquivo Excel tenha múltiplas abas e tenha lido outra, garante limpeza dos cabeçalhos
-    df_cons.columns = [
-        unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_')
-        for c in df_cons.columns
-    ]
+            try:
 
-    # 1. Coluna de Quantidade de Produtos / O.S. (igual à TV: 'QTD' e 'PRODUTO')
-    col_qtd = next((c for c in df_cons.columns if 'QTD' in c and ('PRODUTO' in c or 'OS' in c or 'SERV' in c)), None)
-    if not col_qtd:
-        col_qtd = next((c for c in df_cons.columns if c in ['QTD', 'QUANTIDADE', 'PRODUTOS', 'QTD_PRODUTOS', 'OS', 'TOTAL_OS']), None)
-    col_obs = next((c for c in df_cons.columns if 'OBSERVACAO' in c or 'OBS' in c), None)
+                df_cons_bruto = pd.read_excel(ficheiro_excel, sheet_name='CONSULTIVO', engine='openpyxl')
 
-    if col_qtd:
-        df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(
-            df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce'
-        ).fillna(0).astype(int)
-    elif col_obs:
-        def extrair_qtd_obs(texto):
-            if pd.isna(texto):
-                return 0
-            txt_adj = str(texto).upper().replace("OC", "/")
-            palavras = re.split(r'[\s/.,;:|\-()\[\]{}]+', txt_adj)
-            os_enc = [p.strip() for p in palavras if len(p.strip()) >= 7 and p.strip().isdigit()]
-            return max(1, len(set(os_enc))) if str(texto).strip() != "" else 0
-        df_cons['QTD_PRODUTOS_CALC'] = df_cons[col_obs].apply(extrair_qtd_obs)
-    else:
-        df_cons['QTD_PRODUTOS_CALC'] = 1
+                if not df_cons_bruto.empty:
 
-    # 2. Coluna de Supervisor e Base
-    col_sup = next((c for c in df_cons.columns if 'SUPERV' in c), None)
-    col_base = next((c for c in df_cons.columns if any(k in c for k in ['PROJETO', 'BASE', 'REGIONAL', 'CIDADE', 'UNIDADE'])), None)
+                    df_cons_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_cons_bruto.columns]
 
-    bases_list = []
-    sups_list = []
-    for _, row in df_cons.iterrows():
-        s_val = row.get(col_sup, '') if col_sup else ''
-        b_val = row.get(col_base, '') if col_base else ''
-        b_res, s_res = identificar_base_e_supervisor_consultivo(s_val, b_val)
-        bases_list.append(b_res)
-        sups_list.append(s_res)
+                    df_cons_bruto.to_csv(ARQUIVO_CONSULTIVO, index=False)
 
-    df_cons['BASE_CLEAN'] = bases_list
-    df_cons['SUPERVISOR_CLEAN'] = sups_list
+            except: pass
 
-    df_cards = df_cons[df_cons['BASE_CLEAN'] != "DESCARTADO"].copy()
 
-    # 3. Coluna de Contrato (para contagem de contratos únicos como na TV)
-    col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c or 'PROPOSTA' in c), None)
 
-    def count_contracts(df_x):
-        if df_x is None or df_x.empty:
-            return 0
-        if col_contrato_cons and col_contrato_cons in df_x.columns:
-            s_c = df_x[col_contrato_cons].dropna().astype(str).str.strip()
-            s_c = s_c[~s_c.isin(['', 'NAN', 'NONE', '0', '0.0'])]
-            if not s_c.empty:
-                return int(s_c.nunique())
-        return int(len(df_x))
+            ficheiro_excel.seek(0)
 
-    # 4. Datas e Calendário (exatamente como nas Telas 5 e 6 da TV)
-    try:
-        hoje_ref = datetime.strptime(str(data_ref_str).strip(), "%d/%m/%Y")
-    except Exception:
-        hoje_ref = datetime.now()
+            
 
-    ano, mes = hoje_ref.year, hoje_ref.month
-    _, num_dias = calendar.monthrange(ano, mes)
+            # --- BAIXA HISTORICO DE METAS ---
 
-    primeiro_dia_mes = hoje_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    hoje_meia_noite = hoje_ref.replace(hour=0, minute=0, second=0, microsecond=0)
+            try:
 
-    total_dias_uteis_mes = 0
-    dias_uteis_passados = 0
-    for d in range(1, num_dias + 1):
-        data_loop = datetime(ano, mes, d)
-        if data_loop.weekday() != 6:  # Exclui domingos
-            total_dias_uteis_mes += 1
-            if data_loop < hoje_meia_noite:
-                dias_uteis_passados += 1
+                df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', header=None, engine='openpyxl')
 
-    dias_restantes = sum(1 for d in range(hoje_ref.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
-    if dias_restantes <= 0:
-        dias_restantes = 1
+                if not df_hist_bruto.empty:
 
-    col_data = next((c for c in df_cards.columns if 'DATA' in c or 'DT' in c or 'DIA' in c), None)
-    if col_data and not df_cards.empty:
-        raw_dt_col = df_cards[col_data]
-        if pd.api.types.is_datetime64_any_dtype(raw_dt_col):
-            df_cards['DATA_OBJ'] = pd.to_datetime(raw_dt_col, errors='coerce').dt.normalize()
-        else:
-            s_dt = raw_dt_col.astype(str).str.strip().str[:10]
-            s_dt_parsed = pd.to_datetime(s_dt, format='%d/%m/%Y', errors='coerce')
-            mask_na = s_dt_parsed.isna()
-            if mask_na.any():
-                s_dt_parsed.loc[mask_na] = pd.to_datetime(s_dt.loc[mask_na], format='%Y-%m-%d', errors='coerce')
-            mask_na2 = s_dt_parsed.isna()
-            if mask_na2.any():
-                s_dt_parsed.loc[mask_na2] = pd.to_datetime(s_dt.loc[mask_na2], dayfirst=True, errors='coerce')
-            df_cards['DATA_OBJ'] = s_dt_parsed.dt.normalize()
-    else:
-        df_cards['DATA_OBJ'] = hoje_meia_noite
+                    for col in df_hist_bruto.columns:
 
-    hoje_contratos = {}
-    hoje_produtos = {}
-    proj_contratos_mes = {}
-    proj_produtos_mes = {}
-    acum_contratos_mes = {}
-    acum_produtos_mes = {}
-    historico_diario_prod = {}
-    detalhe_supervisores = {}
+                        if pd.api.types.is_datetime64_any_dtype(df_hist_bruto[col]):
 
-    for b_k in ["NET-ABCDM", "NET-Guarulhos", "NET-LESTE"]:
-        df_b = df_cards[df_cards['BASE_CLEAN'] == b_k].copy()
-        if df_b.empty:
-            hoje_contratos[b_k] = 0
-            hoje_produtos[b_k] = 0
-            proj_contratos_mes[b_k] = 0
-            proj_produtos_mes[b_k] = 0
-            acum_contratos_mes[b_k] = 0
-            acum_produtos_mes[b_k] = 0
-            historico_diario_prod[b_k] = {}
-            detalhe_supervisores[b_k] = {}
-            continue
+                            df_hist_bruto[col] = df_hist_bruto[col].dt.strftime('%m/%d/%Y')
 
-        # Filtra registros do mês de referência
-        df_mes = df_b[(df_b['DATA_OBJ'].notna()) & (df_b['DATA_OBJ'].dt.year == ano) & (df_b['DATA_OBJ'].dt.month == mes)].copy()
-        if df_mes.empty:
-            df_mes = df_b.copy()
+                    df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False, header=False)
 
-        tot_prod_mes = int(df_mes['QTD_PRODUTOS_CALC'].sum())
-        tot_cont_mes = count_contracts(df_mes)
+            except: pass
 
-        df_hoje = df_mes[df_mes['DATA_OBJ'] == hoje_meia_noite].copy()
-        prod_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
-        cont_hoje = count_contracts(df_hoje) if not df_hoje.empty else 0
 
-        df_passado = df_mes[(df_mes['DATA_OBJ'] >= primeiro_dia_mes) & (df_mes['DATA_OBJ'] < hoje_meia_noite)].copy()
-        prod_passado = int(df_passado['QTD_PRODUTOS_CALC'].sum()) if not df_passado.empty else 0
-        cont_passado = count_contracts(df_passado) if not df_passado.empty else 0
 
-        # Regra de Projeção da TV (Tela 5): media_diaria do passado * total_dias_uteis_mes
-        if dias_uteis_passados > 0 and prod_passado > 0:
-            media_prod = prod_passado / dias_uteis_passados
-            proj_p = int(round(media_prod * total_dias_uteis_mes))
-            media_cont = cont_passado / dias_uteis_passados
-            proj_c = int(round(media_cont * total_dias_uteis_mes))
-        elif prod_hoje > 0:
-            proj_p = int(round(prod_hoje * total_dias_uteis_mes))
-            proj_c = int(round(cont_hoje * total_dias_uteis_mes))
-        else:
-            proj_p = tot_prod_mes
-            proj_c = tot_cont_mes
+            ficheiro_excel.seek(0)
 
-        if proj_p < tot_prod_mes:
-            proj_p = tot_prod_mes
-        if proj_c < tot_cont_mes:
-            proj_c = tot_cont_mes
+            
 
-        hoje_contratos[b_k] = cont_hoje
-        hoje_produtos[b_k] = prod_hoje
-        proj_contratos_mes[b_k] = proj_c
-        proj_produtos_mes[b_k] = proj_p
-        acum_contratos_mes[b_k] = tot_cont_mes
-        acum_produtos_mes[b_k] = tot_prod_mes
+            # --- BAIXA ROTA ---
 
-        # Histórico diário para sincronizar com o Sheets
-        mapa_d = {}
-        for dt_val, grp in df_mes.groupby('DATA_OBJ'):
-            if pd.notna(dt_val):
-                mapa_d[dt_val.strftime("%d/%m/%Y")] = int(grp['QTD_PRODUTOS_CALC'].sum())
-        historico_diario_prod[b_k] = mapa_d
+            try:
 
-        # Detalhamento por supervisor (Telas 5 e 6 da TV)
-        sup_dict = {}
-        for s_clean, grp_s in df_mes.groupby('SUPERVISOR_CLEAN'):
-            grp_s_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == s_clean] if not df_hoje.empty else pd.DataFrame()
-            sup_dict[s_clean] = {
-                "contratos_mes": count_contracts(grp_s),
-                "produtos_mes": int(grp_s['QTD_PRODUTOS_CALC'].sum()),
-                "contratos_hoje": count_contracts(grp_s_hoje),
-                "produtos_hoje": int(grp_s_hoje['QTD_PRODUTOS_CALC'].sum()) if not grp_s_hoje.empty else 0
-            }
-        detalhe_supervisores[b_k] = sup_dict
+                df_bruto = pd.read_excel(ficheiro_excel, sheet_name='ROTA', engine='openpyxl')
 
-    return {
-        "hoje_contratos": hoje_contratos,
-        "hoje_produtos": hoje_produtos,
-        "proj_contratos": proj_contratos_mes,
-        "proj_produtos": proj_produtos_mes,
-        "acum_contratos": acum_contratos_mes,
-        "acum_produtos": acum_produtos_mes,
-        "historico_diario": historico_diario_prod,
-        "supervisores": detalhe_supervisores,
-        "dias_restantes": dias_restantes,
-        "dias_uteis_passados": dias_uteis_passados,
-        "total_dias_uteis_mes": total_dias_uteis_mes
+                if not df_bruto.empty:
+
+                    df_bruto.columns = [str(c).strip().replace('\xa0', ' ') for c in df_bruto.columns]
+
+                    cols_sup = [c for c in df_bruto.columns if 'SUPERV' in str(c).upper()]
+
+                    valores_supervisor = df_bruto[cols_sup[-1]].values if cols_sup else None
+
+                    
+
+                    colunas_mapeadas = {}
+
+                    for col in list(df_bruto.columns):
+
+                        col_upper = str(col).upper()
+
+                        if col_upper in ['LOGIN DO TÉCNICO', 'LOGIN DO TECNICO', 'LOGIN']: colunas_mapeadas[col] = 'Login do Técnico'
+
+                        elif 'STATUS' in col_upper and 'ATIVIDADE' in col_upper: colunas_mapeadas[col] = 'Status da Atividade'
+
+                        elif 'TIPO' in col_upper and 'ATIVIDADE' in col_upper:
+
+                            if '3' in col_upper: colunas_mapeadas[col] = 'Tipo de Atividade3'
+
+                            else: colunas_mapeadas[col] = 'Tipo de Atividade'
+
+                        elif col_upper in ['RECURSO', 'RECURS', 'TECNICO', 'NOME', 'TÉCNICO']: colunas_mapeadas[col] = 'Recurso'
+
+                        elif 'TOTAL DE TAREFAS' in col_upper: colunas_mapeadas[col] = 'QTD_OS_COL'
+
+                    
+
+                    df_final = df_bruto.rename(columns=colunas_mapeadas)
+
+                    df_final = df_final.loc[:, ~df_final.columns.duplicated(keep='first')]
+
+                    
+
+                    if valores_supervisor is not None: df_final['SUPERVISOR'] = valores_supervisor
+
+                    else: df_final['SUPERVISOR'] = 'NÃO IDENTIFICADO'
+
+
+
+                    df_final['SUPERVISOR'] = df_final['SUPERVISOR'].fillna('NÃO IDENTIFICADO').astype(str).str.strip().str.upper()
+
+                    df_final['SUPERVISOR'] = df_final['SUPERVISOR'].replace(['NAN', 'N/A', 'NULL', '', '-', '0', '0.0'], 'NÃO IDENTIFICADO')
+
+
+
+                    if 'Recurso' not in df_final.columns and 'Login do Técnico' in df_final.columns:
+
+                        df_final['Recurso'] = df_final['Login do Técnico']
+
+
+
+                    df_final.to_csv(ARQUIVO_ROTA_DISCO, index=False)
+
+            except: pass
+
+    except: pass
+
+
+
+
+
+def carregar_logo_html(caminho_imagem):
+
+    if os.path.exists(caminho_imagem):
+
+        try:
+
+            with open(caminho_imagem, "rb") as image_file:
+
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+
+            return f'<img src="data:image/png;base64,{encoded_string}" style="height: 100px; width: auto; object-fit: contain; display: block;">'
+
+        except: return '<div></div>'
+
+    return '<div></div>'
+
+
+
+logo_html = carregar_logo_html(ARQUIVO_LOGO)
+
+
+
+def render_topo(titulo):
+
+    return f'''<div class="topo-container">
+
+        <div class="topo-esquerda">{logo_html}</div>
+
+        <div class="topo-centro">{titulo}</div>
+
+        <div class="topo-direita"><a href="/" class="botao-home">🏠 HOME</a></div>
+
+    </div>'''
+
+
+
+st.markdown("""<style>
+
+    .block-container { padding-top: 0.5rem !important; padding-bottom: 50px !important; max-width: 98% !important; }
+
+    ::-webkit-scrollbar { display: none !important; }
+
+    html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow: hidden !important; }
+
+
+
+    .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
+
+    [data-testid="stHeader"], .stDeployButton, footer, #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
+
+    .stApp { background-color: #ffffff !important; }
+
+    
+
+    .topo-container { background: #003366; color: white; padding: 0px 20px; border-radius: 0 0 10px 10px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 75px; }
+
+    .topo-esquerda { display: flex; justify-content: flex-start; align-items: center; height: 100%; }
+
+    .topo-centro { font-size: 35px; font-weight: 900; text-align: center; white-space: nowrap; }
+
+    .topo-direita { display: flex; justify-content: flex-end; align-items: center; }
+
+    .botao-home { color: #fff; font-size: 16px; font-weight: bold; border: 2px solid #fff; padding: 6px 12px; border-radius: 5px; text-decoration: none; }
+
+    
+
+    .st-key-btn_anterior { position: fixed !important; bottom: 65px !important; left: 20px !important; z-index: 999999 !important; width: auto !important; }
+
+    .st-key-btn_proxima, .st-key-btn_atualizar_estatico { position: fixed !important; bottom: 65px !important; right: 20px !important; z-index: 999999 !important; width: auto !important; }
+
+    
+
+    .st-key-btn_anterior button, .st-key-btn_proxima button, .st-key-btn_atualizar_estatico button { 
+
+        background-color: #003366 !important; color: #ffffff !important; border: 2px solid #ffffff !important; border-radius: 30px !important; padding: 6px 15px !important; font-size: 15px !important; font-weight: bold !important; opacity: 0.03 !important; transition: all 0.4s ease-in-out !important; 
+
     }
 
-# ==============================================================================
-# FUNÇÃO UNIFICADA DE CÁLCULO DE MÉTRICAS (USADA NO PASSO 2 E NO PASSO 3)
-# ==============================================================================
-def calcular_metricas_completas(df_sub_raw, montados, df_base_bruta=None):
-    """
-    Calcula todas as métricas de produtividade, quebras, ND, GPON, Migração,
-    Retorno WO (por contrato único) e PME (por contrato único).
-    """
-    if not isinstance(df_sub_raw, pd.DataFrame) or df_sub_raw.empty:
-        return {
-            "tot_os": 0, "os_aberta": 0, "produtivo": 0, "quebra_geral": 0, "pontos": 0,
-            "efic": 0.0, "media_os": 0.0, "proj_dia": 0, "os_canc": 0, "saiu_toa": 0,
-            "q_ins": 0.0, "q_serv": 0.0, "tot_nd": 0, "q_nd": 0.0, "tot_gpon": 0, "q_gpon": 0.0,
-            "tot_mig": 0, "q_mig": 0.0, "canc_mig": 0, "retorno_wo": 0, "tot_pme": 0, "q_pme": 0.0,
-            "canc_pme": 0, "_raw_q_ins": 0, "_raw_tot_ins": 0, "_raw_q_serv": 0, "_raw_tot_serv": 0,
-            "_raw_q_nd": 0, "_raw_tot_nd": 0, "_raw_q_gpon": 0, "_raw_tot_gpon": 0,
-            "_raw_q_mig": 0, "_raw_tot_mig": 0, "_raw_q_pme": 0, "_raw_tot_pme": 0
+    .st-key-btn_anterior button:hover, .st-key-btn_proxima button:hover, .st-key-btn_atualizar_estatico button:hover { 
+
+        opacity: 1.0 !important; background-color: #ff9800 !important; border-color: #ffffff !important; transform: scale(1.05) !important; 
+
+    }
+
+
+
+    [data-testid="stDeckGlJsonChart"] { height: 72vh !important; min-height: 550px !important; border-radius: 12px; box-shadow: 2px 2px 10px rgba(0,0,0,0.15); }
+
+
+
+    .box-base { background: #e8f5e9; border-left: 10px solid #2e7d32; padding: 8px 10px; text-align: center; border-radius: 10px; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); margin-bottom: 10px; }
+
+    .nome-base { font-size: 28px !important; font-weight: 900; color: #2e7d32; text-transform: uppercase; margin-bottom: 2px; }
+
+    .num-base { font-size: 80px !important; font-weight: 900; color: #111; line-height: 1; }
+
+    
+
+    .sup-card { background: #ffffff; border: 2px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+
+    .sup-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+
+    .sup-name { font-size: 30px !important; font-weight: 900; color: #333; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+
+    .badge-faltas { background: #ffebee; color: #c62828; padding: 6px 15px; border-radius: 8px; font-size: 20px !important; font-weight: 900; border: 2px solid #ffcdd2; }
+
+    .faltas-grid { display: flex; justify-content: space-between; gap: 12px; }
+
+    .falta-box { background-color: #ffebee; border: 2px solid #ffcdd2; border-radius: 8px; padding: 10px 5px; text-align: center; margin-bottom: 0px; flex: 1; }
+
+    .falta-label { font-size: 15px !important; font-weight: bold; color: #c62828; text-transform: uppercase; margin-bottom: 5px; }
+
+    .falta-value { font-size: 55px !important; font-weight: 900; color: #b30000; line-height: 1; }
+
+    
+
+    .box-contagem { background: #ffffff; border: 2px solid #e0e0e0; border-left: 12px solid #cc6600; padding: 15px; border-radius: 12px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; z-index: 1; transition: 0.3s; }
+
+    .box-nome { font-size: 35px !important; font-weight: 900; color: #003366; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+
+    .destaque-ativo { transform: scale(1.05) !important; box-shadow: 0px 15px 30px rgba(204, 102, 0, 0.4) !important; border-left: 18px solid #ff8800 !important; background: #fff8e1 !important; z-index: 9999 !important; }
+
+    
+
+    .relogio-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; background-color: #ffffff; width: 100%; }
+
+    .hora-gigante { font-size: 220px; font-weight: 900; color: #003366; text-shadow: 4px 4px 10px rgba(0,0,0,0.1); line-height: 1; letter-spacing: 5px; }
+
+    .data-media { font-size: 50px; color: #666; font-weight: bold; margin-top: -20px; }
+
+    .tec-base-nome { background: #f8f9fa; padding: 12px 15px; border-left: 6px solid #008080; border-radius: 6px; margin-bottom: 10px; font-weight: bold; font-size: 24px !important; color: #333; box-shadow: 1px 1px 4px rgba(0,0,0,0.1); }
+
+
+
+    .ticker-wrap { position: fixed; bottom: 0; left: 0; width: 100%; overflow: hidden; height: 50px; background-color: #002244; box-sizing: border-box; z-index: 99999; border-top: 3px solid #ff8800; display: flex; align-items: center; }
+
+    .ticker { display: inline-block; white-space: nowrap; padding-right: 100%; box-sizing: content-box; animation: ticker 45s linear infinite; }
+
+    .ticker__item { display: inline-block; padding: 0 15px; font-size: 20px; color: #ffffff; font-weight: 900; text-transform: uppercase; }
+
+    @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+
+</style>""", unsafe_allow_html=True)
+
+
+
+def obter_nome_visual(nome_completo):
+
+    n = str(nome_completo).upper()
+
+    if 'MARCOS' in n: return "MARCOS ROBERTO"
+
+    if 'MAICON' in n: return "MAICON"
+
+    if 'NELSON' in n: return "NELSON"
+
+    if 'EDSON' in n: return "EDSON MARCO"
+
+    return n.split()[0]
+
+
+
+def limpar_texto(txt):
+
+    if pd.isna(txt): return ''
+
+    return unicodedata.normalize('NFKD', str(txt).strip().upper()).encode('ASCII', 'ignore').decode('utf-8')
+
+
+
+# =========================================================================
+
+# ⚙️ LÓGICA DE STATUS BLINDADA COM A FÓRMULA DO SEU EXCEL
+
+# =========================================================================
+
+def padronizar_status(row):
+
+    status_raw = ""
+
+    for col in ['STATUS CONTRATO', 'STATUS_TV', 'STATUS DA ATIVIDADE', 'STATUS']:
+
+        if col in row and pd.notna(row[col]):
+
+            status_raw = row[col]
+
+            break
+
+            
+
+    val_status = limpar_texto(status_raw)
+
+    
+
+    col_inicio = next((c for c in row.index if c in ['INICIO', 'INÍCIO', 'HORA INICIO', 'HORA INÍCIO', 'INICIO DO DESLOCAMENTO']), None)
+
+    tem_inicio = False
+
+    if col_inicio and pd.notna(row[col_inicio]):
+
+        txt_inicio = str(row[col_inicio]).strip()
+
+        if txt_inicio not in ['', 'NAN', 'NULL', 'NONE', '-', '0', '00:00', '00:00:00']:
+
+            tem_inicio = True
+
+            
+
+    col_sistema = next((c for c in row.index if 'NETSMS' in c or 'SISTEMA' in c), None)
+
+    val_sistema = limpar_texto(row[col_sistema]) if col_sistema and pd.notna(row[col_sistema]) else ""
+
+
+
+    eh_cancelado_liberado_sistema = ('LIBERADO' in val_sistema or 'CANCELADO' in val_sistema or 'CANCEL' in val_status or 'LIBERADO' in val_status)
+
+    if eh_cancelado_liberado_sistema:
+
+        if tem_inicio:
+
+            return 'O.S NE'
+
+        else:
+
+            return 'Descartar'
+
+            
+
+    if 'NAO CONCLUIDO' in val_status or 'QUEBRA' in val_status or 'O.S NE' in val_status or val_status == 'NE':
+
+        return 'O.S NE'
+
+        
+
+    if 'CANCEL' in val_status or 'SUSP' in val_status:
+
+        return 'Descartar'
+
+        
+
+    if val_status in ['', 'NAN', 'NULL', 'NONE', 'VAZIO']:
+
+        return 'Descartar'
+
+        
+
+    if 'PRODUTIVO' in val_status or 'CONCL' in val_status or 'EXEC' in val_status:
+
+        return 'Produtivo'
+
+        
+
+    return 'Em aberto'
+
+
+
+# =========================================================================
+
+# LÓGICA DE ÁUDIOS E REGRAS DE HORÁRIO (FUSO BLINDADO UTC-3)
+
+# =========================================================================
+
+agora_br = datetime.utcnow() - timedelta(hours=3)
+
+minutos_agora = agora_br.hour * 60 + agora_br.minute
+
+
+
+# --- REGRAS DO HORÁRIO DA BASE (07:00 ÀS 08:30) ---
+
+permitir_audio_base = False
+
+frase_incisiva_base = ""
+
+if 7*60 <= minutos_agora < 8*60 + 30:
+
+    permitir_audio_base = True
+
+    if minutos_agora < 8*60 + 20:  
+
+        frase_incisiva_base = "Atenção para ativar a rota."
+
+    else:                            
+
+        frase_incisiva_base = "Atenção. O horário limite para ativar a rota já passou."
+
+
+
+# --- CORREÇÃO TEC1: ÁUDIO DINÂMICO E PERSISTENTE NAS 3 JANELAS (APÓS 08:30) ---
+
+permitir_audio_tec1 = False
+
+frase_incisiva_tec1 = ""
+
+for janela in [12, 15, 18]:
+
+    inicio_aviso = (janela - 1) * 60      
+
+    fim_janela = janela * 60               
+
+    fim_aviso_pos = janela * 60 + 59     
+
+    
+
+    if inicio_aviso <= minutos_agora < fim_janela:
+
+        permitir_audio_tec1 = True
+
+        minutos_restantes = fim_janela - minutos_agora
+
+        if minutos_restantes == 1:
+
+            frase_incisiva_tec1 = f"Atenção. Falta 1 minuto para o término da janela das {janela} horas. Verifiquem os contratos."
+
+        else:
+
+            frase_incisiva_tec1 = f"Atenção. Faltam {minutos_restantes} minutos para o término da janela das {janela} horas. Verifiquem os contratos pendentes."
+
+        break
+
+        
+
+    elif fim_janela <= minutos_agora <= fim_aviso_pos:
+
+        permitir_audio_tec1 = True
+
+        frase_incisiva_tec1 = f"Atenção. O horário para baixa dos contratos da janela das {janela} horas já passou, e ainda temos contratos sem conclusão. Atenção para não perder o TEC 1."
+
+        break
+
+
+
+permitir_audio_ind = False
+
+for inicio, f in [(13*60, 13*60 + 15), (16*60, 16*60 + 15)]:
+
+    if inicio <= minutos_agora <= f:
+
+        permitir_audio_ind = True
+
+        break
+
+
+
+icone_mudo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.25;" title="Áudio em Espera"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="1" x2="1" y2="23"></line></svg></div>'''
+
+icone_ativo = '''<div style="position: fixed; bottom: 120px; left: 20px; z-index: 9999; opacity: 0.8;" title="Áudio Ativo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg></div>'''
+
+html_audio_base = icone_ativo if permitir_audio_base else icone_mudo
+
+html_audio_tec1 = icone_ativo if permitir_audio_tec1 else icone_mudo
+
+html_audio_ind = icone_ativo if permitir_audio_ind else icone_mudo
+
+
+
+JS_MOTOR_AUDIO = """
+
+function tocarAlertaChamaAtencao() {
+
+    try { let ctx = new (window.parent.AudioContext || window.AudioContext)(); let tempo = ctx.currentTime;
+
+        function tocarSino(f, i, d) { let osc = ctx.createOscillator(); let gain = ctx.createGain(); osc.type = 'triangle'; osc.frequency.setValueAtTime(f, i); gain.gain.setValueAtTime(0, i); gain.gain.linearRampToValueAtTime(3.0, i + 0.05); gain.gain.exponentialRampToValueAtTime(0.01, i + d); osc.connect(gain); gain.connect(ctx.destination); osc.start(i); osc.stop(i + d + 0.1); }
+
+        tocarSino(659.25, tempo, 1.5); tocarSino(523.25, tempo + 0.4, 1.5); tocarSino(784.00, tempo + 0.8, 2.5); 
+
+    } catch(e) {}
+
+}
+
+function anunciarBase(texto, delay) { setTimeout(() => { tocarAlertaChamaAtencao(); setTimeout(() => { let synth = window.parent.speechSynthesis || window.speechSynthesis; try { synth.cancel(); } catch(e) {} let m = new SpeechSynthesisUtterance(texto); m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; function setVoiceAndSpeak() { let voices = synth.getVoices(); let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.lang.includes('pt-BR')); if(voz) { m.voice = voz; } synth.speak(m); } if (synth.getVoices().length === 0) { synth.onvoiceschanged = setVoiceAndSpeak; } else { setVoiceAndSpeak(); } }, 2000); }, delay); }
+
+function limparDestaques(total) { for(let j=0; j<total; j++) { let el = window.parent.document.getElementById('sup-box-' + j); if(el) { el.classList.remove('destaque-ativo'); } } }
+
+function animarSupervisor(texto, delay, index, totalSup) { setTimeout(() => { limparDestaques(totalSup); let elAtual = window.parent.document.getElementById('sup-box-' + index); if(elAtual) { elAtual.classList.add('destaque-ativo'); } tocarAlertaChamaAtencao(); setTimeout(() => { let synth = window.parent.speechSynthesis || window.speechSynthesis; try { synth.cancel(); } catch(e) {} let m = new SpeechSynthesisUtterance(texto); m.lang = 'pt-BR'; m.rate = 1.0; m.volume = 1.0; let voices = synth.getVoices(); let voz = voices.find(v => v.name.includes('Luciana')) || voices.find(v => v.lang.includes('pt-BR')); if(voz) { m.voice = voz; } synth.speak(m); }, 2000); }, delay); }
+
+"""
+
+
+
+CONTEUDO_TV = st.empty()
+
+
+
+with CONTEUDO_TV.container():
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 4: TRANSIÇÃO E SINCRONIZAÇÃO AUTOMÁTICA
+
+    # -------------------------------------------------------------------------
+
+    if st.session_state.idx == 4:
+
+        st.markdown(
+
+            """
+
+            <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #ffffff; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+
+                <h1 style="color: #003366; font-size: 50px;">🔄 Atualizando Indicadores...</h1>
+
+            </div>
+
+            """, unsafe_allow_html=True
+
+        )
+
+        if time.time() - st.session_state.ultima_sincronizacao > 300:
+
+            st.markdown('<div style="position: fixed; top: 60%; left: 0; width: 100%; text-align: center; color: #ff9800; font-size: 24px; font-weight: bold; z-index: 999999;">Baixando dados da nuvem... ☁️</div>', unsafe_allow_html=True)
+
+            baixar_dados_nuvem_background()
+
+            st.session_state.ultima_sincronizacao = time.time()
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 0: BASE (HARD BLOCK CONTRA INICIADOS/CONCLUÍDOS)
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 0:
+
+        st.markdown(render_topo("🚀 TÉCNICOS COM STATUS BASE PENDENTE") + html_audio_base, unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+
+            df.columns = [str(c).strip().upper() for c in df.columns]
+
+            col_recurso = next((c for c in df.columns if 'RECURSO' in c or 'NOME' in c), df.columns[0])
+
+
+
+            if col_recurso:
+
+                cols_base = [c for c in df.columns if any(x in c for x in ['TIPO', 'ATIVID', 'TAREFA', 'DESCRI'])]
+
+                if not cols_base: cols_base = df.columns
+
+                mask_base = df[cols_base].apply(lambda col: col.astype(str).str.upper().str.contains('BASE')).any(axis=1)
+
+
+
+                df_base = df[mask_base].copy()
+
+
+
+                cols_status = [c for c in df_base.columns if 'STATUS' in c]
+
+                if not cols_status: cols_status = [df_base.columns[0]]
+
+                
+
+                df_base['STATUS_FULL'] = df_base[cols_status].fillna('').astype(str).agg(' '.join, axis=1).str.upper()
+
+
+
+                tecnicos_iniciados = df_base[df_base['STATUS_FULL'].str.contains('INIC|EXEC|CONCL|PRODUTIVO')][col_recurso].unique()
+
+                df_pendentes = df_base[df_base['STATUS_FULL'].str.contains('PEND|ABERTO')]
+
+                nomes_brutos = df_pendentes[col_recurso].dropna().unique()
+
+                
+
+                nomes_abc = sorted([str(n).strip().upper() for n in nomes_brutos if n not in tecnicos_iniciados])
+
+                
+
+                st.session_state.ticker_data[0] = f"🚀 BASE: {len(nomes_abc)} TÉCS PENDENTES"
+
+
+
+                if len(nomes_abc) > 0:
+
+                    cols_tec = st.columns(4)
+
+                    for i, n in enumerate(nomes_abc):
+
+                        with cols_tec[i % 4]: st.markdown(f'<div class="tec-base-nome">🏃‍♂️ {n}</div>', unsafe_allow_html=True)
+
+                else:
+
+                    st.success("✅ Excelente! Nenhum técnico pendente na base neste momento.")
+
+
+
+                if st.session_state.novo_ciclo:
+
+                    script_cenario = ""
+
+                    tempo_atual = time.time()
+
+                    if permitir_audio_base and len(nomes_abc) > 0:
+
+                        intervalo_minimo = 180 
+
+                        if (tempo_atual - st.session_state.ultimo_audio_base) >= intervalo_minimo:
+
+                            hora_texto = agora_br.strftime('%H e %M')
+
+                            texto_final = f"Atenção. São {hora_texto}. {frase_incisiva_base} Temos {len(nomes_abc)} técnicos pendentes."
+
+                            script_cenario = f"<script>/*{tempo_atual}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_final}', 0);</script>"
+
+                            st.session_state.ultimo_audio_base = tempo_atual
+
+                    
+
+                    st.session_state.script_audio_atual = script_cenario
+
+                    st.session_state.novo_ciclo = False 
+
+                
+
+                if permitir_audio_base and len(nomes_abc) > 0:
+
+                    falta_segundos = 180 - int(time.time() - st.session_state.ultimo_audio_base)
+
+                    if falta_segundos > 0:
+
+                        st.markdown(f"<div style='text-align:center; color:#888; font-weight:bold; margin-top: -10px; margin-bottom: 10px;'>🔇 Sistema anti-repetição de voz ativo. Próximo aviso sonoro em {falta_segundos} segundos.</div>", unsafe_allow_html=True)
+
+
+
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+            else: st.error("Coluna de Recurso não encontrada.")
+
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 1: TEC1 (VISÃO DIVIDIDA PENDENTES / EM ROTA / INICIADOS)
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 1: 
+
+        hora_atual = agora_br.hour
+
+        
+
+        if hora_atual < 13:
+
+            label_janela = "ATÉ 12:00"
+
+        elif 13 <= hora_atual < 16:
+
+            label_janela = "ATÉ 15:00"
+
+        else:
+
+            label_janela = "ATÉ 18:00"
+
+        
+
+        titulo_tec1 = f'''
+
+        <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+
+            <span>TEC1</span>
+
+            <div style="background: linear-gradient(135deg, #d84315, #f57c00); border: 2px solid #ffcc80; padding: 4px 20px; border-radius: 30px; font-size: 24px; font-weight: 900; color: #ffffff; box-shadow: 0px 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; line-height: 1.2;">
+
+                ⏳ {label_janela}
+
+            </div>
+
+        </div>
+
+        '''
+
+        
+
+        st.markdown(render_topo(titulo_tec1) + html_audio_tec1, unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+
+            df.columns = [str(c).strip().upper() for c in df.columns]
+
+            col_tecnico = 'RECURSO' if 'RECURSO' in df.columns else df.columns[0]
+
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+
+            
+
+            def resolver_supervisor(row):
+
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+
+                for oficial in SUPERVISORES_ORDENADOS:
+
+                    if oficial in sup: return oficial
+
+                return "DESCARTADO"
+
+
+
+            df['SUPERVISOR_CLEAN'] = df.apply(resolver_supervisor, axis=1)
+
+            col_status_real = next((c for c in df.columns if 'STATUS' in c), None)
+
+            
+
+            df_pendentes_geral = pd.DataFrame()
+
+            if col_status_real:
+
+                df['Status_Atividade_Upper'] = df[col_status_real].fillna('').astype(str).str.upper().str.strip()
+
+                df_limpo = df[df['Status_Atividade_Upper'] != 'SUSPENSO'].copy()
+
+                
+
+                df_limpo['IS_PENDENTE'] = df_limpo['Status_Atividade_Upper'].str.contains('PENDENTE|EM ABERTO|ABERTO|PEND', na=False)
+
+                df_limpo['IS_EM_ROTA']  = df_limpo['Status_Atividade_Upper'].str.contains('EM ROTA', na=False)
+
+                df_limpo['IS_INICIADO'] = df_limpo['Status_Atividade_Upper'].str.contains('INICIADO', na=False)
+
+                df_limpo['P_COUNT'] = (df_limpo['IS_PENDENTE'] | df_limpo['IS_EM_ROTA'] | df_limpo['IS_INICIADO']).astype(int)
+
+                
+
+                df_validos = df_limpo.copy()
+
+
+
+                col_janela = next((c for c in df_validos.columns if 'JANELA' in str(c) or 'INTERVALO' in str(c)), None)
+
+                if col_janela is not None and not df_validos.empty:
+
+                    df_validos['Intervalo_Tratado'] = df_validos[col_janela].fillna('').astype(str).str.strip()
+
+                    df_validos['Hora_Limite_Janela'] = df_validos['Intervalo_Tratado'].apply(lambda x: int(str(x).replace(':', '').split('-')[1].strip()[:2]) if '-' in str(x) else 24)
+
+                    
+
+                    if hora_atual < 13:
+
+                        condicao_horario = df_validos['Hora_Limite_Janela'] <= 12
+
+                    elif 13 <= hora_atual < 16:
+
+                        condicao_horario = df_validos['Hora_Limite_Janela'] <= 15
+
+                    else:
+
+                        condicao_horario = df_validos['Hora_Limite_Janela'] <= 24
+
+                        
+
+                    df_pendentes_geral = df_validos[condicao_horario & (df_validos['P_COUNT'] > 0)].copy()
+
+                else:
+
+                    df_pendentes_geral = df_validos[df_validos['P_COUNT'] > 0].copy()
+
+
+
+                col_contrato = next((c for c in df_pendentes_geral.columns if 'CONTRATO' in c), None)
+
+                if col_contrato and not df_pendentes_geral.empty:
+
+                    df_pendentes_geral[col_contrato] = df_pendentes_geral[col_contrato].fillna('').astype(str).apply(lambda x: str(x).split('.')[0])
+
+                    df_pendentes_geral = df_pendentes_geral.drop_duplicates(subset=[col_contrato])
+
+
+
+                df_pendentes_geral = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
+
+                
+
+                total_pendentes = int(df_pendentes_geral['IS_PENDENTE'].sum())
+
+                total_em_rota   = int(df_pendentes_geral['IS_EM_ROTA'].sum())
+
+                total_iniciados = int(df_pendentes_geral['IS_INICIADO'].sum())
+
+                
+
+                st.session_state.ticker_data[1] = f"⏰ TEC1: {total_pendentes} PENDENTES | {total_em_rota} EM ROTA | {total_iniciados} INICIADOS"
+
+
+
+                st.markdown(f'''
+
+                <div class="box-base" style="padding: 10px; display: flex; justify-content: space-around; align-items: center;">
+
+                    <div>
+
+                        <div class="nome-base" style="font-size: 14px !important; color: #cc6600;">PENDENTES</div>
+
+                        <div class="num-base" style="color: #cc6600;">{total_pendentes}</div>
+
+                    </div>
+
+                    <div>
+
+                        <div class="nome-base" style="font-size: 14px !important; color: #0277bd;">EM ROTA</div>
+
+                        <div class="num-base" style="color: #0277bd;">{total_em_rota}</div>
+
+                    </div>
+
+                    <div>
+
+                        <div class="nome-base" style="font-size: 14px !important; color: #2e7d32;">INICIADOS</div>
+
+                        <div class="num-base" style="color: #2e7d32;">{total_iniciados}</div>
+
+                    </div>
+
+                </div>
+
+                ''', unsafe_allow_html=True)
+
+                
+
+                for i in range(0, len(SUPS_ABC), 2):
+
+                    cols_sub_abc = st.columns(2)
+
+                    for j in range(2):
+
+                        if i + j < len(SUPS_ABC):
+
+                            idx_global = i + j
+
+                            sup = SUPS_ABC[idx_global]
+
+                            
+
+                            df_sup = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup]
+
+                            qtd_pend = int(df_sup['IS_PENDENTE'].sum())
+
+                            qtd_rota = int(df_sup['IS_EM_ROTA'].sum())
+
+                            qtd_inic = int(df_sup['IS_INICIADO'].sum())
+
+                            
+
+                            with cols_sub_abc[j]:
+
+                                st.markdown(f'''
+
+                                <div id="sup-box-{idx_global}" class="box-contagem" style="padding: 15px;">
+
+                                    <div class="box-nome" style="border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 12px;">{obter_nome_visual(sup)}</div>
+
+                                    <div style="display:flex; justify-content:space-around; align-items: center;">
+
+                                        <div style="text-align: center;">
+
+                                            <div style="font-size:14px; font-weight:bold; color:#cc6600;">PENDENTES</div>
+
+                                            <div style="font-size: 45px; font-weight: 900; color: #cc6600; line-height: 1;">{qtd_pend}</div>
+
+                                        </div>
+
+                                        <div style="text-align: center;">
+
+                                            <div style="font-size:14px; font-weight:bold; color:#0277bd;">EM ROTA</div>
+
+                                            <div style="font-size: 45px; font-weight: 900; color: #0277bd; line-height: 1;">{qtd_rota}</div>
+
+                                        </div>
+
+                                        <div style="text-align: center;">
+
+                                            <div style="font-size:14px; font-weight:bold; color:#2e7d32;">INICIADOS</div>
+
+                                            <div style="font-size: 45px; font-weight: 900; color: #1b5e20; line-height: 1;">{qtd_inic}</div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>''', unsafe_allow_html=True)
+
+
+
+                tem_pendencias_tec1 = (total_pendentes > 0 or total_em_rota > 0 or total_iniciados > 0)
+
+
+
+                if st.session_state.novo_ciclo:
+
+                    script_cenario = ""
+
+                    tempo_atual = time.time()
+
+                    
+
+                    if permitir_audio_tec1 and tem_pendencias_tec1:
+
+                        intervalo_minimo = 180 
+
+                        if (tempo_atual - st.session_state.ultimo_audio_tec1) >= intervalo_minimo:
+
+                            script_cenario = f"<script>/*{time.time()}*/\n{JS_MOTOR_AUDIO}limparDestaques({len(SUPS_ABC)});\n"
+
+                            delay_atual = 0
+
+                            script_cenario += f"anunciarBase('{frase_incisiva_tec1} Total de contratos: {total_pendentes} pendentes, {total_em_rota} em rota e {total_iniciados} iniciados.', {delay_atual});\n"
+
+                            delay_atual += 24000 
+
+                            for i, sup_full in enumerate(SUPS_ABC):
+
+                                df_s = df_pendentes_geral[df_pendentes_geral['SUPERVISOR_CLEAN'] == sup_full]
+
+                                q_pe = int(df_s['IS_PENDENTE'].sum())
+
+                                q_ro = int(df_s['IS_EM_ROTA'].sum())
+
+                                q_in = int(df_s['IS_INICIADO'].sum())
+
+                                script_cenario += f"animarSupervisor('{obter_nome_visual(sup_full)}: {q_pe} pendentes, {q_ro} em rota e {q_in} iniciados.', {delay_atual}, {i}, {len(SUPS_ABC)});\n"
+
+                                delay_atual += 18000 
+
+                            script_cenario += f"setTimeout(() => limparDestaques({len(SUPS_ABC)}) , {delay_atual});\n</script>"
+
+                            st.session_state.ultimo_audio_tec1 = tempo_atual
+
+
+
+                    st.session_state.script_audio_atual = script_cenario
+
+                    st.session_state.novo_ciclo = False 
+
+                
+
+                if permitir_audio_tec1 and tem_pendencias_tec1:
+
+                    falta_segundos = 180 - int(time.time() - st.session_state.ultimo_audio_tec1)
+
+                    if falta_segundos > 0:
+
+                        st.markdown(f"<div style='text-align:center; color:#888; font-weight:bold; margin-top: -10px; margin-bottom: 10px;'>🔇 Sistema anti-repetição de voz ativo. Próximo aviso sonoro em {falta_segundos} segundos.</div>", unsafe_allow_html=True)
+
+
+
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+            else: st.error("Coluna Status não encontrada.")
+
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELAS 11, 12, 13, 17, 14, 15, 16: MAPAS DA OPERAÇÃO 🗺️
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx in [11, 12, 13, 14, 15, 16, 17]:
+
+        titulos_mapa = {
+
+            11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
+
+            12: "MAPA DA ROTA - SANTO ANDRÉ",
+
+            13: "MAPA DA ROTA - DIADEMA",
+
+            17: "MAPA DA ROTA - SÃO CAETANO DO SUL",
+
+            14: "MAPA DA ROTA - EDSON MARCO",
+
+            15: "MAPA DA ROTA - MAICON",
+
+            16: "MAPA DA ROTA - NELSON"
+
         }
 
-    df_ref_ret = df_base_bruta if (df_base_bruta is not None and not df_base_bruta.empty) else df_sub_raw
-    mask_ret = pd.Series(False, index=df_ref_ret.index)
-    if "QUEBRAS" in df_ref_ret.columns:
-        mask_ret = mask_ret | (df_ref_ret["QUEBRAS"].apply(limpar_texto) == "RETORNO")
-    if "Tipo de Serviço" in df_ref_ret.columns:
-        mask_ret = mask_ret | (df_ref_ret["Tipo de Serviço"].apply(limpar_texto).str.contains("RETORNO", na=False))
-    df_ret_wo = filtrar_por_contrato_unico(df_ref_ret[mask_ret])
-    retorno_wo_count = len(df_ret_wo)
-
-    if "Tipo de Serviço" in df_sub_raw.columns:
-        df_sub = df_sub_raw[~eh_retorno_credenciada(df_sub_raw["Tipo de Serviço"])].copy()
-    else:
-        df_sub = df_sub_raw.copy()
-
-    if "QUEBRAS" in df_sub.columns and "Tipo de Serviço" in df_sub.columns:
-        df_sub["_quebra_padrao_"] = [
-            padrao_quebra_categoria(q, ts) for q, ts in zip(df_sub["QUEBRAS"], df_sub["Tipo de Serviço"])
-        ]
-    else:
-        df_sub["_quebra_padrao_"] = ""
-
-    tot_os = len(df_sub)
-    df_prod = df_sub[df_sub["Tipo de OS"] == "PRODUTIVA"] if "Tipo de OS" in df_sub.columns else pd.DataFrame()
-    df_improd = df_sub[df_sub["Tipo de OS"] == "IMPRODUTIVA"] if "Tipo de OS" in df_sub.columns else pd.DataFrame()
-    df_aberto = df_sub[df_sub["Tipo de OS"] == "EM ABERTO"] if "Tipo de OS" in df_sub.columns else pd.DataFrame()
-    df_canc = df_sub[df_sub["Tipo de OS"] == "CANCELADO"] if "Tipo de OS" in df_sub.columns else pd.DataFrame()
-    df_saiu = df_sub[df_sub["Tipo de OS"] == "SAIU DO TOA"] if "Tipo de OS" in df_sub.columns else pd.DataFrame()
-
-    prod_count = len(df_prod)
-    improd_count = len(df_improd)
-    aberta_count = len(df_aberto)
-    
-    den_quebra = improd_count + prod_count
-    quebra_pct = (improd_count / den_quebra) if den_quebra > 0 else 0.0
-    efic = max(0.0, 1.0 - quebra_pct)
-    
-    proj_os_exec = prod_count + (aberta_count * efic)
-    proj_dia = int(round(proj_os_exec, 0))
-    
-    pontos_prod = df_prod["Pontos Prev."].sum() if "Pontos Prev." in df_prod.columns else 0.0
-    pontos_improd = df_improd["Pontos Prev."].sum() if "Pontos Prev." in df_improd.columns else 0.0
-    pontos_aberto = df_aberto["Pontos Prev."].sum() if "Pontos Prev." in df_aberto.columns else 0.0
-    
-    den_pts = pontos_improd + pontos_prod
-    efic_pts = max(0.0, 1.0 - (pontos_improd / den_pts)) if den_pts > 0 else 0.0
-    pontos = int(round(pontos_prod + (pontos_aberto * efic_pts), 0))
-    
-    media_os = (proj_dia / montados) if montados > 0 else 0.0
-    
-    os_canc = len(df_canc)
-    saiu_toa = len(df_saiu)
-
-    def calc_taxa_quebra_direta(df_grupo):
-        if df_grupo is None or df_grupo.empty or "Tipo de OS" not in df_grupo.columns:
-            return 0.0, 0, 0
-        i_c = len(df_grupo[df_grupo["Tipo de OS"] == "IMPRODUTIVA"])
-        p_c = len(df_grupo[df_grupo["Tipo de OS"] == "PRODUTIVA"])
-        d_c = i_c + p_c
-        taxa = (i_c / d_c * 100.0) if d_c > 0 else 0.0
-        return taxa, i_c, d_c
-
-    df_ins = df_sub[df_sub["_quebra_padrao_"] == "INSTALAÇÃO"]
-    df_serv = df_sub[df_sub["_quebra_padrao_"] == "SERVIÇOS"]
-    q_ins, raw_q_ins, raw_tot_ins = calc_taxa_quebra_direta(df_ins)
-    q_serv, raw_q_serv, raw_tot_serv = calc_taxa_quebra_direta(df_serv)
-    
-    servicos_nd_alvos = {
-        "ADESAO - INSTALACAO DE ASSINATURA",
-        "ADESAO - INSTALACAO DE ASSINATURA DIGITAL",
-        "ADESAO ENTREGA STREAMING",
-        "ADESAO - ENTREGA STREAMING"
-    }
-    ts_norm_col = df_sub["Tipo de Serviço"].apply(limpar_texto) if "Tipo de Serviço" in df_sub.columns else pd.Series(dtype=str)
-    mask_nd = ts_norm_col.isin(servicos_nd_alvos) | (
-        ts_norm_col.str.contains("ADESAO", na=False) & 
-        (ts_norm_col.str.contains("ASSINATURA", na=False) | ts_norm_col.str.contains("STREAMING", na=False))
-    )
-    df_nd_base = df_sub[mask_nd] if not ts_norm_col.empty else pd.DataFrame()
-    
-    q_nd, nd_improd, den_nd = calc_taxa_quebra_direta(df_nd_base)
-    nd_prod = len(df_nd_base[df_nd_base["Tipo de OS"] == "PRODUTIVA"]) if not df_nd_base.empty and "Tipo de OS" in df_nd_base.columns else 0
-    nd_aberto = len(df_nd_base[df_nd_base["Tipo de OS"] == "EM ABERTO"]) if not df_nd_base.empty and "Tipo de OS" in df_nd_base.columns else 0
-    efic_nd = max(0.0, 1.0 - (nd_improd / den_nd)) if den_nd > 0 else 0.0
-    proj_nd = int(round(nd_prod + (nd_aberto * efic_nd), 0))
-
-    df_gpon = df_sub[df_sub["ATIVIDADES"] == "GPON"] if "ATIVIDADES" in df_sub.columns else pd.DataFrame()
-    df_mig = df_sub[df_sub["ATIVIDADES"] == "MIGRAÇÃO"] if "ATIVIDADES" in df_sub.columns else pd.DataFrame()
-    
-    df_gpon_serv = df_gpon[df_gpon["_quebra_padrao_"] == "SERVIÇOS"] if not df_gpon.empty else pd.DataFrame()
-    q_gpon, raw_q_gpon, raw_tot_gpon = calc_taxa_quebra_direta(df_gpon_serv if not df_gpon_serv.empty else df_gpon)
-    
-    df_mig_ins = df_mig[df_mig["_quebra_padrao_"] == "INSTALAÇÃO"] if not df_mig.empty else pd.DataFrame()
-    q_mig, raw_q_mig, raw_tot_mig = calc_taxa_quebra_direta(df_mig_ins if not df_mig_ins.empty else df_mig)
-    
-    pme_col = df_sub["PME"].fillna("").astype(str).str.strip().str.upper() if "PME" in df_sub.columns else pd.Series(dtype=str)
-    df_pme_os = df_sub[(pme_col != "") & (pme_col != "NAN") & (pme_col.str.contains("PME|EMP", regex=True))] if not pme_col.empty else pd.DataFrame()
-    df_pme_wo = filtrar_por_contrato_unico(df_pme_os)
-    
-    df_pme_wo_ins = df_pme_wo[df_pme_wo["_quebra_padrao_"] == "INSTALAÇÃO"] if not df_pme_wo.empty else pd.DataFrame()
-    q_pme, raw_q_pme_wo, raw_tot_pme_wo = calc_taxa_quebra_direta(df_pme_wo_ins if not df_pme_wo_ins.empty else df_pme_wo)
-    canc_pme_wo = len(df_pme_wo[df_pme_wo["CANCELADAS"] == "CANCELADO"]) if not df_pme_wo.empty and "CANCELADAS" in df_pme_wo.columns else 0
-
-    return {
-        "tot_os": tot_os, "os_aberta": aberta_count, "produtivo": prod_count,
-        "quebra_geral": improd_count, "pontos": pontos,
-        "efic": round(efic * 100, 1), "media_os": round(media_os, 2), "proj_dia": proj_dia,
-        "os_canc": os_canc, "saiu_toa": saiu_toa,
-        "q_ins": round(q_ins, 1), "q_serv": round(q_serv, 1),
-        "tot_nd": proj_nd, "q_nd": round(q_nd, 1),
-        "tot_gpon": len(df_gpon), "q_gpon": round(q_gpon, 1),
-        "tot_mig": len(df_mig), "q_mig": round(q_mig, 1),
-        "canc_mig": len(df_mig[df_mig["CANCELADAS"] == "CANCELADO"]) if "CANCELADAS" in df_mig.columns else 0,
-        "retorno_wo": retorno_wo_count,
-        "tot_pme": len(df_pme_wo),
-        "q_pme": round(q_pme, 1),
-        "canc_pme": canc_pme_wo,
-        "_raw_q_ins": raw_q_ins, "_raw_tot_ins": raw_tot_ins,
-        "_raw_q_serv": raw_q_serv, "_raw_tot_serv": raw_tot_serv,
-        "_raw_q_nd": nd_improd, "_raw_tot_nd": den_nd,
-        "_raw_q_gpon": raw_q_gpon, "_raw_tot_gpon": raw_tot_gpon,
-        "_raw_q_mig": raw_q_mig, "_raw_tot_mig": raw_tot_mig,
-        "_raw_q_pme": raw_q_pme_wo, "_raw_tot_pme": raw_tot_pme_wo
-    }
-
-def calcular_calendario_automatico(ref_date=None):
-    if ref_date is None:
-        ref_date = datetime.now()
-    ano = ref_date.year
-    mes = ref_date.month
-    dia_atual = ref_date.day
-    
-    total_dias_mes = calendar.monthrange(ano, mes)[1]
-    dias_uteis_mes = sum(1 for d in range(1, total_dias_mes + 1) if datetime(ano, mes, d).weekday() != 6)
-    dias_trab_ate_hoje = sum(1 for d in range(1, dia_atual + 1) if datetime(ano, mes, d).weekday() != 6)
-    
-    return dias_uteis_mes, max(1, dias_trab_ate_hoje), ref_date.strftime("%d/%m/%Y")
-
-def obter_df_historico():
-    if "df_historico_custom" not in st.session_state:
-        try:
-            conn = st.connection("gsheets", type=GSheetsConnection)
-            df_h = conn.read(spreadsheet=GOOGLE_SHEET_URL, worksheet="Historico_OS")
-            if df_h is not None and not df_h.empty:
-                st.session_state["df_historico_custom"] = df_h
-            else:
-                st.session_state["df_historico_custom"] = pd.DataFrame(columns=["Data", "Base", "OS_Executadas", "OS_Inicial"])
-        except Exception:
-            st.session_state["df_historico_custom"] = pd.DataFrame(columns=["Data", "Base", "OS_Executadas", "OS_Inicial"])
-    return st.session_state["df_historico_custom"]
-
-def obter_df_historico_consultivo():
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df_c = conn.read(spreadsheet=GOOGLE_SHEET_URL, worksheet="Historico_Consultivo")
-        if df_c is not None and not df_c.empty:
-            return df_c
-    except Exception:
-        pass
-    return pd.DataFrame(columns=["Data", "Base", "Qtd_Consultivo"])
-
-def buscar_os_inicial_sheets(base_proj, data_str):
-    base_norm = normalizar_nome_base(base_proj).upper()
-    palavra_chave = "ABC" if "ABC" in base_norm else ("GUARULHOS" if "GUA" in base_norm or "GRU" in base_norm else "LESTE")
-    
-    if "img_os" in st.session_state and base_proj in st.session_state["img_os"]:
-        return int(st.session_state["img_os"][base_proj])
-
-    df_h = obter_df_historico()
-    if not df_h.empty and "Data" in df_h.columns and "Base" in df_h.columns and "OS_Inicial" in df_h.columns:
-        df_h["_base_norm_"] = df_h["Base"].apply(normalizar_nome_base).str.upper()
-        match = df_h[(df_h["Data"].astype(str).str.strip() == str(data_str).strip()) & (df_h["_base_norm_"] == base_norm)]
-        if match.empty:
-            match = df_h[(df_h["Data"].astype(str).str.strip() == str(data_str).strip()) & (df_h["_base_norm_"].str.contains(palavra_chave))]
         
-        if not match.empty:
-            val = match.iloc[-1]["OS_Inicial"]
-            if pd.notna(val) and str(val).strip() != "":
-                try:
-                    return int(float(val))
-                except Exception:
-                    pass
-    
-    if "ABC" in base_norm:
-        return 529
-    elif "GUA" in base_norm:
-        return 611
-    elif "LES" in base_norm:
-        return 497
-    return 0
 
-def calcular_projecao_os_base(base_proj, dias_uteis_mes=25, os_hoje=None, data_hoje_str=None):
-    base_norm = normalizar_nome_base(base_proj)
-    df_b = obter_df_historico().copy()
-    if not df_b.empty and "Base" in df_b.columns:
-        df_b["_base_norm_"] = df_b["Base"].apply(normalizar_nome_base)
-        df_b = df_b[df_b["_base_norm_"].astype(str).str.upper() == base_norm.upper()].copy()
-    
-    if not df_b.empty and "Data" in df_b.columns:
-        df_b = df_b.drop_duplicates(subset=["Data", "_base_norm_"], keep="last")
-        if data_hoje_str and len(str(data_hoje_str)) >= 10:
-            mes_ano = str(data_hoje_str).strip()[3:]
-            df_b = df_b[df_b["Data"].astype(str).str.strip().str.endswith(mes_ano)].copy()
+        st.markdown(render_topo(titulos_mapa[st.session_state.idx]) + icone_mudo, unsafe_allow_html=True)
 
-    if data_hoje_str and os_hoje is not None and os_hoje >= 0:
-        if df_b.empty or not (df_b["Data"].astype(str).str.strip() == str(data_hoje_str).strip()).any():
-            nova = pd.DataFrame([{"Data": str(data_hoje_str), "Base": base_norm, "OS_Executadas": int(os_hoje), "OS_Inicial": 0}])
-            df_b = pd.concat([df_b, nova], ignore_index=True)
-        else:
-            df_b.loc[df_b["Data"].astype(str).str.strip() == str(data_hoje_str).strip(), "OS_Executadas"] = int(os_hoje)
 
-    if not df_b.empty:
-        soma_total = pd.to_numeric(df_b["OS_Executadas"], errors="coerce").sum()
-        qtd_dias = max(1, df_b["Data"].nunique())
-        media_diaria = soma_total / qtd_dias
-        projecao = int(round(media_diaria * dias_uteis_mes, 0))
-        return projecao, media_diaria, qtd_dias
-        
-    return 0, 0.0, 1
 
-def calcular_projecao_consultivo_base(base_proj, dias_uteis_mes=25, consultivo_hoje=None, data_hoje_str=None):
-    base_norm = normalizar_nome_base(base_proj)
-    
-    # 1. Usa diretamente a projeção calculada pela regra da TV (Tela 5) se o arquivo foi carregado
-    if "consultivo_proj_produtos" in st.session_state and base_norm in st.session_state["consultivo_proj_produtos"]:
-        proj_tv = int(st.session_state["consultivo_proj_produtos"][base_norm])
-        dias_pass = max(1, st.session_state.get("consultivo_dias_passados", 1))
-        return proj_tv, proj_tv / max(1, dias_uteis_mes), dias_pass
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
 
-    # 2. Fallback: lê do Google Sheets ignorando valores distorcidos
-    df_c = obter_df_historico_consultivo().copy()
-    if not df_c.empty and "Base" in df_c.columns:
-        df_c["_base_norm_"] = df_c["Base"].apply(normalizar_nome_base)
-        df_c = df_c[df_c["_base_norm_"].astype(str).str.upper() == base_norm.upper()].copy()
-    
-    if not df_c.empty and "Data" in df_c.columns:
-        df_c = df_c.drop_duplicates(subset=["Data", "_base_norm_"], keep="last")
-        df_c["Qtd_Consultivo"] = pd.to_numeric(df_c["Qtd_Consultivo"], errors="coerce").fillna(0)
-        df_c = df_c[df_c["Qtd_Consultivo"] < 300]
-        if data_hoje_str and len(str(data_hoje_str)) >= 10:
-            mes_ano = str(data_hoje_str).strip()[3:]
-            df_c = df_c[df_c["Data"].astype(str).str.strip().str.endswith(mes_ano)].copy()
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
 
-    if data_hoje_str and consultivo_hoje is not None and consultivo_hoje >= 0:
-        if df_c.empty or not (df_c["Data"].astype(str).str.strip() == str(data_hoje_str).strip()).any():
-            nova = pd.DataFrame([{"Data": str(data_hoje_str), "Base": base_norm, "Qtd_Consultivo": int(consultivo_hoje)}])
-            df_c = pd.concat([df_c, nova], ignore_index=True)
-        else:
-            df_c.loc[df_c["Data"].astype(str).str.strip() == str(data_hoje_str).strip(), "Qtd_Consultivo"] = int(consultivo_hoje)
+            df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
 
-    if not df_c.empty:
-        soma_total = pd.to_numeric(df_c["Qtd_Consultivo"], errors="coerce").sum()
-        qtd_dias = max(1, df_c["Data"].nunique())
-        media_diaria = soma_total / qtd_dias
-        projecao = int(round(media_diaria * dias_uteis_mes, 0))
-        return projecao, media_diaria, qtd_dias
-        
-    return 0, 0.0, 1
-
-@st.cache_data(ttl=600)
-def carregar_config_equipe():
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df_eq = conn.read(spreadsheet=GOOGLE_SHEET_URL, worksheet="Config_Equipe")
-        return df_eq
-    except Exception:
-        return pd.DataFrame(columns=["Base", "Supervisor", "Montados", "Parados"])
-
-def ler_aba_flexivel(conn, nomes_possiveis):
-    for nome_aba in nomes_possiveis:
-        try:
-            df = conn.read(spreadsheet=GOOGLE_SHEET_URL, worksheet=nome_aba)
-            if df is not None and not df.empty:
-                return df
-        except Exception:
-            continue
-    return pd.DataFrame()
-
-@st.cache_data(ttl=600)
-def carregar_dicionarios_sheets():
-    baixas_dict, pontos_dict, desc_dict = {}, {}, {}
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        
-        df_b = ler_aba_flexivel(conn, ["Baixas", "BAIXAS"])
-        if not df_b.empty:
-            baixas_dict = dict(zip(df_b.iloc[:, 0].apply(limpar_texto), df_b.iloc[:, 1].apply(limpar_texto)))
-        
-        df_p = ler_aba_flexivel(conn, ["Pontos", "PONTOS ANIEL", "PONTOS_ANIEL", "PONTOS"])
-        if not df_p.empty:
-            pts_val = (
-                df_p.iloc[:, 1].astype(str)
-                .str.replace(" ", "", regex=False)
-                .str.replace(",", ".", regex=False)
-            )
-            pontos_dict = dict(zip(df_p.iloc[:, 0].apply(limpar_texto), pd.to_numeric(pts_val, errors="coerce").fillna(0.0)))
-        
-        df_d = ler_aba_flexivel(conn, ["Desc_OS", "DESC OS", "DESC_OS", "Desc OS"])
-        if not df_d.empty:
-            desc_dict = dict(zip(df_d.iloc[:, 0].apply(limpar_texto), df_d.iloc[:, 1].astype(str).str.strip().str.upper()))
             
-    except Exception:
-        pass
-    return baixas_dict, pontos_dict, desc_dict
 
-BAIXAS_DICT, PONTOS_DICT, DESC_OS_DICT = carregar_dicionarios_sheets()
+            col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
 
-# --- FUNÇÃO ROBUSTA PARA LER E-MAIL (.MSG) E EXTRAIR TÉCNICOS E PARADOS POR SUPERVISOR ---
-def processar_arquivo_msg(up_msg):
-    up_msg.seek(0)
-    raw_bytes = up_msg.read()
-    texto_completo = ""
-    assunto = ""
-    
-    if HAS_EXTRACT_MSG:
-        try:
-            msg = extract_msg.Message(io.BytesIO(raw_bytes))
-            assunto = str(msg.subject or "")
-            corpo_txt = str(msg.body or "")
-            corpo_html = ""
-            if hasattr(msg, "htmlBody") and msg.htmlBody:
-                hb = msg.htmlBody
-                corpo_html = hb.decode("utf-8", errors="ignore") if isinstance(hb, bytes) else str(hb)
-                corpo_html = re.sub(r"<[^>]+>", " \n ", corpo_html)
-            texto_completo = assunto + "\n" + corpo_txt + "\n" + corpo_html
-        except Exception:
-            pass
+            col_x = next((c for c in df_rota.columns if 'COORDENADA X' in c or 'LONG' in c), None)
+
+            col_y = next((c for c in df_rota.columns if 'COORDENADA Y' in c or 'LATI' in c), None)
+
+            col_tec = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
+
+            col_cidade = next((c for c in df_rota.columns if 'CIDADE' in c), None)
+
             
-    if len(texto_completo.strip()) < 50:
-         latin_str = raw_bytes.decode("latin1", errors="ignore")
-         utf16_str = raw_bytes.decode("utf-16le", errors="ignore")
-         texto_completo += "\n" + latin_str + "\n" + utf16_str
 
-    texto_up = remover_acentos(texto_completo.upper())
-    
-    match_data = re.search(r'\b(\d{2}/\d{2}/202\d)\b', texto_up)
-    data_ext = match_data.group(1) if match_data else None
+            if col_sup and col_x and col_y:
 
-    mapa_aliases = {
-        "EDSON": ["EDSON MARCO", "EDSON"],
-        "MAICON": ["MAICON FARIA", "MAICON APARECIDO", "MAICON"],
-        "NELSON": ["NELSON JUNIOR", "NELSON ALVES", "NELSON"],
-        "ADRIANO": ["ADRIANO NASCIMENTO", "ADRIANO"],
-        "DANIELE": ["DANIELE BARBOSA", "DANIELE"],
-        "FERNANDO": ["FERNANDO CESAR", "FERNANDO COELHO", "FERNANDO"],
-        "PALOMA": ["PALOMA REGINA", "PALOMA"],
-        "ALAN": ["ALAN DIAS", "ALAN DE ANDRADE", "ALAN"],
-        "ELISANGELA": ["ELISANGELA CASSIMIRO", "ELISANGELA"],
-        "FRANCISCO": ["FRANCISCO JUNIOR", "FRANCISO JUNIOR", "FRANCISCO GERALDO", "FRANCISO", "FRANCISCO"],
-        "JOAO CARLOS": ["JOAO CARLOS", "MIRON"]
-    }
+                if col_cidade:
 
-    parados_por_sup = {k: 0 for k in mapa_aliases.keys()}
-    tecnicos_extraidos = []
+                    df_rota = df_rota[df_rota[col_cidade].notna()]
 
-    padrao_linha = re.compile(
-        r'(\d{4,6}\s*-\s*[A-Z\s]{4,45}?)\s+(MAICON[A-Z\s]*|NELSON[A-Z\s]*|EDSON[A-Z\s]*|ADRIANO[A-Z\s]*|DANIELE[A-Z\s]*|FERNANDO[A-Z\s]*|PALOMA[A-Z\s]*|ALAN[A-Z\s]*|ELISANGELA[A-Z\s]*|FRANCISC?O[A-Z\s]*|JOAO CARLOS[A-Z\s]*)\s+(FALTA|FOLGA|ATESTADO|FERIAS|SUSPENSAO|TREINAMENTO|SINISTRO|OFICINA|MANUTENCAO)',
-        re.IGNORECASE
-    )
-    matches = padrao_linha.findall(texto_up)
-    if matches:
-        for condutor, sup_encontrado, motivo in matches:
-            cond_limpo = re.sub(r'\s+', ' ', condutor).strip()
-            sup_limpo = re.sub(r'\s+', ' ', sup_encontrado).strip()
-            mot_limpo = motivo.strip()
-            for chave_sup, aliases in mapa_aliases.items():
-                if any(al in sup_limpo for al in aliases):
-                    parados_por_sup[chave_sup] += 1
-                    tecnicos_extraidos.append(f"{cond_limpo} ({chave_sup}) - {mot_limpo}")
-                    break
-    else:
-        for linha in texto_up.split('\n'):
-            linha_clean = re.sub(r'\s+', ' ', linha).strip()
-            if not linha_clean or "SMTP:" in linha_clean or "@" in linha_clean:
-                continue
-            for chave_sup, aliases in mapa_aliases.items():
-                aliases_longos = [a for a in aliases if " " in a]
-                if any(al in linha_clean for al in aliases_longos):
-                    parados_por_sup[chave_sup] += 1
-                    m_tec = re.search(r'(\d{4,6}\s*-\s*[A-Z\s]{4,35})', linha_clean)
-                    if m_tec:
-                        tecnicos_extraidos.append(f"{m_tec.group(1).strip()} ({chave_sup})")
+                    cond_cidade_base = df_rota[col_cidade].astype(str).str.upper().str.contains('DIADEMA|SANTO ANDRE|BERNARDO|SBC|CAETANO', regex=True)
+
+                    df_rota = df_rota[cond_cidade_base]
+
+
+
+                df_rota['STATUS_PADRAO'] = df_rota.apply(padronizar_status, axis=1)
+
+                df_rota = df_rota[df_rota['STATUS_PADRAO'] == 'Em aberto']
+
+
+
+                def class_sup_mapa(row):
+
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+
+                    for oficial in SUPERVISORES_ORDENADOS:
+
+                        if oficial in sup: return oficial
+
+                    return "DESCARTADO"
+
+                
+
+                df_rota['SUPERVISOR_CLEAN'] = df_rota.apply(class_sup_mapa, axis=1)
+
+                df_mapa = df_rota[df_rota['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+
+                
+
+                df_mapa['LAT'] = pd.to_numeric(df_mapa[col_y].astype(str).str.replace(',', '.'), errors='coerce')
+
+                df_mapa['LON'] = pd.to_numeric(df_mapa[col_x].astype(str).str.replace(',', '.'), errors='coerce')
+
+                df_mapa = df_mapa.dropna(subset=['LAT', 'LON'])
+
+                df_mapa['NOME_TECNICO'] = df_mapa[col_tec].fillna('Desconhecido').astype(str).apply(lambda x: x.split()[0].upper())
+
+                
+
+                def cor_sup_rgb(sup):
+
+                    if sup == "MAICON": return [255, 20, 147] 
+
+                    if sup == "NELSON": return [0, 128, 0]    
+
+                    if sup == "EDSON MARCO": return [128, 0, 128] 
+
+                    return [0, 0, 0]
+
+                    
+
+                df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
+
+                
+
+                if st.session_state.idx == 11: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('BERNARDO|SBC', regex=True)]
+
+                elif st.session_state.idx == 12: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('SANTO ANDRE', regex=True)]
+
+                elif st.session_state.idx == 13: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('DIADEMA', regex=True)]
+
+                elif st.session_state.idx == 17: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('CAETANO', regex=True)]
+
+                elif st.session_state.idx == 14: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
+
+                elif st.session_state.idx == 15: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MAICON"]
+
+                elif st.session_state.idx == 16: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
+
+                    
+
+                if not df_mapa.empty:
+
+                    base_style = "display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 24px; font-weight: 900; color: #000000 !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);"
+
+                    edson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>'
+
+                    maicon_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>'
+
+                    nelson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>'
+
+
+
+                    if st.session_state.idx in [11, 12, 13, 17]:
+
+                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + nelson_html + '</div>'
+
+                    elif st.session_state.idx == 14:
+
+                        legenda_html = '<div style="' + base_style + '">' + edson_html + '</div>'
+
+                    elif st.session_state.idx == 15:
+
+                        legenda_html = '<div style="' + base_style + '">' + maicon_html + '</div>'
+
+                    elif st.session_state.idx == 16:
+
+                        legenda_html = '<div style="' + base_style + '">' + nelson_html + '</div>'
+
                     else:
-                        tecnicos_extraidos.append(f"Técnico parado ({chave_sup})")
-                    break
 
-    return data_ext, parados_por_sup, tecnicos_extraidos
+                        legenda_html = ''
 
-# --- INICIALIZAÇÃO DE ESTADO E NAVEGAÇÃO ---
-etapas = ["1. Upload de Arquivos", "2. Dados Operacionais por Base", "3. Visualização da Prévia"]
 
-if "pagina_atual" not in st.session_state:
-    st.session_state["pagina_atual"] = "1. Upload de Arquivos"
 
-if st.session_state.get("ir_para_passo_3_ativo", False):
-    st.session_state["pagina_atual"] = "3. Visualização da Prévia"
-    st.session_state["ir_para_passo_3_ativo"] = False
+                    st.markdown(legenda_html, unsafe_allow_html=True)
 
-if "df_valido" not in st.session_state:
-    st.session_state.df_valido = None
-if "df_aniel_full" not in st.session_state:
-    st.session_state.df_aniel_full = None
-if "supervisores_por_base" not in st.session_state:
-    st.session_state.supervisores_por_base = {}
-if "processado_sucesso" not in st.session_state:
-    st.session_state.processado_sucesso = False
-if "consultivo_totais" not in st.session_state:
-    st.session_state.consultivo_totais = {"NET-ABCDM": 0, "NET-Guarulhos": 0, "NET-LESTE": 0}
-if "consultivo_os_hoje" not in st.session_state:
-    st.session_state.consultivo_os_hoje = {"NET-ABCDM": 0, "NET-Guarulhos": 0, "NET-LESTE": 0}
+                    
 
-bases_config = [
-    {"label": "ABCDM", "projeto": "NET-ABCDM"},
-    {"label": "Guarulhos", "projeto": "NET-Guarulhos"},
-    {"label": "Leste", "projeto": "NET-LESTE"}
-]
+                    scatter_layer = pdk.Layer(
 
-# --- MENU LATERAL GLOBAL ---
-try:
-    st.sidebar.image("novo-logo-totale.png", use_container_width=True)
-except Exception:
-    pass
+                        'ScatterplotLayer',
 
-st.sidebar.title("Navegação")
-st.sidebar.radio(
-    "Ir para:",
-    etapas,
-    key="pagina_atual"
-)
+                        data=df_mapa,
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("📅 Histórico de Prévias")
-try:
-    conn_side = st.connection("gsheets", type=GSheetsConnection)
-    df_historico_previas = conn_side.read(spreadsheet=GOOGLE_SHEET_URL, worksheet="Previas_Diarias")
-except Exception:
-    df_historico_previas = pd.DataFrame()
+                        get_position='[LON, LAT]',
 
-if df_historico_previas is not None and not df_historico_previas.empty and "Data" in df_historico_previas.columns:
-    datas_disponiveis = sorted(
-        df_historico_previas["Data"].dropna().astype(str).str.strip().unique().tolist(),
-        key=lambda x: datetime.strptime(x, "%d/%m/%Y") if re.match(r"^\d{2}/\d{2}/\d{4}$", x) else datetime.min,
-        reverse=True
-    )
-    opcoes_menu_data = ["📌 Sessão Atual (Arquivos Enviados)"] + datas_disponiveis
-    escolha_menu = st.sidebar.selectbox("Selecionar Data da Prévia:", opcoes_menu_data)
-    if escolha_menu == "📌 Sessão Atual (Arquivos Enviados)":
-        data_selecionada = st.session_state.get("data_formatada_ativa", st.session_state.get("data_formatada", datas_disponiveis[0] if datas_disponiveis else "03/11/2026"))
-        modo_historico_salvo = False
-    else:
-        data_selecionada = escolha_menu
-        modo_historico_salvo = True
-else:
-    data_selecionada = st.session_state.get("data_formatada_ativa", st.session_state.get("data_formatada", "03/11/2026"))
-    modo_historico_salvo = False
+                        get_color='COLOR_RGB',
 
-def ler_arquivo_seguro(uploaded_file, prefer_sheet=None):
-    uploaded_file.seek(0)
-    nome = uploaded_file.name.lower()
-    if nome.endswith(".csv"):
-        try:
-            return pd.read_csv(uploaded_file, sep=None, engine="python")
-        except Exception:
-            uploaded_file.seek(0)
-            return pd.read_csv(uploaded_file, sep=";", encoding="latin1", on_bad_lines="skip")
-    if prefer_sheet:
-        try:
-            uploaded_file.seek(0)
-            xl = pd.ExcelFile(uploaded_file, engine="openpyxl")
-            aba_alvo = next((s for s in xl.sheet_names if prefer_sheet.upper() in s.upper()), xl.sheet_names[0])
-            uploaded_file.seek(0)
-            return pd.read_excel(uploaded_file, sheet_name=aba_alvo, engine="openpyxl")
-        except Exception:
-            pass
-    try:
-        uploaded_file.seek(0)
-        return pd.read_excel(uploaded_file, engine="openpyxl")
-    except Exception:
-        pass
-    try:
-        uploaded_file.seek(0)
-        return pd.read_excel(uploaded_file)
-    except Exception:
-        pass
-    try:
-        uploaded_file.seek(0)
-        return pd.read_csv(uploaded_file, sep=None, engine="python", encoding="utf-8")
-    except Exception:
-        pass
-    try:
-        uploaded_file.seek(0)
-        return pd.read_csv(uploaded_file, sep="\t", encoding="latin1")
-    except Exception:
-        pass
-    try:
-        uploaded_file.seek(0)
-        dfs = pd.read_html(uploaded_file)
-        if dfs:
-            return dfs[0]
-    except Exception as e:
-        raise ValueError(f"Erro na leitura: {e}")
+                        get_radius=120,
 
-# ==============================================================================
-# PÁGINA 1: UPLOAD DE ARQUIVOS
-# ==============================================================================
-if st.session_state["pagina_atual"] == "1. Upload de Arquivos":
-    st.subheader("📁 Passo 1: Upload e Cruzamento das Bases")
-    st.write("Carregue os arquivos do ANIEL, TOA, Consultivo, a imagem de resumo (OS Inicial) e o e-mail de parados (.msg).")
-    
-    col_u1, col_u2 = st.columns(2)
-    with col_u1:
-        up_aniel = st.file_uploader("Arquivo ANIEL (.xlsx ou .xlsm)", type=["xlsx", "xlsm", "csv"], key="u_aniel")
-    with col_u2:
-        up_toa = st.file_uploader("Arquivos do TOA (Pode selecionar os três)", type=["xlsx", "xlsm", "csv"], accept_multiple_files=True, key="u_toa")
+                        pickable=True,
 
-    col_u3, col_u4 = st.columns(2)
-    with col_u3:
-        up_consultivo = st.file_uploader("Arquivo Consultivo (.xlsx, .xlsm ou .csv)", type=["xlsx", "xlsm", "csv"], key="u_consultivo")
-    with col_u4:
-        img_upload = st.file_uploader("Imagem de Resumo do Dia (OS Inicial)", type=["png", "jpg", "jpeg"], key="img_drag_drop_p1")
+                        opacity=0.8
 
-    up_msg = st.file_uploader("E-mail de Parados por Supervisor (.msg)", type=["msg"], key="u_msg")
-
-    img_valores_os = {"NET-ABCDM": 529, "NET-Guarulhos": 611, "NET-LESTE": 497}
-    img_valores_montados = {"NET-ABCDM": 74, "NET-Guarulhos": 78, "NET-LESTE": 77}
-    
-    if img_upload is not None:
-        st.success("🖼️ Imagem de resumo do dia carregada! Rota Inicial mapeada: ABCDM = 529 | Guarulhos = 611 | Leste = 497.")
-        st.session_state["img_os"] = img_valores_os
-        st.session_state["img_montados"] = img_valores_montados
-
-    if up_msg is not None:
-        try:
-            data_ext, email_parados_por_sup, tecnicos_lista = processar_arquivo_msg(up_msg)
-            if data_ext:
-                st.session_state["email_data_ext"] = data_ext
-            st.session_state["email_parados_auto"] = email_parados_por_sup
-            st.session_state["email_tecnicos_lista"] = tecnicos_lista
-            tot_p_lidos = sum(email_parados_por_sup.values())
-            st.success(f"📧 E-mail (.msg) lido com sucesso! Total de parados identificados nos supervisores: **{tot_p_lidos}**")
-            if tecnicos_lista:
-                with st.expander("👷 Ver Técnicos Parados Extraídos do E-mail"):
-                    for t_item in tecnicos_lista:
-                        st.write(f"- {t_item}")
-        except Exception as e:
-            st.warning(f"Aviso ao ler o .msg: {e}")
-
-    if up_aniel is not None:
-        if st.button("🚀 Processar Arquivos e Cruzar Bases", type="primary"):
-            with st.spinner("Validando datas, processando cruzamento e aplicando regras do Consultivo..."):
-                try:
-                    df_aniel = ler_arquivo_seguro(up_aniel)
-                    df_aniel.columns = [str(c).strip() for c in df_aniel.columns]
-
-                    data_aniel_str = ""
-                    col_data_aniel = next((c for c in df_aniel.columns if "data" in c.lower() or "agendamento" in c.lower()), None)
-                    if col_data_aniel:
-                        datas_a = pd.to_datetime(df_aniel[col_data_aniel], dayfirst=True, errors='coerce').dropna()
-                        if not datas_a.empty:
-                            data_aniel_str = datas_a.iloc[0].strftime("%d/%m/%Y")
-
-                    if data_aniel_str:
-                        st.session_state["data_formatada_ativa"] = data_aniel_str
-                    elif "email_data_ext" in st.session_state:
-                        st.session_state["data_formatada_ativa"] = st.session_state["email_data_ext"]
-
-                    col_proj = next((c for c in df_aniel.columns if c.lower() == "projeto"), "Projeto")
-                    if col_proj in df_aniel.columns:
-                        df_aniel = df_aniel[
-                            ~df_aniel[col_proj].astype(str).str.upper().str.contains(r"\bVT\b|VT", regex=True, na=False)
-                        ].reset_index(drop=True)
-                        df_aniel[col_proj] = df_aniel[col_proj].apply(normalizar_nome_base)
-
-                    df_toa = None
-                    data_toa_str = ""
-                    if up_toa:
-                        colunas_uteis_toa = [
-                            "Data", "Contrato", "Status da Atividade", "Motivo de Fechamento Externo",
-                            "Cidade", "Início", "Categorias da Capacidade", "Cód de Baixa 1",
-                            "Tipo O.S 1", "Total de tarefas"
-                        ]
-                        toa_dfs = []
-                        for file in up_toa:
-                            tdf = ler_arquivo_seguro(file)
-                            tdf.columns = [str(c).strip() for c in tdf.columns]
-                            if "Data" in tdf.columns:
-                                datas_t = pd.to_datetime(tdf["Data"], dayfirst=True, errors='coerce').dropna()
-                                if not datas_t.empty and not data_toa_str:
-                                    data_toa_str = datas_t.iloc[0].strftime("%d/%m/%Y")
-                            cols_presentes = [c for c in colunas_uteis_toa if c in tdf.columns]
-                            if cols_presentes:
-                                tdf = tdf[cols_presentes]
-                            toa_dfs.append(tdf)
-                        df_toa = pd.concat(toa_dfs, ignore_index=True)
-
-                    if data_aniel_str and data_toa_str and data_aniel_str != data_toa_str:
-                        st.error(f"❌ **Erro de Validação:** Os arquivos possuem datas divergentes! ANIEL refere-se a **{data_aniel_str}** e o TOA refere-se a **{data_toa_str}**.")
-                        st.stop()
-
-                    data_ref_proc = st.session_state.get("data_formatada_ativa", datetime.now().strftime("%d/%m/%Y"))
-
-                    # --- PROCESSAMENTO DO CONSULTIVO COM A LÓGICA DA TV (TELAS 5, 6 e 18) ---
-                    if up_consultivo is not None:
-                        df_cons = ler_arquivo_seguro(up_consultivo, prefer_sheet="CONSULTIVO")
-                        res_cons = processar_planilha_consultivo(df_cons, df_aniel, data_ref_proc)
-                        st.session_state["consultivo_totais"] = res_cons["hoje_contratos"]
-                        st.session_state["consultivo_os_hoje"] = res_cons["hoje_produtos"]
-                        st.session_state["consultivo_proj_produtos"] = res_cons["proj_produtos"]
-                        st.session_state["consultivo_proj_contratos"] = res_cons["proj_contratos"]
-                        st.session_state["consultivo_acumulado_mes"] = res_cons["acum_contratos"]
-                        st.session_state["consultivo_acum_produtos_mes"] = res_cons["acum_produtos"]
-                        st.session_state["consultivo_historico_arquivo"] = res_cons["historico_diario"]
-                        st.session_state["consultivo_supervisores"] = res_cons["supervisores"]
-                        st.session_state["consultivo_dias_passados"] = res_cons["dias_uteis_passados"]
-
-                    for col in ["ST1", "ST2", "ST3", "CANCELADAS", "PME"]:
-                        if col not in df_aniel.columns:
-                            df_aniel[col] = ""
-
-                    if df_toa is not None and not df_toa.empty:
-                        col_chave_toa = "Contrato" if "Contrato" in df_toa.columns else df_toa.columns[1]
-                        df_toa_clean = df_toa.copy()
-                        df_toa_clean["_chave_"] = df_toa_clean[col_chave_toa].apply(limpar_chave).astype(str)
-                        df_toa_clean = df_toa_clean[df_toa_clean["_chave_"] != ""]
-                        df_toa_clean = df_toa_clean.drop_duplicates(subset=["_chave_"], keep="first")
-                        toa_dict = df_toa_clean.set_index("_chave_").to_dict(orient="index")
-
-                        col_chave_aniel = next((c for c in df_aniel.columns if "contrato" in c.lower()), "Contrato Cliente")
-
-                        for idx, row in df_aniel.iterrows():
-                            contrato = limpar_chave(row.get(col_chave_aniel, ""))
-                            if contrato in toa_dict:
-                                match = toa_dict[contrato]
-                                df_aniel.at[idx, "ST1"] = str(match.get("Status da Atividade", "")).replace("nan", "").strip()
-                                df_aniel.at[idx, "ST2"] = str(match.get("Motivo de Fechamento Externo", "")).replace("nan", "").strip()
-                                df_aniel.at[idx, "ST3"] = str(match.get("Cód de Baixa 1", "")).replace("nan", "").strip()
-                                df_aniel.at[idx, "PME"] = str(match.get("Categorias da Capacidade", "")).replace("nan", "").strip()
-                                df_aniel.at[idx, "Cidade"] = str(match.get("Cidade", "")).replace("nan", "").strip()
-
-                    if "Projeto" in df_aniel.columns and "Cidade" in df_aniel.columns and "Supervisor" in df_aniel.columns:
-                        mask_apoio = (
-                            (df_aniel["Projeto"].astype(str).str.upper().str.contains("ABCDM")) &
-                            (df_aniel["Cidade"].apply(limpar_texto) == "SAO PAULO")
-                        )
-                        df_aniel.loc[mask_apoio, "Supervisor"] = "APOIO SÃO PAULO"
-
-                    if "Pontos Prev." not in df_aniel.columns:
-                        df_aniel["Pontos Prev."] = 0.0
-                    else:
-                        df_aniel["Pontos Prev."] = (
-                            df_aniel["Pontos Prev."]
-                            .astype(str)
-                            .str.replace(" ", "", regex=False)
-                            .str.replace(".", "", regex=False)
-                            .str.replace(",", ".", regex=False)
-                        )
-                        df_aniel["Pontos Prev."] = pd.to_numeric(df_aniel["Pontos Prev."], errors="coerce").fillna(0.0)
-
-                    baixas_norm = {limpar_texto(k): limpar_texto(v) for k, v in BAIXAS_DICT.items()}
-                    desc_norm = {limpar_texto(k): v for k, v in DESC_OS_DICT.items()}
-                    pontos_norm = {limpar_texto(k): float(v) for k, v in PONTOS_DICT.items()}
-
-                    col_ts_name = next((c for c in df_aniel.columns if "tipo de serv" in limpar_texto(c).lower()), "Tipo de Serviço")
-                    col_obs1_name = next((c for c in df_aniel.columns if "observacao 1" in limpar_texto(c).lower() or "obs" in c.lower()), "Observação 1")
-
-                    for idx, row in df_aniel.iterrows():
-                        tipo_os_raw = str(row.get("Tipo de OS", "")).strip()
-                        tipo_os = "" if tipo_os_raw.lower() == "nan" else limpar_texto(tipo_os_raw)
-
-                        st1_raw = str(row.get("ST1", "")).strip()
-                        st1_val = "" if st1_raw.lower() == "nan" else st1_raw
-
-                        st2_raw = str(row.get("ST2", "")).strip()
-                        st2_val = "" if st2_raw.lower() == "nan" else limpar_texto(st2_raw).lower()
-
-                        st3_raw = str(row.get("ST3", "")).strip()
-                        st3_val = "" if st3_raw.lower() == "nan" else st3_raw.upper()
-                        st3_norm = limpar_texto(st3_val)
-
-                        encontrou = False
-                        if st3_norm != "":
-                            if st3_norm in baixas_norm:
-                                tipo_os = baixas_norm[st3_norm]
-                                encontrou = True
-                            else:
-                                for k_baixa, v_baixa in baixas_norm.items():
-                                    if k_baixa != "" and (st3_norm in k_baixa or k_baixa in st3_norm):
-                                        tipo_os = v_baixa
-                                        encontrou = True
-                                        break
-                        if not encontrou and tipo_os in ["N/A", "#N/A", "", "SAIU DO TOA"]:
-                            tipo_os = "EM ABERTO"
-
-                        if tipo_os == "EM ABERTO" and st1_val == "":
-                            tipo_os = "SAIU DO TOA"
-
-                        if ("liberado no sistema netsms" in st2_val or "cancelado no sistema netsms" in st2_val) and tipo_os == "EM ABERTO":
-                            tipo_os = "CANCELADO"
-
-                        if "executado no sistema netsms" in st2_val:
-                            tipo_os = "PRODUTIVA"
-
-                        df_aniel.at[idx, "Tipo de OS"] = tipo_os
-
-                        if "cancelado" in st2_val:
-                            df_aniel.at[idx, "CANCELADAS"] = "CANCELADO"
-                        else:
-                            df_aniel.at[idx, "CANCELADAS"] = ""
-
-                        tipo_servico_raw = str(row.get(col_ts_name, "")).strip()
-                        tipo_servico_norm = limpar_texto(tipo_servico_raw)
-                        obs1_raw = str(row.get(col_obs1_name, "")).strip()
-                        obs1 = "" if obs1_raw.lower() == "nan" else limpar_texto(obs1_raw).lower()
-
-                        quebra_bruta = ""
-                        if tipo_servico_norm in desc_norm:
-                            quebra_bruta = desc_norm[tipo_servico_norm]
-                        else:
-                            for k_desc, v_desc in desc_norm.items():
-                                if tipo_servico_norm != "" and k_desc != "" and (tipo_servico_norm in k_desc or k_desc in tipo_servico_norm):
-                                    quebra_bruta = v_desc
-                                    break
-                        
-                        df_aniel.at[idx, "QUEBRAS"] = padrao_quebra_categoria(quebra_bruta, tipo_servico_norm)
-
-                        ts_lower = tipo_servico_norm.lower()
-                        status_ativ = ""
-                        if "const" in ts_lower:
-                            status_ativ = "CONSTRUÇÃO"
-                        elif "pon " in obs1 or "fibra" in obs1 or "virtua pon" in obs1 or "gpon" in obs1:
-                            status_ativ = "GPON"
-                            if "instalacao de cabo gpon" in ts_lower or "mudanca de pacote" in ts_lower:
-                                status_ativ = "MIGRAÇÃO"
-
-                        if status_ativ == "":
-                            status_ativ = "HFC"
-
-                        if status_ativ == "HFC" and "instalacao de cabo gpon" in ts_lower:
-                            status_ativ = "MIGRAÇÃO"
-
-                        df_aniel.at[idx, "ATIVIDADES"] = status_ativ
-
-                        pontos_val = float(df_aniel.at[idx, "Pontos Prev."])
-                        if pontos_val == 0.0:
-                            ponto_encontrado = None
-                            if tipo_servico_norm in pontos_norm:
-                                ponto_encontrado = pontos_norm[tipo_servico_norm]
-                            else:
-                                for k_ponto, v_ponto in pontos_norm.items():
-                                    if tipo_servico_norm != "" and k_ponto != "" and (tipo_servico_norm in k_ponto or k_ponto in tipo_servico_norm):
-                                        ponto_encontrado = v_ponto
-                                        break
-                            if ponto_encontrado is not None:
-                                df_aniel.at[idx, "Pontos Prev."] = float(ponto_encontrado)
-
-                    df_aniel["Supervisor"] = df_aniel["Supervisor"].fillna("").astype(str).str.strip().str.upper()
-                    df_aniel["Tipo de Serviço"] = df_aniel[col_ts_name].fillna("").astype(str).str.strip().str.upper()
-
-                    df_valido = df_aniel[
-                        (df_aniel["Supervisor"] != "") &
-                        (df_aniel["Tipo de Serviço"] != "") &
-                        (~df_aniel["Supervisor"].str.contains("IVAN", na=False))
-                    ].copy()
-
-                    st.session_state.df_valido = df_valido
-                    st.session_state.df_aniel_full = df_aniel
-
-                    sup_map = {}
-                    for item in bases_config:
-                        b_proj = item["projeto"]
-                        df_base_temp = df_valido[df_valido["Projeto"].str.upper() == b_proj.upper()]
-                        sups_brutos = sorted(df_base_temp["Supervisor"].unique().tolist())
-                        
-                        sups_filtrados = []
-                        for s in sups_brutos:
-                            s_up = str(s).strip().upper()
-                            if "ABCDM" in b_proj.upper():
-                                if any(sub in s_up for sub in ["EDSON", "MAICON", "NELSON", "APOIO"]):
-                                    sups_filtrados.append(s_up)
-                            elif "LESTE" in b_proj.upper():
-                                if any(sub in s_up for sub in ["ALAN", "ELISANGELA", "FRANCISCO", "JOAO CARLOS", "MIRON"]):
-                                    sups_filtrados.append(s_up)
-                            elif "GUARULHOS" in b_proj.upper():
-                                if any(sub in s_up for sub in ["ADRIANO", "DANIELE", "FERNANDO", "PALOMA"]):
-                                    sups_filtrados.append(s_up)
-                            else:
-                                sups_filtrados.append(s_up)
-                                
-                        sup_map[b_proj] = sorted(list(set(sups_filtrados)))
-
-                    st.session_state.supervisores_por_base = sup_map
-                    st.session_state.processado_sucesso = True
-
-                except Exception as e:
-                    st.session_state.processado_sucesso = False
-                    st.error(f"Erro ao processar: {e}")
-
-    if st.session_state.processado_sucesso and st.session_state.df_valido is not None:
-        st.success("✅ Arquivos validados e processados com sucesso!")
-        st.button(
-            "Ir para Dados Operacionais ➡️",
-            type="primary",
-            on_click=ir_para_passo_2,
-            key="btn_ir_dados"
-        )
-
-# ==============================================================================
-# PÁGINA 2: ENTRADA DE DADOS OPERACIONAIS
-# ==============================================================================
-elif st.session_state["pagina_atual"] == "2. Dados Operacionais por Base":
-    st.subheader("⚙️ Passo 2: Dados Operacionais por Base")
-    
-    if st.session_state.df_valido is None:
-        st.warning("⚠️ Carregue os arquivos primeiro no Passo 1.")
-    else:
-        data_formatada = st.session_state.get("data_formatada_ativa", "03/11/2026")
-        try:
-            data_base_ref = datetime.strptime(data_formatada, "%d/%m/%Y")
-        except Exception:
-            data_base_ref = datetime.now()
-
-        dias_uteis_auto, dias_trab_auto, _ = calcular_calendario_automatico(data_base_ref)
-        st.info(f"📅 **Data de Referência (Ativa):** {data_formatada} | **Dias Úteis:** {dias_uteis_auto} | **Dias Trabalhados:** {dias_trab_auto}")
-        
-        st.session_state["dias_uteis_auto"] = dias_uteis_auto
-        st.session_state["dias_trab_auto"] = dias_trab_auto
-        st.session_state["data_formatada"] = data_formatada
-
-        df_config_eq = carregar_config_equipe()
-        
-        if "img_os" not in st.session_state:
-            st.session_state["img_os"] = {"NET-ABCDM": 529, "NET-Guarulhos": 611, "NET-LESTE": 497}
-        img_os_dict = st.session_state["img_os"]
-        consultivo_totais = st.session_state.get("consultivo_totais", {"NET-ABCDM": 0, "NET-Guarulhos": 0, "NET-LESTE": 0})
-        consultivo_os_hoje_dict = st.session_state.get("consultivo_os_hoje", {"NET-ABCDM": 0, "NET-Guarulhos": 0, "NET-LESTE": 0})
-        consultivo_acum_mes = st.session_state.get("consultivo_acumulado_mes", {"NET-ABCDM": 0, "NET-Guarulhos": 0, "NET-LESTE": 0})
-        consultivo_acum_prod_mes = st.session_state.get("consultivo_acum_produtos_mes", {"NET-ABCDM": 0, "NET-Guarulhos": 0, "NET-LESTE": 0})
-        email_parados_auto = st.session_state.get("email_parados_auto", {})
-        email_tecnicos_lista = st.session_state.get("email_tecnicos_lista", [])
-
-        if email_tecnicos_lista:
-            with st.expander("📋 Técnicos Parados Lidos do E-mail (.msg)", expanded=False):
-                for t_str in email_tecnicos_lista:
-                    st.write(f"• {t_str}")
-
-        tabs = st.tabs(["ABCDM", "Guarulhos", "Leste"])
-        totais_bases_calc = {}
-
-        for i, item in enumerate(bases_config):
-            b_label = item["label"]
-            b_proj = item["projeto"]
-            with tabs[i]:
-                df_b_eq = df_config_eq[df_config_eq["Base"].astype(str).str.upper() == b_proj.upper()] if not df_config_eq.empty else pd.DataFrame()
-                
-                val_rota_sugerido = img_os_dict.get(b_proj, 529 if "ABC" in b_proj else (611 if "GUA" in b_proj else 497))
-
-                st.markdown(f"##### 📈 1. Dados de Ganho de O.S. ({b_label}):")
-                rota_inicial_val = st.number_input(
-                    f"Total O.S. Rota Inicial ({b_label})", 
-                    value=int(val_rota_sugerido), 
-                    min_value=0,
-                    step=1,
-                    key=f"inp_rota_{b_proj}",
-                    help="Valor de Rota Inicial lido da imagem de resumo do dia."
-                )
-                st.session_state["img_os"][b_proj] = int(rota_inicial_val)
-                
-                st.markdown("---")
-                st.markdown(f"##### 👥 2. Equipe de Supervisores da Base {b_label}:")
-                sups_base = st.session_state.supervisores_por_base.get(b_proj, [])
-                soma_m_base = 0
-                soma_p_base = 0
-
-                if sups_base:
-                    col_s1, col_s2 = st.columns(2)
-                    for sup in sups_base:
-                        sup_eq = df_b_eq[df_b_eq["Supervisor"].astype(str).str.upper().str.strip() == sup.strip().upper()] if not df_b_eq.empty and "Supervisor" in df_b_eq.columns else pd.DataFrame()
-                        
-                        if "APOIO" in sup.upper():
-                            m_def = 0
-                        elif not sup_eq.empty and pd.notna(sup_eq["Montados"].values[0]) and int(sup_eq["Montados"].values[0]) < 45:
-                            m_def = int(sup_eq["Montados"].values[0])
-                        else:
-                            m_def = 24 if "ABC" in b_proj else 20
-                        
-                        parados_email_val = None
-                        if email_parados_auto:
-                            parados_email_val = 0
-                            for k_sup, v_qtd in email_parados_auto.items():
-                                if k_sup in sup.upper():
-                                    parados_email_val = v_qtd
-                                    break
-                        
-                        p_def = parados_email_val if parados_email_val is not None else (int(sup_eq["Parados"].values[0]) if not sup_eq.empty and pd.notna(sup_eq["Parados"].values[0]) else 0)
-
-                        with col_s1:
-                            val_m = st.number_input(f"Montados: {sup}", value=int(m_def), min_value=0, step=1, key=f"m_{b_proj}_{sup}")
-                            soma_m_base += val_m
-                        with col_s2:
-                            val_p = st.number_input(
-                                f"Parados (Automático E-mail): {sup}", 
-                                value=int(p_def), 
-                                min_value=0, 
-                                step=1, 
-                                key=f"p_{b_proj}_{sup}"
-                            )
-                            soma_p_base += val_p
-
-                st.markdown("---")
-                c1, c2, c3, c4 = st.columns(4)
-                
-                with c1:
-                    st.markdown(f"**Total Montados ({b_label}):**\n### {fmt_br(soma_m_base)}")
-                    st.markdown(f"**Total Parados ({b_label}):**\n### {fmt_br(soma_p_base)}")
-                    totais_bases_calc[b_proj] = {"montados": int(soma_m_base), "parados": int(soma_p_base)}
-                
-                with c2:
-                    meta_os_val = st.number_input(f"Meta O.S. Mês ({b_label})", value=11800 if "ABCDM" in b_proj else 12200, step=100, key=f"inp_meta_os_{b_proj}")
-                    df_b_temp = st.session_state.df_valido[st.session_state.df_valido["Projeto"].str.upper() == b_proj.upper()]
-                    if "Tipo de Serviço" in df_b_temp.columns:
-                        df_b_temp = df_b_temp[~eh_retorno_credenciada(df_b_temp["Tipo de Serviço"])]
-                    prod_hoje_temp = len(df_b_temp[df_b_temp["Tipo de OS"] == "PRODUTIVA"])
-                    proj_os_val, _, _ = calcular_projecao_os_base(b_proj, dias_uteis_auto, prod_hoje_temp, data_formatada)
-                    st.markdown(f"**Projeção de O.S. (Mês):**\n### {fmt_br(proj_os_val)}")
-
-                with c3:
-                    # Meta padrão de consultivo (ex: 350 por supervisor como na TV ou editável)
-                    qtd_sups_validos = max(1, len([s for s in sups_base if "APOIO" not in s.upper()]))
-                    meta_cons_padrao = int(qtd_sups_validos * 350)
-                    meta_cons_input = st.number_input(
-                        f"Meta do Consultivo ({b_label})", 
-                        value=int(st.session_state.get(f"inp_meta_c_{b_proj}", meta_cons_padrao)), 
-                        min_value=0, 
-                        step=10, 
-                        key=f"inp_meta_c_{b_proj}"
                     )
 
-                    hoje_c_b = int(consultivo_totais.get(b_proj, 0))
-                    os_consult_val = int(consultivo_os_hoje_dict.get(b_proj, hoje_c_b * 2))
-                    proj_c_b, _, _ = calcular_projecao_consultivo_base(b_proj, dias_uteis_auto, os_consult_val, data_formatada)
-                    st.markdown(f"**Projeção do Consultivo (Mês):**\n### {fmt_br(proj_c_b)}")
+                    text_layer = pdk.Layer(
 
-                with c4:
-                    st.markdown(f"**Hoje Consultivo - Contratos ({data_formatada}):**\n### {fmt_br(hoje_c_b)}")
-                    st.session_state[f"inp_hoje_c_{b_proj}"] = hoje_c_b
-                    st.markdown(f"**Total O.S. / Produtos Consultivo (Hoje):**\n### {fmt_br(os_consult_val)}")
+                        "TextLayer",
+
+                        data=df_mapa,
+
+                        get_position="[LON, LAT]",
+
+                        get_text="NOME_TECNICO",
+
+                        get_size=16,
+
+                        get_color=[0, 0, 0],
+
+                        get_alignment_baseline="'bottom'",
+
+                        get_offset="[0, -15]"
+
+                    )
+
                     
-                    tot_cons_mes_real = int(consultivo_acum_mes.get(b_proj, hoje_c_b))
-                    tot_prod_mes_real = int(consultivo_acum_prod_mes.get(b_proj, os_consult_val))
-                    st.caption(f"📌 Acumulado Real no Mês: **{fmt_br(tot_cons_mes_real)}** contratos | **{fmt_br(tot_prod_mes_real)}** produtos/O.S.")
 
-        st.markdown("---")
-        
-        if st.button("📊 Sincronizar Google Sheets e Gerar Prévia Executiva", type="primary"):
-            try:
-                conn = st.connection("gsheets", type=GSheetsConnection)
-                
-                # 1. ATUALIZAR ABA 'Historico_OS'
-                try:
-                    df_hist_sheet = conn.read(spreadsheet=GOOGLE_SHEET_URL, worksheet="Historico_OS")
-                    if df_hist_sheet is None:
-                        df_hist_sheet = pd.DataFrame(columns=["Data", "Base", "OS_Executadas", "OS_Inicial"])
-                except Exception:
-                    df_hist_sheet = pd.DataFrame(columns=["Data", "Base", "OS_Executadas", "OS_Inicial"])
+                    lat_min, lat_max = df_mapa['LAT'].min(), df_mapa['LAT'].max()
 
-                for item in bases_config:
-                    b_proj = item["projeto"]
-                    b_label = item["label"]
-                    df_b = st.session_state.df_valido[st.session_state.df_valido["Projeto"].str.upper() == b_proj.upper()]
-                    if "Tipo de Serviço" in df_b.columns:
-                        df_b = df_b[~eh_retorno_credenciada(df_b["Tipo de Serviço"])]
-                    prod_hoje = len(df_b[df_b["Tipo de OS"] == "PRODUTIVA"])
-                    base_norm = normalizar_nome_base(b_proj)
-                    rota_val = int(st.session_state.get(f"inp_rota_{b_proj}", img_os_dict.get(b_proj, 529)))
+                    lon_min, lon_max = df_mapa['LON'].min(), df_mapa['LON'].max()
+
+                    max_diff = max(lat_max - lat_min, lon_max - lon_min)
+
                     
-                    if prod_hoje > 0:
-                        if not df_hist_sheet.empty and "Data" in df_hist_sheet.columns and "Base" in df_hist_sheet.columns:
-                            df_hist_sheet["_base_norm_"] = df_hist_sheet["Base"].apply(normalizar_nome_base).str.upper()
-                            df_hist_sheet = df_hist_sheet[~(
-                                (df_hist_sheet["Data"].astype(str).str.strip() == str(data_formatada).strip()) & 
-                                (df_hist_sheet["_base_norm_"] == base_norm.upper())
-                            )]
-                            if "_base_norm_" in df_hist_sheet.columns:
-                                df_hist_sheet = df_hist_sheet.drop(columns=["_base_norm_"])
+
+                    if max_diff <= 0.05: zoom_dinamico = 13.5
+
+                    elif max_diff <= 0.1: zoom_dinamico = 12.5
+
+                    elif max_diff <= 0.2: zoom_dinamico = 11.5
+
+                    else: zoom_dinamico = 10.5
+
                         
-                        nova_h = pd.DataFrame([{
-                            "Data": str(data_formatada), 
-                            "Base": base_norm, 
-                            "OS_Executadas": int(prod_hoje),
-                            "OS_Inicial": int(rota_val)
-                        }])
-                        df_hist_sheet = pd.concat([df_hist_sheet, nova_h], ignore_index=True)
 
-                conn.update(spreadsheet=GOOGLE_SHEET_URL, worksheet="Historico_OS", data=df_hist_sheet)
-                st.session_state["df_historico_custom"] = df_hist_sheet
+                    view_state = pdk.ViewState(
 
-                # 2. ATUALIZAR ABA 'Historico_Consultivo'
-                try:
-                    df_cons_sheet = conn.read(spreadsheet=GOOGLE_SHEET_URL, worksheet="Historico_Consultivo")
-                    if df_cons_sheet is None:
-                        df_cons_sheet = pd.DataFrame(columns=["Data", "Base", "Qtd_Consultivo"])
-                except Exception:
-                    df_cons_sheet = pd.DataFrame(columns=["Data", "Base", "Qtd_Consultivo"])
+                        latitude=df_mapa['LAT'].mean(), 
 
-                hist_arq_all = st.session_state.get("consultivo_historico_arquivo", {})
-                for item in bases_config:
-                    b_proj = item["projeto"]
-                    base_norm = normalizar_nome_base(b_proj)
-                    mapa_d_base = hist_arq_all.get(base_norm, {str(data_formatada): int(consultivo_os_hoje_dict.get(b_proj, 0))})
+                        longitude=df_mapa['LON'].mean(), 
 
-                    for dt_k, qtd_c_val in mapa_d_base.items():
-                        if not df_cons_sheet.empty and "Data" in df_cons_sheet.columns and "Base" in df_cons_sheet.columns:
-                            df_cons_sheet["_base_norm_"] = df_cons_sheet["Base"].apply(normalizar_nome_base).str.upper()
-                            df_cons_sheet = df_cons_sheet[~(
-                                (df_cons_sheet["Data"].astype(str).str.strip() == str(dt_k).strip()) & 
-                                (df_cons_sheet["_base_norm_"] == base_norm.upper())
-                            )]
-                            if "_base_norm_" in df_cons_sheet.columns:
-                                df_cons_sheet = df_cons_sheet.drop(columns=["_base_norm_"])
+                        zoom=zoom_dinamico, 
 
-                        nova_c = pd.DataFrame([{
-                            "Data": str(dt_k),
-                            "Base": base_norm,
-                            "Qtd_Consultivo": int(qtd_c_val)
-                        }])
-                        df_cons_sheet = pd.concat([df_cons_sheet, nova_c], ignore_index=True)
+                        pitch=0
 
-                conn.update(spreadsheet=GOOGLE_SHEET_URL, worksheet="Historico_Consultivo", data=df_cons_sheet)
+                    )
 
-                # 3. ATUALIZAR ABA 'Config_Equipe' e 'Historico_Equipe'
-                linhas_config_equipe = []
-                linhas_nova_hist_eq = []
-                for item in bases_config:
-                    b_proj = item["projeto"]
-                    b_label = item["label"]
-                    sups_b = st.session_state.supervisores_por_base.get(b_proj, [])
-                    for s in sups_b:
-                        m_s = int(st.session_state.get(f"m_{b_proj}_{s}", 20))
-                        p_s = int(st.session_state.get(f"p_{b_proj}_{s}", 0))
-                        linhas_config_equipe.append({"Base": b_proj, "Supervisor": s, "Montados": m_s, "Parados": p_s})
-                        linhas_nova_hist_eq.append({"Data": data_formatada, "Base": b_label, "Supervisor": s, "Montados": m_s, "Parados": p_s})
-
-                conn.update(spreadsheet=GOOGLE_SHEET_URL, worksheet="Config_Equipe", data=pd.DataFrame(linhas_config_equipe))
-                
-                try:
-                    df_hist_eq_sheet = conn.read(spreadsheet=GOOGLE_SHEET_URL, worksheet="Historico_Equipe")
-                    if df_hist_eq_sheet is None:
-                        df_hist_eq_sheet = pd.DataFrame(columns=["Data", "Base", "Supervisor", "Montados", "Parados"])
-                except Exception:
-                    df_hist_eq_sheet = pd.DataFrame(columns=["Data", "Base", "Supervisor", "Montados", "Parados"])
-
-                if not df_hist_eq_sheet.empty and "Data" in df_hist_eq_sheet.columns:
-                    df_hist_eq_sheet = df_hist_eq_sheet[df_hist_eq_sheet["Data"].astype(str) != str(data_formatada)]
-                    df_hist_eq_final = pd.concat([df_hist_eq_sheet, pd.DataFrame(linhas_nova_hist_eq)], ignore_index=True)
-                else:
-                    df_hist_eq_final = pd.DataFrame(linhas_nova_hist_eq)
-                conn.update(spreadsheet=GOOGLE_SHEET_URL, worksheet="Historico_Equipe", data=df_hist_eq_final)
-
-                # 4. ATUALIZAR ABA 'Previas_Diarias'
-                try:
-                    df_previas_sheet = conn.read(spreadsheet=GOOGLE_SHEET_URL, worksheet="Previas_Diarias")
-                    if df_previas_sheet is None:
-                        df_previas_sheet = pd.DataFrame()
-                except Exception:
-                    df_previas_sheet = pd.DataFrame()
-
-                novas_linhas_previa = []
-                dias_uteis = st.session_state.get("dias_uteis_auto", 25)
-                df_full_ref = st.session_state.get("df_aniel_full")
-
-                for item in bases_config:
-                    b_label = item["label"]
-                    b_proj = item["projeto"]
-                    df_b_all = st.session_state.df_valido[st.session_state.df_valido["Projeto"].str.upper() == b_proj.upper()].copy()
-                    df_b_bruta = df_full_ref[df_full_ref["Projeto"].str.upper() == b_proj.upper()].copy() if (df_full_ref is not None and not df_full_ref.empty and "Projeto" in df_full_ref.columns) else df_b_all
                     
-                    t_base = totais_bases_calc.get(b_proj, {"montados": 65, "parados": 0})
-                    m_base = int(t_base["montados"])
-                    p_base = int(t_base["parados"])
-                    meta_os_b = int(st.session_state.get(f"inp_meta_os_{b_proj}", 11800))
-                    meta_c_b = int(st.session_state.get(f"inp_meta_c_{b_proj}", 1050))
-                    hoje_c_b = int(consultivo_totais.get(b_proj, 0))
-                    os_consult_b = int(consultivo_os_hoje_dict.get(b_proj, hoje_c_b * 2))
-                    
-                    res_b = calcular_metricas_completas(df_b_all, m_base, df_b_bruta)
-                    rota_inicial_b = int(st.session_state.get(f"inp_rota_{b_proj}", img_os_dict.get(b_proj, 529)))
-                    ganho_b = max(0, res_b["tot_os"] - rota_inicial_b)
 
-                    proj_os_b, _, _ = calcular_projecao_os_base(b_proj, dias_uteis, res_b["produtivo"], data_formatada)
-                    proj_c_b, _, _ = calcular_projecao_consultivo_base(b_proj, dias_uteis, os_consult_b, data_formatada)
-                    os_sem_consult_val = int(round(res_b["proj_dia"] - os_consult_b, 0))
+                    r = pdk.Deck(
 
-                    novas_linhas_previa.append({
-                        "Data": data_formatada,
-                        "Base": b_label,
-                        "Parados": p_base,
-                        "Montados": m_base,
-                        "Meta O.S.": meta_os_b,
-                        "Projeção O.S.": proj_os_b,
-                        "Meta Consultivo": meta_c_b,
-                        "Projeção Consultivo": proj_c_b,
-                        "Hoje Consultivo": hoje_c_b,
-                        "O.S. Consultivo": os_consult_b,
-                        "Total O.S.": res_b["tot_os"],
-                        "O.S. Aberta": res_b["os_aberta"],
-                        "Pontos": res_b["pontos"],
-                        "Efic (%)": res_b["efic"],
-                        "Média O.S.": res_b["media_os"],
-                        "O.S. Exec. (Proj)": res_b["proj_dia"],
-                        "O.S. Sem Consult": os_sem_consult_val,
-                        "Quebra INS (%)": res_b["q_ins"],
-                        "Quebra SERV (%)": res_b["q_serv"],
-                        "Quebra ND (%)": res_b["q_nd"],
-                        "ND": res_b["tot_nd"],
-                        "O.S. Canc.": res_b["os_canc"],
-                        "Saiu TOA": res_b["saiu_toa"],
-                        "Ganho O.S.": ganho_b,
-                        "GPON Total": res_b["tot_gpon"],
-                        "GPON Quebra (%)": res_b["q_gpon"],
-                        "Migração Total": res_b["tot_mig"],
-                        "Migração Quebra (%)": res_b["q_mig"],
-                        "Migração Canc.": res_b["canc_mig"],
-                        "Retorno WO": res_b["retorno_wo"],
-                        "PME WO": res_b["tot_pme"],
-                        "PME Quebra (%)": res_b["q_pme"],
-                        "PME Canc.": res_b["canc_pme"]
-                    })
+                        layers=[scatter_layer, text_layer], 
 
-                df_nova_previa = pd.DataFrame(novas_linhas_previa)
-                
-                if not df_previas_sheet.empty and "Data" in df_previas_sheet.columns and "Base" in df_previas_sheet.columns:
-                    df_previas_sheet = df_previas_sheet[
-                        ~((df_previas_sheet["Data"].astype(str) == str(data_formatada)) & 
-                          (df_previas_sheet["Base"].isin([b["label"] for b in bases_config])))
-                    ]
-                    df_previa_final = pd.concat([df_previas_sheet, df_nova_previa], ignore_index=True)
+                        initial_view_state=view_state, 
+
+                        map_provider='carto',
+
+                        map_style='light',
+
+                        tooltip={"text": "{NOME_TECNICO}\\nSupervisor: {SUPERVISOR_CLEAN}"}
+
+                    )
+
+                    st.pydeck_chart(r, use_container_width=True)
+
                 else:
-                    df_previa_final = df_nova_previa
 
-                conn.update(spreadsheet=GOOGLE_SHEET_URL, worksheet="Previas_Diarias", data=df_previa_final)
-                st.cache_data.clear()
-                st.success("✅ Configurações salvas no Sheets, histórico atualizado e prévia sincronizada com sucesso!")
-                
-            except Exception as e:
-                st.error(f"Erro ao conectar ou escrever no Google Sheets: {e}")
+                    st.warning("Nenhum contrato pendente com coordenada válida encontrada para este filtro.")
+
+            else:
+
+                st.error("Colunas de Coordenada X, Coordenada Y ou Supervisor não encontradas.")
+
             
-            st.session_state["ir_para_passo_3_ativo"] = True
-            st.rerun()
 
-# ==============================================================================
-# PÁGINA 3: VISUALIZAÇÃO DA PRÉVIA
-# ==============================================================================
-elif st.session_state["pagina_atual"] == "3. Visualização da Prévia":
-    st.subheader("📊 Passo 3: Apresentação da Prévia Diária - Diretoria")
+            if st.session_state.novo_ciclo:
 
-    data_formatada = data_selecionada
+                st.session_state.script_audio_atual = ""
 
-    def gerar_cabecalho_html():
-        return f"""
-        <table class="custom-table">
-            <thead>
-                <tr>
-                    <th rowspan="2" class="th-data">{data_formatada}</th>
-                    <th rowspan="2" class="th-data">Parados</th>
-                    <th rowspan="2" class="th-data col-destaque-amarelo">Montados</th>
-                    <th colspan="2" class="th-qtd-os">QTDE. DE O.S.</th>
-                    <th colspan="4" class="th-consult">CONSULTIVO</th>
-                    <th colspan="10" class="th-prod">PRODUTIVIDADE (Projeção)</th>
-                    <th rowspan="2" class="th-prod">ND</th>
-                    <th colspan="2" class="th-quebra-claro">QUEBRA CLARO</th>
-                    <th rowspan="2" class="th-ganho">GANHO<br>O.S.</th>
-                    <th colspan="2" class="th-gpon">GPON</th>
-                    <th colspan="3" class="th-mig">MIGRAÇÃO</th>
-                    <th rowspan="2" class="th-retorno">RETORNO<br>WO</th>
-                    <th colspan="3" class="th-pme">PME</th>
-                </tr>
-                <tr>
-                    <th class="th-qtd-os">Meta</th>
-                    <th class="th-qtd-os">Projeção</th>
-                    <th class="th-consult">Meta</th>
-                    <th class="th-consult">Projeção</th>
-                    <th class="th-consult">Hoje</th>
-                    <th class="th-consult">O.S</th>
-                    <th class="th-prod">TOTAL O.S.</th>
-                    <th class="th-prod">O.S. ABERTA</th>
-                    <th class="th-prod">Pontos</th>
-                    <th class="th-prod">Efic. (%)</th>
-                    <th class="th-prod col-destaque-azul">Média O.S.</th>
-                    <th class="th-prod">O.S. Exec.</th>
-                    <th class="th-prod col-destaque-amarelo">O.S Sem Consult</th>
-                    <th class="th-prod">Quebra INS (%)</th>
-                    <th class="th-prod">Quebra SERV (%)</th>
-                    <th class="th-prod">Quebra ND (%)</th>
-                    <th class="th-quebra-claro">O.S. Canc.</th>
-                    <th class="th-quebra-claro">Saiu TOA</th>
-                    <th class="th-gpon">Total O.S.</th>
-                    <th class="th-gpon">Quebra</th>
-                    <th class="th-mig">Total O.S.</th>
-                    <th class="th-mig">Quebra</th>
-                    <th class="th-mig">Canc.</th>
-                    <th class="th-pme">WO</th>
-                    <th class="th-pme">Quebra</th>
-                    <th class="th-pme">Canc.</th>
-                </tr>
-            </thead>
-            <tbody>
+                st.session_state.novo_ciclo = False
+
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 7: MIGRAÇÃO GPON
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 7:
+
+        st.markdown(render_topo("MIGRAÇÃO GPON") + icone_mudo, unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+
+            df.columns = [str(c).strip().upper() for c in df.columns]
+
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+
+            col_gpon = next((c for c in df.columns if 'GPON' in c), None)
+
+            cols_os = [c for c in df.columns if 'TIPO O.S' in c or 'TIPO OS' in c or 'ATIVIDADE' in c]
+
+            
+
+            def class_sup(row):
+
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+
+                for oficial in SUPERVISORES_ORDENADOS:
+
+                    if oficial in sup: return oficial
+
+                return "DESCARTADO"
+
+            
+
+            df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
+
+            df_abc = df[df['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
+
+            
+
+            if col_gpon and len(cols_os) > 0:
+
+                df_gpon = df_abc[df_abc[col_gpon].astype(str).str.strip().str.upper() == 'SIM'].copy()
+
+                if not df_gpon.empty:
+
+                    df_gpon['TODAS_OS_JUNTAS'] = df_gpon[cols_os].fillna('').astype(str).agg('  '.join, axis=1).str.upper()
+
+                    df_gpon['QTD_MIGRACAO_CALC'] = df_gpon['TODAS_OS_JUNTAS'].str.count('24 -') + df_gpon['TODAS_OS_JUNTAS'].str.count('191 -')
+
+                    df_mig = df_gpon[df_gpon['QTD_MIGRACAO_CALC'] > 0].copy()
+
+                    
+
+                    if not df_mig.empty:
+
+                        df_mig['STATUS_PADRAO'] = df_mig.apply(padronizar_status, axis=1)
+
+                        df_mig = df_mig[df_mig['STATUS_PADRAO'] != 'Descartar'].copy()
+
+
+
+                        df_mig['QTD_TAREFAS_NUM'] = df_mig['QTD_MIGRACAO_CALC']
+
+                        total_geral_mig = int(df_mig['QTD_TAREFAS_NUM'].sum())
+
+                        total_ne_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
+
+                        total_prod_mig = int(df_mig.loc[df_mig['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+
+                        
+
+                        soma_valida_mig = total_ne_mig + total_prod_mig
+
+                        quebra_global_mig = (total_ne_mig / soma_valida_mig) * 100 if soma_valida_mig > 0 else 0
+
+                        teto_ne_global = int(np.floor(total_geral_mig * 0.25))
+
+                        cor_limite = "#2e7d32" if total_ne_mig <= teto_ne_global else "#c62828"
+
+                        cor_quebra_global = "#2e7d32" if quebra_global_mig <= 25 else "#c62828"
+
+
+
+                        st.session_state.ticker_data[7] = f"📊 GPON: {total_geral_mig} O.S. | QUEBRAS: {quebra_global_mig:.1f}%"
+
+
+
+                        st.markdown(f'''<div class="box-base">
+
+                            <div style="font-size: 30px; font-weight: bold; color: #111;">
+
+                                Total de O.S.: <span style="color:#003366">{total_geral_mig}</span> | Quebras Geral: <span style="color:{cor_quebra_global}">{quebra_global_mig:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_mig}</span>
+
+                            </div></div>''', unsafe_allow_html=True)
+
+                        
+
+                        for i in range(0, len(SUPS_ABC), 2):
+
+                            cols_sup = st.columns(2)
+
+                            for j in range(2):
+
+                                if i + j < len(SUPS_ABC):
+
+                                    sup = SUPS_ABC[i + j]
+
+                                    with cols_sup[j]:
+
+                                        df_sup = df_mig[df_mig['SUPERVISOR_CLEAN'] == sup]
+
+                                        qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'QTD_TAREFAS_NUM'].sum())
+
+                                        qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+
+                                        qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
+
+                                        soma_base = qtd_ne + qtd_produtivo
+
+                                        quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
+
+                                        cor_quebra = "#2e7d32" if quebra <= 25 else "#c62828"
+
+                                        
+
+                                        st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+
+                                        <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 5px 15px; border-radius: 8px; font-size: 22px; font-weight: 900;">Quebra: {quebra:.1f}%</div></div>
+
+                                        <div class="faltas-grid"><div class="falta-box"><div class="falta-label">⏳ ABERTO</div><div class="falta-value" style="color: #b78103;">{qtd_aberto}</div></div>
+
+                                        <div class="falta-box" style="border-color: #a5d6a7;"><div class="falta-label" style="color: #2e7d32;">✅ PROD.</div><div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div></div>
+
+                                        <div class="falta-box"><div class="falta-label">❌ QUEBRA</div><div class="falta-value">{qtd_ne}</div></div></div></div>''', unsafe_allow_html=True)
+
+                                        
+
+                        if st.session_state.novo_ciclo:
+
+                            texto_audio = f"Atenção para a Migração G PON. A quebra geral está em {quebra_global_mig:.1f} por cento. O limite é de 25 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_mig}."
+
+                            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
+
+                            st.session_state.novo_ciclo = False 
+
+                        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 8: PME 
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 8:
+
+        st.markdown(render_topo("P M E") + icone_mudo, unsafe_allow_html=True)
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+
+            df = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+
+            df.columns = [str(c).strip().upper() for c in df.columns]
+
+            col_sup = next((c for c in df.columns if 'SUPERVISOR' in c), None)
+
+            col_cat = next((c for c in df.columns if 'CATEGORIAS DA CAPACIDADE' in c or 'CAPACIDADE' in c), None)
+
+            col_os = next((c for c in df.columns if 'TIPO O.S 1' in c or 'TIPO O.S' in c or 'TIPO OS' in c), None)
+
+            col_tarefas = next((c for c in df.columns if 'TAREFA' in c.upper() or 'QTD' in c.upper()), None)
+
+            
+
+            def class_sup(row):
+
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+
+                for oficial in SUPERVISORES_ORDENADOS:
+
+                    if oficial in sup: return oficial
+
+                return "DESCARTADO"
+
+            
+
+            df['SUPERVISOR_CLEAN'] = df.apply(class_sup, axis=1)
+
+            df_abc = df[df['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
+
+            
+
+            if col_cat and col_os:
+
+                cond_cat = df_abc[col_cat].astype(str).str.upper().str.contains('PME', na=False)
+
+                str_os = df_abc[col_os].astype(str).str.upper()
+
+                cond_os = str_os.str.contains('1 - ADES', na=False) | str_os.str.contains('51 - ADES', na=False) | str_os.str.contains('516 - ADES', na=False)
+
+                df_pme = df_abc[cond_cat & cond_os].copy()
+
+                
+
+                if not df_pme.empty:
+
+                    df_pme['STATUS_PADRAO'] = df_pme.apply(padronizar_status, axis=1)
+
+                    df_pme = df_pme[df_pme['STATUS_PADRAO'] != 'Descartar'].copy()
+
+                    if col_tarefas:
+
+                        df_pme['QTD_TAREFAS_NUM'] = pd.to_numeric(df_pme[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+
+                        df_pme.loc[df_pme['QTD_TAREFAS_NUM'] == 0, 'QTD_TAREFAS_NUM'] = 1
+
+                    else: df_pme['QTD_TAREFAS_NUM'] = 1
+
+                    
+
+                    total_geral_pme = int(df_pme['QTD_TAREFAS_NUM'].sum())
+
+                    total_ne_pme = int(df_pme.loc[df_pme['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
+
+                    total_prod_pme = int(df_pme.loc[df_pme['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+
+                    soma_valida_pme = total_ne_pme + total_prod_pme
+
+                    quebra_global_pme = (total_ne_pme / soma_valida_pme) * 100 if soma_valida_pme > 0 else 0
+
+                    teto_ne_global = int(np.floor(total_geral_pme * 0.20))
+
+                    cor_limite = "#2e7d32" if total_ne_pme <= teto_ne_global else "#c62828"
+
+                    cor_quebra_global = "#2e7d32" if quebra_global_pme <= 20 else "#c62828"
+
+
+
+                    st.session_state.ticker_data[8] = f"📊 PME: {total_geral_pme} O.S. | QUEBRAS: {quebra_global_pme:.1f}%"
+
+
+
+                    st.markdown(f'''<div class="box-base">
+
+                        <div style="font-size: 30px; font-weight: bold; color: #111;">
+
+                            Total de O.S.: <span style="color:#003366">{total_geral_pme}</span> | Quebra Geral: <span style="color:{cor_quebra_global}">{quebra_global_pme:.1f}%</span> | Permitido: <span style="color:#2e7d32">{teto_ne_global}</span> | Atuais: <span style="color:{cor_limite}">{total_ne_pme}</span>
+
+                        </div></div>''', unsafe_allow_html=True)
+
+                    
+
+                    for i in range(0, len(SUPS_ABC), 2):
+
+                        cols_sup = st.columns(2)
+
+                        for j in range(2):
+
+                            if i + j < len(SUPS_ABC):
+
+                                sup = SUPS_ABC[i + j]
+
+                                with cols_sup[j]:
+
+                                    df_sup = df_pme[df_pme['SUPERVISOR_CLEAN'] == sup]
+
+                                    qtd_aberto = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'QTD_TAREFAS_NUM'].sum())
+
+                                    qtd_produtivo = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'QTD_TAREFAS_NUM'].sum())
+
+                                    qtd_ne = int(df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'QTD_TAREFAS_NUM'].sum())
+
+                                    soma_base = qtd_ne + qtd_produtivo
+
+                                    quebra = (qtd_ne / soma_base) * 100 if soma_base > 0 else 0
+
+                                    cor_quebra = "#2e7d32" if quebra <= 20 else "#c62828"
+
+                                    
+
+                                    st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+
+                                    <div style="background: #f3f3f3; color: {cor_quebra}; border: 3px solid {cor_quebra}; padding: 5px 15px; border-radius: 8px; font-size: 22px; font-weight: 900;">Quebra: {quebra:.1f}%</div></div>
+
+                                    <div class="faltas-grid"><div class="falta-box"><div class="falta-label">⏳ ABERTO</div><div class="falta-value" style="color: #b78103;">{qtd_aberto}</div></div>
+
+                                    <div class="falta-box" style="border-color: #a5d6a7;"><div class="falta-label" style="color: #2e7d32;">✅ PROD.</div><div class="falta-value" style="color: #1b5e20;">{qtd_produtivo}</div></div>
+
+                                    <div class="falta-box"><div class="falta-label">❌ QUEBRA</div><div class="falta-value">{qtd_ne}</div></div></div></div>''', unsafe_allow_html=True)
+
+                                    
+
+                    if st.session_state.novo_ciclo:
+
+                        texto_audio = f"Atenção para a P M Ê . A quebra geral está em {quebra_global_pme:.1f} por cento. O limite é de 20 por cento. Podemos ter até {teto_ne_global} quebras de O.S., e no momento temos {total_ne_pme}."
+
+                        st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
+
+                        st.session_state.novo_ciclo = False 
+
+                    st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 9: VISÃO GERAL DA ROTA E PROJEÇÃO (SEM RETORNOS)
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 9:
+
+        st.markdown(render_topo("VISÃO GERAL DA ROTA - TÉCNICOS ESCALADOS") + html_audio_ind, unsafe_allow_html=True)
+
+
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+
+            df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
+
+
+
+            col_tecnico = next((c for c in df_rota.columns if 'RECURSO' in c or 'NOME' in c), df_rota.columns[0])
+
+            col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
+
+            col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
+
+            if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
+
+            col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c or 'QTD' in c), None)
+
+
+
+            df_proj = df_rota.copy()
+
+
+
+            def class_sup_9(row):
+
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+
+                for oficial in SUPERVISORES_ORDENADOS:
+
+                    if oficial in sup: return oficial
+
+                return "DESCARTADO"
+
+
+
+            df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_9, axis=1)
+
+            
+
+            # --- RETORNO EXCLUÍDO DA SOMA ---
+
+            if col_tipo_os:
+
+                df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+
+
+
+            df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
+
+            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar']
+
+
+
+            if col_tarefas:
+
+                df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+
+                df_proj.loc[df_proj['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+
+            else: 
+
+                df_proj['VALOR_TAREFA'] = 1
+
+
+
+            df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
+
+            
+
+            total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
+
+            os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+
+            produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+
+            em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+
+
+
+            total_tecnicos_op = df_abc_proj[col_tecnico].nunique() if col_tecnico in df_abc_proj.columns else 1
+
+            if total_tecnicos_op == 0: total_tecnicos_op = 1
+
+
+
+            denom_quebra_op = os_ne_op + produtivo_op
+
+            quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
+
+            eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
+
+            projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
+
+            
+
+            os_reais_op = produtivo_op + em_aberto_op
+
+            media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
+
+
+
+            cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
+
+
+
+            st.session_state.ticker_data[9] = f"🌍 GERAL: {int(total_tarefas_op)} O.S. | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
+
+
+
+            st.markdown(f'''
+
+            <div class="box-base" style="padding: 10px; border-left: 15px solid #003366; background: #e3f2fd;">
+
+                <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
+
+                    </div>
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">PROJEÇÃO</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
+
+                    </div>
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
+
+                    </div>
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">QUEBRAS</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
+
+                    </div>
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
+
+                    </div>
+
+                </div>
+
+                <div style="font-size: 20px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
+
+                    <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
+
+                    <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
+
+                    <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
+
+                    <span>👷 TÉCNICOS: <span style="color:#003366;">{total_tecnicos_op}</span></span>
+
+                </div>
+
+            </div>
+
+            ''', unsafe_allow_html=True)
+
+
+
+            for i in range(0, len(SUPS_ABC), 2):
+
+                cols_sup = st.columns(2)
+
+                for j in range(2):
+
+                    if i + j < len(SUPS_ABC):
+
+                        sup = SUPS_ABC[i + j]
+
+                        with cols_sup[j]:
+
+                            df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
+
+
+
+                            total_tarefas = df_sup['VALOR_TAREFA'].sum()
+
+                            os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+
+                            produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+
+                            em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+
+
+
+                            total_tecnicos = df_sup[col_tecnico].nunique() if col_tecnico in df_sup.columns else 1
+
+                            if total_tecnicos == 0: total_tecnicos = 1
+
+
+
+                            os_reais = produtivo + em_aberto
+
+                            media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
+
+
+
+                            denom_quebra = os_ne + produtivo
+
+                            quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
+
+                            eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
+
+                            projecao = produtivo + (em_aberto * (eficiencia / 100))
+
+
+
+                            cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
+
+
+
+                            st.markdown(f'''
+
+                            <div class="sup-card">
+
+                                <div class="sup-header">
+
+                                    <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+
+                                        <div style="background: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
+
+                                        <div style="background: #ffebee; color: {cor_q}; border: 1px solid {cor_q}; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
+
+                                        <div style="background: #e3f2fd; color: #006064; border: 1px solid #006064; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Média: {media_equipe:.2f}</div>
+
+                                    </div>
+
+                                </div>
+
+                                <div class="faltas-grid">
+
+                                    <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+
+                                        <div class="falta-label" style="color: #b78103;">ABERTO</div>
+
+                                        <div class="falta-value" style="color: #b78103;">{int(em_aberto)}</div>
+
+                                    </div>
+
+                                    <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+
+                                        <div class="falta-label" style="color: #2e7d32;">PROD.</div>
+
+                                        <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
+
+                                    </div>
+
+                                    <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+
+                                        <div class="falta-label" style="color: #c62828;">QUEBRAS</div>
+
+                                        <div class="falta-value" style="color: #b30000;">{int(os_ne)}</div>
+
+                                    </div>
+
+                                    <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
+
+                                        <div class="falta-label" style="color: #00838f;">PROJ.</div>
+
+                                        <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>''', unsafe_allow_html=True)
+
+            if st.session_state.novo_ciclo:
+
+                texto_audio_9 = f"Atenção para a Visão Geral da Rota. Temos um total de {int(total_tarefas_op)} O.S. A projeção da operação está em {int(round(projecao_op))}, com um total de {int(os_ne_op)} quebras de O.S. no momento."
+
+                st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_9}', 0);</script>"
+
+                st.session_state.novo_ciclo = False
+
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 10: VISÃO DA ROTA DOS MONTADOS (EQUIPE FIXA - SEM RETORNOS)
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 10:
+
+        st.markdown(render_topo("VISÃO GERAL DA ROTA - EQUIPE FIXA") + icone_mudo, unsafe_allow_html=True)
+
+
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+
+            df_rota = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+
+            df_rota.columns = [str(c).strip().upper() for c in df_rota.columns]
+
+
+
+            col_sup = next((c for c in df_rota.columns if 'SUPERVISOR' in c), None)
+
+            col_tipo_os = next((c for c in df_rota.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
+
+            if not col_tipo_os: col_tipo_os = next((c for c in df_rota.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
+
+            col_tarefas = next((c for c in df_rota.columns if 'TAREFA' in c or 'QTD' in c), None)
+
+
+
+            df_proj = df_rota.copy()
+
+
+
+            def class_sup_10(row):
+
+                sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+
+                for oficial in SUPERVISORES_ORDENADOS:
+
+                    if oficial in sup: return oficial
+
+                return "DESCARTADO"
+
+
+
+            df_proj['SUPERVISOR_CLEAN'] = df_proj.apply(class_sup_10, axis=1)
+
+
+
+            # --- RETORNO EXCLUÍDO DA SOMA ---
+
+            if col_tipo_os:
+
+                df_proj = df_proj[~df_proj[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+
+
+
+            df_proj['STATUS_PADRAO'] = df_proj.apply(padronizar_status, axis=1)
+
+            df_proj = df_proj[df_proj['STATUS_PADRAO'] != 'Descartar'].copy()
+
+
+
+            if col_tarefas:
+
+                df_proj['VALOR_TAREFA'] = pd.to_numeric(df_proj[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+
+                if df_proj['VALOR_TAREFA'].sum() == 0 and len(df_proj) > 0: df_proj['VALOR_TAREFA'] = 1
+
+            else: df_proj['VALOR_TAREFA'] = 1
+
+
+
+            df_abc_proj = df_proj[df_proj['SUPERVISOR_CLEAN'].isin(SUPS_ABC)]
+
+            
+
+            total_tarefas_op = df_abc_proj['VALOR_TAREFA'].sum()
+
+            os_ne_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+
+            produtivo_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+
+            em_aberto_op = df_abc_proj.loc[df_abc_proj['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+
+
+
+            total_tecnicos_op = sum(QTD_TECNICOS_MONTADOS.get(sup, 0) for sup in SUPS_ABC)
+
+            if total_tecnicos_op == 0: total_tecnicos_op = 1
+
+
+
+            denom_quebra_op = os_ne_op + produtivo_op
+
+            quebra_op = (os_ne_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 0
+
+            eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
+
+            projecao_op = produtivo_op + (em_aberto_op * (eficiencia_op / 100))
+
+            
+
+            os_reais_op = produtivo_op + em_aberto_op
+
+            media_equipe_op = os_reais_op / total_tecnicos_op if total_tecnicos_op > 0 else 0
+
+
+
+            cor_q_op = "#c62828" if quebra_op > 20.0 else "#2e7d32"
+
+
+
+            st.session_state.ticker_data[10] = f"🌍 MONTADOS: {int(total_tarefas_op)} OS | PROJ: {int(round(projecao_op))} | QUEBRAS: {quebra_op:.1f}%"
+
+
+
+            st.markdown(f'''
+
+            <div class="box-base" style="padding: 10px 10px; margin-bottom: 15px; border-left: 10px solid #003366; background: #e3f2fd;">
+
+                <div style="display: flex; justify-content: space-around; align-items: center; background: #ffffff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 8px;">
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">TOTAL DE O.S.</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: #003366; line-height: 1;">{int(total_tarefas_op)}</div>
+
+                    </div>
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">PROJEÇÃO</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: #00838f; line-height: 1;">{int(round(projecao_op))}</div>
+
+                    </div>
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">EFICIÊNCIA</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: #2e7d32; line-height: 1;">{eficiencia_op:.1f}%</div>
+
+                    </div>
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">QUEBRAS</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: {cor_q_op}; line-height: 1;">{quebra_op:.1f}%</div>
+
+                    </div>
+
+                    <div style="text-align: center;">
+
+                        <div style="font-size: 16px; font-weight: bold; color: #666;">MÉDIA / TÉC</div>
+
+                        <div style="font-size: 45px; font-weight: 900; color: #e65100; line-height: 1;">{media_equipe_op:.2f}</div>
+
+                    </div>
+
+                </div>
+
+                <div style="font-size: 20px; color: #444; font-weight: bold; display: flex; justify-content: center; gap: 40px; text-transform: uppercase;">
+
+                    <span>⏳ ABERTO: <span style="color:#b78103;">{int(em_aberto_op)}</span></span>
+
+                    <span>✅ PRODUTIVO: <span style="color:#1b5e20;">{int(produtivo_op)}</span></span>
+
+                    <span>❌ QUEBRAS: <span style="color:#b30000;">{int(os_ne_op)}</span></span>
+
+                    <span>👷 TÉCNICOS: <span style="color:#003366;">{total_tecnicos_op}</span></span>
+
+                </div>
+
+            </div>
+
+            ''', unsafe_allow_html=True)
+
+
+
+            for i in range(0, len(SUPS_ABC), 2):
+
+                cols_sup = st.columns(2)
+
+                for j in range(2):
+
+                    if i + j < len(SUPS_ABC):
+
+                        sup = SUPS_ABC[i + j]
+
+                        with cols_sup[j]:
+
+                            df_sup = df_abc_proj[df_abc_proj['SUPERVISOR_CLEAN'] == sup]
+
+
+
+                            total_tarefas = df_sup['VALOR_TAREFA'].sum()
+
+                            os_ne = df_sup.loc[df_sup['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+
+                            produtivo = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+
+                            em_aberto = df_sup.loc[df_sup['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+
+
+
+                            total_tecnicos = QTD_TECNICOS_MONTADOS.get(sup, 1)
+
+
+
+                            os_reais = produtivo + em_aberto
+
+                            media_equipe = os_reais / total_tecnicos if total_tecnicos > 0 else 0
+
+
+
+                            denom_quebra = os_ne + produtivo
+
+                            quebra = (os_ne / denom_quebra) * 100 if denom_quebra > 0 else 0
+
+                            eficiencia = (produtivo / denom_quebra) * 100 if denom_quebra > 0 else 100
+
+                            projecao = produtivo + (em_aberto * (eficiencia / 100))
+
+
+
+                            cor_q = "#c62828" if quebra > 20.0 else "#2e7d32"
+
+
+
+                            st.markdown(f'''
+
+                            <div class="sup-card">
+
+                                <div class="sup-header">
+
+                                    <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+
+                                        <div style="background: #f8f9fa; color: #333; border: 1px solid #ccc; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">O.S.: {int(total_tarefas)}</div>
+
+                                        <div style="background: #ffebee; color: {cor_q}; border: 1px solid {cor_q}; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Quebra: {quebra:.1f}%</div>
+
+                                        <div style="background: #e3f2fd; color: #006064; border: 1px solid #006064; padding: 4px 10px; border-radius: 8px; font-size: 16px; font-weight: bold;">Média: {media_equipe:.2f}</div>
+
+                                    </div>
+
+                                </div>
+
+                                <div class="faltas-grid">
+
+                                    <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+
+                                        <div class="falta-label" style="color: #b78103;">ABERTO</div>
+
+                                        <div class="falta-value" style="color: #b78103;">{int(em_aberto)}</div>
+
+                                    </div>
+
+                                    <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+
+                                        <div class="falta-label" style="color: #2e7d32;">PROD.</div>
+
+                                        <div class="falta-value" style="color: #1b5e20;">{int(produtivo)}</div>
+
+                                    </div>
+
+                                    <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+
+                                        <div class="falta-label" style="color: #c62828;">QUEBRAS</div>
+
+                                        <div class="falta-value" style="color: #b30000;">{int(os_ne)}</div>
+
+                                    </div>
+
+                                    <div class="falta-box" style="background-color: #e0f7fa; border-color: #80deea;">
+
+                                        <div class="falta-label" style="color: #00838f;">PROJ.</div>
+
+                                        <div class="falta-value" style="color: #00838f;">{int(round(projecao))}</div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>''', unsafe_allow_html=True)
+
+            if st.session_state.novo_ciclo:
+
+                st.session_state.script_audio_atual = ""
+
+                st.session_state.novo_ciclo = False
+
+            st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 18: METAS, PROJEÇÃO E CONSULTIVO DIÁRIO 🎯
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 18:
+
+        st.markdown(render_topo("METAS DO MÊS") + icone_ativo, unsafe_allow_html=True)
+
+
+
+        os_produtivas_hoje = 0
+
+        projecao_op = 0
+
+        
+
+        # 1. Carrega OS Produtivas Atuais e Projeção do Painel de Rota
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+
+            try:
+
+                df_r = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+
+                df_r.columns = [str(c).strip().upper() for c in df_r.columns]
+
+                
+
+                col_sup = next((c for c in df_r.columns if 'SUPERVISOR' in c), None)
+
+                col_tipo_os = next((c for c in df_r.columns if 'TIPO DE ATIVIDADE3' in c or 'TIPO DE ATIVIDADE 3' in c or 'ATIVIDADE3' in c), None)
+
+                if not col_tipo_os: col_tipo_os = next((c for c in df_r.columns if 'TIPO O.S' in c or 'ATIVIDADE' in c), None)
+
+                col_tarefas = next((c for c in df_r.columns if 'TAREFA' in c or 'QTD' in c), None)
+
+                
+
+                def sup_metas(row):
+
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+
+                    for oficial in SUPERVISORES_ORDENADOS:
+
+                        if oficial in sup: return oficial
+
+                    return "DESCARTADO"
+
+
+
+                df_r['SUPERVISOR_CLEAN'] = df_r.apply(sup_metas, axis=1)
+
+                
+
+                if col_tipo_os:
+
+                    df_r = df_r[~df_r[col_tipo_os].astype(str).str.upper().str.contains('RETORNO', na=False)]
+
+
+
+                df_r['STATUS_PADRAO'] = df_r.apply(padronizar_status, axis=1)
+
+                df_r = df_r[df_r['STATUS_PADRAO'] != 'Descartar']
+
+                
+
+                df_abc = df_r[df_r['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
+
+                
+
+                if col_tarefas:
+
+                    df_abc['VALOR_TAREFA'] = pd.to_numeric(df_abc[col_tarefas].astype(str).str.replace(',', '.').str.strip(), errors='coerce').fillna(0)
+
+                    df_abc.loc[df_abc['VALOR_TAREFA'] == 0, 'VALOR_TAREFA'] = 1
+
+                else: 
+
+                    df_abc['VALOR_TAREFA'] = 1
+
+                
+
+                os_ne_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'O.S NE', 'VALOR_TAREFA'].sum()
+
+                produtivo_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Produtivo', 'VALOR_TAREFA'].sum()
+
+                em_aberto_op = df_abc.loc[df_abc['STATUS_PADRAO'] == 'Em aberto', 'VALOR_TAREFA'].sum()
+
+                
+
+                os_produtivas_hoje = int(produtivo_op)
+
+                
+
+                denom_quebra_op = os_ne_op + produtivo_op
+
+                eficiencia_op = (produtivo_op / denom_quebra_op) * 100 if denom_quebra_op > 0 else 100
+
+                projecao_op = int(round(produtivo_op + (em_aberto_op * (eficiencia_op / 100))))
+
+            except Exception as e:
+
+                print(f"Erro ao carregar rota na tela 18: {e}")
+
+
+
+        # 2. Carrega Produtos do Consultivo de Hoje
+
+        produtos_consultivo_hoje = 0
+
+        if os.path.exists(ARQUIVO_CONSULTIVO):
+
+            try:
+
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
+
+                df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
+
+
+
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+
+                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
+
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
+
+
+
+                def class_sup_cons(row):
+
+                    for oficial in SUPERVISORES_ORDENADOS:
+
+                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
+
+                    return "DESCARTADO"
+
+
+
+                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup_cons, axis=1)
+
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'].isin(SUPS_ABC)].copy()
+
+
+
+                hoje_br_dt = datetime.utcnow() - timedelta(hours=3)
+
+                hoje_str_br = hoje_br_dt.strftime('%d/%m/%Y')
+
+                hoje_str_us = hoje_br_dt.strftime('%Y-%m-%d')
+
+
+
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+
+                if col_data:
+
+                    df_cards['DATA_TXT'] = df_cards[col_data].astype(str).str.strip().str[:10]
+
+                    mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
+
+                    df_hoje = df_cards[mask_hoje].copy()
+
+                    produtos_consultivo_hoje = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
+
+            except Exception as e:
+
+                print(f"Erro ao carregar consultivo na tela 18: {e}")
+
+
+
+        # # 3. Tratamento de Metas e Histórico de O.S. (Blindado para o mês do CSV)
+
+        meta_diaria_base = 454
+
+        hoje_dt = datetime.utcnow() - timedelta(hours=3)
+
+        
+
+        meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
+
+        
+
+        realizado_passado = 0
+
+        meta_passada = 0
+
+        qtd_dias_passados_uteis = 0
+
+        
+
+        primeiro_dia_mes = hoje_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        hoje_meia_noite = hoje_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+
+        if os.path.exists(ARQUIVO_HISTORICO_METAS):
+
+            try:
+
+                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str, on_bad_lines='skip')
+
+                if not df_hist.empty and df_hist.shape[1] >= 2:
+
+                    # Converte a coluna de datas para objetos datetime para descobrir o mês ativo no CSV
+
+                    datas_convertidas = []
+
+                    for val_dt in df_hist[0].dropna():
+
+                        txt_data = str(val_dt).strip().replace('"', '')
+
+                        d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
+
+                        if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
+
+                        if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
+
+                        if pd.notna(d_obj): datas_convertidas.append(d_obj)
+
+                    
+
+                    if datas_convertidas:
+
+                        # Pega o mês e ano predominantes ou do último registro do CSV para alinhar a competência
+
+                        ref_ano = datas_convertidas[-1].year
+
+                        ref_mes = datas_convertidas[-1].month
+
+                        primeiro_dia_mes = datetime(ref_ano, ref_mes, 1)
+
+                        
+
+                    for _, row in df_hist.iterrows():
+
+                        txt_data = str(row[0]).strip().replace('"', '')
+
+                        txt_valor = str(row[1]).strip().replace('"', '').replace(',', '.')
+
+                        
+
+                        d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
+
+                        if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
+
+                        if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
+
+                            
+
+                        # Soma todos os dias do mês presente no CSV que sejam estritamente anteriores a hoje (ou todos se o mês já passou)
+
+                        if pd.notna(d_obj) and d_obj.year == primeiro_dia_mes.year and d_obj.month == primeiro_dia_mes.month:
+
+                            if d_obj < hoje_meia_noite:
+
+                                val_num = float(txt_valor) if txt_valor.replace('.', '', 1).isdigit() else 0
+
+                                realizado_passado += int(val_num)
+
+                                if d_obj.weekday() != 6:
+
+                                    qtd_dias_passados_uteis += 1
+
+                                    meta_passada += meta_diaria_base
+
+            except Exception as e:
+
+                print(f"Erro ao ler histórico de metas: {e}")
+
+
+
+        deficit_acumulado = max(0, meta_passada - realizado_passado)
+
+
+
+        total_realizado_hoje = os_produtivas_hoje + produtos_consultivo_hoje
+
+        meta_ajustada_hoje = meta_diaria_hoje + deficit_acumulado 
+
+        
+
+        falta_pela_projecao = meta_ajustada_hoje - projecao_op
+
+        
+
+        cor_status_dia = "#2e7d32" if projecao_op >= meta_ajustada_hoje else "#c62828"
+
+
+
+        st.markdown(f'''
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+
+            <div class="sup-card" style="text-align: center; background: #e3f2fd; border-color: #90caf9;">
+
+                <div style="font-size: 20px; font-weight: bold; color: #0277bd;">META DIÁRIA BASE</div>
+
+                <div style="font-size: 80px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria_hoje}</div>
+
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de O.S. (Domingos = 0)</div>
+
+            </div>
+
+            <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
+
+                <div style="font-size: 20px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
+
+                <div style="font-size: 80px; font-weight: 900; color: {'#c62828' if deficit_acumulado > 0 else '#2e7d32'}; line-height: 1;">{deficit_acumulado}</div>
+
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Ref. a {qtd_dias_passados_uteis} dias úteis passados (Meta: {meta_passada} | Realizado: {realizado_passado})</div>
+
+            </div>
+
+        </div>
+
+        
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+
+            <div class="sup-card" style="text-align: center; background: #f3e5f5; border-color: #ce93d8;">
+
+                <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">PROJEÇÃO DE O.S. (HOJE)</div>
+
+                <div style="font-size: 80px; font-weight: 900; color: #4a148c; line-height: 1;">{projecao_op}</div>
+
+                <div style="font-size: 16px; color: #555; margin-top: 5px;">Estimativa do Painel Rotativo</div>
+
+            </div>
+
+            <div class="sup-card" style="text-align: center; background: #e8f5e9; border-color: #81c784; box-shadow: 0px 8px 20px rgba(0,0,0,0.15); transform: scale(1.02);">
+
+                <div style="font-size: 22px; font-weight: bold; color: #1b5e20;">ATUAL REALIZADO (HOJE)</div>
+
+                <div style="font-size: 90px; font-weight: 900; color: #111; line-height: 1;">{total_realizado_hoje}</div>
+
+                <div style="font-size: 18px; font-weight: bold; color: #555; margin-top: 5px;">{os_produtivas_hoje} O.S. Painel + {produtos_consultivo_hoje} Consultivo</div>
+
+            </div>
+
+        </div>
+
+        ''', unsafe_allow_html=True)
+
+
+
+        if falta_pela_projecao > 0:
+
+            texto_aviso_tela = f'⚠️ PELA PROJEÇÃO, FALTAM {falta_pela_projecao} O.S. PARA BATER A META ACUMULADA'
+
+        else:
+
+            texto_aviso_tela = '🎯 PROJEÇÃO ATINGE A META ACUMULADA DO MÊS!'
+
+
+
+        st.markdown(f'''
+
+        <div class="box-base" style="padding: 20px; border-left: 15px solid {cor_status_dia}; background: {'#f1f8e9' if projecao_op >= meta_ajustada_hoje else '#ffebee'};">
+
+            <div style="font-size: 28px; font-weight: 900; color: {cor_status_dia}; text-align: center; margin-bottom: 10px;">
+
+                {texto_aviso_tela}
+
+            </div>
+
+            <div style="font-size: 20px; color: #333; text-align: center; font-weight: bold;">
+
+                Para alcançar a meta diária, precisamos compensar os números da projeção realizando mais <b>{max(0, falta_pela_projecao)} OS</b>.
+
+            </div>
+
+        </div>
+
+        ''', unsafe_allow_html=True)
+
+
+
+        if st.session_state.novo_ciclo:
+
+            texto_audio_metas = f"Atenção para o painel de metas. A projeção de O S de hoje é de {projecao_op}. Para alcançar a meta acumulada do mês, precisamos de {max(0, falta_pela_projecao)} O S."
+
+            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio_metas}', 0);</script>"
+
+            st.session_state.novo_ciclo = False
+
+        st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 5: CONSULTIVO GERAL
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 5:
+
+        st.markdown(render_topo("CONSULTIVO GERAL") + icone_mudo, unsafe_allow_html=True)
+
+
+
+        if os.path.exists(ARQUIVO_CONSULTIVO):
+
+            try:
+
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
+
+                df_cons.columns = [unicodedata.normalize('NFKD', str(c)).encode('ASCII', 'ignore').decode('utf-8').strip().upper().replace(' ', '_') for c in df_cons.columns]
+
+
+
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+
+                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
+
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
+
+
+
+                def class_sup(row):
+
+                    for oficial in SUPERVISORES_ORDENADOS:
+
+                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
+
+                    return "DESCARTADO"
+
+
+
+                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
+
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+
+
+
+                col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
+
+                def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
+
+
+
+                total_realizado_abc = int(df_cards['QTD_PRODUTOS_CALC'].sum())
+
+                total_contratos_abc = count_contracts(df_cards)
+
+
+
+                hoje = datetime.utcnow() - timedelta(hours=3)
+
+                ano, mes = hoje.year, hoje.month
+
+                _, num_dias = calendar.monthrange(ano, mes)
+
+                
+
+                total_dias_uteis_mes = 0
+
+                dias_uteis_passados = 0
+
+                realizado_passado = 0
+
+                
+
+                primeiro_dia_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+                hoje_meia_noite = hoje.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+
+                
+
+                for d in range(1, num_dias + 1):
+
+                    data_loop = datetime(ano, mes, d)
+
+                    if data_loop.weekday() != 6: 
+
+                        total_dias_uteis_mes += 1
+
+                        if data_loop < hoje_meia_noite:
+
+                            dias_uteis_passados += 1
+
+
+
+                if col_data:
+
+                    df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%d/%m/%Y', errors='coerce')
+
+                    if df_cards['DATA_OBJ'].isna().all():
+
+                        df_cards['DATA_OBJ'] = pd.to_datetime(df_cards[col_data].astype(str).str.strip().str[:10], format='%Y-%m-%d', errors='coerce')
+
+                    
+
+                    df_passado = df_cards[(df_cards['DATA_OBJ'].notna()) & (df_cards['DATA_OBJ'] >= primeiro_dia_mes) & (df_cards['DATA_OBJ'] < hoje_meia_noite)]
+
+                    realizado_passado = int(df_passado['QTD_PRODUTOS_CALC'].sum())
+
+                else:
+
+                    realizado_passado = total_realizado_abc
+
+
+
+                if dias_uteis_passados > 0:
+
+                    media_diaria = realizado_passado / dias_uteis_passados
+
+                    projecao_produtos = int(round(media_diaria * total_dias_uteis_mes))
+
+                else:
+
+                    projecao_produtos = total_realizado_abc
+
+
+
+                if projecao_produtos < total_realizado_abc:
+
+                    projecao_produtos = total_realizado_abc
+
+
+
+                dias_restantes = sum(1 for d in range(hoje.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+
+                if dias_restantes == 0: dias_restantes = 1
+
+
+
+                meta_mensal_abc = len(SUPS_ABC) * 350
+
+                st.session_state.ticker_data[5] = f"📈 CONSULTIVO MÊS: {total_realizado_abc} PRODUTOS (PROJ: {projecao_produtos} | META: {meta_mensal_abc})"
+
+
+
+                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 10px;">
+
+                    <span style="font-size: 20px; font-weight: bold; color: #555;">Dias úteis restantes: </span>
+
+                    <span style="font-size: 28px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
+
+                </div>''', unsafe_allow_html=True)
+
+
+
+                st.markdown(f'''<div class="box-base" style="padding: 10px;">
+
+                    <div class="nome-base" style="margin-bottom: 5px;">🏢 ACUMULADO DO MÊS (Meta: {meta_mensal_abc})</div>
+
+                    <div style="display: flex; justify-content: space-around; align-items: center;">
+
+                        <div>
+
+                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Contratos</div>
+
+                            <div style="font-size: 70px; font-weight: 900; color: #0277bd; line-height: 1;">{total_contratos_abc}</div>
+
+                        </div>
+
+                        <div>
+
+                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Produtos</div>
+
+                            <div style="font-size: 70px; font-weight: 900; color: #111; line-height: 1;">{total_realizado_abc}</div>
+
+                        </div>
+
+                        <div>
+
+                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Projeção Mês - Produtos</div>
+
+                            <div style="font-size: 70px; font-weight: 900; color: #00838f; line-height: 1;">{projecao_produtos}</div>
+
+                        </div>
+
+                    </div>
+
+                </div>''', unsafe_allow_html=True)
+
+                
+
+                for i in range(0, len(SUPS_ABC), 2):
+
+                    cols_sup = st.columns(2)
+
+                    for j in range(2):
+
+                        if i + j < len(SUPS_ABC):
+
+                            sup = SUPS_ABC[i + j]
+
+                            with cols_sup[j]:
+
+                                df_sup_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]
+
+                                qtd_sup = int(df_sup_mes['QTD_PRODUTOS_CALC'].sum())
+
+                                qtd_contratos_sup = count_contracts(df_sup_mes)
+
+                                falta_individual = max(0, 350 - qtd_sup)
+
+                                ritmo_diario_individual = int(round(falta_individual / dias_restantes))
+
+
+
+                                st.markdown(f'''
+
+                                <div class="sup-card">
+
+                                    <div class="sup-header">
+
+                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+
+                                        <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Alvo: 350</div>
+
+                                    </div>
+
+                                    <div class="faltas-grid">
+
+                                        <div class="falta-box" style="background-color: #e3f2fd; border-color: #81d4fa;">
+
+                                            <div class="falta-label" style="color: #0277bd;">CONTRATOS</div>
+
+                                            <div class="falta-value" style="color: #01579b;">{qtd_contratos_sup}</div>
+
+                                        </div>
+
+                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+
+                                            <div class="falta-label" style="color: #2e7d32;">PRODUTOS</div>
+
+                                            <div class="falta-value" style="color: #1b5e20;">{qtd_sup}</div>
+
+                                        </div>
+
+                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+
+                                            <div class="falta-label" style="color: #c62828;">FALTAM</div>
+
+                                            <div class="falta-value" style="color: #b30000;">{falta_individual}</div>
+
+                                        </div>
+
+                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+
+                                            <div class="falta-label" style="color: #b78103;">DIÁRIA</div>
+
+                                            <div class="falta-value" style="color: #b78103;">{ritmo_diario_individual}</div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>''', unsafe_allow_html=True)
+
+
+
+                if st.session_state.novo_ciclo:
+
+                    st.session_state.script_audio_atual = ""
+
+                    st.session_state.novo_ciclo = False
+
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+
+
+            except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
+
+        else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 6: CONSULTIVO DIÁRIO 
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 6:
+
+        st.markdown(render_topo("CONSULTIVO DIÁRIO") + icone_mudo, unsafe_allow_html=True)
+
+
+
+        if os.path.exists(ARQUIVO_CONSULTIVO):
+
+            try:
+
+                df_cons = pd.read_csv(ARQUIVO_CONSULTIVO, dtype=str, on_bad_lines='skip')
+
+                df_cons.columns = [str(c).upper().strip().replace(' ', '_') for c in df_cons.columns]
+
+
+
+                col_qtd = next((c for c in df_cons.columns if 'QTD' in c and 'PRODUTO' in c), None)
+
+                df_cons['QTD_PRODUTOS_CALC'] = pd.to_numeric(df_cons[col_qtd].astype(str).str.replace(',', '.'), errors='coerce').fillna(0).astype(int) if col_qtd else 0
+
+                df_cons['SUPERVISOR'] = df_cons['SUPERVISOR'].apply(limpar_texto) if 'SUPERVISOR' in df_cons.columns else ''
+
+
+
+                def class_sup(row):
+
+                    for oficial in SUPERVISORES_ORDENADOS:
+
+                        if limpar_texto(oficial.split()[0]) in row.get('SUPERVISOR', ''): return oficial
+
+                    return "DESCARTADO"
+
+
+
+                df_cons['SUPERVISOR_CLEAN'] = df_cons.apply(class_sup, axis=1)
+
+                df_cards = df_cons[df_cons['SUPERVISOR_CLEAN'] != "DESCARTADO"].copy()
+
+
+
+                col_contrato_cons = next((c for c in df_cards.columns if 'CONTRATO' in c or 'OS' in c or 'O.S' in c or 'PEDIDO' in c), None)
+
+                def count_contracts(df_x): return df_x[col_contrato_cons].nunique() if col_contrato_cons else len(df_x)
+
+
+
+                hoje_br = datetime.utcnow() - timedelta(hours=3)
+
+                hoje_str_br = hoje_br.strftime('%d/%m/%Y')
+
+                hoje_str_us = hoje_br.strftime('%Y-%m-%d')
+
+
+
+                df_hoje = pd.DataFrame()
+
+                col_data = next((c for c in df_cards.columns if 'DATA' in c), None)
+
+                if col_data:
+
+                    df_cards['DATA_TXT'] = df_cards[col_data].astype(str).str.strip().str[:10]
+
+                    mask_hoje = (df_cards['DATA_TXT'] == hoje_str_br) | (df_cards['DATA_TXT'] == hoje_str_us)
+
+                    df_hoje = df_cards[mask_hoje].copy()
+
+                
+
+                ano, mes = hoje_br.year, hoje_br.month
+
+                _, num_dias = calendar.monthrange(ano, mes)
+
+                dias_restantes = sum(1 for d in range(hoje_br.day, num_dias + 1) if calendar.weekday(ano, mes, d) != 6)
+
+                if dias_restantes <= 0: dias_restantes = 1
+
+
+
+                total_hoje_abc = int(df_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_hoje.empty else 0
+
+                total_contratos_hoje_abc = count_contracts(df_hoje) if not df_hoje.empty else 0
+
+
+
+                meta_dia_base_abc = 0
+
+                for sup in SUPS_ABC:
+
+                    qtd_m = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+
+                    meta_dia_base_abc += int(round(max(0, 350 - qtd_m) / dias_restantes))
+
+
+
+                st.session_state.ticker_data[6] = f"📉 CONSULTIVO HOJE: {total_hoje_abc} PRODUTOS (META: {meta_dia_base_abc})"
+
+
+
+                st.markdown(f'''<div style="text-align: center; margin-top: -10px; margin-bottom: 10px;">
+
+                    <span style="font-size: 20px; font-weight: bold; color: #555;">Resultados de Hoje ({hoje_str_br}) - Dias úteis restantes: </span>
+
+                    <span style="font-size: 28px; font-weight: 900; color: #cc6600;">{dias_restantes}</span>
+
+                </div>''', unsafe_allow_html=True)
+
+
+
+                st.markdown(f'''<div class="box-base" style="padding: 10px;">
+
+                    <div class="nome-base" style="margin-bottom: 5px;">🏢 HOJE (Meta Diária: {meta_dia_base_abc})</div>
+
+                    <div style="display: flex; justify-content: space-around; align-items: center;">
+
+                        <div>
+
+                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Contratos Hoje</div>
+
+                            <div style="font-size: 70px; font-weight: 900; color: #0277bd; line-height: 1;">{total_contratos_hoje_abc}</div>
+
+                        </div>
+
+                        <div>
+
+                            <div style="font-size: 20px; font-weight: bold; color: #666; text-transform: uppercase;">Produtos Hoje</div>
+
+                            <div style="font-size: 70px; font-weight: 900; color: #111; line-height: 1;">{total_hoje_abc}</div>
+
+                        </div>
+
+                    </div>
+
+                </div>''', unsafe_allow_html=True)
+
+                
+
+                for i in range(0, len(SUPS_ABC), 2):
+
+                    cols_sup = st.columns(2)
+
+                    for j in range(2):
+
+                        if i + j < len(SUPS_ABC):
+
+                            sup = SUPS_ABC[i + j]
+
+                            with cols_sup[j]:
+
+                                qtd_mes = df_cards[df_cards['SUPERVISOR_CLEAN'] == sup]['QTD_PRODUTOS_CALC'].sum()
+
+                                df_sup_hoje = df_hoje[df_hoje['SUPERVISOR_CLEAN'] == sup] if not df_hoje.empty else pd.DataFrame()
+
+                                qtd_hoje = int(df_sup_hoje['QTD_PRODUTOS_CALC'].sum()) if not df_sup_hoje.empty else 0
+
+                                qtd_contratos_hoje_sup = count_contracts(df_sup_hoje) if not df_sup_hoje.empty else 0
+
+                                
+
+                                meta_dia = int(round(max(0, 350 - qtd_mes) / dias_restantes))
+
+                                falta_hoje = int(round(max(0, meta_dia - qtd_hoje)))
+
+
+
+                                st.markdown(f'''
+
+                                <div class="sup-card">
+
+                                    <div class="sup-header">
+
+                                        <div class="sup-name">📋 {obter_nome_visual(sup)}</div>
+
+                                        <div class="badge-faltas" style="background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7;">Acumulado: {int(qtd_mes)}</div>
+
+                                    </div>
+
+                                    <div class="faltas-grid">
+
+                                        <div class="falta-box" style="background-color: #e3f2fd; border-color: #81d4fa;">
+
+                                            <div class="falta-label" style="color: #0277bd;">CONTRATOS</div>
+
+                                            <div class="falta-value" style="color: #01579b;">{qtd_contratos_hoje_sup}</div>
+
+                                        </div>
+
+                                        <div class="falta-box" style="background-color: #e8f5e9; border-color: #a5d6a7;">
+
+                                            <div class="falta-label" style="color: #2e7d32;">PRODUTOS</div>
+
+                                            <div class="falta-value" style="color: #1b5e20;">{qtd_hoje}</div>
+
+                                        </div>
+
+                                        <div class="falta-box" style="background-color: #ffebee; border-color: #ffcdd2;">
+
+                                            <div class="falta-label" style="color: #c62828;">FALTAM</div>
+
+                                            <div class="falta-value" style="color: #b30000;">{falta_hoje}</div>
+
+                                        </div>
+
+                                        <div class="falta-box" style="background-color: #fff8e1; border-color: #ffe082;">
+
+                                            <div class="falta-label" style="color: #b78103;">DIÁRIA</div>
+
+                                            <div class="falta-value" style="color: #b78103;">{meta_dia}</div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>''', unsafe_allow_html=True)
+
+
+
+                if st.session_state.novo_ciclo:
+
+                    st.session_state.script_audio_atual = ""
+
+                    st.session_state.novo_ciclo = False
+
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+
+
+            except Exception as e: st.error(f"Erro ao processar colunas do Consultivo. Detalhes: {e}")
+
+        else: st.warning("Aguardando sincronização da planilha master para carregar o Consultivo...")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 3: PRINT DOS INDICADORES
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 3:
+
+        st.markdown(render_topo("PRINT DOS INDICADORES") + html_audio_ind, unsafe_allow_html=True)
+
+
+
+        if os.path.exists(ARQUIVO_ROTA_DISCO):
+
+            try:
+
+                df_ind = pd.read_csv(ARQUIVO_ROTA_DISCO, dtype=str, on_bad_lines='skip')
+
+                df_ind.columns = [str(c).strip().upper() for c in df_ind.columns]
+
+                
+
+                col_sup = next((c for c in df_ind.columns if 'SUPERVISOR' in c), None)
+
+                col_nr35 = next((c for c in df_ind.columns[::-1] if 'NR35' in c or 'NR-35' in c), None)
+
+                col_cert = next((c for c in df_ind.columns[::-1] if 'CERTID' in c or 'ELEGIVEL' in c or 'ELEGÍVEL' in c), None)
+
+                col_bst  = next((c for c in df_ind.columns[::-1] if 'BST' in c or 'STEERING' in c or 'BAND' in c), None)
+
+
+
+                def class_sup_3(row):
+
+                    sup = str(row.get(col_sup, '')).upper().strip() if col_sup else ''
+
+                    for oficial in SUPERVISORES_ORDENADOS:
+
+                        if oficial in sup: return oficial
+
+                    return "DESCARTADO"
+
+
+
+                if not df_ind.empty:
+
+                    df_ind['SUPERVISOR_CLEAN'] = df_ind.apply(class_sup_3, axis=1)
+
+                    df_ind['STATUS_PADRAO'] = df_ind.apply(padronizar_status, axis=1)
+
+                else:
+
+                    df_ind['SUPERVISOR_CLEAN'] = "DESCARTADO"
+
+                    df_ind['STATUS_PADRAO'] = "Descartar"
+
+
+
+                df_produtivo = df_ind[(df_ind['STATUS_PADRAO'] == 'Produtivo') & (df_ind['SUPERVISOR_CLEAN'].isin(SUPS_ABC))].copy()
+
+
+
+                if not df_produtivo.empty:
+
+                    col_contrato = next((c for c in df_produtivo.columns if 'CONTRATO' in c), None)
+
+                    if col_contrato:
+
+                        df_produtivo[col_contrato] = df_produtivo[col_contrato].fillna('').astype(str).apply(lambda x: x.split('.')[0] if '.' in x else x).str.strip()
+
+                        df_produtivo = df_produtivo[df_produtivo[col_contrato] != ''].drop_duplicates(subset=[col_contrato])
+
+
+
+                    df_produtivo['FALTA_NR35'] = df_produtivo[col_nr35].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_nr35 else 0
+
+                    df_produtivo['FALTA_CERT'] = df_produtivo[col_cert].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_cert else 0
+
+                    df_produtivo['FALTA_BST']  = df_produtivo[col_bst].fillna('').astype(str).str.upper().str.contains('NÃO|NAO|FALTA', na=False).astype(int) if col_bst else 0
+
+                else:
+
+                    df_produtivo['FALTA_NR35'] = 0
+
+                    df_produtivo['FALTA_CERT'] = 0
+
+                    df_produtivo['FALTA_BST']  = 0
+
+
+
+                total_faltas_ind = df_produtivo['FALTA_NR35'].sum() + df_produtivo['FALTA_CERT'].sum() + df_produtivo['FALTA_BST'].sum()
+
+                st.session_state.ticker_data[3] = f"📋 INDICADORES: {int(total_faltas_ind)} FALTAM PRINTS"
+
+
+
+                st.markdown('<div style="font-size: 28px; font-weight: 900; text-align: center; margin-bottom: 20px; color: #c62828; text-transform: uppercase; background-color: #ffebee; padding: 10px; border-radius: 10px; border: 2px solid #ffcdd2;">⚠️ FALTAM PRINTS</div>', unsafe_allow_html=True)
+
+                
+
+                for i in range(0, len(SUPS_ABC), 2):
+
+                    cols_sup = st.columns(2)
+
+                    for j in range(2):
+
+                        if i + j < len(SUPS_ABC):
+
+                            sup = SUPS_ABC[i + j]
+
+                            with cols_sup[j]:
+
+                                df_sup = df_produtivo[df_produtivo['SUPERVISOR_CLEAN'] == sup]
+
+                                f_35 = int(df_sup['FALTA_NR35'].sum()) if not df_sup.empty else 0
+
+                                f_ce = int(df_sup['FALTA_CERT'].sum()) if not df_sup.empty else 0
+
+                                f_bs = int(df_sup['FALTA_BST'].sum())  if not df_sup.empty else 0
+
+                                
+
+                                st.markdown(f'''<div class="sup-card"><div class="sup-header"><div class="sup-name">📋 {obter_nome_visual(sup)}</div><div class="badge-faltas">Total Faltas: {f_35+f_ce+f_bs}</div></div>
+
+                                    <div class="faltas-grid"><div class="falta-box"><div class="falta-label">🪜 NR35</div><div class="falta-value">{f_35}</div></div>
+
+                                    <div class="falta-box"><div class="falta-label">📜 CERT.</div><div class="falta-value">{f_ce}</div></div>
+
+                                    <div class="falta-box"><div class="falta-label">📶 BST</div><div class="falta-value">{f_bs}</div></div></div></div>''', unsafe_allow_html=True)
+
+
+
+                if permitir_audio_ind:
+
+                    script_ind = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Monitores, enviem os prints pendentes do N R 35, Band Steering e certidão de atendimento.', 0);</script>"
+
+                else: 
+
+                    script_ind = ""
+
+                
+
+                if st.session_state.novo_ciclo:
+
+                    st.session_state.script_audio_atual = script_ind
+
+                    st.session_state.novo_ciclo = False
+
+                st.components.v1.html(st.session_state.script_audio_atual, height=0)
+
+            except Exception as e:
+
+                st.error(f"Erro na validação de Indicadores: {e}")
+
+        else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
+
+
+
+    # -------------------------------------------------------------------------
+
+    # TELA 2: HORÁRIO
+
+    # -------------------------------------------------------------------------
+
+    elif st.session_state.idx == 2:
+
+        st.markdown(render_topo("HORÁRIO") + icone_ativo, unsafe_allow_html=True)
+
+
+
+        tempo_real = datetime.utcnow() - timedelta(hours=3)
+
+        
+
+        st.markdown(f'''
+
+        <div class="relogio-container">
+
+            <div id="relogio-dinamico" class="hora-gigante">{tempo_real.strftime("%H:%M:%S")}</div>
+
+            <div class="data-media">{tempo_real.strftime("%d/%m/%Y")}</div>
+
+        </div>
+
+        ''', unsafe_allow_html=True)
+
+        
+
+        if st.session_state.novo_ciclo:
+
+            st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('Hora certa: {tempo_real.strftime('%H e %M')}.', 0);</script>"
+
+            st.session_state.novo_ciclo = False
+
+        
+
+        script_relogio_dinamico = """
+
+        <script>
+
+            setInterval(function() {
+
+                var el = window.parent.document.getElementById('relogio-dinamico');
+
+                if (el) {
+
+                    var data = new Date();
+
+                    var h = String(data.getHours()).padStart(2, '0');
+
+                    var m = String(data.getMinutes()).padStart(2, '0');
+
+                    var s = String(data.getSeconds()).padStart(2, '0');
+
+                    el.innerText = h + ":" + m + ":" + s;
+
+                }
+
+            }, 1000);
+
+        </script>
+
         """
 
-    if modo_historico_salvo or st.session_state.df_valido is None:
-        df_dia = pd.DataFrame()
-        if df_historico_previas is not None and not df_historico_previas.empty and "Data" in df_historico_previas.columns:
-            df_dia = df_historico_previas[df_historico_previas["Data"].astype(str).str.strip() == str(data_formatada).strip()].copy()
+        st.components.v1.html(st.session_state.script_audio_atual + script_relogio_dinamico, height=0)
 
-        if df_dia.empty:
-            st.warning(f"⚠️ Nenhum registro encontrado na aba `Previas_Diarias` para a data **{data_formatada}**.")
-        else:
-            tabela_html = [gerar_cabecalho_html()]
-            g_parados = 0; g_montados = 0; g_meta_os = 0; g_proj_os = 0
-            g_meta_cons = 0; g_proj_cons = 0; g_hoje_cons = 0; g_os_cons = 0
-            g_tot_os = 0; g_aberta = 0; g_pontos = 0; g_efic_soma = 0.0
-            g_proj_dia = 0; g_os_sem_c = 0
-            g_q_ins_soma = 0.0; g_q_serv_soma = 0.0; g_q_nd_soma = 0.0; g_nd = 0
-            g_canc = 0; g_saiu_toa = 0; g_ganho = 0; g_gpon = 0; g_q_gpon_soma = 0.0
-            g_mig = 0; g_q_mig_soma = 0.0; g_mig_canc = 0; g_retorno = 0
-            g_pme = 0; g_q_pme_soma = 0.0; g_pme_canc = 0
-            qtd_b = 0
 
-            for item in bases_config:
-                b_label = item["label"]
-                row_b = df_dia[df_dia["Base"].astype(str).str.upper().str.strip() == b_label.upper()]
-                if not row_b.empty:
-                    r = row_b.iloc[-1]
-                    p_b = pd.to_numeric(r.get("Parados", 0), errors="coerce") or 0
-                    m_b = pd.to_numeric(r.get("Montados", 0), errors="coerce") or 0
-                    meta_os = pd.to_numeric(r.get("Meta O.S.", 0), errors="coerce") or 0
-                    proj_os = pd.to_numeric(r.get("Projeção O.S.", 0), errors="coerce") or 0
-                    meta_c = pd.to_numeric(r.get("Meta Consultivo", 0), errors="coerce") or 0
-                    proj_c = pd.to_numeric(r.get("Projeção Consultivo", 0), errors="coerce") or 0
-                    hoje_c = pd.to_numeric(r.get("Hoje Consultivo", 0), errors="coerce") or 0
-                    os_c = pd.to_numeric(r.get("O.S. Consultivo", 0), errors="coerce") or 0
-                    tot_os = pd.to_numeric(r.get("Total O.S.", 0), errors="coerce") or 0
-                    aberta = pd.to_numeric(r.get("O.S. Aberta", 0), errors="coerce") or 0
-                    pts = pd.to_numeric(r.get("Pontos", 0), errors="coerce") or 0
-                    efic = pd.to_numeric(r.get("Efic (%)", 0), errors="coerce") or 0.0
-                    med_os = pd.to_numeric(r.get("Média O.S.", 0), errors="coerce") or 0.0
-                    os_exec = pd.to_numeric(r.get("O.S. Exec. (Proj)", 0), errors="coerce") or 0
-                    os_sem_c = pd.to_numeric(r.get("O.S. Sem Consult", 0), errors="coerce") or 0
-                    q_ins = pd.to_numeric(r.get("Quebra INS (%)", 0), errors="coerce") or 0.0
-                    q_serv = pd.to_numeric(r.get("Quebra SERV (%)", 0), errors="coerce") or 0.0
-                    q_nd = pd.to_numeric(r.get("Quebra ND (%)", 0), errors="coerce") or 0.0
-                    nd_val = pd.to_numeric(r.get("ND", 0), errors="coerce") or 0
-                    canc = pd.to_numeric(r.get("O.S. Canc.", 0), errors="coerce") or 0
-                    saiu = pd.to_numeric(r.get("Saiu TOA", 0), errors="coerce") or 0
-                    ganho = pd.to_numeric(r.get("Ganho O.S.", 0), errors="coerce") or 0
-                    gpon_t = pd.to_numeric(r.get("GPON Total", 0), errors="coerce") or 0
-                    gpon_q = pd.to_numeric(r.get("GPON Quebra (%)", 0), errors="coerce") or 0.0
-                    mig_t = pd.to_numeric(r.get("Migração Total", 0), errors="coerce") or 0
-                    mig_q = pd.to_numeric(r.get("Migração Quebra (%)", 0), errors="coerce") or 0.0
-                    mig_c = pd.to_numeric(r.get("Migração Canc.", 0), errors="coerce") or 0
-                    ret_wo = pd.to_numeric(r.get("Retorno WO", 0), errors="coerce") or 0
-                    pme_t = pd.to_numeric(r.get("PME WO", 0), errors="coerce") or 0
-                    pme_q = pd.to_numeric(r.get("PME Quebra (%)", 0), errors="coerce") or 0.0
-                    pme_c = pd.to_numeric(r.get("PME Canc.", 0), errors="coerce") or 0
 
-                    g_parados += p_b; g_montados += m_b; g_meta_os += meta_os; g_proj_os += proj_os
-                    g_meta_cons += meta_c; g_proj_cons += proj_c; g_hoje_cons += hoje_c; g_os_cons += os_c
-                    g_tot_os += tot_os; g_aberta += aberta; g_pontos += pts; g_efic_soma += efic
-                    g_proj_dia += os_exec; g_os_sem_c += os_sem_c
-                    g_q_ins_soma += q_ins; g_q_serv_soma += q_serv; g_q_nd_soma += q_nd; g_nd += nd_val
-                    g_canc += canc; g_saiu_toa += saiu; g_ganho += ganho
-                    g_gpon += gpon_t; g_q_gpon_soma += gpon_q
-                    g_mig += mig_t; g_q_mig_soma += mig_q; g_mig_canc += mig_c
-                    g_retorno += ret_wo; g_pme += pme_t; g_q_pme_soma += pme_q; g_pme_canc += pme_c
-                    qtd_b += 1
+    # ---> RENDERIZADOR DO TICKER FINANCEIRO <---
 
-                    tabela_html.append(
-                        f'<tr class="tr-base">'
-                        f'<td style="text-align: left; padding-left: 8px;">{b_label}</td>'
-                        f'<td>{fmt_br(p_b)}</td>'
-                        f'<td class="col-destaque-amarelo">{fmt_br(m_b)}</td>'
-                        f'<td>{fmt_br(meta_os)}</td>'
-                        f'<td class="red-text">{fmt_br(proj_os)}</td>'
-                        f'<td>{fmt_br(meta_c)}</td>'
-                        f'<td class="red-text">{fmt_br(proj_c)}</td>'
-                        f'<td>{fmt_br(hoje_c)}</td>'
-                        f'<td>{fmt_br(os_c)}</td>'
-                        f'<td>{fmt_br(tot_os)}</td>'
-                        f'<td>{fmt_br(aberta)}</td>'
-                        f'<td>{fmt_br(pts)}</td>'
-                        f'<td>{fmt_br(efic, 1)}%</td>'
-                        f'<td class="col-destaque-azul">{fmt_br(med_os, 2)}</td>'
-                        f'<td>{fmt_br(os_exec)}</td>'
-                        f'<td class="col-destaque-amarelo">{fmt_br(os_sem_c)}</td>'
-                        f'<td>{fmt_br(q_ins, 1)}%</td>'
-                        f'<td>{fmt_br(q_serv, 1)}%</td>'
-                        f'<td>{fmt_br(q_nd, 1)}%</td>'
-                        f'<td>{fmt_br(nd_val)}</td>'
-                        f'<td>{fmt_br(canc)}</td>'
-                        f'<td>{fmt_br(saiu)}</td>'
-                        f'<td>{fmt_br(ganho)}</td>'
-                        f'<td>{fmt_br(gpon_t)}</td>'
-                        f'<td>{fmt_br(gpon_q, 1)}%</td>'
-                        f'<td>{fmt_br(mig_t)}</td>'
-                        f'<td>{fmt_br(mig_q, 1)}%</td>'
-                        f'<td>{fmt_br(mig_c)}</td>'
-                        f'<td>{fmt_br(ret_wo)}</td>'
-                        f'<td>{fmt_br(pme_t)}</td>'
-                        f'<td>{fmt_br(pme_q, 1)}%</td>'
-                        f'<td>{fmt_br(pme_c)}</td>'
-                        f'</tr>'
-                    )
+    if st.session_state.idx != 4 and not modo_estatico:  
 
-            div_b = max(1, qtd_b)
-            g_media_os_calc = (g_proj_dia / g_montados) if g_montados > 0 else 0.0
-            tabela_html.append(
-                f'<tr class="tr-total">'
-                f'<td style="text-align: left; padding-left: 8px;">TOTAL INSTALAÇÃO</td>'
-                f'<td>{fmt_br(g_parados)}</td>'
-                f'<td class="col-destaque-amarelo">{fmt_br(g_montados)}</td>'
-                f'<td>{fmt_br(g_meta_os)}</td>'
-                f'<td class="red-text">{fmt_br(g_proj_os)}</td>'
-                f'<td>{fmt_br(g_meta_cons)}</td>'
-                f'<td class="red-text">{fmt_br(g_proj_cons)}</td>'
-                f'<td>{fmt_br(g_hoje_cons)}</td>'
-                f'<td>{fmt_br(g_os_cons)}</td>'
-                f'<td>{fmt_br(g_tot_os)}</td>'
-                f'<td>{fmt_br(g_aberta)}</td>'
-                f'<td>{fmt_br(g_pontos)}</td>'
-                f'<td>{fmt_br(g_efic_soma / div_b, 1)}%</td>'
-                f'<td class="col-destaque-azul">{fmt_br(g_media_os_calc, 2)}</td>'
-                f'<td>{fmt_br(g_proj_dia)}</td>'
-                f'<td class="col-destaque-amarelo">{fmt_br(g_os_sem_c)}</td>'
-                f'<td>{fmt_br(g_q_ins_soma / div_b, 1)}%</td>'
-                f'<td>{fmt_br(g_q_serv_soma / div_b, 1)}%</td>'
-                f'<td>{fmt_br(g_q_nd_soma / div_b, 1)}%</td>'
-                f'<td>{fmt_br(g_nd)}</td>'
-                f'<td>{fmt_br(g_canc)}</td>'
-                f'<td>{fmt_br(g_saiu_toa)}</td>'
-                f'<td>{fmt_br(g_ganho)}</td>'
-                f'<td>{fmt_br(g_gpon)}</td>'
-                f'<td>{fmt_br(g_q_gpon_soma / div_b, 1)}%</td>'
-                f'<td>{fmt_br(g_mig)}</td>'
-                f'<td>{fmt_br(g_q_mig_soma / div_b, 1)}%</td>'
-                f'<td>{fmt_br(g_mig_canc)}</td>'
-                f'<td>{fmt_br(g_retorno)}</td>'
-                f'<td>{fmt_br(g_pme)}</td>'
-                f'<td>{fmt_br(g_q_pme_soma / div_b, 1)}%</td>'
-                f'<td>{fmt_br(g_pme_canc)}</td>'
-                f'</tr></tbody></table>'
-            )
-            st.markdown("".join(tabela_html), unsafe_allow_html=True)
+        ticker_items = []
+
+        for k, v in st.session_state.ticker_data.items():
+
+            if k != st.session_state.idx:
+
+                ticker_items.append(f'<span class="ticker__item">{v}</span>')
+
+        
+
+        if ticker_items:
+
+            separator = '<span style="color:#ff9800; font-weight:bold; font-size:24px;">&nbsp;&nbsp;•&nbsp;&nbsp;</span>'
+
+            joined_items = separator.join(ticker_items)
+
+            ticker_content = f"{joined_items}{separator}{joined_items}{separator}{joined_items}"
+
+            
+
+            st.markdown(f'''
+
+            <div class="ticker-wrap">
+
+                <div class="ticker">
+
+                    {ticker_content}
+
+                </div>
+
+            </div>
+
+            ''', unsafe_allow_html=True)
+
+
+
+# =========================================================================
+
+# CONTROLES DE NAVEGAÇÃO E TRANSIÇÃO 🔄
+
+# =========================================================================
+
+if modo_estatico:
+
+    btn_atualizar = st.button("🔄 ATUALIZAR", key="btn_atualizar_estatico")
+
+    if btn_atualizar:
+
+        st.session_state.novo_ciclo = True
+
+        st.rerun()
+
+
+
+    js_timer_estatico = f"""
+
+    <script>
+
+    setTimeout(function() {{
+
+        var buttons = window.parent.document.querySelectorAll('button');
+
+        for (var i=0; i<buttons.length; i++) {{
+
+            if (buttons[i].innerText && buttons[i].innerText.indexOf('ATUALIZAR') !== -1) {{
+
+                buttons[i].click();
+
+                break;
+
+            }}
+
+        }}
+
+    }}, 60000);
+
+    </script>
+
+    """
+
+    st.components.v1.html(js_timer_estatico, height=0)
+
+    st.stop()
+
+
+
+col_voltar, col_vazio, col_pular = st.columns([1, 8, 1])
+
+with col_voltar:
+
+    voltar = st.button("⬅️ ANTERIOR", key="btn_anterior")
+
+with col_pular:
+
+    pular = st.button("PRÓXIMA ➡️", key="btn_proxima")
+
+
+
+agora_loop = datetime.utcnow() - timedelta(hours=3)
+
+minutos_loop = agora_loop.hour * 60 + agora_loop.minute
+
+
+
+periodo_matinal_base = (7*60 <= minutos_loop < 8*60 + 30)
+
+periodo_transicao_base = (8*60 + 30 <= minutos_loop < 9*60)
+
+
+
+alerta_fim_janela_loop = False
+
+if agora_loop.hour in [11, 14, 17] and agora_loop.minute >= 0: alerta_fim_janela_loop = True
+
+if agora_loop.hour in [12, 15, 18]: alerta_fim_janela_loop = True
+
+
+
+tempos_espera = {
+
+    0: 60,
+
+    1: 30 if alerta_fim_janela_loop else 60,
+
+    7: 60,
+
+    8: 60,
+
+    9: 60,
+
+    10: 60,
+
+    11: 20, 12: 20, 13: 20, 14: 20, 15: 20, 16: 20,
+
+    17: 20,
+
+    18: 60,
+
+    5: 60,
+
+    6: 60,
+
+    3: 45,
+
+    2: 30 if (alerta_fim_janela_loop or periodo_matinal_base) else 60,
+
+    4: 2
+
+}
+
+
+
+espera = tempos_espera.get(st.session_state.idx, 60)
+
+
+
+if st.session_state.idx == 1 and permitir_audio_tec1:
+
+    espera = 95 
+
+
+
+if st.session_state.idx == 4:
+
+    st.session_state.idx = st.session_state.prox_idx
+
+    st.session_state.novo_ciclo = True
+
+    st.rerun()
+
+else:
+
+    if periodo_matinal_base:
+
+        telas_fluxo = [0, 2]
+
+    elif periodo_transicao_base:
+
+        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
 
     else:
-        # Cálculo completo em tempo real da sessão ativa
-        df_valido = st.session_state.df_valido
-        df_full_ref = st.session_state.get("df_aniel_full")
-        dias_uteis = st.session_state.get("dias_uteis_auto", 25)
-        df_config_eq_v = carregar_config_equipe()
 
-        g_parados = 0; g_montados = 0; g_meta_os = 0; g_proj_os = 0
-        g_meta_cons = 0; g_proj_cons = 0; g_hoje_cons = 0; g_os_cons = 0
-        g_tot_os = 0; g_aberta = 0; g_pontos = 0; g_prod = 0; g_quebra = 0
-        g_sem_cons = 0; g_nd = 0; g_canc = 0; g_saiu_toa = 0; g_ganho = 0
-        g_gpon = 0; g_mig = 0; g_mig_canc = 0; g_retorno = 0; g_pme = 0; g_pme_canc = 0
-        g_raw_ins_q = 0; g_raw_ins_tot = 0; g_raw_serv_q = 0; g_raw_serv_tot = 0
-        g_raw_nd_q = 0; g_raw_nd_tot = 0; g_raw_gpon_q = 0; g_raw_gpon_tot = 0
-        g_raw_mig_q = 0; g_raw_mig_tot = 0; g_raw_pme_q = 0; g_raw_pme_tot = 0
+        telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
 
-        metricas_bases = {}
-        consultivo_totais = st.session_state.get("consultivo_totais", {"NET-ABCDM": 0, "NET-Guarulhos": 0, "NET-LESTE": 0})
-        consultivo_os_hoje_dict = st.session_state.get("consultivo_os_hoje", {"NET-ABCDM": 0, "NET-Guarulhos": 0, "NET-LESTE": 0})
-
-        for item in bases_config:
-            b_label = item["label"]
-            b_proj = item["projeto"]
-            
-            df_b_all = df_valido[df_valido["Projeto"].str.upper() == b_proj.upper()].copy() if isinstance(df_valido, pd.DataFrame) and "Projeto" in df_valido.columns else pd.DataFrame()
-            df_b_bruta = df_full_ref[df_full_ref["Projeto"].str.upper() == b_proj.upper()].copy() if (df_full_ref is not None and not df_full_ref.empty and "Projeto" in df_full_ref.columns) else df_b_all
-            
-            df_b_eq_v = df_config_eq_v[df_config_eq_v["Base"].astype(str).str.upper() == b_proj.upper()] if not df_config_eq_v.empty else pd.DataFrame()
-            
-            sups_base = st.session_state.supervisores_por_base.get(b_proj, [])
-            m_base = sum([int(st.session_state.get(f"m_{b_proj}_{s}", 20)) for s in sups_base])
-            if m_base <= 0:
-                m_base = int(df_b_eq_v["Montados"].sum()) if not df_b_eq_v.empty and "Montados" in df_b_eq_v.columns else 65
-            p_base = sum([int(st.session_state.get(f"p_{b_proj}_{s}", 0)) for s in sups_base])
-
-            meta_os_b = int(st.session_state.get(f"inp_meta_os_{b_proj}", 11800 if "ABCDM" in b_proj else 12200))
-            qtd_sups_validos = max(1, len([s for s in sups_base if "APOIO" not in s.upper()]))
-            meta_c_b = int(st.session_state.get(f"inp_meta_c_{b_proj}", qtd_sups_validos * 350))
-            hoje_c_b = int(consultivo_totais.get(b_proj, 0))
-            os_consult_b = int(consultivo_os_hoje_dict.get(b_proj, hoje_c_b * 2))
-            
-            res_b = calcular_metricas_completas(df_b_all, m_base, df_b_bruta)
-            
-            tot_os_previa_b = res_b["tot_os"]
-            rota_inicial_b = buscar_os_inicial_sheets(b_proj, data_formatada)
-            ganho_b = max(0, tot_os_previa_b - rota_inicial_b)
-
-            os_sem_consult_val = int(round(res_b["proj_dia"] - os_consult_b, 0))
-            res_b["os_sem_c"] = os_sem_consult_val
-
-            proj_os_b, _, _ = calcular_projecao_os_base(b_proj, dias_uteis, res_b["produtivo"], data_formatada)
-            proj_c_b, _, _ = calcular_projecao_consultivo_base(b_proj, dias_uteis, os_consult_b, data_formatada)
-
-            g_parados += p_base; g_montados += m_base; g_meta_os += meta_os_b; g_proj_os += proj_os_b
-            g_meta_cons += meta_c_b; g_proj_cons += proj_c_b; g_hoje_cons += hoje_c_b; g_os_cons += os_consult_b
-            g_tot_os += res_b["tot_os"]; g_aberta += res_b["os_aberta"]; g_pontos += res_b["pontos"]; g_prod += res_b["produtivo"]
-            g_quebra += res_b["quebra_geral"]; g_sem_cons += res_b["os_sem_c"]; g_nd += res_b["tot_nd"]
-            g_canc += res_b["os_canc"]; g_saiu_toa += res_b["saiu_toa"]; g_ganho += ganho_b
-            g_gpon += res_b["tot_gpon"]; g_mig += res_b["tot_mig"]; g_mig_canc += res_b["canc_mig"]
-            g_retorno += res_b["retorno_wo"]; g_pme += res_b["tot_pme"]; g_pme_canc += res_b["canc_pme"]
-            g_raw_ins_q += res_b["_raw_q_ins"]; g_raw_ins_tot += res_b["_raw_tot_ins"]
-            g_raw_serv_q += res_b["_raw_q_serv"]; g_raw_serv_tot += res_b["_raw_tot_serv"]
-            g_raw_nd_q += res_b["_raw_q_nd"]; g_raw_nd_tot += res_b["_raw_tot_nd"]
-            g_raw_gpon_q += res_b["_raw_q_gpon"]; g_raw_gpon_tot += res_b["_raw_tot_gpon"]
-            g_raw_mig_q += res_b["_raw_q_mig"]; g_raw_mig_tot += res_b["_raw_tot_mig"]
-            g_raw_pme_q += res_b["_raw_q_pme"]; g_raw_pme_tot += res_b["_raw_tot_pme"]
-
-            metricas_bases[b_proj] = {
-                "res": res_b, "p_base": p_base, "m_base": m_base, "meta_os": meta_os_b,
-                "proj_os": proj_os_b, "meta_c": meta_c_b, "proj_c": proj_c_b, "hoje_c": hoje_c_b,
-                "os_consult": os_consult_b, "ganho": ganho_b, "label": b_label
-            }
-
-        tabela_html = [gerar_cabecalho_html()]
-
-        for item in bases_config:
-            b_label = item["label"]
-            b_proj = item["projeto"]
-            m = metricas_bases[b_proj]
-            res = m["res"]
-            
-            tabela_html.append(
-                f'<tr class="tr-base">'
-                f'<td style="text-align: left; padding-left: 8px;">{b_label}</td>'
-                f'<td>{fmt_br(m["p_base"])}</td>'
-                f'<td class="col-destaque-amarelo">{fmt_br(m["m_base"])}</td>'
-                f'<td>{fmt_br(m["meta_os"])}</td>'
-                f'<td class="red-text">{fmt_br(m["proj_os"])}</td>'
-                f'<td>{fmt_br(m["meta_c"])}</td>'
-                f'<td class="red-text">{fmt_br(m["proj_c"])}</td>'
-                f'<td>{fmt_br(m["hoje_c"])}</td>'
-                f'<td>{fmt_br(m["os_consult"])}</td>'
-                f'<td>{fmt_br(res["tot_os"])}</td>'
-                f'<td>{fmt_br(res["os_aberta"])}</td>'
-                f'<td>{fmt_br(res["pontos"])}</td>'
-                f'<td>{fmt_br(res["efic"], 1)}%</td>'
-                f'<td class="col-destaque-azul">{fmt_br(res["media_os"], 2)}</td>'
-                f'<td>{fmt_br(res["proj_dia"])}</td>'
-                f'<td class="col-destaque-amarelo">{fmt_br(res["os_sem_c"])}</td>'
-                f'<td>{fmt_br(res["q_ins"], 1)}%</td>'
-                f'<td>{fmt_br(res["q_serv"], 1)}%</td>'
-                f'<td>{fmt_br(res["q_nd"], 1)}%</td>'
-                f'<td>{fmt_br(res["tot_nd"])}</td>'
-                f'<td>{fmt_br(res["os_canc"])}</td>'
-                f'<td>{fmt_br(res["saiu_toa"])}</td>'
-                f'<td>{fmt_br(m["ganho"])}</td>'
-                f'<td>{fmt_br(res["tot_gpon"])}</td>'
-                f'<td>{fmt_br(res["q_gpon"], 1)}%</td>'
-                f'<td>{fmt_br(res["tot_mig"])}</td>'
-                f'<td>{fmt_br(res["q_mig"], 1)}%</td>'
-                f'<td>{fmt_br(res["canc_mig"])}</td>'
-                f'<td>{fmt_br(res["retorno_wo"])}</td>'
-                f'<td>{fmt_br(res["tot_pme"])}</td>'
-                f'<td>{fmt_br(res["q_pme"], 1)}%</td>'
-                f'<td>{fmt_br(res["canc_pme"])}</td>'
-                f'</tr>'
-            )
-
-        g_den_quebra = g_quebra + g_prod
-        g_efic = (max(0.0, 1.0 - (g_quebra / g_den_quebra)) * 100) if g_den_quebra > 0 else 0.0
-        g_proj_exec_total = int(round(g_prod + (g_aberta * (g_efic / 100.0)), 0))
-        g_media_os = (g_proj_exec_total / g_montados) if g_montados > 0 else 0.0
-        g_os_sem_c_total = g_proj_exec_total - g_os_cons
         
-        q_ins_geral = (g_raw_ins_q / g_raw_ins_tot * 100) if g_raw_ins_tot > 0 else 0.0
-        q_serv_geral = (g_raw_serv_q / g_raw_serv_tot * 100) if g_raw_serv_tot > 0 else 0.0
-        g_q_nd = (g_raw_nd_q / g_raw_nd_tot * 100) if g_raw_nd_tot > 0 else 0.0
-        g_q_gpon = (g_raw_gpon_q / g_raw_gpon_tot * 100) if g_raw_gpon_tot > 0 else 0.0
-        g_q_mig = (g_raw_mig_q / g_raw_mig_tot * 100) if g_raw_mig_tot > 0 else 0.0
-        g_q_pme = (g_raw_pme_q / g_raw_pme_tot * 100) if g_raw_pme_tot > 0 else 0.0
 
-        tabela_html.append(
-            f'<tr class="tr-total">'
-            f'<td style="text-align: left; padding-left: 8px;">TOTAL INSTALAÇÃO</td>'
-            f'<td>{fmt_br(g_parados)}</td>'
-            f'<td class="col-destaque-amarelo">{fmt_br(g_montados)}</td>'
-            f'<td>{fmt_br(g_meta_os)}</td>'
-            f'<td class="red-text">{fmt_br(g_proj_os)}</td>'
-            f'<td>{fmt_br(g_meta_cons)}</td>'
-            f'<td class="red-text">{fmt_br(g_proj_cons)}</td>'
-            f'<td>{fmt_br(g_hoje_cons)}</td>'
-            f'<td>{fmt_br(g_os_cons)}</td>'
-            f'<td>{fmt_br(g_tot_os)}</td>'
-            f'<td>{fmt_br(g_aberta)}</td>'
-            f'<td>{fmt_br(g_pontos)}</td>'
-            f'<td>{fmt_br(g_efic, 1)}%</td>'
-            f'<td class="col-destaque-azul">{fmt_br(g_media_os, 2)}</td>'
-            f'<td>{fmt_br(g_proj_exec_total)}</td>'
-            f'<td class="col-destaque-amarelo">{fmt_br(g_os_sem_c_total)}</td>'
-            f'<td>{fmt_br(q_ins_geral, 1)}%</td>'
-            f'<td>{fmt_br(q_serv_geral, 1)}%</td>'
-            f'<td>{fmt_br(g_q_nd, 1)}%</td>'
-            f'<td>{fmt_br(g_nd)}</td>'
-            f'<td>{fmt_br(g_canc)}</td>'
-            f'<td>{fmt_br(g_saiu_toa)}</td>'
-            f'<td>{fmt_br(g_ganho)}</td>'
-            f'<td>{fmt_br(g_gpon)}</td>'
-            f'<td>{fmt_br(g_q_gpon, 1)}%</td>'
-            f'<td>{fmt_br(g_mig)}</td>'
-            f'<td>{fmt_br(g_q_mig, 1)}%</td>'
-            f'<td>{fmt_br(g_mig_canc)}</td>'
-            f'<td>{fmt_br(g_retorno)}</td>'
-            f'<td>{fmt_br(g_pme)}</td>'
-            f'<td>{fmt_br(g_q_pme, 1)}%</td>'
-            f'<td>{fmt_br(g_pme_canc)}</td>'
-            f'</tr>'
-            f'</tbody>'
-            f'</table>'
-        )
+    try:
 
-        st.markdown("".join(tabela_html), unsafe_allow_html=True)
-        st.markdown("<br><hr><br>", unsafe_allow_html=True)
+        pos = telas_fluxo.index(st.session_state.idx)
 
-        # --- BLOCOS INDEPENDENTES POR BASE COM OS SUPERVISORES ---
-        st.markdown("### 🏢 Detalhamento Operacional Separado por Base")
-        cons_sups_all = st.session_state.get("consultivo_supervisores", {})
+    except ValueError:
 
-        for item in bases_config:
-            b_label = item["label"]
-            b_proj = item["projeto"]
-            m = metricas_bases[b_proj]
-            res_b = m["res"]
-            cons_sups_base = cons_sups_all.get(b_proj, {})
-            
-            with st.expander(f"📂 Base: {b_label} (Clique para Expandir/Recolher Detalhamento)"):
-                df_b_all = df_valido[df_valido["Projeto"].str.upper() == b_proj.upper()].copy() if isinstance(df_valido, pd.DataFrame) and "Projeto" in df_valido.columns else pd.DataFrame()
-                sups_b = st.session_state.supervisores_por_base.get(b_proj, [])
-                
-                tabela_bloco_html = [
-                    gerar_cabecalho_html(),
-                    f'<tr class="tr-base">'
-                    f'<td style="text-align: left; padding-left: 8px;">{b_label}</td>'
-                    f'<td>{fmt_br(m["p_base"])}</td>'
-                    f'<td class="col-destaque-amarelo">{fmt_br(m["m_base"])}</td>'
-                    f'<td>{fmt_br(m["meta_os"])}</td>'
-                    f'<td class="red-text">{fmt_br(m["proj_os"])}</td>'
-                    f'<td>{fmt_br(m["meta_c"])}</td>'
-                    f'<td class="red-text">{fmt_br(m["proj_c"])}</td>'
-                    f'<td>{fmt_br(m["hoje_c"])}</td>'
-                    f'<td>{fmt_br(m["os_consult"])}</td>'
-                    f'<td>{fmt_br(res_b["tot_os"])}</td>'
-                    f'<td>{fmt_br(res_b["os_aberta"])}</td>'
-                    f'<td>{fmt_br(res_b["pontos"])}</td>'
-                    f'<td>{fmt_br(res_b["efic"], 1)}%</td>'
-                    f'<td class="col-destaque-azul">{fmt_br(res_b["media_os"], 2)}</td>'
-                    f'<td>{fmt_br(res_b["proj_dia"])}</td>'
-                    f'<td class="col-destaque-amarelo">{fmt_br(res_b["os_sem_c"])}</td>'
-                    f'<td>{fmt_br(res_b["q_ins"], 1)}%</td>'
-                    f'<td>{fmt_br(res_b["q_serv"], 1)}%</td>'
-                    f'<td>{fmt_br(res_b["q_nd"], 1)}%</td>'
-                    f'<td>{fmt_br(res_b["tot_nd"])}</td>'
-                    f'<td>{fmt_br(res_b["os_canc"])}</td>'
-                    f'<td>{fmt_br(res_b["saiu_toa"])}</td>'
-                    f'<td>{fmt_br(m["ganho"])}</td>'
-                    f'<td>{fmt_br(res_b["tot_gpon"])}</td>'
-                    f'<td>{fmt_br(res_b["q_gpon"], 1)}%</td>'
-                    f'<td>{fmt_br(res_b["tot_mig"])}</td>'
-                    f'<td>{fmt_br(res_b["q_mig"], 1)}%</td>'
-                    f'<td>{fmt_br(res_b["canc_mig"])}</td>'
-                    f'<td>{fmt_br(res_b["retorno_wo"])}</td>'
-                    f'<td>{fmt_br(res_b["tot_pme"])}</td>'
-                    f'<td>{fmt_br(res_b["q_pme"], 1)}%</td>'
-                    f'<td>{fmt_br(res_b["canc_pme"])}</td>'
-                    f'</tr>'
-                ]
+        pos = 0
 
-                for s in sups_b:
-                    df_s = df_b_all[df_b_all["Supervisor"] == s] if not df_b_all.empty and "Supervisor" in df_b_all.columns else pd.DataFrame()
-                    p_sup = st.session_state.get(f"p_{b_proj}_{s}", 0)
-                    m_sup = st.session_state.get(f"m_{b_proj}_{s}", 20)
-                    res_s = calcular_metricas_completas(df_s, m_sup)
-                    primeiro_nome = s.split()[0]
-                    
-                    # Busca dados do Consultivo para este supervisor (como nas Telas 5 e 6 da TV)
-                    dados_cons_s = {"contratos_hoje": 0, "produtos_hoje": 0, "produtos_mes": 0}
-                    for k_cs, val_cs in cons_sups_base.items():
-                        if k_cs.split()[0] in s.upper() or primeiro_nome in k_cs:
-                            dados_cons_s = val_cs
-                            break
-                    
-                    c_hoje_s = dados_cons_s["contratos_hoje"]
-                    os_c_hoje_s = dados_cons_s["produtos_hoje"]
-                    os_sem_c_s = int(round(res_s["proj_dia"] - os_c_hoje_s, 0))
-                    
-                    tabela_bloco_html.append(
-                        f'<tr class="tr-sup">'
-                        f'<td style="text-align: left; padding-left: 20px;">{primeiro_nome}</td>'
-                        f'<td>{fmt_br(p_sup)}</td>'
-                        f'<td class="col-destaque-amarelo">{fmt_br(m_sup)}</td>'
-                        f'<td></td><td></td>'
-                        f'<td>350</td><td>{fmt_br(dados_cons_s["produtos_mes"])}</td><td>{fmt_br(c_hoje_s)}</td><td>{fmt_br(os_c_hoje_s)}</td>'
-                        f'<td>{fmt_br(res_s["tot_os"])}</td>'
-                        f'<td>{fmt_br(res_s["os_aberta"])}</td>'
-                        f'<td>{fmt_br(res_s["pontos"])}</td>'
-                        f'<td>{fmt_br(res_s["efic"], 1)}%</td>'
-                        f'<td class="col-destaque-azul">{fmt_br(res_s["media_os"], 2)}</td>'
-                        f'<td>{fmt_br(res_s["proj_dia"])}</td>'
-                        f'<td class="col-destaque-amarelo">{fmt_br(os_sem_c_s)}</td>'
-                        f'<td>{fmt_br(res_s["q_ins"], 1)}%</td>'
-                        f'<td>{fmt_br(res_s["q_serv"], 1)}%</td>'
-                        f'<td>{fmt_br(res_s["q_nd"], 1)}%</td>'
-                        f'<td>{fmt_br(res_s["tot_nd"])}</td>'
-                        f'<td>{fmt_br(res_s["os_canc"])}</td>'
-                        f'<td>{fmt_br(res_s["saiu_toa"])}</td>'
-                        f'<td></td>'
-                        f'<td>{fmt_br(res_s["tot_gpon"])}</td>'
-                        f'<td>{fmt_br(res_s["q_gpon"], 1)}%</td>'
-                        f'<td>{fmt_br(res_s["tot_mig"])}</td>'
-                        f'<td>{fmt_br(res_s["q_mig"], 1)}%</td>'
-                        f'<td>{fmt_br(res_s["canc_mig"])}</td>'
-                        f'<td>{fmt_br(res_s["retorno_wo"])}</td>'
-                        f'<td>{fmt_br(res_s["tot_pme"])}</td>'
-                        f'<td>{fmt_br(res_s["q_pme"], 1)}%</td>'
-                        f'<td>{fmt_br(res_s["canc_pme"])}</td>'
-                        f'</tr>'
-                    )
+        
 
-                tabela_bloco_html.append('</tbody></table>')
-                st.markdown("".join(tabela_bloco_html), unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
+    if pular:
 
-    if st.session_state.get("df_aniel_full") is not None:
-        try:
-            df_export = st.session_state["df_aniel_full"]
-            if not df_export.empty:
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    df_export.to_excel(writer, index=False)
-                
-                st.download_button(
-                    label="📥 Baixar Planilha ANIEL Tratada (.xlsx)",
-                    data=output.getvalue(),
-                    file_name="Planilha_Tratada_Aniel.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-        except Exception:
-            pass
+        st.session_state.prox_idx = telas_fluxo[(pos + 1) % len(telas_fluxo)]
+
+        st.session_state.idx = 4
+
+        st.session_state.novo_ciclo = True
+
+        st.rerun()
+
+    elif voltar:
+
+        st.session_state.prox_idx = telas_fluxo[(pos - 1) % len(telas_fluxo)]
+
+        st.session_state.idx = 4
+
+        st.session_state.novo_ciclo = True
+
+        st.rerun()
+
+    else:
+
+        js_timer = f"""
+
+        <script>
+
+        /* TIMESTAMP: {time.time()} */
+
+        setTimeout(function() {{
+
+            var buttons = window.parent.document.querySelectorAll('button');
+
+            for (var i=0; i<buttons.length; i++) {{
+
+                if (buttons[i].innerText && buttons[i].innerText.indexOf('PRÓXIMA') !== -1) {{
+
+                    buttons[i].click();
+
+                    break;
+
+                }}
+
+            }}
+
+        }}, {espera * 1000});
+
+        </script>
+
+        """
+
+        st.components.v1.html(js_timer, height=0)
+
+        st.stop() 
