@@ -173,12 +173,14 @@ def render_topo(titulo):
     </div>'''
 
 st.markdown("""<style>
+    /* Ajuste seguro para manter o conteúdo visível na TV */
     .block-container { padding-top: 0.5rem !important; padding-bottom: 50px !important; max-width: 98% !important; }
+    
+    /* Removemos o overflow: hidden do html/body para evitar que a tela fique em branco */
     ::-webkit-scrollbar { display: none !important; }
-    html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow: hidden !important; }
 
     .viewerBadge_container, .viewerBadge_link, [data-testid="viewerBadge"], #viewerBadge { display: none !important; }
-    [data-testid="stHeader"], .stDeployButton, footer, #MainMenu, [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
+    [data-testid="stHeader"], .stDeployButton, footer, #MainMenu { display: none !important; visibility: hidden !important; }
     .stApp { background-color: #ffffff !important; }
     
     .topo-container { background: #003366; color: white; padding: 0px 20px; border-radius: 0 0 10px 10px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-bottom: 10px; height: 75px; }
