@@ -588,9 +588,9 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELAS 11, 12, 13, 17, 14, 15, 16: MAPAS DA OPERAÇÃO 🗺️
+    # TELAS 11, 12, 13, 17, 14, 15, 16, 19: MAPAS DA OPERAÇÃO 🗺️
     # -------------------------------------------------------------------------
-    elif st.session_state.idx in [11, 12, 13, 14, 15, 16, 17]:
+    elif st.session_state.idx in [11, 12, 13, 14, 15, 16, 17, 19]:
         titulos_mapa = {
             11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
             12: "MAPA DA ROTA - SANTO ANDRÉ",
@@ -599,7 +599,7 @@ with CONTEUDO_TV.container():
             14: "MAPA DA ROTA - EDSON MARCO",
             15: "MAPA DA ROTA - MAICON",
             16: "MAPA DA ROTA - MARCOS ROBERTO",
-            17: "MAPA DA ROTA - NELSON"
+            19: "MAPA DA ROTA - NELSON"
         }
         
         st.markdown(render_topo(titulos_mapa[st.session_state.idx]) + icone_mudo, unsafe_allow_html=True)
@@ -641,6 +641,7 @@ with CONTEUDO_TV.container():
                     if sup == "MAICON": return [255, 20, 147] 
                     if sup == "NELSON": return [0, 128, 0]    
                     if sup == "EDSON MARCO": return [128, 0, 128] 
+                    if sup == "MARCOS ROBERTO": return [0, 102, 204]
                     return [0, 0, 0]
                     
                 df_mapa['COLOR_RGB'] = df_mapa['SUPERVISOR_CLEAN'].apply(cor_sup_rgb)
@@ -651,21 +652,25 @@ with CONTEUDO_TV.container():
                 elif st.session_state.idx == 17: df_mapa = df_mapa[df_mapa[col_cidade].astype(str).str.upper().str.contains('CAETANO', regex=True)]
                 elif st.session_state.idx == 14: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
                 elif st.session_state.idx == 15: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MAICON"]
-                elif st.session_state.idx == 16: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
+                elif st.session_state.idx == 16: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MARCOS ROBERTO"]
+                elif st.session_state.idx == 19: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
                     
                 if not df_mapa.empty:
                     base_style = "display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 24px; font-weight: 900; color: #000000 !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);"
                     edson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>'
                     maicon_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>'
+                    marcos_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #0066CC; border-radius: 50%; border: 1px solid #000;"></span> MARCOS ROBERTO</div>'
                     nelson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>'
 
                     if st.session_state.idx in [11, 12, 13, 17]:
-                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + nelson_html + '</div>'
+                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + marcos_html + nelson_html + '</div>'
                     elif st.session_state.idx == 14:
                         legenda_html = '<div style="' + base_style + '">' + edson_html + '</div>'
                     elif st.session_state.idx == 15:
                         legenda_html = '<div style="' + base_style + '">' + maicon_html + '</div>'
                     elif st.session_state.idx == 16:
+                        legenda_html = '<div style="' + base_style + '">' + marcos_html + '</div>'
+                    elif st.session_state.idx == 19:
                         legenda_html = '<div style="' + base_style + '">' + nelson_html + '</div>'
                     else:
                         legenda_html = ''
@@ -880,6 +885,7 @@ with CONTEUDO_TV.container():
                         st.session_state.script_audio_atual = f"<script>/*{time.time()}*/ {JS_MOTOR_AUDIO}anunciarBase('{texto_audio}', 0);</script>"
                         st.session_state.novo_ciclo = False 
                     st.components.v1.html(st.session_state.script_audio_atual, height=0)
+            else: st.error("Colunas necessárias (Categorias, Tipo OS) não encontradas no arquivo.")
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
@@ -1829,6 +1835,7 @@ tempos_espera = {
     10: 60,
     11: 20, 12: 20, 13: 20, 14: 20, 15: 20, 16: 20,
     17: 20,
+    19: 20,
     18: 60,
     5: 60,
     6: 60,
@@ -1840,7 +1847,7 @@ tempos_espera = {
 espera = tempos_espera.get(st.session_state.idx, 60)
 
 if st.session_state.idx == 1 and permitir_audio_tec1:
-    espera = 95 
+    espera = 110 
 
 if st.session_state.idx == 4:
     st.session_state.idx = st.session_state.prox_idx
@@ -1850,9 +1857,9 @@ else:
     if periodo_matinal_base:
         telas_fluxo = [0, 2]
     elif periodo_transicao_base:
-        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
+        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 19, 18, 5, 6, 3, 2]
     else:
-        telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
+        telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 19, 18, 5, 6, 3, 2]
         
     try:
         pos = telas_fluxo.index(st.session_state.idx)
