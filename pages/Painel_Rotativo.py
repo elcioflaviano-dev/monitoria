@@ -57,33 +57,6 @@ if "ultimo_audio_tec1" not in st.session_state:
 if "ticker_data" not in st.session_state:
     st.session_state.ticker_data = {}
 
-if "ultima_sincronizacao" not in st.session_state:
-    st.session_state.ultima_sincronizacao = time.time()
-
-# =========================================================================
-# 🧭 SISTEMA DE ROTEAMENTO POR URL (LINKS ESPECÍFICOS)
-# =========================================================================
-modo_estatico = False
-try:
-    params = st.query_params
-    tela_url = params.get("tela", None)
-except AttributeError:
-    params = st.experimental_get_query_params()
-    tela_url = params.get("tela", [None])[0]
-
-if tela_url:
-    tela_url = str(tela_url).lower()
-    if tela_url == "geral": st.session_state.idx = 9
-    elif tela_url == "fixa": st.session_state.idx = 10
-    elif tela_url == "pme": st.session_state.idx = 8
-    elif tela_url == "gpon": st.session_state.idx = 7
-    elif tela_url == "tec1": st.session_state.idx = 1
-    elif tela_url == "consultivo": st.session_state.idx = 5
-    elif tela_url == "diario": st.session_state.idx = 6
-    elif tela_url == "caetano": st.session_state.idx = 17
-    elif tela_url == "s": st.session_state.idx = 18
-    modo_estatico = True
-
 # =========================================================================
 # MOTOR DE SINCRONIZAÇÃO AUTÔNOMA DA TV (5 EM 5 MINUTOS) ☁️
 # =========================================================================
@@ -106,13 +79,23 @@ def baixar_dados_nuvem_background():
 
             ficheiro_excel.seek(0)
             
-            # --- BAIXA HISTORICO DE METAS ---
+            # --- BAIXA HISTORICO DE METAS (CONVERTE CÉLULA POR CÉLULA PARA DD/MM/YYYY) ---
             try:
                 df_hist_bruto = pd.read_excel(ficheiro_excel, sheet_name='HISTORICO_METAS', header=None, engine='openpyxl')
                 if not df_hist_bruto.empty:
-                    for col in df_hist_bruto.columns:
-                        if pd.api.types.is_datetime64_any_dtype(df_hist_bruto[col]):
-                            df_hist_bruto[col] = df_hist_bruto[col].dt.strftime('%m/%d/%Y')
+                    def formatar_celula_data(val):
+                        if pd.isna(val): return ""
+                        if isinstance(val, (datetime, pd.Timestamp)):
+                            return val.strftime('%d/%m/%Y')
+                        s = str(val).strip()
+                        # Se vier como string YYYY-MM-DD HH:MM:SS do Excel
+                        if re.match(r'^\d{4}-\d{2}-\d{2}', s):
+                            try:
+                                return pd.to_datetime(s[:10], format='%Y-%m-%d').strftime('%d/%m/%Y')
+                            except: pass
+                        return s
+
+                    df_hist_bruto[0] = df_hist_bruto[0].apply(formatar_celula_data)
                     df_hist_bruto.to_csv(ARQUIVO_HISTORICO_METAS, index=False, header=False)
             except: pass
 
@@ -152,6 +135,35 @@ def baixar_dados_nuvem_background():
                     df_final.to_csv(ARQUIVO_ROTA_DISCO, index=False)
             except: pass
     except: pass
+
+# Garante que na primeira execução da sessão (ou após 5 min) os dados da planilha online sejam baixados
+if "ultima_sincronizacao" not in st.session_state:
+    baixar_dados_nuvem_background()
+    st.session_state.ultima_sincronizacao = time.time()
+
+# =========================================================================
+# 🧭 SISTEMA DE ROTEAMENTO POR URL (LINKS ESPECÍFICOS)
+# =========================================================================
+modo_estatico = False
+try:
+    params = st.query_params
+    tela_url = params.get("tela", None)
+except AttributeError:
+    params = st.experimental_get_query_params()
+    tela_url = params.get("tela", [None])[0]
+
+if tela_url:
+    tela_url = str(tela_url).lower()
+    if tela_url == "geral": st.session_state.idx = 9
+    elif tela_url == "fixa": st.session_state.idx = 10
+    elif tela_url == "pme": st.session_state.idx = 8
+    elif tela_url == "gpon": st.session_state.idx = 7
+    elif tela_url == "tec1": st.session_state.idx = 1
+    elif tela_url == "consultivo": st.session_state.idx = 5
+    elif tela_url == "diario": st.session_state.idx = 6
+    elif tela_url == "caetano": st.session_state.idx = 17
+    elif tela_url == "s": st.session_state.idx = 18
+    modo_estatico = True
 
 
 def carregar_logo_html(caminho_imagem):
@@ -1282,53 +1294,62 @@ with CONTEUDO_TV.container():
             except Exception as e:
                 print(f"Erro ao carregar consultivo na tela 18: {e}")
 
-        # 3. Tratamento de Metas e Histórico de O.S. (Blindado para o mês do CSV)
-        meta_diaria_base = 400
+        # 3. Tratamento de Metas (10.000 O.S. no mês) e Histórico de O.S. (Padrão Brasileiro DD/MM/AAAA)
+        META_MENSAL_OS = 10000
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
-        
-        meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
-        
-        realizado_passado = 0
-        meta_passada = 0
-        qtd_dias_passados_uteis = 0
+        ano_atual, mes_atual = hoje_dt.year, hoje_dt.month
+        _, num_dias_mes = calendar.monthrange(ano_atual, mes_atual)
         
         primeiro_dia_mes = hoje_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         hoje_meia_noite = hoje_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        total_dias_uteis_mes = sum(1 for d in range(1, num_dias_mes + 1) if calendar.weekday(ano_atual, mes_atual, d) != 6)
+        meta_diaria_base = int(round(META_MENSAL_OS / total_dias_uteis_mes)) if total_dias_uteis_mes > 0 else 400
+        meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
+        
+        # Calcula dias úteis passados pelo calendário oficial do mês atual
+        qtd_dias_passados_uteis = 0
+        for d in range(1, hoje_dt.day):
+            if calendar.weekday(ano_atual, mes_atual, d) != 6:
+                qtd_dias_passados_uteis += 1
+                
+        meta_passada = qtd_dias_passados_uteis * meta_diaria_base
+        realizado_passado = 0
 
-        if os.path.exists(ARQUIVO_HISTORICO_METAS):
-            try:
-                df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str, on_bad_lines='skip')
-                if not df_hist.empty and df_hist.shape[1] >= 2:
-                    datas_convertidas = []
-                    for val_dt in df_hist[0].dropna():
-                        txt_data = str(val_dt).strip().replace('"', '')
-                        d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
-                        if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
-                        if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
-                        if pd.notna(d_obj): datas_convertidas.append(d_obj)
-                    
-                    if datas_convertidas:
-                        ref_ano = datas_convertidas[-1].year
-                        ref_mes = datas_convertidas[-1].month
-                        primeiro_dia_mes = datetime(ref_ano, ref_mes, 1)
-                        
-                    for _, row in df_hist.iterrows():
-                        txt_data = str(row[0]).strip().replace('"', '')
-                        txt_valor = str(row[1]).strip().replace('"', '').replace(',', '.')
-                        
-                        d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
-                        if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
-                        if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
+        def ler_historico_mes_atual():
+            soma = 0
+            encontrou_mes_atual = False
+            if os.path.exists(ARQUIVO_HISTORICO_METAS):
+                try:
+                    df_hist = pd.read_csv(ARQUIVO_HISTORICO_METAS, header=None, dtype=str, on_bad_lines='skip')
+                    if not df_hist.empty and df_hist.shape[1] >= 2:
+                        for _, row in df_hist.iterrows():
+                            txt_data = str(row[0]).strip().replace('"', '').split(' ')[0]
+                            txt_valor = str(row[1]).strip().replace('"', '').replace('.', '').replace(',', '.')
                             
-                        if pd.notna(d_obj) and d_obj.year == primeiro_dia_mes.year and d_obj.month == primeiro_dia_mes.month:
-                            if d_obj < hoje_meia_noite:
-                                val_num = float(txt_valor) if txt_valor.replace('.', '', 1).isdigit() else 0
-                                realizado_passado += int(val_num)
-                                if d_obj.weekday() != 6:
-                                    qtd_dias_passados_uteis += 1
-                                    meta_passada += meta_diaria_base
-            except Exception as e:
-                print(f"Erro ao ler histórico de metas: {e}")
+                            # Prioriza formato Brasileiro DD/MM/YYYY conforme planilha Indicadores Online
+                            d_obj = pd.to_datetime(txt_data, format='%d/%m/%Y', errors='coerce')
+                            if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%Y-%m-%d', errors='coerce')
+                            if pd.isna(d_obj): d_obj = pd.to_datetime(txt_data, format='%m/%d/%Y', errors='coerce')
+                                
+                            if pd.notna(d_obj) and d_obj.year == ano_atual and d_obj.month == mes_atual:
+                                encontrou_mes_atual = True
+                                if d_obj < hoje_meia_noite:
+                                    try:
+                                        val_num = float(txt_valor)
+                                    except:
+                                        val_num = 0
+                                    soma += int(val_num)
+                except Exception as e:
+                    print(f"Erro ao ler histórico de metas: {e}")
+            return soma, encontrou_mes_atual
+
+        realizado_passado, achou_mes = ler_historico_mes_atual()
+        
+        # Se o CSV local era o antigo do GitHub (só mês 09 e 10), força o download da planilha online agora mesmo
+        if not achou_mes:
+            baixar_dados_nuvem_background()
+            realizado_passado, _ = ler_historico_mes_atual()
 
         deficit_acumulado = max(0, meta_passada - realizado_passado)
 
@@ -1342,9 +1363,9 @@ with CONTEUDO_TV.container():
         st.markdown(f'''
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
             <div class="sup-card" style="text-align: center; background: #e3f2fd; border-color: #90caf9;">
-                <div style="font-size: 20px; font-weight: bold; color: #0277bd;">META DIÁRIA BASE</div>
+                <div style="font-size: 20px; font-weight: bold; color: #0277bd;">META DIÁRIA BASE (MÊS: {META_MENSAL_OS})</div>
                 <div style="font-size: 80px; font-weight: 900; color: #01579b; line-height: 1;">{meta_diaria_hoje}</div>
-                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de O.S. (Domingos = 0)</div>
+                <div style="font-size: 14px; color: #555; margin-top: 5px;">Meta fixa diária de O.S. ({total_dias_uteis_mes} dias úteis | Domingos = 0)</div>
             </div>
             <div class="sup-card" style="text-align: center; background: #fff8e1; border-color: #ffe082;">
                 <div style="font-size: 20px; font-weight: bold; color: #f57f17;">DÉFICIT ANTERIOR</div>
@@ -1791,6 +1812,8 @@ with CONTEUDO_TV.container():
 if modo_estatico:
     btn_atualizar = st.button("🔄 ATUALIZAR", key="btn_atualizar_estatico")
     if btn_atualizar:
+        baixar_dados_nuvem_background()
+        st.session_state.ultima_sincronizacao = time.time()
         st.session_state.novo_ciclo = True
         st.rerun()
 
