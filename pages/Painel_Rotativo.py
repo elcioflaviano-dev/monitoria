@@ -1283,7 +1283,7 @@ with CONTEUDO_TV.container():
                 print(f"Erro ao carregar consultivo na tela 18: {e}")
 
         # 3. Tratamento de Metas e Histórico de O.S. (Blindado para o mês do CSV)
-        meta_diaria_base = 454
+        meta_diaria_base = 400
         hoje_dt = datetime.utcnow() - timedelta(hours=3)
         
         meta_diaria_hoje = 0 if hoje_dt.weekday() == 6 else meta_diaria_base
