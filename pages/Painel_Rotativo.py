@@ -31,12 +31,11 @@ if not os.path.exists(ARQUIVO_LOGO):
 QTD_TECNICOS_MONTADOS = {
     "EDSON MARCO": 20,
     "MAICON": 20,
-    "MARCOS ROBERTO": 14,
-    "NELSON": 21
+    "MARCOS ROBERTO": 14
 }
 
 # --- REGRAS GLOBAIS DE SUPERVISORES ---
-SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO", "NELSON"]
+SUPS_ABC = ["EDSON MARCO", "MAICON", "MARCOS ROBERTO"]
 SUPERVISORES_ORDENADOS = SUPS_ABC
 
 st.set_page_config(page_title="Monitoria - TV", page_icon="🎯", layout="wide", initial_sidebar_state="collapsed")
@@ -243,7 +242,6 @@ def obter_nome_visual(nome_completo):
     n = str(nome_completo).upper()
     if 'MARCOS' in n: return "MARCOS ROBERTO"
     if 'MAICON' in n: return "MAICON"
-    if 'NELSON' in n: return "NELSON"
     if 'EDSON' in n: return "EDSON MARCO"
     return n.split()[0]
 
@@ -600,9 +598,9 @@ with CONTEUDO_TV.container():
         else: st.error("Ficheiro rota_sincronizada.csv não encontrado.")
 
     # -------------------------------------------------------------------------
-    # TELAS 11, 12, 13, 17, 14, 15, 16, 19: MAPAS DA OPERAÇÃO 🗺️
+    # TELAS 11, 12, 13, 17, 14, 15, 16: MAPAS DA OPERAÇÃO 🗺️
     # -------------------------------------------------------------------------
-    elif st.session_state.idx in [11, 12, 13, 14, 15, 16, 17, 19]:
+    elif st.session_state.idx in [11, 12, 13, 14, 15, 16, 17]:
         titulos_mapa = {
             11: "MAPA DA ROTA - SÃO BERNARDO DO CAMPO",
             12: "MAPA DA ROTA - SANTO ANDRÉ",
@@ -610,8 +608,7 @@ with CONTEUDO_TV.container():
             17: "MAPA DA ROTA - SÃO CAETANO DO SUL",
             14: "MAPA DA ROTA - EDSON MARCO",
             15: "MAPA DA ROTA - MAICON",
-            16: "MAPA DA ROTA - MARCOS ROBERTO",
-            19: "MAPA DA ROTA - NELSON"
+            16: "MAPA DA ROTA - MARCOS ROBERTO"
         }
         
         st.markdown(render_topo(titulos_mapa[st.session_state.idx]) + icone_mudo, unsafe_allow_html=True)
@@ -651,7 +648,6 @@ with CONTEUDO_TV.container():
                 
                 def cor_sup_rgb(sup):
                     if sup == "MAICON": return [255, 20, 147] 
-                    if sup == "NELSON": return [0, 128, 0]    
                     if sup == "EDSON MARCO": return [128, 0, 128] 
                     if sup == "MARCOS ROBERTO": return [0, 102, 204]
                     return [0, 0, 0]
@@ -665,25 +661,21 @@ with CONTEUDO_TV.container():
                 elif st.session_state.idx == 14: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "EDSON MARCO"]
                 elif st.session_state.idx == 15: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MAICON"]
                 elif st.session_state.idx == 16: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "MARCOS ROBERTO"]
-                elif st.session_state.idx == 19: df_mapa = df_mapa[df_mapa['SUPERVISOR_CLEAN'] == "NELSON"]
                     
                 if not df_mapa.empty:
                     base_style = "display: flex; justify-content: center; gap: 30px; margin-bottom: 5px; font-size: 24px; font-weight: 900; color: #000000 !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);"
                     edson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #800080; border-radius: 50%; border: 1px solid #000;"></span> EDSON MARCO</div>'
                     maicon_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #FF1493; border-radius: 50%; border: 1px solid #000;"></span> MAICON</div>'
                     marcos_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #0066CC; border-radius: 50%; border: 1px solid #000;"></span> MARCOS ROBERTO</div>'
-                    nelson_html = '<div style="display: flex; align-items: center; gap: 8px;"><span style="display:inline-block; width: 20px; height: 20px; background-color: #008000; border-radius: 50%; border: 1px solid #000;"></span> NELSON</div>'
 
                     if st.session_state.idx in [11, 12, 13, 17]:
-                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + marcos_html + nelson_html + '</div>'
+                        legenda_html = '<div style="' + base_style + '">' + edson_html + maicon_html + marcos_html + '</div>'
                     elif st.session_state.idx == 14:
                         legenda_html = '<div style="' + base_style + '">' + edson_html + '</div>'
                     elif st.session_state.idx == 15:
                         legenda_html = '<div style="' + base_style + '">' + maicon_html + '</div>'
                     elif st.session_state.idx == 16:
                         legenda_html = '<div style="' + base_style + '">' + marcos_html + '</div>'
-                    elif st.session_state.idx == 19:
-                        legenda_html = '<div style="' + base_style + '">' + nelson_html + '</div>'
                     else:
                         legenda_html = ''
 
@@ -1858,7 +1850,6 @@ tempos_espera = {
     10: 60,
     11: 20, 12: 20, 13: 20, 14: 20, 15: 20, 16: 20,
     17: 20,
-    19: 20,
     18: 60,
     5: 60,
     6: 60,
@@ -1870,7 +1861,7 @@ tempos_espera = {
 espera = tempos_espera.get(st.session_state.idx, 60)
 
 if st.session_state.idx == 1 and permitir_audio_tec1:
-    espera = 110 
+    espera = 95 
 
 if st.session_state.idx == 4:
     st.session_state.idx = st.session_state.prox_idx
@@ -1880,9 +1871,9 @@ else:
     if periodo_matinal_base:
         telas_fluxo = [0, 2]
     elif periodo_transicao_base:
-        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 19, 18, 5, 6, 3, 2]
+        telas_fluxo = [0, 1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
     else:
-        telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 19, 18, 5, 6, 3, 2]
+        telas_fluxo = [1, 7, 8, 9, 10, 11, 12, 13, 17, 14, 15, 16, 18, 5, 6, 3, 2]
         
     try:
         pos = telas_fluxo.index(st.session_state.idx)
